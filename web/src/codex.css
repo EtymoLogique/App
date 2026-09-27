@@ -313,7 +313,7 @@
 @media (prefers-reduced-motion: reduce) { .big-face { transition: none; } }
 :root[data-mouvement="reduit"] .big-face { transition: none; }
 
-/* Jaquette du fascicule dans son filtre (même miniature que le choix du fascicule des plis, etymo.css .jk-mini). */
+/* Jaquette du fascicule dans son filtre (même miniature que le choix du fascicule des plis, etymo.css .jk-mini) : inclinée au repos, elle se redresse au survol. */
 .cb-fasc-btn { grid-template-columns: 64px 1fr; align-items: center; gap: 14px; }
 .cb-fasc-info { display: grid; gap: 8px; min-width: 0; }
 .jk-mini {
@@ -327,7 +327,7 @@
 .jk-mini.is-empty { border-style: dashed; border-color: var(--line-strong); background: transparent; box-shadow: none; }
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-mouvement="reduit"]) .jk-mini { transition: rotate 0.35s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .cb-fasc-btn:hover .jk-mini { rotate: 2deg; }
+  :root:not([data-mouvement="reduit"]) .cb-fasc-btn:hover .jk-mini { rotate: 0deg; }
 }
 
 /* Composition sur la carte agrandie (etymo.css, .bf-body .r-eq) : les morceaux restent sur une ligne,
