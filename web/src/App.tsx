@@ -56,6 +56,7 @@ export function App({ api, catalogue }: Props) {
       ? 'Votre réserve n’est pas encore chargée.'
       : null
   const prete = bloquee === null && partie.table.length >= TABLE_MIN
+  const statut = prete ? 'Hypothèse prête' : partie.table.length === 1 ? 'Une brique posée' : 'En attente'
   const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : null)
   const bloque =
     catalogueJeu && etat && partie.table.length === 0
@@ -130,7 +131,10 @@ export function App({ api, catalogue }: Props) {
 
                 <div className="jeu">
                   <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
-                    <p className="panel-k">Table</p>
+                    <div className="panel-head">
+                      <span>Table de fusion</span>
+                      <span className="status">{statut}</span>
+                    </div>
                     {bloque ? (
                       <div className="empty">
                         <span className="ill" aria-hidden="true">
@@ -166,25 +170,7 @@ export function App({ api, catalogue }: Props) {
                           onDeplacer={partie.deplacer}
                           onRetirer={partie.retirer}
                         />
-                        <div className="rangee rangee-ecartee retours-ligne">
-                          <Resultat
-                            retour={partie.retour}
-                            jeu={catalogueJeu}
-                            entrees={entrees}
-                            posees={partie.table.length}
-                            bloquee={bloquee}
-                            onInverser={partie.inverser}
-                            onVoirCarte={(id) => allerAuCodex(id)}
-                            onVider={partie.vider}
-                          />
-                          <button type="button" className="btn-texte seulement-mobile" onClick={partie.vider} disabled={partie.table.length === 0 || partie.enAttente}>
-                            Vider
-                          </button>
-                        </div>
-                        <div className="rangee rangee-fin seulement-ordinateur">
-                          <button type="button" className="btn btn-secondary" onClick={partie.vider} disabled={partie.table.length === 0 || partie.enAttente}>
-                            Vider
-                          </button>
+                        <div className="actions">
                           <button
                             type="button"
                             className="btn btn-primary"
@@ -194,16 +180,22 @@ export function App({ api, catalogue }: Props) {
                           >
                             {partie.enAttente ? 'Fusion…' : 'Fusionner'}
                           </button>
+                          <button type="button" className="btn btn-secondary" onClick={partie.vider} disabled={partie.table.length === 0 || partie.enAttente}>
+                            Vider
+                          </button>
                         </div>
+                        <Resultat
+                          retour={partie.retour}
+                          jeu={catalogueJeu}
+                          entrees={entrees}
+                          posees={partie.table.length}
+                          bloquee={bloquee}
+                          onInverser={partie.inverser}
+                          onVoirCarte={(id) => allerAuCodex(id)}
+                          onVider={partie.vider}
+                        />
                       </>
                     )}
-                    <DecouvertesRecentes
-                      decouvertes={etat?.decouvertes ?? []}
-                      entrees={entrees}
-                      jeu={catalogueJeu}
-                      nouvelles={partie.nouvelles}
-                      onOuvrir={(id) => allerAuCodex(id)}
-                    />
                   </section>
 
                   <section className="panel reserve-panel" aria-labelledby="titre-reserve">
@@ -231,14 +223,14 @@ export function App({ api, catalogue }: Props) {
                   </section>
                 </div>
 
-                {/* Mobile : Fusionner reste à portée du pouce. */}
-                {!bloque && (
-                  <div className="barre-actions seulement-mobile">
-                    <button type="button" className="btn btn-primary" onClick={() => void partie.fusionner()} disabled={raisonFusion !== null || partie.enAttente}>
-                      {partie.enAttente ? 'Fusion…' : 'Fusionner'}
-                    </button>
-                  </div>
-                )}
+                <DecouvertesRecentes
+                  decouvertes={etat?.decouvertes ?? []}
+                  entrees={entrees}
+                  jeu={catalogueJeu}
+                  nouvelles={partie.nouvelles}
+                  onOuvrir={(id) => allerAuCodex(id)}
+                />
+
               </section>
 
               <section {...ecran('codex')}>

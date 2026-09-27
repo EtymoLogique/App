@@ -19,14 +19,15 @@ export function DecouvertesRecentes({ decouvertes, entrees, jeu, nouvelles, onOu
     .flatMap((d) => entrees.filter((e) => e.id === d.mot_id))
   if (recentes.length === 0) return null
   return (
-    <div className="recentes">
-      <hr className="filet" />
-      <p className="panel-k">Découvertes récentes</p>
+    <section className="discoveries recentes" aria-labelledby="titre-recentes">
+      <div className="disc-head">
+        <h2 id="titre-recentes">Découvertes récentes</h2>
+      </div>
       <div className="recentes-grille">
         {recentes.map((e) => (
           <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => onOuvrir(e.id)} />
         ))}
       </div>
-    </div>
+    </section>
   )
 }
