@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import { Codex } from './composants/Codex'
-import { DecouvertesRecentes } from './composants/Decouvertes'
 import { Fascicules } from './composants/Fascicules'
 import { Fiche } from './composants/Fiche'
 import { Icone } from './composants/Icone'
@@ -216,13 +215,6 @@ export function App({ api, catalogue }: Props) {
                   </section>
                 </div>
 
-                <DecouvertesRecentes
-                  decouvertes={etat?.decouvertes ?? []}
-                  entrees={entrees}
-                  jeu={catalogueJeu}
-                  nouvelles={partie.nouvelles}
-                  onOuvrir={(id) => allerAuCodex(id)}
-                />
 
               </section>
 

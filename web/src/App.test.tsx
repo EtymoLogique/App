@@ -95,7 +95,8 @@ describe('table de fusion', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByText('1 / 1 mots')).toBeInTheDocument()
 
-    // Voir au codex ouvre la carte du mot ; la nouveauté s'efface une fois vue.
+    // Dans le codex, la carte nouvelle s'ouvre ; la nouveauté s'efface une fois vue.
+    fireEvent.click(screen.getByRole('button', { name: /^Codex/ }))
     fireEvent.click(screen.getByRole('button', { name: /^Nouvelle carte : géologie/ }))
     expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
     expect(screen.queryByLabelText('1 nouveauté')).not.toBeInTheDocument()

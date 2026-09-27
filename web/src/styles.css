@@ -567,9 +567,6 @@ button.disc { font: inherit; cursor: pointer; }
 .retour { display: grid; gap: 8px; padding: 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); text-align: left; }
 .retour-mot { font-family: var(--serif); font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
 
-/* Découvertes récentes sous la table (I-09, ordinateur). */
-.recentes { display: grid; gap: 10px; }
-.recentes-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; }
 
 /* Fiche de découverte (I-11) : dialogue au-dessus de la table, plein écran sur mobile. */
 .scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
