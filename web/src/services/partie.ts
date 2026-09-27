@@ -4,7 +4,7 @@ import type { Etat } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
-import { type CatalogueJeu, TABLE_MAX, TABLE_MIN, chargerJeu, prevoir } from './jeu'
+import { type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir } from './jeu'
 import { etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
@@ -29,13 +29,20 @@ function mouvementReduit(): boolean {
   return document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
 }
 
-/** Garde de la table les seules briques encore disponibles dans la réserve. */
-function tableValide(table: string[], etat: Etat): string[] {
+/** Cases de la table : chaque brique garde sa place, une case vide vaut `null`. */
+export type Cases = (string | null)[]
+
+const casesVides = (): Cases => Array.from({ length: TABLE_MAX }, () => null)
+
+/** Vide les cases dont la brique n'a plus d'exemplaire disponible dans la réserve. */
+function tableValide(cases: Cases, etat: Etat): Cases {
   const restants = new Map(etat.reserve.map((e) => [e.brique_id, e.exemplaires]))
-  return table.filter((b) => {
+  return casesVides().map((_, i) => {
+    const b = cases[i] ?? null
+    if (b === null) return null
     const n = restants.get(b) ?? 0
     restants.set(b, n - 1)
-    return n > 0
+    return n > 0 ? b : null
   })
 }
 
@@ -44,7 +51,9 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const [jeu, setJeu] = useState<Chargement<CatalogueJeu | null>>({ etat: 'attente' })
   const [etat, setEtat] = useState<Etat | null>(null)
   const [erreurEtat, setErreurEtat] = useState<string | null>(null)
-  const [table, setTable] = useState<string[]>([])
+  const [cases, setTable] = useState<Cases>(casesVides)
+  /** Briques posées, dans l'ordre des cases. */
+  const table = cases.filter((b): b is string => b !== null)
   const [retour, setRetour] = useState<Retour | null>(null)
   const [enAttente, setEnAttente] = useState(false)
   const [fiche, setFiche] = useState<FicheOuverte | null>(null)
@@ -58,12 +67,6 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const [nouvelles, setNouvelles] = useState<Set<string>>(new Set())
   const actif = useRef(true)
   const restauree = useRef(false)
-
-  /** La table n'a pas plus d'emplacements que la plus longue recette publiée. */
-  const maximum =
-    jeu.etat === 'pret' && jeu.valeur && jeu.valeur.recettes.length > 0
-      ? Math.min(TABLE_MAX, Math.max(TABLE_MIN, ...jeu.valeur.recettes.map((r) => r.emplacements.length)))
-      : TABLE_MAX
 
   const confirmer = useCallback((nouvel: Etat) => {
     setEtat(nouvel)
@@ -90,7 +93,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
       if (!actif.current) return
       if (local) {
         setEtat((e) => e ?? local)
-        setTable((actuelle) => (actuelle.length > 0 ? actuelle : tableValide(t, local)))
+        setTable((actuelle) => (actuelle.some(Boolean) ? actuelle : tableValide(t, local)))
       }
     })
     // oxlint-disable-next-line react/set-state-in-effect -- l'état change à la réponse du réseau, pas pendant l'effet.
@@ -101,65 +104,64 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   }, [synchroniser])
 
   useEffect(() => {
-    if (restauree.current) void memoriserTable(table)
-  }, [table])
+    if (restauree.current) void memoriserTable(cases)
+  }, [cases])
 
-  /** Pose une brique dans le premier emplacement libre ; table pleine, rien ne change. */
-  const ajouter = useCallback(
-    (brique: string) => {
-      // Table pleine : rien ne se passe, aucune brique n'est remplacée.
-      setTable((t) => (t.length < maximum ? [...t, brique] : t))
-      setRetour(null)
-      setFiche(null)
-    },
-    [maximum],
-  )
+  /** Pose une brique dans la première case libre ; table pleine, rien ne change. */
+  const ajouter = useCallback((brique: string) => {
+    setTable((t) => {
+      const libre = t.indexOf(null)
+      if (libre < 0) return t
+      const suite = [...t]
+      suite[libre] = brique
+      return suite
+    })
+    setRetour(null)
+    setFiche(null)
+  }, [])
 
-  /** Pose une brique sur l'emplacement `rang` : elle remplace celle qui s'y trouvait. */
-  const poser = useCallback(
-    (brique: string, rang: number) => {
-      setTable((t) => {
-        const suite = [...t]
-        if (rang < suite.length) suite[rang] = brique
-        else if (suite.length < maximum) suite.push(brique)
-        return suite
-      })
-      setRetour(null)
-      setFiche(null)
-    },
-    [maximum],
-  )
+  /** Pose une brique dans la case `rang` : elle remplace celle qui s'y trouvait. */
+  const poser = useCallback((brique: string, rang: number) => {
+    setTable((t) => {
+      if (rang < 0 || rang >= t.length) return t
+      const suite = [...t]
+      suite[rang] = brique
+      return suite
+    })
+    setRetour(null)
+    setFiche(null)
+  }, [])
 
-  /** Échange deux briques posées. */
+  /** Échange deux cases, pleines ou vides. */
   const deplacer = useCallback((depuis: number, vers: number) => {
     setTable((t) => {
       if (vers < 0 || vers >= t.length || depuis === vers) return t
       const suite = [...t]
-      const a = suite[depuis]
-      const b = suite[vers]
-      if (a === undefined || b === undefined) return t
-      suite[depuis] = b
-      suite[vers] = a
+      suite[depuis] = t[vers] ?? null
+      suite[vers] = t[depuis] ?? null
       return suite
     })
     setRetour(null)
   }, [])
 
+  /** Vide une case : l'autre brique garde sa place. */
   const retirer = useCallback((rang: number) => {
-    setTable((t) => t.filter((_, i) => i !== rang))
+    setTable((t) => t.map((b, i) => (i === rang ? null : b)))
     setRetour(null)
   }, [])
 
   const vider = useCallback(() => {
     setSecousse(null)
-    setTable([])
+    setTable(casesVides())
     setRetour(null)
   }, [])
 
   const fusionner = useCallback(async () => {
     if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return
+    // On ne fusionne que deux cases pleines.
+    if (cases.some((b) => b === null)) return
     const catalogue = jeu.valeur
-    const proposition = [...table]
+    const proposition = cases as string[]
     const decouverts = new Set(etat.decouvertes.map((d) => d.mot_id))
     setRetour({ etat: 'prevision', prevision: prevoir(proposition, catalogue, decouverts) })
     setConsommees([])
@@ -180,7 +182,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         setFusion(null)
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })
-        setTable([])
+        setTable(casesVides())
         setConsommees(proposition)
         // Le « −1 » ne s'envole qu'une fois (1,3 s) : il ne doit pas rejouer quand l'écran réapparaît.
         setTimeout(() => setConsommees((c) => (c === proposition ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
@@ -202,15 +204,15 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     } finally {
       setEnAttente(false)
     }
-  }, [api, jeu, etat, table, confirmer, synchroniser])
+  }, [api, jeu, etat, cases, confirmer, synchroniser])
 
   return {
     jeu,
     etat,
     erreurEtat,
     table,
+    cases,
     retour,
-    maximum,
     enAttente,
     fiche,
     secousse,

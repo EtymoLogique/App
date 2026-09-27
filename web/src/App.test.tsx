@@ -165,13 +165,18 @@ describe('table de fusion', () => {
     expect(screen.getAllByText(/la fusion attendra le retour du réseau/).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('vide une case qu’on touche, et réordonne au clavier', async () => {
+  it('vide une case qu’on touche sans déplacer l’autre, et réordonne au clavier', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     await poser('géo-', '-logie')
     fireEvent.keyDown(screen.getByRole('button', { name: 'Emplacement 2 : -logie. Retirer' }), { key: 'ArrowLeft' })
     expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' }))
-    expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
+    // La seconde brique reste dans sa case ; la première case est libre.
+    expect(screen.getByRole('button', { name: 'Emplacement 1 vide' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Emplacement 2 : géo-. Retirer' })).toBeInTheDocument()
+    // Une nouvelle brique vient dans la case libérée.
+    await poser('-logie')
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
   })
 
   it('dit quand aucun mot n’est plus possible, et mène aux plis', async () => {

@@ -24,12 +24,15 @@ export function memoriserEtat(etat: Etat): Promise<void> {
   return set('etat', etat, stockage())
 }
 
-export async function tableEnCours(): Promise<string[]> {
+/** Cases de la table en cours, chacune à sa place (`null` pour une case vide). */
+export async function tableEnCours(): Promise<(string | null)[]> {
   const table: unknown = await get('table', stockage())
-  return Array.isArray(table) && table.length <= TABLE_MAX && table.every((b) => typeof b === 'string') ? table : []
+  const valide = Array.isArray(table) && table.length <= TABLE_MAX && table.every((b) => b === null || typeof b === 'string')
+  const cases: (string | null)[] = valide ? (table as (string | null)[]) : []
+  return Array.from({ length: TABLE_MAX }, (_, i) => cases[i] ?? null)
 }
 
-export function memoriserTable(table: string[]): Promise<void> {
+export function memoriserTable(table: (string | null)[]): Promise<void> {
   return set('table', table, stockage())
 }
 

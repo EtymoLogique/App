@@ -156,7 +156,7 @@ export function App({ api, catalogue }: Props) {
                     ) : (
                       <>
                         <Table
-                          table={partie.table}
+                          table={partie.cases}
                           briques={catalogueJeu.briques}
                           enAttente={partie.enAttente}
                           secousse={partie.secousse}

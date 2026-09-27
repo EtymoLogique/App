@@ -8,7 +8,8 @@ import { TYPE_GLISSE } from './Reserve'
 const TYPE_DEPLACE = 'application/x-etymo-rang'
 
 interface Props {
-  table: string[]
+  /** Cases de la table, chacune à sa place : `null` pour une case vide. */
+  table: (string | null)[]
   briques: Map<string, BriqueJeu>
   enAttente: boolean
   onPoser: (brique: string, rang: number) => void
@@ -53,7 +54,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
     setSurvol(null)
     const depuis = e.dataTransfer.getData(TYPE_DEPLACE)
     if (depuis !== '') {
-      onDeplacer(Number(depuis), Math.min(rang, table.length - 1))
+      onDeplacer(Number(depuis), rang)
       return
     }
     const brique = e.dataTransfer.getData(TYPE_GLISSE)
@@ -98,7 +99,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
               onKeyDown={(e) => {
                 if ((e.key === 'Delete' || e.key === 'Backspace') && brique && !enAttente) onRetirer(rang)
                 if (e.key === 'ArrowLeft' && brique && rang > 0) onDeplacer(rang, rang - 1)
-                if (e.key === 'ArrowRight' && brique && rang < table.length - 1) onDeplacer(rang, rang + 1)
+                if (e.key === 'ArrowRight' && brique && rang < TABLE_MAX - 1) onDeplacer(rang, rang + 1)
               }}
             >
               {brique ? <Brique brique={brique} /> : <span className="slot-num">{rang + 1}</span>}
