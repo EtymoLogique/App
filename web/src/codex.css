@@ -312,3 +312,20 @@
 .big-card:not(.flipped) .big-back, .big-card.flipped .big-front { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .big-face { transition: none; } }
 :root[data-mouvement="reduit"] .big-face { transition: none; }
+
+/* Jaquette du fascicule dans son filtre (même miniature que le choix du fascicule des plis, etymo.css .jk-mini). */
+.cb-fasc-btn { grid-template-columns: 64px 1fr; align-items: center; gap: 14px; }
+.cb-fasc-info { display: grid; gap: 8px; min-width: 0; }
+.jk-mini {
+  position: relative; width: 100%; max-width: 64px; aspect-ratio: 200 / 272;
+  border: 2px solid #0f1f19; border-radius: 9px; background: #fffbf3;
+  box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19;
+  rotate: -2deg;
+}
+.jk-art { position: absolute; inset: 5px; overflow: hidden; border-radius: 5px; }
+.jk-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.jk-mini.is-empty { border-style: dashed; border-color: var(--line-strong); background: transparent; box-shadow: none; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) .jk-mini { transition: rotate 0.35s var(--ease-spring); }
+  :root:not([data-mouvement="reduit"]) .cb-fasc-btn:hover .jk-mini { rotate: 2deg; }
+}

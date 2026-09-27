@@ -227,6 +227,7 @@ export function App({ api, catalogue }: Props) {
                   onVue={partie.carteVue}
                   aOuvrir={onglet === 'codex' ? carteAOuvrir : null}
                   onOuverte={() => setCarteAOuvrir(null)}
+                  urlMedia={(chemin) => catalogue.url(chemin)}
                 />
               </section>
 

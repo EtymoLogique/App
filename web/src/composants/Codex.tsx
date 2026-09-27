@@ -356,10 +356,12 @@ interface Props {
   /** Carte à ouvrir dès l'arrivée dans le codex (depuis la table), puis `onOuverte`. */
   aOuvrir?: string | null
   onOuverte?: () => void
+  /** Adresse d'un média du catalogue (jaquette d'un fascicule). */
+  urlMedia: (chemin: string) => string
 }
 
 /** Codex, vue globale (I-14, codex.html) : complétude par fascicule, filtres par type, tri, cartes et carte agrandie. */
-export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte }: Props) {
+export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlMedia }: Props) {
   const [filtre, setFiltre] = useState<TypeCarte | 'tout'>('tout')
   const [ordre, setOrdre] = useState<Tri>('n')
   const [fascicule, setFascicule] = useState<number | 'tous'>('tous')
@@ -426,6 +428,14 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte }: Pr
               aria-label={`Fascicule ${f.numero} : ${c.trouvees} cartes découvertes sur ${c.total}. ${actif ? 'Afficher tous les fascicules' : 'Afficher ce fascicule seulement'}`}
               onClick={() => setFascicule(actif ? 'tous' : f.numero)}
             >
+              <span className={f.manifeste.jaquette ? 'jk-mini' : 'jk-mini is-empty'} aria-hidden="true">
+                {f.manifeste.jaquette && (
+                  <span className="jk-art">
+                    <img src={urlMedia(f.manifeste.jaquette)} alt="" decoding="async" />
+                  </span>
+                )}
+              </span>
+              <span className="cb-fasc-info">
               <span className="cb-fasc-head">
                 <b>Fascicule {f.numero}</b>
                 <span>{new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(f.parution))}</span>
@@ -438,6 +448,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte }: Pr
                   {c.trouvees} / {c.total}
                 </b>{' '}
                 cartes{c.trouvees === c.total && c.total > 0 ? ' · complet' : ''}
+              </span>
               </span>
             </button>
           )
