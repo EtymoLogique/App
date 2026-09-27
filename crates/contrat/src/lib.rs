@@ -62,6 +62,8 @@ pub struct Exemplaires {
     pub brique_id: IdCatalogue,
     #[schema(minimum = 0, maximum = 5)]
     pub exemplaires: u8,
+    /// Première obtention de la brique : la réserve se trie par briques récentes.
+    pub connue_le: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -87,7 +89,7 @@ pub struct DemandeFusion {
     #[schema(max_length = 64)]
     pub version_catalogue: String,
     /// Briques posées sur la table, dans l'ordre.
-    #[schema(min_items = 2, max_items = 4)]
+    #[schema(min_items = 2, max_items = 3)]
     pub briques: Vec<IdCatalogue>,
 }
 

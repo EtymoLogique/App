@@ -187,7 +187,7 @@ async fn refuse_les_propositions_mal_formees(base: PgPool) {
     inconnue["indice"] = json!(true);
     for demande in [
         fusion(&etat, &[GEO]),
-        fusion(&etat, &[GEO, GEO, GEO, GEO, GEO]),
+        fusion(&etat, &[GEO, GEO, GEO, GEO]),
         fusion(&etat, &[GEO, "brq_INVALIDE"]),
         fusion(&etat, &[GEO, "../../etc"]),
         inconnue,

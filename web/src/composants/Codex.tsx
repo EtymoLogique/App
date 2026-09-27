@@ -64,7 +64,7 @@ const tri = (t: Tri) => (a: EntreeCodex, b: EntreeCodex) => {
   }
 }
 
-function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCodex; nouvelle: boolean; langue: string | null; onOuvrir: () => void }) {
+export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCodex; nouvelle: boolean; langue: string | null; onOuvrir: () => void }) {
   const type = TYPES[entree.type]
   const affixe = entree.type === 'prefixe' || entree.type === 'suffixe'
   const nbFormes = entree.formes.length
@@ -353,10 +353,13 @@ interface Props {
   jeu: CatalogueJeu
   nouvelles: Set<string>
   onVue: (id: string) => void
+  /** Carte à ouvrir dès l'arrivée dans le codex (depuis la table), puis `onOuverte`. */
+  aOuvrir?: string | null
+  onOuverte?: () => void
 }
 
 /** Codex, vue globale (I-14, codex.html) : complétude par fascicule, filtres par type, tri, cartes et carte agrandie. */
-export function Codex({ entrees, jeu, nouvelles, onVue }: Props) {
+export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte }: Props) {
   const [filtre, setFiltre] = useState<TypeCarte | 'tout'>('tout')
   const [ordre, setOrdre] = useState<Tri>('n')
   const [fascicule, setFascicule] = useState<number | 'tous'>('tous')
@@ -370,6 +373,22 @@ export function Codex({ entrees, jeu, nouvelles, onVue }: Props) {
     const e = visibles[i]
     if (e) onVue(e.id)
   }
+
+  // Ouvrir une carte demandée depuis la table : tous les filtres sont levés pour la montrer.
+  useEffect(() => {
+    if (!aOuvrir) return
+    const tous = [...entrees].sort(tri('n'))
+    const i = tous.findIndex((e) => e.id === aOuvrir)
+    // oxlint-disable-next-line react/set-state-in-effect -- réponse à une demande de navigation venue d'un autre écran.
+    setFiltre('tout')
+    setOrdre('n')
+    setFascicule('tous')
+    if (i >= 0) {
+      setOuverte(i)
+      onVue(aOuvrir)
+    }
+    onOuverte?.()
+  }, [aOuvrir, entrees, onVue, onOuverte])
 
   return (
     <div className="codex-browser">

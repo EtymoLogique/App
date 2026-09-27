@@ -40,7 +40,7 @@ pub async fn etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Etat, ErreurApi
     .fetch_one(&mut *tx)
     .await?;
     let reserve = sqlx::query!(
-        "SELECT brique_id, nombre FROM exemplaire WHERE joueur_id = $1 ORDER BY brique_id",
+        "SELECT brique_id, nombre, connue_le FROM exemplaire WHERE joueur_id = $1 ORDER BY brique_id",
         joueur
     )
     .fetch_all(&mut *tx)
@@ -50,6 +50,7 @@ pub async fn etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Etat, ErreurApi
         Ok(Exemplaires {
             brique_id: id(&l.brique_id)?,
             exemplaires: u8::try_from(l.nombre).map_err(|e| ErreurApi::Interne(e.to_string()))?,
+            connue_le: l.connue_le,
         })
     })
     .collect::<Result<_, ErreurApi>>()?;

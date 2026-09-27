@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { Codex } from './composants/Codex'
-import { Decouvertes } from './composants/Decouvertes'
+import { DecouvertesRecentes } from './composants/Decouvertes'
 import { Fascicules } from './composants/Fascicules'
 import { Fiche } from './composants/Fiche'
 import { Icone } from './composants/Icone'
@@ -12,8 +12,8 @@ import { Resultat } from './composants/Resultat'
 import { Table } from './composants/Table'
 import type { ClientApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
-import { TABLE_MIN, decouvertePossible, totalMots } from './services/jeu'
-import { construireCodex } from './services/codex'
+import { completude, construireCodex } from './services/codex'
+import { TABLE_MIN, decouvertePossible } from './services/jeu'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
 import { useEnLigne } from './services/reseau'
@@ -23,15 +23,33 @@ interface Props {
   catalogue: LecteurCatalogue
 }
 
+/** En-tête d'un écran (maquettes) : son titre en serif et ses outils. */
+function EnTete({ titre, id, children }: { titre: string; id: string; children?: React.ReactNode }) {
+  return (
+    <header className="ecran-tete">
+      <h1 id={id}>{titre}</h1>
+      {children && <div className="ecran-outils">{children}</div>}
+    </header>
+  )
+}
+
 export function App({ api, catalogue }: Props) {
   const partie = usePartie(api, catalogue)
   const enLigne = useEnLigne()
   const { reglages, changer } = useReglages()
   const [onglet, setOnglet] = useState<Onglet>('table')
+  const [selection, setSelection] = useState<string | null>(null)
+  const [carteAOuvrir, setCarteAOuvrir] = useState<string | null>(null)
   const { jeu, etat } = partie
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
-  const total = catalogueJeu ? totalMots(catalogueJeu) : 0
-  const exemplaires = etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0
+  const entrees = useMemo(
+    () => (catalogueJeu ? construireCodex(catalogueJeu, etat, (chemin) => catalogue.url(chemin)) : []),
+    [catalogueJeu, etat, catalogue],
+  )
+  const mots = entrees.filter((e) => e.resultat)
+  const motsTrouves = completude(mots).trouvees
+  // Exemplaires disponibles : ceux posés sur la table sont réservés.
+  const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
   const bloquee = !enLigne
     ? 'Hors ligne : la fusion attendra le retour du réseau.'
@@ -39,46 +57,37 @@ export function App({ api, catalogue }: Props) {
       ? 'Votre réserve n’est pas encore chargée.'
       : null
   const prete = bloquee === null && partie.table.length >= TABLE_MIN
-  const statut = prete ? 'Hypothèse prête' : partie.table.length === 1 ? 'Une brique posée' : partie.table.length > 1 ? `${partie.table.length} briques posées` : 'En attente'
-  const entrees = useMemo(
-    () => (catalogueJeu ? construireCodex(catalogueJeu, etat, (chemin) => catalogue.url(chemin)) : []),
-    [catalogueJeu, etat, catalogue],
-  )
-  const numero = partie.fiche && etat?.decouvertes.find((d) => d.mot_id === partie.fiche?.motId)?.numero
+  const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : null)
   const bloque =
     catalogueJeu && etat && partie.table.length === 0
       ? !decouvertePossible(catalogueJeu, etat.reserve, new Set(etat.decouvertes.map((d) => d.mot_id)))
       : false
-  const allerAuCodex = () => {
-    partie.fermerFiche()
-    setOnglet('codex')
-  }
+
+  const allerAuCodex = useCallback(
+    (motId?: string) => {
+      partie.fermerFiche()
+      setCarteAOuvrir(motId ?? null)
+      setOnglet('codex')
+    },
+    [partie],
+  )
   const allerAuxPlis = () => {
     partie.fermerFiche()
     setOnglet('plis')
   }
-
-  const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: 'ecran' })
+  const ajouterSelection = () => {
+    if (!selection) return
+    partie.ajouter(selection)
+    setSelection(null)
+  }
+  const fiche = partie.fiche
+  const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
     <div className="coque">
-      <Navigation
-        actif={onglet}
-        compteurs={{ codex: partie.nouvelles.size }}
-        onChoisir={setOnglet}
-      />
+      <Navigation actif={onglet} compteurs={{ codex: partie.nouvelles.size }} onChoisir={setOnglet} />
 
       <div className="contenu">
-        <header className="entete">
-          <a className="wordmark" href="/" aria-label="ÉtymoLogique, accueil">
-            <span className="seal" aria-hidden="true">
-              ÉL
-            </span>
-            ÉtymoLogique
-          </a>
-          {etat && <span className="chip">Profil invité</span>}
-        </header>
-
         <main className="page">
           {!enLigne && (
             <p className="banniere" role="status">
@@ -116,100 +125,149 @@ export function App({ api, catalogue }: Props) {
           {catalogueJeu && (
             <>
               <section {...ecran('table')}>
-                <h1 className="sr-only">Table de fusion</h1>
-                <div className="fond-jeu">
-                  <div className="jeu">
-                    <section
-                      className={['panel', 'table-panel', prete ? 'ready' : '', partie.fiche ? 'showing' : ''].filter(Boolean).join(' ')}
-                      aria-label="Table de fusion"
-                    >
-                      <div className="panel-head">
-                        <span>Table de fusion</span>
-                        <span className="status">{statut}</span>
-                      </div>
-                      {partie.fiche ? (
-                        <Fiche
-                          motId={partie.fiche.motId}
-                          consommees={partie.fiche.consommees}
-                          numero={numero ?? undefined}
-                          total={total}
-                          jeu={catalogueJeu}
-                          reserve={etat?.reserve ?? []}
-                          onFermer={partie.fermerFiche}
-                          onPlis={allerAuxPlis}
-                          onCodex={() => allerAuCodex()}
-                        />
-                      ) : bloque ? (
-                        <div className="empty">
-                          <span className="ill" aria-hidden="true">
-                            ?
-                          </span>
-                          <h3>Plus de découverte possible</h3>
-                          <p>Votre réserve ne permet plus de nouveau mot pour l’instant. Les plis apportent de nouveaux exemplaires.</p>
-                          <button type="button" className="btn btn-secondary" onClick={allerAuxPlis}>
+                <EnTete titre="Table" id="titre-table">
+                  <span className="mono">
+                    {motsTrouves} / {mots.length} mots
+                  </span>
+                  <button type="button" className="btn-icone" aria-label="Ouvrir le codex" onClick={() => allerAuCodex()}>
+                    <Icone nom="codex" />
+                  </button>
+                </EnTete>
+
+                <div className="jeu">
+                  <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
+                    <p className="panel-k">Table</p>
+                    {bloque ? (
+                      <div className="empty">
+                        <span className="ill" aria-hidden="true">
+                          ?
+                        </span>
+                        <h3>Aucun mot possible pour l’instant</h3>
+                        <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
+                        <div className="retour retour-pli">
+                          <span className="pli-mini" aria-hidden="true" />
+                          <div>
+                            <b>Les plis apportent de nouveaux exemplaires</b>
+                            <p className="panel-tip">Une brique utile y est garantie au plus tard au 5ᵉ pli.</p>
+                          </div>
+                        </div>
+                        <div className="rangee rangee-centree">
+                          <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
                             Aller aux plis
                           </button>
+                          <button type="button" className="btn btn-secondary" onClick={() => allerAuCodex()}>
+                            Voir le codex
+                          </button>
                         </div>
-                      ) : (
-                        <>
-                          <Table
-                            table={partie.table}
-                            briques={catalogueJeu.briques}
-                            enAttente={partie.enAttente}
-                            bloquee={bloquee}
-                            secousse={partie.secousse}
-                            maximum={partie.maximum}
-                            onPoser={partie.poser}
-                            onDeplacer={partie.deplacer}
-                            onRetirer={partie.retirer}
-                            onVider={partie.vider}
-                            onFusionner={() => void partie.fusionner()}
-                          />
-                          <Resultat retour={bloquee && partie.table.length > 0 ? { etat: 'message', texte: bloquee } : partie.retour} jeu={catalogueJeu} onOuvrirFiche={partie.ouvrirFiche} />
-                        </>
-                      )}
-                    </section>
-
-                    <section className="panel reserve-panel" aria-labelledby="titre-reserve">
-                      <div className="panel-head">
-                        <h2 id="titre-reserve">Réserve · exemplaires</h2>
-                        <span className="count" aria-label="Exemplaires disponibles">
-                          {exemplaires}
-                        </span>
                       </div>
-                      {etat ? (
-                        <Reserve
-                          reserve={etat.reserve}
-                          briques={catalogueJeu.briques}
+                    ) : (
+                      <>
+                        <Table
                           table={partie.table}
-                          consommees={partie.consommees}
-                          onAjouter={partie.ajouter}
-                          onIndisponible={partie.signaler}
+                          briques={catalogueJeu.briques}
+                          enAttente={partie.enAttente}
+                          secousse={partie.secousse}
+                          onPoser={partie.poser}
+                          onDeplacer={partie.deplacer}
+                          onRetirer={partie.retirer}
                         />
-                      ) : (
-                        <p className="panel-tip" aria-live="polite">
-                          Chargement de votre réserve…
-                        </p>
-                      )}
-                      <p className="panel-tip">Glissez une brique sur la table, ou touchez-la pour la poser. Le chiffre indique les exemplaires disponibles.</p>
-                      <button type="button" className="panel-link" onClick={allerAuxPlis}>
-                        Plus d’exemplaires ? Ouvrir un pli →
-                      </button>
-                    </section>
-                  </div>
-                  <Decouvertes mots={entrees.filter((e) => e.resultat)} onOuvrirFiche={partie.ouvrirFiche} onCodex={() => allerAuCodex()} />
+                        <div className="rangee rangee-ecartee retours-ligne">
+                          <Resultat
+                            retour={partie.retour}
+                            jeu={catalogueJeu}
+                            entrees={entrees}
+                            posees={partie.table.length}
+                            bloquee={bloquee}
+                            onInverser={partie.inverser}
+                            onVoirCarte={(id) => allerAuCodex(id)}
+                            onVider={partie.vider}
+                          />
+                          <button type="button" className="btn-texte seulement-mobile" onClick={partie.vider} disabled={partie.table.length === 0 || partie.enAttente}>
+                            Vider
+                          </button>
+                        </div>
+                        <div className="rangee rangee-fin seulement-ordinateur">
+                          <button type="button" className="btn btn-secondary" onClick={partie.vider} disabled={partie.table.length === 0 || partie.enAttente}>
+                            Vider
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => void partie.fusionner()}
+                            disabled={raisonFusion !== null || partie.enAttente}
+                            title={raisonFusion ?? undefined}
+                          >
+                            {partie.enAttente ? 'Fusion…' : 'Fusionner'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    <DecouvertesRecentes
+                      decouvertes={etat?.decouvertes ?? []}
+                      entrees={entrees}
+                      jeu={catalogueJeu}
+                      nouvelles={partie.nouvelles}
+                      onOuvrir={(id) => allerAuCodex(id)}
+                    />
+                  </section>
+
+                  <section className="panel reserve-panel" aria-labelledby="titre-reserve">
+                    <div className="rangee rangee-ecartee">
+                      <h2 id="titre-reserve" className="panel-k">
+                        Réserve · {exemplaires} exemplaire{exemplaires > 1 ? 's' : ''}
+                      </h2>
+                      <span className="mono">Tri : récentes</span>
+                    </div>
+                    {etat ? (
+                      <Reserve
+                        reserve={etat.reserve}
+                        briques={catalogueJeu.briques}
+                        table={partie.table}
+                        selection={selection}
+                        onSelectionner={setSelection}
+                        consommees={partie.consommees}
+                        onAjouter={(id) => {
+                          partie.ajouter(id)
+                          setSelection(null)
+                        }}
+                        onIndisponible={(texte) => partie.signaler(texte, 'hint')}
+                      />
+                    ) : (
+                      <p className="panel-tip" aria-live="polite">
+                        Chargement de votre réserve…
+                      </p>
+                    )}
+                    <p className="panel-tip seulement-ordinateur">Glissez une brique sur la table, ou sélectionnez-la puis appuyez sur Entrée.</p>
+                  </section>
                 </div>
+
+                {/* Mobile : toucher sélectionne, puis « Ajouter à la table » (maquette I-09). */}
+                {!bloque && (
+                  <div className="barre-actions seulement-mobile">
+                    <button type="button" className="btn btn-secondary" onClick={ajouterSelection} disabled={!selection}>
+                      Ajouter à la table
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={() => void partie.fusionner()} disabled={raisonFusion !== null || partie.enAttente}>
+                      {partie.enAttente ? 'Fusion…' : 'Fusionner'}
+                    </button>
+                  </div>
+                )}
               </section>
 
-              <section {...ecran('codex')} aria-labelledby="titre-codex">
-                <h1 id="titre-codex" className="sr-only">
-                  Codex
-                </h1>
-                <Codex entrees={entrees} jeu={catalogueJeu} nouvelles={partie.nouvelles} onVue={partie.carteVue} />
+              <section {...ecran('codex')}>
+                <EnTete titre="Codex" id="titre-codex" />
+                <Codex
+                  entrees={entrees}
+                  jeu={catalogueJeu}
+                  nouvelles={partie.nouvelles}
+                  onVue={partie.carteVue}
+                  aOuvrir={onglet === 'codex' ? carteAOuvrir : null}
+                  onOuverte={() => setCarteAOuvrir(null)}
+                />
               </section>
 
-              <section {...ecran('plis')} aria-labelledby="titre-plis">
-                <h1 id="titre-plis">Plis</h1>
+              <section {...ecran('plis')}>
+                <EnTete titre="Plis" id="titre-plis" />
                 <p className="banniere">
                   <Icone nom="info" />
                   <span>L’ouverture des plis arrive bientôt. Vos briques restent toutes jouables sur la table.</span>
@@ -217,14 +275,25 @@ export function App({ api, catalogue }: Props) {
                 <h2>Fascicules parus</h2>
                 <Fascicules parus={catalogueJeu.fascicules} catalogue={catalogue} />
               </section>
+
+              {fiche && (
+                <Fiche
+                  motId={fiche.motId}
+                  consommees={fiche.consommees}
+                  entree={entrees.find((e) => e.id === fiche.motId)}
+                  jeu={catalogueJeu}
+                  reserve={etat?.reserve ?? []}
+                  onFermer={partie.fermerFiche}
+                  onCodex={() => allerAuCodex(fiche.motId)}
+                />
+              )}
             </>
           )}
 
-          <section {...ecran('reglages')} aria-labelledby="titre-reglages">
-            <h1 id="titre-reglages">Réglages</h1>
+          <section {...ecran('reglages')}>
+            <EnTete titre="Réglages" id="titre-reglages" />
             <Reglages reglages={reglages} onChanger={changer} />
           </section>
-
         </main>
       </div>
     </div>

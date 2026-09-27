@@ -254,6 +254,11 @@ export interface components {
         };
         Exemplaires: {
             brique_id: components["schemas"]["IdCatalogue"];
+            /**
+             * Format: date-time
+             * @description Première obtention de la brique : la réserve se trie par briques récentes.
+             */
+            connue_le: string;
             /** Format: int32 */
             exemplaires: number;
         };

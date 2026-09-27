@@ -7,7 +7,7 @@ import type { LecteurCatalogue } from './catalogue'
 
 /** Taille de la table de fusion, comme `TABLE_MIN` et `TABLE_MAX` de l'API. */
 export const TABLE_MIN = 2
-export const TABLE_MAX = 4
+export const TABLE_MAX = 3
 /** Plafond d'exemplaires par brique (ADR 0012). */
 export const PLAFOND = 5
 

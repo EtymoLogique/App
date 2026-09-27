@@ -94,13 +94,18 @@ export function jeu(): CatalogueJeu {
   }
 }
 
+/** Une ligne de réserve, obtenue au lancement de la partie. */
+export function ex(brique_id: string, exemplaires: number) {
+  return { brique_id, exemplaires, connue_le: '2026-10-01T08:00:00Z' }
+}
+
 export function etat(partiel: Partial<Etat> = {}): Etat {
   return {
     version_etat: 1,
     version_catalogue: 'v1',
     reserve: [
-      { brique_id: GEO, exemplaires: 2 },
-      { brique_id: LOGIE, exemplaires: 1 },
+      ex(GEO, 2),
+      ex(LOGIE, 1),
     ],
     decouvertes: [],
     ...partiel,

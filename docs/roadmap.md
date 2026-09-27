@@ -55,12 +55,12 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 | PWA : réserve (×n, posée, épuisée), table ordonnée (glisser-déposer, boutons, clavier), prévisualisation démentie au besoin par le serveur, fiche de découverte, liste des découvertes | fait |
 | Projection confirmée et table en cours gardées dans IndexedDB | fait |
 | Coque de l’application (I-01) : quatre destinations Table, Codex, Plis, Réglages ; barre d’onglets sur mobile, rail au-delà de 1 100 px ; compteur Corail des nouveautés | fait |
-| Conformité à `jeu.html` : réserve et table côte à côte sur fond tramé, emplacements numérotés reliés par « + », glisser-déposer, brique posée rendue à la réserve d’un toucher, fiche de découverte au-dessus de la table, découvertes en silhouette ; aucune découverte annoncée avant la réponse du serveur ; contrôle `visual-identity-check` sans écart | fait |
+| Conformité aux maquettes I-09 à I-13 : en-tête d’écran (mots trouvés, accès au codex) ; réserve avec recherche, filtres et tri par briques récentes ; toucher sélectionne puis « Ajouter à la table » sur mobile, glisser-déposer et clavier (Entrée, flèches, Suppr) ; rail de trois cases ; retours en ligne (« presque » avec Inverser, rappel du mot déjà découvert, échec neutre sans secousse) ; fiche en trois temps en dialogue, plein écran sur mobile ; découvertes récentes ; état « Aucun mot possible » ; contrôle `visual-identity-check` sans écart | fait |
 | Réserve sans découverte possible (I-13) : état vide qui mène aux plis | fait |
 | Réglages du MVP en cours (I-24) : apparence (système, atelier, nocturne), animations réduites, profil, licences | fait |
 | Démonstration : les trois premières découvertes du fascicule 0 (géologie, biologie, amener) avec ses graines | faite en local |
 
-Reportés : file d’attente des fusions hors connexion (J6), recherche et filtres de la réserve (J2), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
+Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir un indice », I-12) (J4), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
 
 ## J2 — Codex (en cours)
 

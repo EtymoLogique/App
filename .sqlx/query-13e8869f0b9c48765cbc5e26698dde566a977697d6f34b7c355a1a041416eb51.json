@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT brique_id, nombre FROM exemplaire WHERE joueur_id = $1 ORDER BY brique_id",
+  "query": "SELECT brique_id, nombre, connue_le FROM exemplaire WHERE joueur_id = $1 ORDER BY brique_id",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "ordinal": 1,
         "name": "nombre",
         "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "connue_le",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -21,8 +26,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "6bcbfa2806a00aaa49c5828be9bb14924e80c46a1190c3a66d075016db7d1349"
+  "hash": "13e8869f0b9c48765cbc5e26698dde566a977697d6f34b7c355a1a041416eb51"
 }

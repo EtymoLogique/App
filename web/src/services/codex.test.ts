@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { GEO, LOGIE, MOT, cartes, etat, jeu, manifeste } from '../test/fixtures'
+import { GEO, LOGIE, MOT, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
 import { completude, construireCodex } from './codex'
 
 function catalogue() {
@@ -24,7 +24,7 @@ describe('codex', () => {
     c.briques.set(LOGIE, { ...logie, rarete: 'legendaire' })
     const carte = c.cartes.get(logie.uniteId)!
     c.cartes.set(logie.uniteId, { ...carte, brique: { ...carte.brique!, rarete: 'legendaire' } })
-    const entrees = construireCodex(c, etat({ reserve: [{ brique_id: GEO, exemplaires: 2 }] }), (x) => x)
+    const entrees = construireCodex(c, etat({ reserve: [ex(GEO, 2)] }), (x) => x)
     expect(entrees.map((e) => e.id)).toEqual(['unt_0000ge00'])
   })
 })

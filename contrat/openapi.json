@@ -578,7 +578,7 @@
               "$ref": "#/components/schemas/IdCatalogue"
             },
             "description": "Briques posées sur la table, dans l'ordre.",
-            "maxItems": 4,
+            "maxItems": 3,
             "minItems": 2
           },
           "commande": {
@@ -785,11 +785,17 @@
         "type": "object",
         "required": [
           "brique_id",
-          "exemplaires"
+          "exemplaires",
+          "connue_le"
         ],
         "properties": {
           "brique_id": {
             "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "connue_le": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Première obtention de la brique : la réserve se trie par briques récentes."
           },
           "exemplaires": {
             "type": "integer",

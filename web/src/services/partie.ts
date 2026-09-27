@@ -170,9 +170,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         setFiche({ motId: issue.mot_id })
       } else if (issue.type === 'presque') {
         setSecousse((s) => ({ force: 'legere', cle: (s?.cle ?? 0) + 1 }))
-      } else if (issue.type === 'echec' || issue.type === 'exclue') {
-        setSecousse((s) => ({ force: 'forte', cle: (s?.cle ?? 0) + 1 }))
       }
+      // Un échec reste neutre : jamais de secousse punitive (maquette I-10).
     } catch (e) {
       if (e instanceof ErreurApi && e.statut === 409) {
         await synchroniser()
@@ -213,7 +212,12 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     retirer,
     vider,
     fusionner,
-    signaler: useCallback((texte: string) => setRetour({ etat: 'message', texte }), []),
+    signaler: useCallback((texte: string, ton?: 'hint' | 'fail') => setRetour({ etat: 'message', texte, ton }), []),
+    /** Inverse l'ordre des briques posées : le geste proposé par un « presque ». */
+    inverser: useCallback(() => {
+      setTable((t) => [...t].reverse())
+      setRetour(null)
+    }, []),
     ouvrirFiche: useCallback((motId: string) => setFiche({ motId }), []),
     fermerFiche: useCallback(() => setFiche(null), []),
   }
