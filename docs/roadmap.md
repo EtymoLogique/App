@@ -14,7 +14,7 @@ Chaque jalon se termine par une démonstration en hors-prod (`develop`, [ADR 002
 | **J3 — Énergie et plis** | Énergie à 2 charges, une toutes les 12 h, à l’horloge du serveur ; `ouvrir_pli` (aléa cryptographique, raretés, poids, garantie au 6ᵉ pli, filet au 5ᵉ) ; doublons et encre ; historique ; écran des plis et chances ; rituel d’ouverture | Boucle fusion ↔ pli jouable sur plusieurs jours | Content : poids et raretés du pli |
 | **J4 — Encre, sabliers, indices, jalons** | Sabliers (1 goutte, 12 par 24 h, 36 détenus au plus), indices (30 gouttes), jalons et plis déterministes | Économie complète du MVP, sans achat | Content : jalons |
 | **J5 — Première session** | Onboarding guidé, règle d’amorçage, réglages (thème, locale, mouvement réduit), accessibilité clavier et lecteur d’écran | Un nouveau joueur termine le tutoriel sans aide | Validation d’atteignabilité et d’amorçage (étape 5 du pipeline) |
-| **J6 — Hors connexion et évolutions du catalogue** | Stratégie du service worker, commandes en attente rejouables, `409` puis resynchronisation, migrations de progression à la parution | Un 2ᵉ fascicule paraît sans casser les parties en cours ; jeu hors connexion conforme à l’[ADR 0001](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0001-pwa-responsive.md) | Content : 2ᵉ fascicule |
+| **J6 — Hors connexion et évolutions du catalogue** | Stratégie du service worker (une PWA qui n’est plus alignée sur la version déployée se recharge d’elle-même, sans attendre un second chargement), commandes en attente rejouables, `409` puis resynchronisation, migrations de progression à la parution | Un 2ᵉ fascicule paraît sans casser les parties en cours ; jeu hors connexion conforme à l’[ADR 0001](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0001-pwa-responsive.md) | Content : 2ᵉ fascicule |
 | **J7 — Observabilité et vie privée** | Télémétrie pseudonyme (identifiant renouvelé tous les 30 jours), indicateurs minimaux du game-design, agrégats, purges quotidiennes, journaux structurés sans PII | Tableau des indicateurs en hors-prod | Infra : Cockpit, tâches planifiées |
 | **J8 — Durcissement et lancement** | CSP et en-têtes par le CDN, limites de débit, audits, démarrage à froid sous 1 s au p95, domaine, tests utilisateurs, `v1.0.0` | MVP en prod | Infra : CDN, domaine ; Content : fascicule 1 relu (`--publication`) |
 
@@ -65,7 +65,7 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 
 Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir un indice », I-12) (J4), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
 
-## J2 — Codex (en cours)
+## J2 — Codex (validé le 27 septembre 2026)
 
 | Tâche | État |
 |---|---|
@@ -77,8 +77,12 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Filtres, tri et carte ouverte dans l’adresse ([ADR 0034](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0034-ecran-dans-l-adresse.md)) | fait |
 | Recherche parmi les seules cartes trouvées, par forme ou par sens (I-17), raccourci « / », jamais dans l’adresse | fait |
 | Vues Tout, Récentes, Familles et Objectifs, tenues dans l’adresse (`vue=`) ; familles déduites des recettes : les mots formés sur une brique trouvée | fait |
-| Onglet Objectifs (I-18) : familles à compléter avec leur détail, langues rencontrées | fait ; jalons avec J4 (Content : jalons) |
+| Onglet Objectifs (I-18) : familles à compléter avec leur détail, langues rencontrées | fait ; les jalons y entreront avec J4 (Content : jalons) |
 | « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la fiche (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
+
+### Exigence reportée à J6
+
+- **Version déployée, version affichée.** Après le déploiement de J2 en hors-prod, le navigateur a d’abord servi l’ancienne PWA depuis le cache du service worker : il a fallu recharger une seconde fois (`registerType: 'autoUpdate'` sans rechargement de la page). Quand le service worker sera traité, une PWA qui n’est plus alignée sur ce qui est déployé doit forcer un rechargement, immédiatement, sans compter sur un second chargement ni sur la fermeture des onglets. Une table en cours reste sauvegardée dans IndexedDB et survit à ce rechargement.
 
 ## Décisions à formaliser
 
