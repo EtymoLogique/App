@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::IdCatalogue;
 
-/// Nombre de briques qu'accepte la table de fusion : un rail de trois cases au plus
-/// dans le MVP (maquette I-09).
+/// La table de fusion accepte exactement deux briques : on ne fusionne jamais
+/// plus de deux éléments à la fois.
 pub const TABLE_MIN: usize = 2;
-pub const TABLE_MAX: usize = 3;
+pub const TABLE_MAX: usize = 2;
 
 /// Une recette jouable : pour chaque emplacement, dans l'ordre, les briques acceptées.
 #[derive(Debug, Clone, PartialEq, Eq)]

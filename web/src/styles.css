@@ -90,7 +90,7 @@ h1, h2, h3, p, ol, ul { margin: 0; }
 a, button { color: inherit; }
 button { font: inherit; }
 ::selection { background: var(--c-action-tint); color: var(--fixed-ink); }
-:focus-visible { outline: 2px solid var(--c-action); outline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -205,7 +205,7 @@ button { font: inherit; }
 .segments input { position: absolute; opacity: 0; pointer-events: none; }
 /* Sélectionné : fond Encre. */
 .segments label.on { background: var(--ink); color: var(--paper); }
-.segments label:has(input:focus-visible) { outline: 2px solid var(--c-action); outline-offset: 3px; }
+.segments label:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 3px; }
 
 /* ---------- Boutons (design système 2.1) ---------- */
 .btn {
@@ -532,8 +532,10 @@ button.disc { font: inherit; cursor: pointer; }
 .champ kbd { padding: 0 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
 .filtres .cb-chip { padding: 6px 12px; }
-/* Brique sélectionnée dans la réserve (toucher, puis « Ajouter à la table ») : anneau Corail. */
-.brick.sel { outline: 2px solid var(--c-action); outline-offset: 3px; }
+/* Brique sélectionnée dans la réserve (toucher, puis « Ajouter à la table ») : soulevée, sans contour. */
+.brick.sel { transform: translate(-2px, -3px) rotate(-1.5deg); box-shadow: 6px 7px 0 var(--pop-shadow); }
+/* Aucun contour Corail sur une brique : le focus clavier y est un filet Encre. */
+.brick:focus-visible, .slot:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
 /* Retours d'une tentative, en ligne (I-10). */
 .retours { flex: 1; min-width: 0; display: grid; gap: 10px; }

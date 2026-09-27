@@ -18,7 +18,7 @@ interface Props {
 }
 
 /**
- * Rail de la table de fusion (maquette I-09) : trois cases au plus, reliées
+ * Rail de la table de fusion (maquette I-09) : deux cases, reliées
  * par « + », car l'ordre compte. On y glisse une brique ; toucher une case la
  * vide ; glisser une brique posée sur une autre case les échange.
  */

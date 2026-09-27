@@ -89,7 +89,7 @@ pub struct DemandeFusion {
     #[schema(max_length = 64)]
     pub version_catalogue: String,
     /// Briques posées sur la table, dans l'ordre.
-    #[schema(min_items = 2, max_items = 3)]
+    #[schema(min_items = 2, max_items = 2)]
     pub briques: Vec<IdCatalogue>,
 }
 

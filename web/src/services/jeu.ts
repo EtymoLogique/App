@@ -5,9 +5,9 @@
 import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, Rarete, Recette } from '../contrat'
 import type { LecteurCatalogue } from './catalogue'
 
-/** Taille de la table de fusion, comme `TABLE_MIN` et `TABLE_MAX` de l'API. */
+/** La table accepte exactement deux briques, comme `TABLE_MIN` et `TABLE_MAX` de l'API. */
 export const TABLE_MIN = 2
-export const TABLE_MAX = 3
+export const TABLE_MAX = 2
 /** Plafond d'exemplaires par brique (ADR 0012). */
 export const PLAFOND = 5
 

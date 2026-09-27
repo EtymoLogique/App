@@ -578,7 +578,7 @@
               "$ref": "#/components/schemas/IdCatalogue"
             },
             "description": "Briques posées sur la table, dans l'ordre.",
-            "maxItems": 3,
+            "maxItems": 2,
             "minItems": 2
           },
           "commande": {
