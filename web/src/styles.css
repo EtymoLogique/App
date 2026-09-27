@@ -80,7 +80,10 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--paper);
+  /* Fond de l'application : Papier foncé et trame de points Encre (jeu.html, #jeu). */
+  background-color: var(--paper-2);
+  background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1px, transparent 1.4px);
+  background-size: 22px 22px;
   color: var(--ink);
   font-family: var(--sans);
   line-height: 1.5;
@@ -258,13 +261,6 @@ button { font: inherit; }
 .panel-link:hover { text-decoration: underline; }
 
 /* ---------- Panneaux de jeu ---------- */
-/* Fond de la table : Papier foncé et trame de points Encre (jeu.html, #jeu). */
-.fond-jeu {
-  margin: -32px calc(-1 * var(--pad)) 0; padding: 32px var(--pad);
-  background-color: var(--paper-2);
-  background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1px, transparent 1.4px);
-  background-size: 22px 22px;
-}
 .jeu { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 1.25fr); gap: 18px; align-items: start; }
 .jeu > .table-panel { order: 2; }
 .jeu > .reserve-panel { order: 1; }

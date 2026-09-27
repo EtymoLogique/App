@@ -79,7 +79,13 @@ page.on('pageerror', (e) => erreurs.push(String(e)))
 page.on('console', (m) => m.type() === 'error' && erreurs.push(m.text()))
 
 await page.goto(o.url, { waitUntil: 'networkidle' })
-if (o.attendre) await page.locator(o.attendre).first().waitFor({ state: 'visible' })
+if (o.attendre) {
+  await page.locator(o.attendre).first().waitFor({ state: 'visible', timeout: 15000 }).catch(async (e) => {
+    await page.screenshot({ path: path.join(sortie, 'echec.png') })
+    console.error(`--attendre : « ${o.attendre} » jamais visible, capture dans ${path.join(sortie, 'echec.png')}`)
+    throw e
+  })
+}
 if (scenario.preparer) await scenario.preparer({ page })
 // Sinon Playwright fait défiler la page au moment du clic, et le défilement masque l'animation.
 const cible = o.clic ?? o.survol
