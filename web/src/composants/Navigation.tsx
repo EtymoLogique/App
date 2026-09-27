@@ -1,6 +1,7 @@
+import type { Onglet } from '../services/route'
 import { Icone, type NomIcone } from './Icone'
 
-export type Onglet = 'table' | 'codex' | 'plis' | 'reglages'
+export type { Onglet }
 
 const ONGLETS: { id: Onglet; libelle: string; icone: NomIcone }[] = [
   { id: 'table', libelle: 'Table', icone: 'table' },

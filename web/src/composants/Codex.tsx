@@ -11,11 +11,12 @@ import {
 } from '../services/codex'
 import type { CatalogueJeu } from '../services/jeu'
 import { NATURES } from '../services/jeu'
+import type { Route, TriCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
 import { chargerSilhouette } from '../services/silhouettes'
 import { FormeRarete } from './Rarete'
 
-type Tri = 'n' | 'az' | 'type' | 'fasc'
+type Tri = TriCodex
 const TRIS: [Tri, string][] = [
   ['n', 'N°'],
   ['az', 'A → Z'],
@@ -450,9 +451,9 @@ interface Props {
   jeu: CatalogueJeu
   nouvelles: Set<string>
   onVue: (id: string) => void
-  /** Carte à ouvrir dès l'arrivée dans le codex (depuis la table), puis `onOuverte`. */
-  aOuvrir?: string | null
-  onOuverte?: () => void
+  /** Vue du codex tenue dans l'URL : filtres, tri et carte agrandie. */
+  vue: Pick<Route, 'filtre' | 'tri' | 'fascicule' | 'carte'>
+  onChangerVue: (modif: Partial<Route>, options?: { remplacer?: boolean }) => void
   /** Adresse d'un média du catalogue (jaquette d'un fascicule). */
   urlMedia: (chemin: string) => string
   /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
@@ -460,21 +461,22 @@ interface Props {
 }
 
 /** Codex, vue globale (I-14, codex.html) : complétude par fascicule, filtres par type, tri, cartes et carte agrandie. */
-export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlMedia, lireMedia }: Props) {
-  const [filtre, setFiltre] = useState<TypeCarte | 'tout'>('tout')
-  const [ordre, setOrdre] = useState<Tri>('n')
-  const [fascicule, setFascicule] = useState<number | 'tous'>('tous')
-  const [ouverte, setOuverte] = useState<string | null>(null)
+export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
+  const filtre = vue.filtre
+  const ordre = vue.tri
+  const fascicule = vue.fascicule ?? 'tous'
+  const ouverte = vue.carte
+  const setFiltre = (f: TypeCarte | 'tout') => onChangerVue({ filtre: f }, { remplacer: true })
+  const setOrdre = (t: Tri) => onChangerVue({ tri: t }, { remplacer: true })
+  const setFascicule = (f: number | 'tous') => onChangerVue({ fascicule: f === 'tous' ? null : f }, { remplacer: true })
+  const setOuverte = (id: string | null) => onChangerVue({ carte: id })
   /** Fil d'Ariane : cartes quittées en suivant un lien, de la plus ancienne à la plus récente. */
   const [fil, setFil] = useState<string[]>([])
 
   const dansFascicule = entrees.filter((e) => fascicule === 'tous' || e.fascicule === fascicule)
   const visibles = dansFascicule.filter((e) => filtre === 'tout' || e.type === filtre).sort(tri(ordre))
   const tout = completude(entrees)
-  const ouvrir = (id: string) => {
-    setOuverte(id)
-    onVue(id)
-  }
+  const ouvrir = (id: string) => setOuverte(id)
   const naviguer = (id: string) => {
     setFil([])
     ouvrir(id)
@@ -495,21 +497,10 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlM
   }
   const carteOuverte = ouverte ? entrees.find((e) => e.id === ouverte) : undefined
 
-  // Ouvrir une carte demandée depuis la table : tous les filtres sont levés pour la montrer.
+  // Une carte ouverte, par un clic ou par l'URL (rechargement), n'est plus nouvelle.
   useEffect(() => {
-    if (!aOuvrir) return
-    const existe = entrees.some((e) => e.id === aOuvrir)
-    // oxlint-disable-next-line react/set-state-in-effect -- réponse à une demande de navigation venue d'un autre écran.
-    setFiltre('tout')
-    setOrdre('n')
-    setFascicule('tous')
-    setFil([])
-    if (existe) {
-      setOuverte(aOuvrir)
-      onVue(aOuvrir)
-    }
-    onOuverte?.()
-  }, [aOuvrir, entrees, onVue, onOuverte])
+    if (carteOuverte) onVue(carteOuverte.id)
+  }, [carteOuverte, onVue])
 
   return (
     <LectureMedia.Provider value={lireMedia}>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { Codex } from './composants/Codex'
 import { Fascicules } from './composants/Fascicules'
@@ -15,6 +15,7 @@ import { completude, construireCodex } from './services/codex'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
+import { useRoute } from './services/route'
 import { useEnLigne } from './services/reseau'
 
 interface Props {
@@ -36,8 +37,10 @@ export function App({ api, catalogue }: Props) {
   const partie = usePartie(api, catalogue)
   const enLigne = useEnLigne()
   const { reglages, changer } = useReglages()
-  const [onglet, setOnglet] = useState<Onglet>('table')
-  const [carteAOuvrir, setCarteAOuvrir] = useState<string | null>(null)
+  // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
+  const [route, naviguer] = useRoute()
+  const onglet = route.onglet
+  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null }), [naviguer])
   const { jeu, etat } = partie
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
   const entrees = useMemo(
@@ -65,10 +68,10 @@ export function App({ api, catalogue }: Props) {
   const allerAuCodex = useCallback(
     (motId?: string) => {
       partie.fermerFiche()
-      setCarteAOuvrir(motId ?? null)
-      setOnglet('codex')
+      // La carte demandée s'ouvre filtres levés, pour être sûre d'y être.
+      naviguer(motId ? { onglet: 'codex', carte: motId, filtre: 'tout', tri: 'n', fascicule: null } : { onglet: 'codex', carte: null })
     },
-    [partie],
+    [partie, naviguer],
   )
   const allerAuxPlis = () => {
     partie.fermerFiche()
@@ -225,8 +228,8 @@ export function App({ api, catalogue }: Props) {
                   jeu={catalogueJeu}
                   nouvelles={partie.nouvelles}
                   onVue={partie.carteVue}
-                  aOuvrir={onglet === 'codex' ? carteAOuvrir : null}
-                  onOuverte={() => setCarteAOuvrir(null)}
+                  vue={route}
+                  onChangerVue={naviguer}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   lireMedia={async (chemin) => new TextDecoder().decode(await catalogue.fichierHache(chemin))}
                 />

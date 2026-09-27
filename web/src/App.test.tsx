@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
@@ -31,6 +31,7 @@ describe('table de fusion', () => {
   beforeEach(async () => {
     lecteur = lecteurFictif()
     await effacerPartie()
+    history.replaceState(null, '', '/')
   })
 
   it('affiche la réserve de départ, sa recherche et ses filtres', async () => {
@@ -97,7 +98,7 @@ describe('table de fusion', () => {
 
     // Dans le codex, la carte nouvelle s'ouvre ; la nouveauté s'efface une fois vue.
     fireEvent.click(screen.getByRole('button', { name: /^Codex/ }))
-    fireEvent.click(screen.getByRole('button', { name: /^Nouvelle carte : géologie/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Nouvelle carte : géologie/ }))
     expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
     expect(screen.queryByLabelText('1 nouveauté')).not.toBeInTheDocument()
   })
@@ -109,13 +110,13 @@ describe('table de fusion', () => {
     )
     render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
-    fireEvent.click(screen.getByRole('button', { name: /^géologie, mot/ }))
-    const carte = screen.getByRole('dialog', { name: 'géologie' })
+    fireEvent.click(await screen.findByRole('button', { name: /^géologie, mot/ }))
+    const carte = await screen.findByRole('dialog', { name: 'géologie' })
     fireEvent.click(within(carte).getAllByRole('link', { name: 'Ouvrir la carte géo-' })[0] as HTMLElement)
-    const brique = screen.getByRole('dialog', { name: 'géo-' })
+    const brique = await screen.findByRole('dialog', { name: 'géo-' })
     expect(within(brique).getByRole('navigation', { name: 'Parcours entre les cartes' })).toHaveTextContent('géologie')
     fireEvent.click(within(brique).getByRole('button', { name: 'Revenir à la carte géologie' }))
-    expect(screen.getByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
   })
 
   it('propose d’inverser quand l’ordre est faux', async () => {
@@ -179,7 +180,7 @@ describe('table de fusion', () => {
     render(<App api={api} catalogue={lecteur} />)
     expect(await screen.findByText('Aucun mot possible pour l’instant')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Aller aux plis' }))
-    expect(screen.getByRole('heading', { name: 'Plis', level: 1 })).toBeVisible()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Plis', level: 1 })).toBeVisible())
   })
 
   it('applique le thème choisi dans les réglages', async () => {
@@ -189,5 +190,24 @@ describe('table de fusion', () => {
     expect(document.documentElement.dataset.theme).toBe('nocturne')
     fireEvent.click(screen.getByLabelText('Système'))
     expect(document.documentElement.dataset.theme).toBeUndefined()
+  })
+
+  it('revient au même écran après un rechargement', async () => {
+    const api = new ClientApi('https://api.exemple.test')
+    vi.spyOn(api, 'etat').mockResolvedValue(
+      etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
+    )
+    const { unmount } = render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Mots/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^géologie, mot/ }))
+    await screen.findByRole('dialog', { name: 'géologie' })
+    expect(window.location.hash).toBe(`#/codex/${MOT}?type=mot`)
+    unmount()
+
+    // Rechargement : même onglet, même filtre, même carte ouverte.
+    render(<App api={api} catalogue={lecteur} />)
+    expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Mots/ })).toHaveAttribute('aria-pressed', 'true')
   })
 })
