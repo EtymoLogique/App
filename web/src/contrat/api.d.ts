@@ -128,6 +128,7 @@ export interface components {
         Carte: {
             brique?: components["schemas"]["BriqueCarte"] | null;
             compositions?: components["schemas"]["CompositionCarte"][];
+            fait?: components["schemas"]["Fait"] | null;
             formes: components["schemas"]["Forme"][];
             id: components["schemas"]["IdCatalogue"];
             langue_id: components["schemas"]["IdCatalogue"];
@@ -152,6 +153,8 @@ export interface components {
             preferee?: boolean;
             transformations?: components["schemas"]["Transformation"][];
         };
+        /** @enum {string} */
+        Confiance: "etablie" | "probable" | "discutee" | "non_retenue";
         Decouverte: {
             /** Format: date-time */
             decouverte_le: string;
@@ -253,6 +256,9 @@ export interface components {
             brique_id: components["schemas"]["IdCatalogue"];
             /** Format: int32 */
             exemplaires: number;
+        };
+        Fait: {
+            confiance: components["schemas"]["Confiance"];
         };
         Forme: {
             id: components["schemas"]["IdCatalogue"];

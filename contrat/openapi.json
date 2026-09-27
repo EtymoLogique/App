@@ -409,6 +409,17 @@
               "$ref": "#/components/schemas/CompositionCarte"
             }
           },
+          "fait": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Fait",
+                "description": "Socle éditorial de l'unité : son niveau de confiance."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "formes": {
             "type": "array",
             "items": {
@@ -514,6 +525,15 @@
             }
           }
         }
+      },
+      "Confiance": {
+        "type": "string",
+        "enum": [
+          "etablie",
+          "probable",
+          "discutee",
+          "non_retenue"
+        ]
       },
       "Decouverte": {
         "type": "object",
@@ -779,6 +799,17 @@
           }
         },
         "additionalProperties": false
+      },
+      "Fait": {
+        "type": "object",
+        "required": [
+          "confiance"
+        ],
+        "properties": {
+          "confiance": {
+            "$ref": "#/components/schemas/Confiance"
+          }
+        }
       },
       "Forme": {
         "type": "object",

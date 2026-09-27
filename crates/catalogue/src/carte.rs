@@ -42,6 +42,23 @@ pub struct Carte {
     pub compositions: Vec<CompositionCarte>,
     #[serde(default)]
     pub relations: Vec<RelationCarte>,
+    /// Socle éditorial de l'unité : son niveau de confiance.
+    #[serde(default)]
+    pub fait: Option<Fait>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Confiance {
+    Etablie,
+    Probable,
+    Discutee,
+    NonRetenue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct Fait {
+    pub confiance: Confiance,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

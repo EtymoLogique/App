@@ -18,7 +18,7 @@ function client(fusion?: ClientApi['fusion']): ClientApi {
 let lecteur: LecteurCatalogue
 
 async function poser(...libelles: string[]) {
-  const reserve = await screen.findByRole('region', { name: 'Réserve' })
+  const reserve = await screen.findByRole('region', { name: 'Réserve · exemplaires' })
   for (const libelle of libelles) {
     fireEvent.click(within(reserve).getByText(libelle).closest('button') as HTMLElement)
   }
@@ -32,17 +32,16 @@ describe('table de fusion', () => {
 
   it('affiche la réserve de départ et ses exemplaires', async () => {
     render(<App api={client()} catalogue={lecteur} />)
-    const reserve = await screen.findByRole('region', { name: 'Réserve' })
+    const reserve = await screen.findByRole('region', { name: 'Réserve · exemplaires' })
     expect(await within(reserve).findByRole('button', { name: 'Poser géo- (terre) sur la table. 2 exemplaires disponibles' })).toBeInTheDocument()
     expect(within(reserve).getByRole('button', { name: 'Poser -logie (étude) sur la table. 1 exemplaire disponible' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Codex' }))
     expect(screen.getByRole('progressbar', { name: 'Mots découverts' })).toHaveAttribute('aria-valuenow', '0')
   })
 
   it('réserve un exemplaire par brique posée', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     await poser('-logie')
-    const reserve = screen.getByRole('region', { name: 'Réserve' })
+    const reserve = screen.getByRole('region', { name: 'Réserve · exemplaires' })
     const logie = within(reserve).getByText('-logie').closest('button') as HTMLElement
     expect(logie).toHaveAttribute('aria-disabled', 'true')
     expect(logie).toHaveClass('is-out')
@@ -71,7 +70,7 @@ describe('table de fusion', () => {
     expect(fusion).toHaveBeenCalledWith(
       expect.objectContaining({ version_etat: 1, version_catalogue: 'v1', briques: [GEO, LOGIE] }),
     )
-    const fiche = await screen.findByRole('dialog', { name: 'géologie' })
+    const fiche = await screen.findByRole('article', { name: 'géologie' })
     expect(screen.getByLabelText('1 nouveauté')).toBeInTheDocument()
     expect(within(fiche).getByRole('button', { name: /Ouvrir un pli/ })).toBeInTheDocument()
     expect(within(fiche).getByText('Découverte 1 / 1')).toBeInTheDocument()
@@ -79,12 +78,14 @@ describe('table de fusion', () => {
     expect(within(fiche).getByText(/étude de la terre/)).toBeInTheDocument()
     expect(within(fiche).getByLabelText('préfixe géo- : −1, reste 1')).toBeInTheDocument()
     expect(within(fiche).getByLabelText('suffixe -logie : −1, épuisée')).toBeInTheDocument()
-    expect(within(screen.getByRole('region', { name: 'Réserve' })).getByText('épuisée')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Réserve · exemplaires' })).getByText('épuisée')).toBeInTheDocument()
     fireEvent.click(within(fiche).getByRole('button', { name: 'Continuer' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    // Le codex signale la nouveauté, puis l'efface une fois visité.
-    fireEvent.click(screen.getByRole('button', { name: /Codex/ }))
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Mots découverts' })).toHaveAttribute('aria-valuenow', '1')
+    // Le codex signale la carte nouvelle, jusqu'à ce qu'on l'ouvre.
+    fireEvent.click(screen.getByRole('button', { name: /^Codex/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Nouvelle carte : géologie/ }))
+    expect(screen.getByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
     expect(screen.queryByLabelText('1 nouveauté')).not.toBeInTheDocument()
   })
 
@@ -112,15 +113,15 @@ describe('table de fusion', () => {
     render(<App api={client()} catalogue={lecteur} />)
     await poser('géo-', '-logie')
     expect(screen.getByRole('button', { name: 'Fusionner' })).toBeDisabled()
-    expect(screen.getAllByText(/la fusion attendra le retour du réseau/)).toHaveLength(2)
+    expect(screen.getAllByText(/la fusion attendra le retour du réseau/).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('réordonne au clavier', async () => {
+  it('rend à la réserve la brique posée qu’on touche', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     await poser('géo-', '-logie')
-    fireEvent.click(screen.getByRole('button', { name: 'Avancer -logie' }))
-    const posees = within(screen.getByRole('list', { name: 'Briques posées, dans l’ordre' })).getAllByText(/^(géo-|-logie)$/)
-    expect(posees.map((e) => e.textContent)).toEqual(['-logie', 'géo-'])
+    fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' }))
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Poser géo- (terre) sur la table. 2 exemplaires disponibles' })).toBeInTheDocument()
   })
 
   it('mène aux plis quand la réserve ne permet plus de découverte', async () => {

@@ -1,6 +1,6 @@
 import type { Exemplaires } from '../contrat'
 import type { BriqueJeu } from '../services/jeu'
-import { NATURES, TABLE_MAX } from '../services/jeu'
+import { NATURES } from '../services/jeu'
 import { ContenuBrique } from './Brique'
 
 export const TYPE_GLISSE = 'application/x-etymo-brique'
@@ -35,9 +35,7 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
           ? `Plus aucun exemplaire de ${brique.libelle}. Ouvrez un pli pour en retrouver.`
           : disponibles <= 0
             ? `Tous vos exemplaires de ${brique.libelle} sont déjà sur la table.`
-            : table.length >= TABLE_MAX
-              ? `La table accueille ${TABLE_MAX} briques au plus.`
-              : null
+            : null
         const nom = `${brique.libelle}${brique.glose ? ` (${brique.glose})` : ''}`
         const classes = ['brick', epuisee ? 'is-spent' : disponibles <= 0 ? 'is-out' : ''].filter(Boolean).join(' ')
         return (

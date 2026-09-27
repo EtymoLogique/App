@@ -2,7 +2,7 @@
 // prévisualisation d'une fusion. Le serveur fait foi (ADR 0007, ADR 0027) :
 // la prévisualisation n'est qu'une réponse immédiate, démentie au besoin.
 
-import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, Recette } from '../contrat'
+import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, Rarete, Recette } from '../contrat'
 import type { LecteurCatalogue } from './catalogue'
 
 /** Taille de la table de fusion, comme `TABLE_MIN` et `TABLE_MAX` de l'API. */
@@ -17,6 +17,8 @@ export interface FasciculeParu {
   manifeste: Manifeste
 }
 
+export type { Rarete }
+
 /** Une brique telle qu'on l'affiche : jamais en texte brut (game-design). */
 export interface BriqueJeu {
   id: string
@@ -25,6 +27,7 @@ export interface BriqueJeu {
   forme: string
   /** Forme affichée, avec le trait d'union qui dit sa position : « géo- », « -logie ». */
   libelle: string
+  rarete: Rarete
   glose: string | null
   langue: string | null
   origine: string | null
@@ -107,6 +110,7 @@ function brique(carte: Carte, langues: Map<string, string>): BriqueJeu | null {
     nature: carte.nature,
     forme: forme?.texte ?? '…',
     libelle: libelle(carte.nature, forme?.texte ?? '…'),
+    rarete: carte.brique.rarete,
     glose: sens?.libelles.fr?.glose ?? null,
     langue: langues.get(carte.langue_id) ?? null,
     origine,

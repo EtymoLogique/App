@@ -21,6 +21,11 @@
   --c-prefix-tint: #eef9c4;
   --c-suffix: #4fd1c5;
   --c-suffix-tint: #d4f3ef;
+  --c-prefix-deep: #5c7600;
+  --c-suffix-deep: #0d746a;
+  --c-lang: #8f7bf0;
+  --c-lang-tint: #e5e0fc;
+  --c-lang-deep: #5541c2;
   --c-pli: #f4b740;
   --c-pli-tint: #fcecc6;
   --c-action: #ff6b4a;
@@ -240,7 +245,26 @@ button { font: inherit; }
 :root[data-theme="nocturne"] .btn-texte { color: var(--c-action); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .btn-texte { color: var(--c-action); } }
 
+/* Renvoi (site-nav.css du dossier) : pastille à flèche Corail profond. */
+.xref {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 10px;
+  border: 1.5px solid var(--ink); border-radius: 999px;
+  background: var(--cream); color: var(--ink); cursor: pointer;
+  font-family: var(--sans); font-size: 12.5px; font-weight: 600; line-height: 1.3; text-decoration: none;
+}
+.xref::before { color: var(--c-action-deep); content: "\2197"; font-weight: 700; }
+.xref:hover { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 var(--pop-shadow); }
+.panel-link { display: inline-block; margin-top: 12px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--c-action-deep); font-size: 13px; font-weight: 700; text-decoration: none; }
+.panel-link:hover { text-decoration: underline; }
+
 /* ---------- Panneaux de jeu ---------- */
+/* Fond de la table : Papier foncé et trame de points Encre (jeu.html, #jeu). */
+.fond-jeu {
+  margin: -32px calc(-1 * var(--pad)) 0; padding: 32px var(--pad);
+  background-color: var(--paper-2);
+  background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+}
 .jeu { display: grid; grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.6fr); gap: 20px; align-items: start; }
 .jeu > .table-panel { order: 2; }
 .jeu > .reserve-panel { order: 1; }
@@ -314,32 +338,31 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 }
 .bchip[data-kind="suffixe"] { background: var(--c-suffix); }
 .bchip[data-kind="mot"] { background: #fffbf3; }
+.bchip.missing { border-style: dashed; background: transparent; color: var(--ink-3); box-shadow: none; letter-spacing: 0.08em; }
+.bformula { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .bplus { color: var(--ink-3); font-family: var(--serif); font-size: 16px; line-height: 1; }
+.d-formula { color: var(--ink-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+.d-formula .bchip { font-size: 13px; }
 
 /* ---------- Table de fusion (design système 3.3) ---------- */
 .table-panel { display: flex; flex-direction: column; gap: 16px; }
 .status { display: inline-flex; align-items: center; gap: 8px; }
 .status::before { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); content: ""; }
 .table-panel.ready .status::before { background: var(--c-action); }
-.slots { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 14px; min-height: 160px; padding: 20px 0; list-style: none; }
+.slots { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px; min-height: 220px; }
 .slot {
-  display: grid; justify-items: center; align-content: start; gap: 10px;
-  min-width: 150px;
-}
-.slot-case {
   display: grid; place-items: center;
-  min-width: 150px; height: 108px; padding: 0 8px;
+  width: 150px; height: 108px; padding: 0;
   border: 2px dashed var(--line-strong); border-radius: 12px;
-  color: var(--ink-3);
+  background: transparent; color: var(--ink-3);
+  cursor: pointer;
 }
 .slot-num { font-family: var(--serif); font-size: 40px; font-style: italic; opacity: 0.5; }
-/* Posée sur la table : anneau Corail (design système 3.1). */
-.slot.filled .brick { outline: 2px solid var(--c-action); outline-offset: 3px; }
 /* Cible de dépôt : teinte Corail. */
-.slot.over .slot-case { border-style: solid; background: var(--c-action-tint); }
-.slot.filled .slot-case { border-color: transparent; }
-.slot-actions { display: flex; gap: 4px; }
-.slot-brique { cursor: pointer; }
+.slot.over { border-style: solid; background: var(--c-action-tint); transform: scale(1.05); }
+.slot.filled { border-color: transparent; }
+.slot.filled .brick { cursor: pointer; }
+.op { font-family: var(--serif); font-size: 42px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions .btn-primary { flex: 1; }
 /* Cercle d'état + phrase courte : Corail plein = découverte, contour Encre = presque, Gris encre = échec, Encre plein = connu. */
@@ -357,18 +380,15 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .feedback[data-tone="wait"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
 .feedback .bchip { margin-inline: 2px; }
 
-/* ---------- Fiche de découverte (design système 3.4) ---------- */
-.voile {
-  position: fixed; inset: 0; z-index: 50;
-  display: grid; place-items: center; padding: 16px;
-  background: rgba(15, 31, 25, 0.55);
-}
+/* ---------- Fiche de découverte (design système 3.4) : au-dessus de la table, qui reste visible ---------- */
 .result {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  width: min(560px, 100%); max-height: 90vh; overflow-y: auto;
-  padding: 28px 24px; border: 1.5px solid var(--line-strong); border-radius: var(--radius);
+  display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 10px;
+  padding: 24px; border: 1.5px solid var(--line-strong); border-radius: 14px;
   background: var(--cream); text-align: center;
 }
+.table-panel.showing .slots,
+.table-panel.showing .actions,
+.table-panel.showing .feedback { display: none; }
 .r-kicker { color: var(--c-action-deep); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 :root[data-theme="nocturne"] .r-kicker { color: var(--c-action); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .r-kicker { color: var(--c-action); } }
@@ -386,7 +406,8 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .r-cost-titre { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
 .r-cost li { display: inline-flex; align-items: center; gap: 6px; }
 .r-cost small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; }
-.result .btn { margin-top: 8px; }
+.result .btn { margin-top: 8px; min-height: 40px; }
+.r-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 
 /* ---------- Découvertes ---------- */
 .discoveries { padding: 22px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
@@ -394,7 +415,8 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .disc-head h2 { font: inherit; letter-spacing: inherit; }
 .disc-bar { height: 6px; margin-bottom: 18px; overflow: hidden; border-radius: 999px; background: var(--paper-2); }
 .disc-bar i { display: block; height: 100%; background: var(--ink); }
-.disc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; list-style: none; padding: 0; }
+.disc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; list-style: none; padding: 0; }
+.discoveries { margin-top: 20px; }
 .disc {
   display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
   width: 100%; min-height: 86px; padding: 12px;
@@ -404,7 +426,7 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 }
 button.disc { font: inherit; cursor: pointer; }
 .d-word { font-family: var(--serif); font-size: 17px; overflow-wrap: anywhere; }
-.disc:not(.found) .d-word { color: var(--ink-3); font-size: 14px; letter-spacing: 0.04em; }
+.disc:not(.found) .d-word { overflow: hidden; color: var(--ink-3); font-size: 14px; letter-spacing: 0.04em; white-space: nowrap; }
 .d-def { color: var(--ink-2); font-size: 12px; line-height: 1.4; }
 .disc.found { border-style: solid; background: var(--paper); opacity: 1; }
 .disc.found .d-word { font-weight: 600; letter-spacing: -0.01em; }
@@ -431,6 +453,8 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .btn:active { transform: translate(2px, 2px); }
   :root:not([data-mouvement="reduit"]) .brick { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out), opacity 0.2s; }
   :root:not([data-mouvement="reduit"]) .slot.filled .brick { animation: land 0.45s var(--ease-spring); }
+  :root:not([data-mouvement="reduit"]) .slot { transition: transform 0.55s var(--ease-out), background-color 0.2s, border-color 0.2s; }
+  :root:not([data-mouvement="reduit"]) .xref { transition: transform 0.2s, box-shadow 0.2s; }
   :root:not([data-mouvement="reduit"]) .result { animation: pop 0.7s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .feedback { animation: bump 0.4s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .table-panel.ready .btn-primary:not(:disabled) { animation: readyPulse 1.5s infinite; }
@@ -468,9 +492,15 @@ button.disc { font: inherit; cursor: pointer; }
   .jeu { grid-template-columns: 1fr; }
   .jeu > .table-panel { order: 1; }
   .jeu > .reserve-panel { order: 2; }
-  .slot, .slot-case { min-width: 128px; }
-  .slot-case { height: 96px; }
-  /* Fiche plein écran sur mobile (I-11). */
-  .voile { padding: 0; }
-  .result { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; justify-content: center; }
+  .disc-grid { grid-template-columns: repeat(2, 1fr); }
+}
+/* Petits écrans (etymo.css, max-width 520 px) : deux emplacements tiennent sur une ligne. */
+@media (max-width: 520px) {
+  .slots { flex-wrap: nowrap; gap: 6px; }
+  .slot { width: 124px; height: 96px; flex: none; }
+  .brick { min-width: 94px; padding: 9px 11px; }
+  .b-label { font-size: 18px; }
+  .op { font-size: 30px; }
+  .result { padding: 16px 14px; gap: 8px; }
+  .r-eq { flex-wrap: nowrap; gap: 6px; }
 }

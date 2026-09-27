@@ -76,6 +76,7 @@ export function jeu(): CatalogueJeu {
           nature: c.nature,
           forme: c.formes[0]?.texte ?? '',
           libelle: libelle(c.nature, c.formes[0]?.texte ?? ''),
+          rarete: 'commune' as const,
           glose: c.sens[0]?.libelles.fr?.glose ?? null,
           langue: 'français',
           origine: null,

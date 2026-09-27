@@ -4,7 +4,7 @@ import type { Etat } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
-import { type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir } from './jeu'
+import { type CatalogueJeu, TABLE_MAX, TABLE_MIN, chargerJeu, prevoir } from './jeu'
 import { etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
@@ -44,9 +44,15 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   /** Briques qui viennent d'être consommées : leur « −1 » s'envole dans la réserve. */
   const [consommees, setConsommees] = useState<string[]>([])
   /** Découvertes de la session pas encore vues dans le codex : compteur Corail de la navigation. */
-  const [nouvelles, setNouvelles] = useState(0)
+  const [nouvelles, setNouvelles] = useState<Set<string>>(new Set())
   const actif = useRef(true)
   const restauree = useRef(false)
+
+  /** La table n'a pas plus d'emplacements que la plus longue recette publiée. */
+  const maximum =
+    jeu.etat === 'pret' && jeu.valeur && jeu.valeur.recettes.length > 0
+      ? Math.min(TABLE_MAX, Math.max(TABLE_MIN, ...jeu.valeur.recettes.map((r) => r.emplacements.length)))
+      : TABLE_MAX
 
   const confirmer = useCallback((nouvel: Etat) => {
     setEtat(nouvel)
@@ -87,22 +93,41 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     if (restauree.current) void memoriserTable(table)
   }, [table])
 
-  const ajouter = useCallback((brique: string, rang?: number) => {
-    setTable((t) => {
-      if (t.length >= TABLE_MAX) return t
-      const suite = [...t]
-      suite.splice(rang ?? t.length, 0, brique)
-      return suite
-    })
-    setRetour(null)
-  }, [])
+  /** Pose une brique dans le premier emplacement libre ; table pleine, elle remplace la dernière (jeu.html). */
+  const ajouter = useCallback(
+    (brique: string) => {
+      setTable((t) => (t.length < maximum ? [...t, brique] : [...t.slice(0, maximum - 1), brique]))
+      setRetour(null)
+      setFiche(null)
+    },
+    [maximum],
+  )
 
+  /** Pose une brique sur l'emplacement `rang` : elle remplace celle qui s'y trouvait. */
+  const poser = useCallback(
+    (brique: string, rang: number) => {
+      setTable((t) => {
+        const suite = [...t]
+        if (rang < suite.length) suite[rang] = brique
+        else if (suite.length < maximum) suite.push(brique)
+        return suite
+      })
+      setRetour(null)
+      setFiche(null)
+    },
+    [maximum],
+  )
+
+  /** Échange deux briques posées. */
   const deplacer = useCallback((depuis: number, vers: number) => {
     setTable((t) => {
-      if (vers < 0 || vers >= t.length) return t
+      if (vers < 0 || vers >= t.length || depuis === vers) return t
       const suite = [...t]
-      const [brique] = suite.splice(depuis, 1)
-      if (brique !== undefined) suite.splice(vers, 0, brique)
+      const a = suite[depuis]
+      const b = suite[vers]
+      if (a === undefined || b === undefined) return t
+      suite[depuis] = b
+      suite[vers] = a
       return suite
     })
     setRetour(null)
@@ -139,7 +164,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
       if (issue.type === 'decouverte') {
         setTable([])
         setConsommees(proposition)
-        setNouvelles((n) => n + 1)
+        setNouvelles((n) => new Set(n).add(issue.mot_id))
         setFiche({ motId: issue.mot_id, consommees: proposition })
       } else if (issue.type === 'connue') {
         setFiche({ motId: issue.mot_id })
@@ -166,13 +191,24 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     erreurEtat,
     table,
     retour,
+    maximum,
     enAttente,
     fiche,
     secousse,
     consommees,
     nouvelles,
-    codexVu: useCallback(() => setNouvelles(0), []),
+    carteVue: useCallback(
+      (id: string) =>
+        setNouvelles((n) => {
+          if (!n.has(id)) return n
+          const suite = new Set(n)
+          suite.delete(id)
+          return suite
+        }),
+      [],
+    ),
     ajouter,
+    poser,
     deplacer,
     retirer,
     vider,

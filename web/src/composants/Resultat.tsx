@@ -68,17 +68,21 @@ function Phrase({ issue, jeu, onOuvrirFiche }: { issue: IssueFusion | Prevision 
  */
 export function Resultat({ retour, jeu, onOuvrirFiche }: Props) {
   let ton: Ton | undefined
-  let contenu: React.ReactNode = null
+  let contenu: React.ReactNode = 'Posez deux briques dans l’ordre de votre choix.'
   if (retour?.etat === 'message') {
     ton = 'fail'
     contenu = retour.texte
   } else if (retour?.etat === 'prevision') {
+    // Aucune découverte n'est annoncée avant la validation du serveur (interfaces, règle 05).
     ton = 'wait'
-    contenu = (
-      <>
-        {Phrase({ issue: retour.prevision, jeu, onOuvrirFiche })[1]} <span className="sr-only">En attente de confirmation.</span>
-      </>
-    )
+    contenu =
+      retour.prevision.type === 'decouverte' ? (
+        'Vérification de votre hypothèse…'
+      ) : (
+        <>
+          {Phrase({ issue: retour.prevision, jeu, onOuvrirFiche })[1]} <span className="sr-only">En attente de confirmation.</span>
+        </>
+      )
   } else if (retour?.etat === 'confirme') {
     ;[ton, contenu] = Phrase({ issue: retour.issue, jeu, onOuvrirFiche })
   }

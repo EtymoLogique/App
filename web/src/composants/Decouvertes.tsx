@@ -1,56 +1,73 @@
-import type { Decouverte } from '../contrat'
-import type { CatalogueJeu } from '../services/jeu'
-import { definition, texteDuMot } from '../services/jeu'
+import type { EntreeCodex } from '../services/codex'
+import { NATURES } from '../services/jeu'
 
 interface Props {
-  decouvertes: Decouverte[]
-  jeu: CatalogueJeu
-  total: number
+  /** Mots du codex, sans légendaire inconnue ni mot qui en dépend. */
+  mots: EntreeCodex[]
   onOuvrirFiche: (motId: string) => void
+  onCodex: () => void
 }
 
-/** Découvertes : barre de progression Encre, mots trouvés, cases en pointillé pour ce qui manque. */
-export function Decouvertes({ decouvertes, jeu, total, onOuvrirFiche }: Props) {
-  const manquants = Math.max(total - decouvertes.length, 0)
-  const part = total > 0 ? Math.min(decouvertes.length / total, 1) : 0
+/**
+ * Découvertes, sous la table (jeu.html) : barre de progression Encre, mots
+ * trouvés avec leur formule en petites briques, mots à trouver en silhouette.
+ */
+export function Decouvertes({ mots, onOuvrirFiche, onCodex }: Props) {
+  const trouves = mots.filter((m) => m.trouvee).length
+  const part = mots.length > 0 ? trouves / mots.length : 0
   return (
     <section className="discoveries" aria-labelledby="titre-decouvertes">
       <div className="disc-head">
         <h2 id="titre-decouvertes">Découvertes</h2>
         <span>
-          {decouvertes.length} / {total}
+          {trouves} / {mots.length}
         </span>
       </div>
-      <div
-        className="disc-bar"
-        role="progressbar"
-        aria-label="Mots découverts"
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={decouvertes.length}
-      >
+      <div className="disc-bar" role="progressbar" aria-label="Mots découverts" aria-valuemin={0} aria-valuemax={mots.length} aria-valuenow={trouves}>
         <i style={{ width: `${part * 100}%` }} />
       </div>
       <ul className="disc-grid">
-        {decouvertes.map((d) => {
-          const carte = jeu.cartes.get(d.mot_id)
+        {mots.map((m) => {
+          const lettres = Array.from(m.libelle).length
           return (
-            <li key={d.mot_id}>
-              <button type="button" className="disc found" onClick={() => onOuvrirFiche(d.mot_id)}>
-                <span className="d-word">{texteDuMot(carte)}</span>
-                {carte && definition(carte) && <span className="d-def">{definition(carte)}</span>}
-              </button>
+            <li key={m.id}>
+              {m.trouvee ? (
+                <button type="button" className="disc found" aria-label={`${m.libelle} : ${m.definition ?? ''} Revoir la fiche`} onClick={() => onOuvrirFiche(m.id)}>
+                  <span className="d-word">{m.libelle}</span>
+                  {m.liens && (
+                    <span className="d-formula">
+                      <span className="bformula">
+                        {m.liens.items.map((l, i) => (
+                          <span key={i} className="bformula">
+                            {i > 0 && <span className="bplus">+</span>}
+                            <span className="bchip" data-kind={NATURES[l.nature]}>
+                              {l.libelle}
+                            </span>
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <div className="disc" aria-label={`Mot à découvrir, ${lettres} lettres`}>
+                  <span className="d-word" aria-hidden="true">
+                    {'•'.repeat(lettres)}
+                  </span>
+                  <span className="d-formula" aria-hidden="true">
+                    {lettres} lettres
+                  </span>
+                </div>
+              )}
             </li>
           )
         })}
-        {Array.from({ length: manquants }, (_, i) => (
-          <li key={`manquant-${i}`}>
-            <span className="disc" aria-label="Mot à découvrir">
-              <span className="d-word">?</span>
-            </span>
-          </li>
-        ))}
       </ul>
+      <p className="panel-tip">
+        <button type="button" className="xref" onClick={onCodex}>
+          Toutes les cartes du codex
+        </button>
+      </p>
     </section>
   )
 }
