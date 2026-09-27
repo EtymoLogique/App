@@ -26,6 +26,7 @@ Si le code s’écarte d’un ADR, ou si deux sources se contredisent, signalez 
 - **Prévisualisation d’une fusion** : `prevoir` (`web/src/services/jeu.ts`) est le miroir de `etymo_domaine::fusion::resoudre`. Changez les deux ensemble, avec leurs tests.
 - **Fichiers générés** (`contrat/openapi.json`, `web/src/contrat/api.d.ts`, `.sqlx/`) : régénérez-les, ne les éditez pas.
 - **Identité visuelle** : `web/src/styles.css` reprend les jetons et les composants du design système (`docs/assets/etymo.css` du dossier de conception). Pas de couleur en dur hors palette, pas de blanc pur, ombres dures en Encre ; une brique affiche son trait d’union (« géo- », « -logie »), jamais en texte brut. Contrôlez avec `python3 ../design/.agents/skills/visual-identity-check/check_identity.py web/src/styles.css` et la checklist du skill `visual-identity-check`.
+- **Animations** : toute modification d'une animation ou d'une transition se vérifie image par image avec le skill `animation-check` (`.agents/skills/animation-check/`).
 - **Vocabulaire du jeu** : « pli » (jamais « pack »), « codex », « exemplaire », « réserve », « brique », « fascicule ». Typographie française dans les libellés : « », ’, espaces insécables.
 - **Branches** (ADR 0028) : `develop` déploie en hors-prod, un tag `v*.*.*` en prod.
 

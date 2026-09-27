@@ -329,3 +329,11 @@
   :root:not([data-mouvement="reduit"]) .jk-mini { transition: rotate 0.35s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .cb-fasc-btn:hover .jk-mini { rotate: 2deg; }
 }
+
+/* Composition sur la carte agrandie (etymo.css, .bf-body .r-eq) : les morceaux restent sur une ligne,
+   alignés à gauche, en briques compactes sans leur type. */
+.bf-body .r-eq { flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 8px; margin: 4px 0; }
+.bf-body .r-eq .brick { flex: 0 1 auto; min-width: 0; padding: 7px 11px; }
+.bf-body .r-eq .b-label { font-size: 18px; }
+.bf-body .r-eq .b-meta { white-space: normal; }
+.bf-body .r-eq .b-kind { display: none; }

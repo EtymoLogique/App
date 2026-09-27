@@ -291,8 +291,11 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                                 <span className="brick s" data-kind={NATURES[b.nature]}>
                                   <span className="b-label">{b.libelle}</span>
                                   <span className="b-meta">
-                                    {NATURES[b.nature]}
-                                    {b.glose && <> · «&nbsp;{b.glose}&nbsp;»</>}
+                                    <span className="b-kind">
+                                      {NATURES[b.nature]}
+                                      {b.glose && ' · '}
+                                    </span>
+                                    {b.glose && <>«&nbsp;{b.glose}&nbsp;»</>}
                                   </span>
                                 </span>,
                                 p.unite_id,
