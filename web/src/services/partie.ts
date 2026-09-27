@@ -22,6 +22,8 @@ function message(e: unknown): string {
 
 /** Durée de la fusion avant la révélation, comme la démo jeu.html. */
 const DUREE_FUSION_MS = 700
+/** Durée du « −1 » qui s'envole d'une brique utilisée (mouvement.html). */
+const DUREE_MOINS_UN_MS = 1400
 
 function mouvementReduit(): boolean {
   return document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
@@ -180,6 +182,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         setRetour({ etat: 'confirme', issue })
         setTable([])
         setConsommees(proposition)
+        // Le « −1 » ne s'envole qu'une fois (1,3 s) : il ne doit pas rejouer quand l'écran réapparaît.
+        setTimeout(() => setConsommees((c) => (c === proposition ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
         setNouvelles((n) => new Set(n).add(issue.mot_id))
         setFiche({ motId: issue.mot_id, consommees: proposition })
       } else {
