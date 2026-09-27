@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, cloneElement, useEffect, useRef, useState } from 'react'
 
 import {
   CONFIANCES,
@@ -128,31 +128,67 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
 }
 
 interface VisionneuseProps {
+  /** Cartes visibles dans la grille : précédente et suivante. */
   entrees: EntreeCodex[]
-  index: number
+  /** Toutes les cartes, pour suivre un lien vers une carte filtrée. */
+  toutes: EntreeCodex[]
+  entree: EntreeCodex
+  /** Cartes quittées par des liens, pour le fil d'Ariane. */
+  fil: EntreeCodex[]
   jeu: CatalogueJeu
-  onNaviguer: (index: number) => void
+  onNaviguer: (id: string) => void
+  onSuivreLien: (id: string) => void
+  onRemonter: (rang: number) => void
   onFermer: () => void
 }
 
 /** Carte agrandie (I-15) : recto, puis verso retourné, précédente et suivante au clavier. */
-function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseProps) {
+function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer }: VisionneuseProps) {
   const [retournee, setRetournee] = useState(false)
   const fermer = useRef<HTMLButtonElement>(null)
-  const entree = entrees[index]
+  const index = entrees.findIndex((e) => e.id === entree.id)
+  const voisine = (pas: number) => {
+    if (entrees.length === 0) return
+    const i = index < 0 ? 0 : (index + pas + entrees.length) % entrees.length
+    const e = entrees[i]
+    if (e) onNaviguer(e.id)
+  }
   useEffect(() => {
     fermer.current?.focus()
   }, [])
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement | null)?.getAttribute('role') === 'link' && (e.key === 'Enter' || e.key === ' ')) return
       if (e.key === 'Escape') onFermer()
-      else if (e.key === 'ArrowLeft') onNaviguer((index - 1 + entrees.length) % entrees.length)
-      else if (e.key === 'ArrowRight') onNaviguer((index + 1) % entrees.length)
+      else if (e.key === 'ArrowLeft') voisine(-1)
+      else if (e.key === 'ArrowRight') voisine(1)
     }
     window.addEventListener('keydown', touche)
     return () => window.removeEventListener('keydown', touche)
-  }, [index, entrees.length, onFermer, onNaviguer])
-  if (!entree) return null
+  })
+
+  /**
+   * Lien vers une autre carte qui y fait référence (codex.html) : seulement
+   * vers une carte déjà trouvée, pour ne rien dévoiler, et jamais vers elle-même.
+   */
+  const lier = (noeud: React.ReactElement<{ className?: string }>, id: string | null | undefined, libelle: string) => {
+    const cible = id ? toutes.find((e) => e.id === id) : undefined
+    if (!cible || !cible.trouvee || cible.id === entree.id) return noeud
+    const aller = (ev: React.SyntheticEvent) => {
+      ev.stopPropagation()
+      ev.preventDefault()
+      onSuivreLien(cible.id)
+    }
+    // Clonage : l'élément garde ses attributs (data-kind, style) et devient un lien.
+    return cloneElement(noeud, {
+      className: `${noeud.props.className ?? ''} is-link`.trim(),
+      role: 'link',
+      tabIndex: 0,
+      'aria-label': `Ouvrir la carte ${libelle}`,
+      onClick: aller,
+      onKeyDown: (ev: React.KeyboardEvent) => (ev.key === 'Enter' || ev.key === ' ') && aller(ev),
+    } as React.HTMLAttributes<HTMLElement>)
+  }
   const type = TYPES[entree.type]
   const langue = entree.langueId ? jeu.langues.get(entree.langueId) : null
   const affixe = entree.type === 'prefixe' || entree.type === 'suffixe'
@@ -161,6 +197,7 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
   const note = composition?.libelles.fr?.explication_courte ?? null
   const partie = (id: string) => [...jeu.briques.values()].find((b) => b.uniteId === id)
   const parties = [...(composition?.parties ?? [])].sort((a, b) => a.rang - b.rang)
+  const segments = parties.filter((p) => p.segment_debut != null && p.segment_fin != null && jeu.cartes.has(p.unite_id))
 
   const haut = (
     <div className="bf-top">
@@ -175,9 +212,31 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
       <button ref={fermer} className="viewer-close" type="button" onClick={onFermer} aria-label="Fermer la carte">
         ×
       </button>
-      <button className="viewer-nav prev" type="button" onClick={() => onNaviguer((index - 1 + entrees.length) % entrees.length)} aria-label="Carte précédente">
+      <button className="viewer-nav prev" type="button" onClick={() => voisine(-1)} aria-label="Carte précédente">
         ←
       </button>
+      <nav className="viewer-trail" aria-label="Parcours entre les cartes" data-empty={fil.length === 0 ? '' : undefined}>
+        {fil.length > 0 && (
+          <>
+            <button type="button" className="trail-back" aria-label={`Revenir à la carte ${fil[fil.length - 1]?.libelle ?? ''}`} onClick={() => onRemonter(fil.length - 1)}>
+              ←
+            </button>
+            {fil.map((e, i) => (
+              <Fragment key={`${e.id}-${i}`}>
+                <button type="button" className="crumb" onClick={() => onRemonter(i)}>
+                  {e.type === 'prefixe' || e.type === 'suffixe' ? <Brique libelle={e.libelle} nature={NATURES[e.type]} /> : e.libelle}
+                </button>
+                <span className="trail-sep" aria-hidden="true">
+                  ›
+                </span>
+              </Fragment>
+            ))}
+            <span className="crumb" aria-current="page">
+              {entree.type === 'prefixe' || entree.type === 'suffixe' ? <Brique libelle={entree.libelle} nature={NATURES[entree.type]} /> : entree.libelle}
+            </span>
+          </>
+        )}
+      </nav>
       <div className="big-wrap">
         <div className={retournee ? 'big-card flipped' : 'big-card'} style={bandeau(entree.type)}>
           <div className="big-face big-front" aria-hidden={retournee}>
@@ -195,20 +254,28 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
                       </span>
                     </div>
                   ) : (
-                    <p className="bf-word" aria-label={entree.libelle}>
+                    <p className="bf-word">
                       <MotSegmente
                         mot={entree.libelle}
-                        morceaux={parties.flatMap((p) => {
-                          const nature = jeu.cartes.get(p.unite_id)?.nature
-                          return p.segment_debut != null && p.segment_fin != null && nature ? [{ debut: p.segment_debut, fin: p.segment_fin, nature }] : []
-                        })}
+                        morceaux={segments.map((p) => ({ debut: p.segment_debut as number, fin: p.segment_fin as number, nature: jeu.cartes.get(p.unite_id)?.nature ?? 'mot' }))}
+                        lier={(i, noeud) => {
+                          const p = segments[i]
+                          const cible = p ? toutes.find((e) => e.id === p.unite_id) : undefined
+                          return lier(noeud, p?.unite_id, cible?.libelle ?? '')
+                        }}
                       />
                     </p>
                   )}
                   {entree.type !== 'langue' && langue && (
-                    <p className="bf-lang">
-                      <i />
-                      {langue}
+                    <p>
+                      {lier(
+                        <span className="bf-lang">
+                          <i />
+                          {langue}
+                        </span>,
+                        entree.langueId,
+                        langue,
+                      )}
                     </p>
                   )}
                   {entree.definition && <p className="bf-def">{entree.definition}</p>}
@@ -219,15 +286,18 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
                         return (
                           <Fragment key={p.rang}>
                             {i > 0 && <span className="r-op">+</span>}
-                            {b && (
-                              <span className="brick s" data-kind={NATURES[b.nature]}>
-                                <span className="b-label">{b.libelle}</span>
-                                <span className="b-meta">
-                                  {NATURES[b.nature]}
-                                  {b.glose && <> · «&nbsp;{b.glose}&nbsp;»</>}
-                                </span>
-                              </span>
-                            )}
+                            {b &&
+                              lier(
+                                <span className="brick s" data-kind={NATURES[b.nature]}>
+                                  <span className="b-label">{b.libelle}</span>
+                                  <span className="b-meta">
+                                    {NATURES[b.nature]}
+                                    {b.glose && <> · «&nbsp;{b.glose}&nbsp;»</>}
+                                  </span>
+                                </span>,
+                                p.unite_id,
+                                b.libelle,
+                              )}
                           </Fragment>
                         )
                       })}
@@ -292,12 +362,12 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
                             <span className="f-tr">
                               {f.translitteration}
                               {f.translitteration && f.dans && ' · '}
-                              {f.dans && <>dans {f.dans}</>}
+                              {f.dans && <>dans {lier(<span className="f-from">{f.dans}</span>, f.dansId, f.dans)}</>}
                             </span>
                           )}
                           {!f.trouvee && <span className="f-tr">À découvrir</span>}
                         </span>
-                        {entree.type !== 'langue' && <span className="f-lang">{jeu.langues.get(f.langueId)}</span>}
+                        {entree.type !== 'langue' && lier(<span className="f-lang">{jeu.langues.get(f.langueId)}</span>, f.langueId, jeu.langues.get(f.langueId) ?? '')}
                       </li>
                     ))}
                   </ul>
@@ -319,11 +389,13 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
                   <div className="bb-links">
                     {entree.liens.items.map((l, i) =>
                       l.nature !== 'mot' ? (
-                        <Brique key={i} libelle={l.libelle} nature={NATURES[l.nature]} className={l.trouve ? 'bchip' : 'bchip missing'} />
+                        <Fragment key={i}>
+                          {lier(<span className={l.trouve ? 'bchip' : 'bchip missing'} data-kind={NATURES[l.nature]}>{l.libelle}</span>, l.id, l.libelle)}
+                        </Fragment>
                       ) : (
-                        <span key={i} className={l.trouve ? 'bb-link' : 'bb-link missing'}>
-                          {l.trouve ? l.libelle : silhouetteDe(l.libelle)}
-                        </span>
+                        <Fragment key={i}>
+                          {lier(<span className={l.trouve ? 'bb-link' : 'bb-link missing'}>{l.trouve ? l.libelle : silhouetteDe(l.libelle)}</span>, l.id, l.libelle)}
+                        </Fragment>
                       ),
                     )}
                   </div>
@@ -340,7 +412,7 @@ function Visionneuse({ entrees, index, jeu, onNaviguer, onFermer }: VisionneuseP
           </div>
         </div>
       </div>
-      <button className="viewer-nav next" type="button" onClick={() => onNaviguer((index + 1) % entrees.length)} aria-label="Carte suivante">
+      <button className="viewer-nav next" type="button" onClick={() => voisine(1)} aria-label="Carte suivante">
         →
       </button>
       <p className="viewer-hint">← → pour changer de carte · Échap pour fermer</p>
@@ -365,28 +437,48 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlM
   const [filtre, setFiltre] = useState<TypeCarte | 'tout'>('tout')
   const [ordre, setOrdre] = useState<Tri>('n')
   const [fascicule, setFascicule] = useState<number | 'tous'>('tous')
-  const [ouverte, setOuverte] = useState<number | null>(null)
+  const [ouverte, setOuverte] = useState<string | null>(null)
+  /** Fil d'Ariane : cartes quittées en suivant un lien, de la plus ancienne à la plus récente. */
+  const [fil, setFil] = useState<string[]>([])
 
   const dansFascicule = entrees.filter((e) => fascicule === 'tous' || e.fascicule === fascicule)
   const visibles = dansFascicule.filter((e) => filtre === 'tout' || e.type === filtre).sort(tri(ordre))
   const tout = completude(entrees)
-  const ouvrir = (i: number) => {
-    setOuverte(i)
-    const e = visibles[i]
-    if (e) onVue(e.id)
+  const ouvrir = (id: string) => {
+    setOuverte(id)
+    onVue(id)
   }
+  const naviguer = (id: string) => {
+    setFil([])
+    ouvrir(id)
+  }
+  const suivreLien = (id: string) => {
+    if (ouverte) setFil((f) => [...f, ouverte])
+    ouvrir(id)
+  }
+  const remonter = (rang: number) => {
+    const id = fil[rang]
+    if (!id) return
+    setFil((f) => f.slice(0, rang))
+    ouvrir(id)
+  }
+  const fermer = () => {
+    setOuverte(null)
+    setFil([])
+  }
+  const carteOuverte = ouverte ? entrees.find((e) => e.id === ouverte) : undefined
 
   // Ouvrir une carte demandée depuis la table : tous les filtres sont levés pour la montrer.
   useEffect(() => {
     if (!aOuvrir) return
-    const tous = [...entrees].sort(tri('n'))
-    const i = tous.findIndex((e) => e.id === aOuvrir)
+    const existe = entrees.some((e) => e.id === aOuvrir)
     // oxlint-disable-next-line react/set-state-in-effect -- réponse à une demande de navigation venue d'un autre écran.
     setFiltre('tout')
     setOrdre('n')
     setFascicule('tous')
-    if (i >= 0) {
-      setOuverte(i)
+    setFil([])
+    if (existe) {
+      setOuverte(aOuvrir)
       onVue(aOuvrir)
     }
     onOuverte?.()
@@ -501,14 +593,25 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlM
                   </span>
                 </div>
               )}
-              <Mini entree={e} nouvelle={nouvelles.has(e.id)} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => ouvrir(i)} />
+              <Mini entree={e} nouvelle={nouvelles.has(e.id)} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => naviguer(e.id)} />
             </Fragment>
           )
         })}
       </div>
 
-      {ouverte !== null && (
-        <Visionneuse key={visibles[ouverte]?.id} entrees={visibles} index={ouverte} jeu={jeu} onNaviguer={ouvrir} onFermer={() => setOuverte(null)} />
+      {carteOuverte && (
+        <Visionneuse
+          key={carteOuverte.id}
+          entrees={visibles}
+          toutes={entrees}
+          entree={carteOuverte}
+          fil={fil.flatMap((id) => entrees.filter((e) => e.id === id))}
+          jeu={jeu}
+          onNaviguer={naviguer}
+          onSuivreLien={suivreLien}
+          onRemonter={remonter}
+          onFermer={fermer}
+        />
       )}
     </div>
   )

@@ -69,7 +69,8 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Vue globale conforme à `codex.html` : complétude par fascicule, filtres par type, tri, petites cartes à bandeau, texture (silhouette), rareté dans le bandeau, carte nouvelle en Corail, cartes à trouver en silhouette avec leur piste | fait |
 | Carte agrandie : recto (mot surligné, langue, définition, équation, sens littéral, confiance) et verso (formes trouvées, composants ou mots formés), précédente et suivante au clavier | fait |
 | Légendaires inconnues et mots qui en dépendent absents du codex, hors des compteurs (ADR 0015) | fait |
-| Fil d’Ariane et liens entre cartes, recherche, objectifs et jalons | à faire |
+| Liens entre cartes qui se font référence (morceaux du mot, composants, langue, formes, mots formés), vers les seules cartes trouvées, avec fil d’Ariane | fait |
+| Recherche, objectifs et jalons | à faire |
 
 ## Décisions à formaliser
 

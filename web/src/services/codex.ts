@@ -28,11 +28,14 @@ export interface FormeTrouvee {
   texte: string
   translitteration: string | null
   trouvee: boolean
-  /** Le mot où elle apparaît, pour les formes d'une carte de langue. */
+  /** Le mot où elle apparaît, pour les formes d'une carte de langue, et sa carte. */
   dans?: string
+  dansId?: string
 }
 
 export interface Lien {
+  /** Carte visée : l'unité du composant ou du mot formé. */
+  id: string
   libelle: string
   nature: Carte['nature']
   trouve: boolean
@@ -126,6 +129,7 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: 
             items: parties.map((p) => {
               const partie = jeu.cartes.get(p.unite_id)
               return {
+                id: p.unite_id,
                 libelle: partie ? libelle(partie.nature, formeCanonique(partie)?.texte ?? '') : '…',
                 nature: partie?.nature ?? 'mot',
                 trouve: partie ? trouvee(partie) : false,
@@ -142,7 +146,7 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: 
             titre: 'Mots formés',
             items: mots.map((r) => {
               const mot = jeu.cartes.get(r.motId)
-              return { libelle: mot ? (formeCanonique(mot)?.texte ?? '…') : '…', nature: 'mot' as const, trouve: decouverts.has(r.motId) }
+              return { id: r.motId, libelle: mot ? (formeCanonique(mot)?.texte ?? '…') : '…', nature: 'mot' as const, trouve: decouverts.has(r.motId) }
             }),
           }
         }
@@ -200,7 +204,7 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: 
     const formes: FormeTrouvee[] = []
     for (const e of entrees) {
       if (e.type === 'langue') continue
-      for (const f of e.formes) if (f.langueId === langue.id) formes.push({ ...f, dans: e.trouvee ? e.libelle : undefined })
+      for (const f of e.formes) if (f.langueId === langue.id) formes.push({ ...f, dans: e.trouvee ? e.libelle : undefined, dansId: e.trouvee ? e.id : undefined })
     }
     formes.sort((a, b) => Number(b.trouvee) - Number(a.trouvee))
     langue.formes = formes

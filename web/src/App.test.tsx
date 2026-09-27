@@ -102,6 +102,22 @@ describe('table de fusion', () => {
     expect(screen.queryByLabelText('1 nouveauté')).not.toBeInTheDocument()
   })
 
+  it('relie les cartes du codex qui se font référence, avec un fil d’Ariane', async () => {
+    const api = new ClientApi('https://api.exemple.test')
+    vi.spyOn(api, 'etat').mockResolvedValue(
+      etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
+    )
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^géologie, mot/ }))
+    const carte = screen.getByRole('dialog', { name: 'géologie' })
+    fireEvent.click(within(carte).getAllByRole('link', { name: 'Ouvrir la carte géo-' })[0] as HTMLElement)
+    const brique = screen.getByRole('dialog', { name: 'géo-' })
+    expect(within(brique).getByRole('navigation', { name: 'Parcours entre les cartes' })).toHaveTextContent('géologie')
+    fireEvent.click(within(brique).getByRole('button', { name: 'Revenir à la carte géologie' }))
+    expect(screen.getByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
+  })
+
   it('propose d’inverser quand l’ordre est faux', async () => {
     const fusion = vi.fn<ClientApi['fusion']>().mockResolvedValue({ issue: { type: 'presque', motif: 'ordre' }, etat: etat() })
     render(<App api={client(fusion)} catalogue={lecteur} />)
