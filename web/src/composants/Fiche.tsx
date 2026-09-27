@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
@@ -26,6 +26,46 @@ interface Props {
  */
 export function Fiche({ motId, jeu, entree, reserve, consommees, onFermer, onCodex }: Props) {
   const continuer = useRef<HTMLButtonElement>(null)
+  const dialogue = useRef<HTMLElement>(null)
+  const voile = useRef<HTMLDivElement>(null)
+  const [enVol, setEnVol] = useState(false)
+
+  /**
+   * « Continuer » après une nouvelle découverte : la carte se réduit et vole
+   * jusqu'à l'onglet Codex, qui la reçoit d'un petit rebond (FLIP, 620 ms,
+   * comme le « Vol de carte » de mouvement.html). Sans mouvement, elle se ferme.
+   */
+  const rangerAuCodex = async () => {
+    const carte = dialogue.current
+    const cible = document.querySelector<HTMLElement>('.navigation [data-onglet="codex"]')
+    const reduit =
+      document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+    if (!carte || !cible || reduit || typeof carte.animate !== 'function') {
+      onFermer()
+      return
+    }
+    setEnVol(true)
+    const depart = carte.getBoundingClientRect()
+    const arrivee = cible.getBoundingClientRect()
+    const dx = arrivee.left + arrivee.width / 2 - (depart.left + depart.width / 2)
+    const dy = arrivee.top + arrivee.height / 2 - (depart.top + depart.height / 2)
+    const echelle = Math.max(0.04, Math.min(arrivee.width / depart.width, arrivee.height / depart.height))
+    voile.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420, easing: 'ease-out', fill: 'forwards' })
+    const vol = carte.animate(
+      [
+        { transform: 'none', opacity: 1 },
+        { transform: 'scale(0.55) rotate(-4deg)', opacity: 1, offset: 0.35 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${echelle}) rotate(-8deg)`, opacity: 0.2 },
+      ],
+      { duration: 620, easing: 'cubic-bezier(0.2, 0.9, 0.25, 1.08)', fill: 'forwards' },
+    )
+    await vol.finished.catch(() => undefined)
+    cible.animate(
+      [{ transform: 'none' }, { transform: 'scale(1.18)' }, { transform: 'none' }],
+      { duration: 360, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+    )
+    onFermer()
+  }
   useEffect(() => {
     continuer.current?.focus({ preventScroll: true })
     const touche = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
@@ -52,8 +92,9 @@ export function Fiche({ motId, jeu, entree, reserve, consommees, onFermer, onCod
   const numero = entree ? `N°\u00a0${String(entree.n).padStart(3, '0')}` : ''
 
   return (
-    <div className="scrim" onClick={onFermer}>
-      <section className="dialogue fiche" role="dialog" aria-modal="true" aria-labelledby="fiche-titre" onClick={(e) => e.stopPropagation()}>
+    <div className={enVol ? 'scrim en-vol' : 'scrim'} onClick={() => !enVol && onFermer()}>
+      <div ref={voile} className="scrim-fond" aria-hidden="true" />
+      <section ref={dialogue} className="dialogue fiche" role="dialog" aria-modal="true" aria-labelledby="fiche-titre" onClick={(e) => e.stopPropagation()}>
         <p className="r-kicker">{nouvelle ? `Nouvelle découverte · ${numero}` : `Déjà dans le codex · ${numero}`}</p>
 
         <div className="fiche-temps fiche-temps-1">
@@ -138,7 +179,7 @@ export function Fiche({ motId, jeu, entree, reserve, consommees, onFermer, onCod
           <button type="button" className="btn btn-secondary" onClick={onCodex}>
             Voir au codex
           </button>
-          <button ref={continuer} type="button" className="btn btn-primary" onClick={onFermer}>
+          <button ref={continuer} type="button" className="btn btn-primary" disabled={enVol} onClick={() => (nouvelle ? void rangerAuCodex() : onFermer())}>
             Continuer
           </button>
         </div>

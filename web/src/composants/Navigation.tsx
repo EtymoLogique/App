@@ -33,6 +33,7 @@ export function Navigation({ actif, compteurs, onChoisir }: Props) {
             key={id}
             type="button"
             className={id === actif ? 'on' : undefined}
+            data-onglet={id}
             aria-current={id === actif ? 'page' : undefined}
             onClick={() => onChoisir(id)}
           >
