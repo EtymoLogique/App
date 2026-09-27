@@ -304,9 +304,11 @@
 /*
  * Face cachée de la carte agrandie : backface-visibility ne masque pas les
  * éléments composés à part (briques animées, texture), qui transparaissent en
- * miroir. La face cachée passe donc en visibility: hidden, à mi-retournement.
+ * miroir. La face cachée passe donc en visibility: hidden quand la carte est
+ * sur la tranche : avec le ressort de .big-card (0,85 s), la rotation atteint
+ * 90° dès 0,11 s, et non à mi-durée.
  */
-.big-face { transition: visibility 0s linear 0.42s; }
+.big-face { transition: visibility 0s linear 0.11s; }
 .big-card:not(.flipped) .big-back, .big-card.flipped .big-front { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .big-face { transition: none; } }
 :root[data-mouvement="reduit"] .big-face { transition: none; }
