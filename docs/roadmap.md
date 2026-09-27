@@ -59,6 +59,8 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 | Conformité aux maquettes I-09 à I-13 : en-tête d’écran (mots trouvés, accès au codex) ; réserve avec recherche, filtres et tri par briques récentes ; un clic ou un toucher pose la brique, glisser-déposer, flèches et Suppr sur les cases ; table de deux cases (jamais plus de deux briques à la fois) ; retours en ligne (« presque » avec Inverser, rappel du mot déjà découvert, refus doux par une secousse de 500 ms et pop de découverte (briques qui se rejoignent, deux ondes, confettis), selon mouvement.html) ; fiche en trois temps en dialogue, plein écran sur mobile ; état « Aucun mot possible » ; contrôle `visual-identity-check` sans écart | fait |
 | Réserve sans découverte possible (I-13) : état vide qui mène aux plis | fait |
 | Réglages du MVP en cours (I-24) : apparence (système, atelier, nocturne), animations réduites, profil, licences | fait |
+| Gestes de la table ([ADR 0033](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0033-gestes-de-la-table-de-fusion.md)) : un toucher pose, table pleine sans effet, chaque brique garde sa case ; « Continuer » range la carte vers l’onglet Codex ; plus d’anneau Corail ni de découvertes récentes sur la table | fait |
+| Fond de l’application tramé (`jeu.html`) sur tous les écrans | fait |
 | Démonstration : les trois premières découvertes du fascicule 0 (géologie, biologie, amener) avec ses graines | faite en local |
 
 Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir un indice », I-12) (J4), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
@@ -70,11 +72,15 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Vue globale conforme à `codex.html` : complétude par fascicule, filtres par type, tri, petites cartes à bandeau, texture (silhouette), rareté dans le bandeau, carte nouvelle en Corail, cartes à trouver en silhouette avec leur piste | fait |
 | Carte agrandie : recto (mot surligné, langue, définition, équation, sens littéral, confiance) et verso (formes trouvées, composants ou mots formés), précédente et suivante au clavier | fait |
 | Légendaires inconnues et mots qui en dépendent absents du codex, hors des compteurs (ADR 0015) | fait |
-| Liens entre cartes qui se font référence (morceaux du mot, composants, langue, formes, mots formés), vers les seules cartes trouvées, avec fil d’Ariane | fait |
+| Liens entre cartes qui se font référence (morceaux du mot, composants, langue, formes, mots formés), vers les seules cartes découvertes, avec fil d’Ariane ; ni lien ni animation sur ce qui reste à découvrir | fait |
+| Textures insérées depuis les silhouettes publiées (teinte et évidements), reconstruites par la même liste blanche que Content ; lettre emblème et nom des cartes de langue (champ `glyphe` des langues) ; jaquette de chaque fascicule dans son filtre | fait |
+| Filtres, tri et carte ouverte dans l’adresse ([ADR 0034](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0034-ecran-dans-l-adresse.md)) | fait |
 | Recherche, objectifs et jalons | à faire |
 
 ## Décisions à formaliser
 
 - **Contrat et outillage** : [ADR 0031](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0031-contrat-genere-et-outillage-de-la-pwa.md), proposé.
+- **Table de fusion** : [ADR 0032](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0032-fusion-de-deux-briques.md) (deux briques) et [ADR 0033](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0033-gestes-de-la-table-de-fusion.md) (gestes), acceptés.
+- **Écran dans l’adresse** : [ADR 0034](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0034-ecran-dans-l-adresse.md), accepté.
 - **Écart à trancher** : l’[ADR 0026](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0026-depot-prive-du-catalogue-sans-logique.md) place tout le code, compilateur compris, dans un dépôt public. Or le compilateur vit dans Content, et App comme Infra sont privés.
 - **Index global** : il garde les référentiels sous `referentiels`, comme le calendrier. Le [modèle de données](https://github.com/lunik/EtymoLogique/blob/master/docs/modele-donnees.md#index-global) les montre à la racine.
