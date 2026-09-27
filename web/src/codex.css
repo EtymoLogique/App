@@ -301,3 +301,12 @@
 /* Toutes les langues sont Palimpseste (identité). */
 .m-lang i, .bf-lang i, .bb-forms li > i { background: var(--c-lang); }
 .bb-forms li.missing > i { background: transparent; }
+/*
+ * Face cachée de la carte agrandie : backface-visibility ne masque pas les
+ * éléments composés à part (briques animées, texture), qui transparaissent en
+ * miroir. La face cachée passe donc en visibility: hidden, à mi-retournement.
+ */
+.big-face { transition: visibility 0s linear 0.42s; }
+.big-card:not(.flipped) .big-back, .big-card.flipped .big-front { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .big-face { transition: none; } }
+:root[data-mouvement="reduit"] .big-face { transition: none; }
