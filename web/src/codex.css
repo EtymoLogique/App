@@ -338,11 +338,12 @@
 .bf-body .r-eq .b-meta { white-space: normal; }
 .bf-body .r-eq .b-kind { display: none; }
 
-/* Survol d'un lien de la carte agrandie : la brique zoome et penche vers la droite. */
-.big-face .brick.is-link, .big-face .bchip.is-link, .big-face .bb-link.is-link { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out); }
+/* Survol d'un lien de la carte agrandie : seules les briques zooment et penchent. */
+.big-face .brick.is-link, .big-face .bchip.is-link { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out); }
 .big-face .brick.is-link:hover, .big-face .brick.is-link:focus-visible { transform: scale(1.06) rotate(-2deg); box-shadow: 6px 6px 0 var(--pop-shadow); }
-.big-face .bchip.is-link:hover, .big-face .bchip.is-link:focus-visible,
-.big-face .bb-link.is-link:hover, .big-face .bb-link.is-link:focus-visible { transform: scale(1.08) rotate(-2deg); box-shadow: 3px 3px 0 var(--pop-shadow); }
+.big-face .bchip.is-link:hover, .big-face .bchip.is-link:focus-visible { transform: scale(1.08) rotate(-2deg); box-shadow: 3px 3px 0 var(--pop-shadow); }
+/* Pastille d'un mot (élément d'interface) : jamais d'inclinaison ni de zoom, seulement la teinte du lien (etymo.css). */
+.big-face .bb-link.is-link:hover, .big-face .bb-link.is-link:focus-visible { transform: none; box-shadow: none; }
 .big-face .brick.is-link:active, .big-face .bchip.is-link:active { transform: scale(0.98); box-shadow: 1px 1px 0 var(--pop-shadow); }
 @media (prefers-reduced-motion: reduce) { .big-face .is-link { transition: none; } }
 :root[data-mouvement="reduit"] .big-face .is-link { transition: none; }

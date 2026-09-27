@@ -393,7 +393,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                           )}
                           {!f.trouvee && <span className="f-tr">À découvrir</span>}
                         </span>
-                        {entree.type !== 'langue' && lier(<span className="f-lang">{jeu.langues.get(f.langueId)}</span>, f.langueId, jeu.langues.get(f.langueId) ?? '')}
+                        {entree.type !== 'langue' && lier(<span className="f-lang">{jeu.langues.get(f.langueId)}</span>, f.trouvee ? f.langueId : null, jeu.langues.get(f.langueId) ?? '')}
                       </li>
                     ))}
                   </ul>
@@ -416,11 +416,11 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                     {entree.liens.items.map((l, i) =>
                       l.nature !== 'mot' ? (
                         <Fragment key={i}>
-                          {lier(<span className={l.trouve ? 'bchip' : 'bchip missing'} data-kind={NATURES[l.nature]}>{l.libelle}</span>, l.id, l.libelle)}
+                          {lier(<span className={l.trouve ? 'bchip' : 'bchip missing'} data-kind={NATURES[l.nature]}>{l.libelle}</span>, l.trouve ? l.id : null, l.libelle)}
                         </Fragment>
                       ) : (
                         <Fragment key={i}>
-                          {lier(<span className={l.trouve ? 'bb-link' : 'bb-link missing'}>{l.trouve ? l.libelle : silhouetteDe(l.libelle)}</span>, l.id, l.libelle)}
+                          {lier(<span className={l.trouve ? 'bb-link' : 'bb-link missing'}>{l.trouve ? l.libelle : silhouetteDe(l.libelle)}</span>, l.trouve ? l.id : null, l.libelle)}
                         </Fragment>
                       ),
                     )}
