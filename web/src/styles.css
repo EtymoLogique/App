@@ -364,6 +364,9 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 /* Une case vide se resserre pour que le rail tienne sur une ligne (maquette I-09). */
 .slot:not(.filled) { flex: 0 1 120px; min-width: 48px; }
 .slot.filled .brick { cursor: pointer; }
+/* Brique posée : mêmes états qu'une brique de la réserve (survol −2 px et ombre 6, pression +2 px et ombre 1). */
+.slot.filled:hover .brick { transform: translate(-2px, -3px) rotate(-1.5deg); box-shadow: 6px 7px 0 var(--pop-shadow); }
+.slot.filled:active .brick { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); }
 .op { font-family: var(--serif); font-size: 32px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions .btn-primary { flex: 1; }

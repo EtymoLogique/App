@@ -51,6 +51,13 @@ describe('table de fusion', () => {
     expect(screen.getByText('Posez une deuxième brique.')).toBeInTheDocument()
   })
 
+  it('ne remplace rien quand la table est pleine', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('géo-', '-logie', 'géo-')
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Emplacement 2 : -logie. Retirer' })).toBeInTheDocument()
+  })
+
   it('réserve un exemplaire par brique posée', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     await poser('-logie')

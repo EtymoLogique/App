@@ -93,10 +93,11 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     if (restauree.current) void memoriserTable(table)
   }, [table])
 
-  /** Pose une brique dans le premier emplacement libre ; table pleine, elle remplace la dernière (jeu.html). */
+  /** Pose une brique dans le premier emplacement libre ; table pleine, rien ne change. */
   const ajouter = useCallback(
     (brique: string) => {
-      setTable((t) => (t.length < maximum ? [...t, brique] : [...t.slice(0, maximum - 1), brique]))
+      // Table pleine : rien ne se passe, aucune brique n'est remplacée.
+      setTable((t) => (t.length < maximum ? [...t, brique] : t))
       setRetour(null)
       setFiche(null)
     },
