@@ -16,9 +16,6 @@ interface Props {
   reserve: Exemplaires[]
   briques: Map<string, BriqueJeu>
   table: string[]
-  /** Brique sélectionnée (anneau Corail), en attente d'« Ajouter à la table ». */
-  selection: string | null
-  onSelectionner: (brique: string | null) => void
   onAjouter: (brique: string) => void
   /** Message affiché quand on touche une brique indisponible, sans secousse. */
   onIndisponible: (message: string) => void
@@ -37,10 +34,10 @@ function exemplaires(n: number): string {
 
 /**
  * Réserve (maquette I-09) : recherche par brique ou par sens, filtres, tri
- * par briques récentes. Toucher sélectionne une brique, « Ajouter à la table »
- * ou Entrée la pose ; on peut aussi la glisser sur un emplacement.
+ * par briques récentes. Un toucher ou un clic pose la brique sur la table
+ * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, selection, onSelectionner, onAjouter, onIndisponible, consommees = [] }: Props) {
+export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [] }: Props) {
   const [recherche, setRecherche] = useState('')
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
@@ -138,8 +135,7 @@ export function Reserve({ reserve, briques, table, selection, onSelectionner, on
                 ? `Tous vos exemplaires de ${brique.libelle} sont déjà sur la table.`
                 : null
             const nom = `${brique.libelle}${brique.glose ? ` (${brique.glose})` : ''}`
-            const choisie = selection === brique_id
-            const classes = ['brick', epuisee ? 'is-spent' : libres <= 0 ? 'is-out' : '', choisie ? 'sel' : ''].filter(Boolean).join(' ')
+            const classes = ['brick', epuisee ? 'is-spent' : libres <= 0 ? 'is-out' : ''].filter(Boolean).join(' ')
             return (
               <li key={brique_id}>
                 <button
@@ -147,30 +143,19 @@ export function Reserve({ reserve, briques, table, selection, onSelectionner, on
                   className={classes}
                   data-kind={NATURES[brique.nature]}
                   aria-disabled={indisponible !== null}
-                  aria-pressed={choisie}
                   aria-label={
                     epuisee
                       ? `${nom} : épuisée. Revient dans les plis`
                       : libres <= 0
                         ? `${nom} : tous vos exemplaires sont sur la table`
-                        : `${nom}. ${exemplaires(libres)}`
+                        : `Poser ${nom} sur la table. ${exemplaires(libres)}`
                   }
                   draggable={indisponible === null}
                   onDragStart={(e) => {
                     e.dataTransfer.setData(TYPE_GLISSE, brique_id)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
-                  onClick={() => {
-                    if (indisponible !== null) onIndisponible(indisponible)
-                    else onSelectionner(choisie ? null : brique_id)
-                  }}
-                  onDoubleClick={() => indisponible === null && onAjouter(brique_id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && indisponible === null) {
-                      e.preventDefault()
-                      onAjouter(brique_id)
-                    }
-                  }}
+                  onClick={() => (indisponible === null ? onAjouter(brique_id) : onIndisponible(indisponible))}
                 >
                   <ContenuBrique brique={brique} />
                   <span className={epuisee ? 'b-count zero' : 'b-count'} aria-hidden="true">

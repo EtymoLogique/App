@@ -22,9 +22,9 @@ const brique = async (libelle: string) => within(await reserve()).getByText(libe
 /** Le bouton Fusionner de l'ordinateur (le premier) ; celui du mobile a le même rôle. */
 const fusionner = () => screen.getAllByRole('button', { name: 'Fusionner' })[0] as HTMLElement
 
-/** Pose des briques au clavier : Entrée sur une brique de la réserve (maquette I-09). */
+/** Pose des briques d'un seul clic, comme dans jeu.html. */
 async function poser(...libelles: string[]) {
-  for (const libelle of libelles) fireEvent.keyDown(await brique(libelle), { key: 'Enter' })
+  for (const libelle of libelles) fireEvent.click(await brique(libelle))
 }
 
 describe('table de fusion', () => {
@@ -37,18 +37,16 @@ describe('table de fusion', () => {
     render(<App api={client()} catalogue={lecteur} />)
     const r = await reserve()
     expect(r).toHaveAccessibleName('Réserve · 3 exemplaires')
-    expect(await within(r).findByRole('button', { name: 'géo- (terre). 2 exemplaires disponibles' })).toBeInTheDocument()
+    expect(await within(r).findByRole('button', { name: 'Poser géo- (terre) sur la table. 2 exemplaires disponibles' })).toBeInTheDocument()
     fireEvent.change(within(r).getByRole('searchbox', { name: 'Chercher une brique ou un sens' }), { target: { value: 'etude' } })
     expect(within(r).queryByText('géo-')).not.toBeInTheDocument()
     expect(within(r).getByText('-logie')).toBeInTheDocument()
     expect(screen.getByText('0 / 1 mots')).toBeInTheDocument()
   })
 
-  it('sélectionne au toucher, puis ajoute à la table', async () => {
+  it('pose une brique d’un seul clic', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     fireEvent.click(await brique('géo-'))
-    expect(await brique('géo-')).toHaveClass('sel')
-    fireEvent.click(screen.getByRole('button', { name: 'Ajouter à la table' }))
     expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
     expect(screen.getByText('Posez une deuxième brique.')).toBeInTheDocument()
   })

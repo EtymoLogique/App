@@ -532,8 +532,6 @@ button.disc { font: inherit; cursor: pointer; }
 .champ kbd { padding: 0 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
 .filtres .cb-chip { padding: 6px 12px; }
-/* Brique sélectionnée dans la réserve (toucher, puis « Ajouter à la table ») : soulevée, sans contour. */
-.brick.sel { transform: translate(-2px, -3px) rotate(-1.5deg); box-shadow: 6px 7px 0 var(--pop-shadow); }
 /* Aucun contour Corail sur une brique : le focus clavier y est un filet Encre. */
 .brick:focus-visible, .slot:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 

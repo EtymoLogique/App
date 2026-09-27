@@ -38,7 +38,6 @@ export function App({ api, catalogue }: Props) {
   const enLigne = useEnLigne()
   const { reglages, changer } = useReglages()
   const [onglet, setOnglet] = useState<Onglet>('table')
-  const [selection, setSelection] = useState<string | null>(null)
   const [carteAOuvrir, setCarteAOuvrir] = useState<string | null>(null)
   const { jeu, etat } = partie
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
@@ -74,11 +73,6 @@ export function App({ api, catalogue }: Props) {
   const allerAuxPlis = () => {
     partie.fermerFiche()
     setOnglet('plis')
-  }
-  const ajouterSelection = () => {
-    if (!selection) return
-    partie.ajouter(selection)
-    setSelection(null)
   }
   const fiche = partie.fiche
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
@@ -223,13 +217,8 @@ export function App({ api, catalogue }: Props) {
                         reserve={etat.reserve}
                         briques={catalogueJeu.briques}
                         table={partie.table}
-                        selection={selection}
-                        onSelectionner={setSelection}
                         consommees={partie.consommees}
-                        onAjouter={(id) => {
-                          partie.ajouter(id)
-                          setSelection(null)
-                        }}
+                        onAjouter={partie.ajouter}
                         onIndisponible={(texte) => partie.signaler(texte, 'hint')}
                       />
                     ) : (
@@ -237,16 +226,13 @@ export function App({ api, catalogue }: Props) {
                         Chargement de votre réserve…
                       </p>
                     )}
-                    <p className="panel-tip seulement-ordinateur">Glissez une brique sur la table, ou sélectionnez-la puis appuyez sur Entrée.</p>
+                    <p className="panel-tip">Glissez une brique sur la table, ou touchez-la pour la poser. Le chiffre indique les exemplaires disponibles.</p>
                   </section>
                 </div>
 
-                {/* Mobile : toucher sélectionne, puis « Ajouter à la table » (maquette I-09). */}
+                {/* Mobile : Fusionner reste à portée du pouce. */}
                 {!bloque && (
                   <div className="barre-actions seulement-mobile">
-                    <button type="button" className="btn btn-secondary" onClick={ajouterSelection} disabled={!selection}>
-                      Ajouter à la table
-                    </button>
                     <button type="button" className="btn btn-primary" onClick={() => void partie.fusionner()} disabled={raisonFusion !== null || partie.enAttente}>
                       {partie.enAttente ? 'Fusion…' : 'Fusionner'}
                     </button>
