@@ -135,6 +135,10 @@ export interface components {
             nature: components["schemas"]["Nature"];
             relations?: components["schemas"]["RelationCarte"][];
             sens: components["schemas"]["Sens"][];
+            /** @description Sources citées par la carte, par identifiant : citées, jamais copiées. */
+            sources?: {
+                [key: string]: components["schemas"]["Source"];
+            };
         };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
@@ -147,6 +151,7 @@ export interface components {
         /** @enum {string} */
         CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
         CompositionCarte: {
+            fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
             libelles: components["schemas"]["BTreeMap_LibellesComposition"];
             parties: components["schemas"]["Partie"][];
@@ -264,6 +269,7 @@ export interface components {
         };
         Fait: {
             confiance: components["schemas"]["Confiance"];
+            sources?: components["schemas"]["SourceCitee"][];
         };
         Forme: {
             id: components["schemas"]["IdCatalogue"];
@@ -327,6 +333,8 @@ export interface components {
             jalons?: unknown[];
             jaquette?: components["schemas"]["Chemin"] | null;
             langues?: components["schemas"]["LangueManifeste"][];
+            /** @description Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens. */
+            nom?: string | null;
             /** Format: int32 */
             numero: number;
             /** Format: date-time */
@@ -368,6 +376,7 @@ export interface components {
         };
         RelationCarte: {
             etymon?: components["schemas"]["Etymon"] | null;
+            fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
             type_code: string;
         };
@@ -402,6 +411,22 @@ export interface components {
             /** @description Vrai si le profil vient d'être créé. */
             nouveau: boolean;
         };
+        Source: {
+            edition?: string | null;
+            id: components["schemas"]["IdCatalogue"];
+            reference: string;
+            /** @description `reference` pour une source de référence. */
+            role: string;
+            /** @description Dictionnaire, ouvrage, article… */
+            type: string;
+            url?: string | null;
+        };
+        /** @description Renvoi d'un fait vers une source de la carte. */
+        SourceCitee: {
+            /** @description Page ou entrée dans la source, quand elle est renseignée. */
+            localisation?: string | null;
+            source_id: components["schemas"]["IdCatalogue"];
+        };
         /** @enum {string} */
         StatutSante: "ok" | "degrade";
         Transformation: {
@@ -409,6 +434,11 @@ export interface components {
             libelles: components["schemas"]["BTreeMap_LibelleTexte"];
             /** Format: int32 */
             ordre: number;
+            /**
+             * Format: int32
+             * @description Partie de la composition que la transformation touche.
+             */
+            rang_partie?: number | null;
             type_code: string;
         };
         Translitteration: {

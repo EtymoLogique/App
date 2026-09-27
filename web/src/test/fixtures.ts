@@ -51,6 +51,7 @@ export const manifeste: Manifeste = {
   format: 1,
   id: 'fsc_00000000',
   numero: 0,
+  nom: 'Essai',
   parution: '2026-10-01T08:00:00+02:00',
   test: true,
   jaquette: null,
@@ -92,6 +93,8 @@ export function jeu(): CatalogueJeu {
     exclusions: [],
     langues: new Map([[FR, 'français']]),
     glyphes: new Map([[FR, 'É']]),
+    typesRelation: new Map([['forme_de_composition', 'forme de composition']]),
+    typesTransformation: new Map([['elision', 'élision']]),
   }
 }
 

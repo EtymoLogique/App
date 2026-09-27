@@ -446,6 +446,19 @@
             "items": {
               "$ref": "#/components/schemas/Sens"
             }
+          },
+          "sources": {
+            "type": "object",
+            "description": "Sources citées par la carte, par identifiant : citées, jamais copiées.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Identifiant opaque du catalogue : `<préfixe>_<8 caractères base32>`.",
+              "example": "brq_2e9chtta",
+              "pattern": "^[a-z]{3}_[0-9a-hjkmnp-tv-z]{8}$"
+            }
           }
         }
       },
@@ -503,6 +516,16 @@
           "libelles"
         ],
         "properties": {
+          "fait": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Fait"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
@@ -814,6 +837,12 @@
         "properties": {
           "confiance": {
             "$ref": "#/components/schemas/Confiance"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCitee"
+            }
           }
         }
       },
@@ -1080,6 +1109,13 @@
               "$ref": "#/components/schemas/LangueManifeste"
             }
           },
+          "nom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens."
+          },
           "numero": {
             "type": "integer",
             "format": "int32",
@@ -1227,6 +1263,16 @@
               }
             ]
           },
+          "fait": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Fait"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
@@ -1328,6 +1374,62 @@
         },
         "additionalProperties": false
       },
+      "Source": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "role",
+          "reference"
+        ],
+        "properties": {
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "`reference` pour une source de référence."
+          },
+          "type": {
+            "type": "string",
+            "description": "Dictionnaire, ouvrage, article…"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SourceCitee": {
+        "type": "object",
+        "description": "Renvoi d'un fait vers une source de la carte.",
+        "required": [
+          "source_id"
+        ],
+        "properties": {
+          "localisation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Page ou entrée dans la source, quand elle est renseignée."
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
       "StatutSante": {
         "type": "string",
         "enum": [
@@ -1353,6 +1455,15 @@
           "ordre": {
             "type": "integer",
             "format": "int32",
+            "minimum": 0
+          },
+          "rang_partie": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Partie de la composition que la transformation touche.",
             "minimum": 0
           },
           "type_code": {

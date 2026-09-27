@@ -39,6 +39,9 @@ pub struct Manifeste {
     /// Identifiant opaque du fascicule : les données du joueur le désignent par lui.
     pub id: IdCatalogue,
     pub numero: u32,
+    /// Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens.
+    #[serde(default)]
+    pub nom: Option<String>,
     #[schema(value_type = String, format = DateTime)]
     pub parution: DateTime<FixedOffset>,
     #[serde(default)]

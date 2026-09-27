@@ -19,6 +19,12 @@ export interface FasciculeParu {
 
 export type { Rarete }
 
+/** « Fascicule Rosette, n° 1 » pour un lecteur d'écran ; « Fascicule n° 1 » s'il n'a pas de nom. */
+export function libelleFascicule(fascicule: { numero: number; manifeste: Manifeste }): string {
+  const nom = fascicule.manifeste.nom
+  return nom ? `Fascicule ${nom}, n°\u00a0${fascicule.numero}` : `Fascicule n°\u00a0${fascicule.numero}`
+}
+
 /** Une brique telle qu'on l'affiche : jamais en texte brut (game-design). */
 export interface BriqueJeu {
   id: string
@@ -49,6 +55,9 @@ export interface CatalogueJeu {
   langues: Map<string, string>
   /** Lettre emblème de chaque carte de langue (É, Æ, Ω…), éditée dans Content. */
   glyphes: Map<string, string>
+  /** Noms des types de relation et de transformation, par code (« forme de composition », « élision »). */
+  typesRelation: Map<string, string>
+  typesTransformation: Map<string, string>
 }
 
 export type Prevision =
@@ -82,6 +91,17 @@ function glyphesDesLangues(index: Calendrier): Map<string, string> {
     if (typeof langue.id === 'string' && typeof langue.glyphe === 'string') glyphes.set(langue.id, langue.glyphe)
   }
   return glyphes
+}
+
+type TypeIndex = { code?: unknown; libelles?: { fr?: { nom?: unknown } } }
+
+function nomsDesTypes(index: Calendrier, cle: 'types_relation' | 'types_transformation'): Map<string, string> {
+  const noms = new Map<string, string>()
+  for (const type of (index.referentiels as Record<string, TypeIndex[] | undefined> | undefined)?.[cle] ?? []) {
+    const nom = type.libelles?.fr?.nom
+    if (typeof type.code === 'string' && typeof nom === 'string') noms.set(type.code, nom)
+  }
+  return noms
 }
 
 export function formeCanonique(carte: Carte): Forme | undefined {
@@ -146,6 +166,8 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
     exclusions: [],
     langues,
     glyphes: glyphesDesLangues(index),
+    typesRelation: nomsDesTypes(index, 'types_relation'),
+    typesTransformation: nomsDesTypes(index, 'types_transformation'),
   }
   for (const entree of index.fascicules) {
     const manifeste = await lecteur.manifeste(entree.manifeste)
