@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { GEO, LOGIE, MOT, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
-import { completude, construireCodex } from './codex'
+import { GEO, LOGIE, MOT, RECETTE, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
+import { completude, construireCodex, familles, recentes, rechercher, savoirPlus } from './codex'
 
 function catalogue() {
   const c = jeu()
@@ -29,4 +29,92 @@ describe('codex', () => {
     const entrees = construireCodex(c, etat({ reserve: [ex(GEO, 2)] }))
     expect(entrees.map((e) => e.id)).toEqual(['unt_0000ge00'])
   })
+
+  it('ne trouve que des cartes découvertes, par forme ou par sens', () => {
+    const entrees = construireCodex(catalogue(), etat())
+    // Le mot inconnu a « terre » dans sa piste : il reste introuvable.
+    expect(rechercher(entrees, 'terre')).toEqual([{ titre: 'Briques', entrees: [expect.objectContaining({ libelle: 'géo-' })] }])
+    expect(rechercher(entrees, 'GEO')[0]?.entrees.map((e) => e.libelle)).toEqual(['géo-'])
+    expect(rechercher(entrees, 'géologie')).toEqual([])
+    expect(rechercher(entrees, '  ')).toEqual([])
+    const apres = construireCodex(catalogue(), etat({ decouvertes: [decouverte] }))
+    expect(rechercher(apres, 'terre').map((g) => g.titre)).toEqual(['Briques', 'Mots'])
+  })
+
+  it('range les découvertes récentes de la plus récente à la plus ancienne', () => {
+    const entrees = construireCodex(catalogue(), etat({ decouvertes: [decouverte] }))
+    // Obtenues au même instant, les briques se départagent par leur numéro.
+    expect(recentes(entrees).map((e) => e.libelle)).toEqual(['géologie', '-logie', 'géo-'])
+  })
+
+  it('déduit la famille d’une brique trouvée des mots qu’elle forme', () => {
+    const avant = familles(construireCodex(catalogue(), etat()), catalogue())
+    expect(avant.map((f) => [f.brique.libelle, f.trouves, f.mots.length])).toEqual([
+      ['géo-', 0, 1],
+      ['-logie', 0, 1],
+    ])
+    const apres = familles(construireCodex(catalogue(), etat({ reserve: [ex(GEO, 1)], decouvertes: [decouverte] })), catalogue())
+    expect(apres.map((f) => [f.brique.libelle, f.trouves])).toEqual([['géo-', 1]])
+  })
+
+  it('explique l’histoire d’une carte trouvée, sans rien d’une carte à trouver', () => {
+    const c = catalogue()
+    const grec = 'lng_00000g00'
+    c.langues.set(grec, 'grec ancien')
+    const geo = c.cartes.get('unt_0000ge00')!
+    c.cartes.set(geo.id, {
+      ...geo,
+      relations: [
+        {
+          id: 'rel_0000000a',
+          type_code: 'forme_de_composition',
+          etymon: {
+            id: 'unt_0000g000',
+            langue_id: grec,
+            forme: { id: 'frm_0000g000', texte: 'γῆ', role: 'canonique', systeme_ecriture_id: 'ecr_0000000b', translitterations: [{ convention_id: 'cnv_0000000a', texte: 'gê' }] },
+            sens: [{ id: 'sns_0000g000', rang: 1, libelles: { fr: { glose: 'terre' } } }],
+          },
+        },
+      ],
+    })
+    const mot = c.cartes.get(MOT)!
+    c.cartes.set(MOT, {
+      ...mot,
+      fait: { confiance: 'etablie' },
+      compositions: mot.compositions!.map((cmp) => ({
+        ...cmp,
+        fait: { confiance: 'probable', sources: [{ source_id: 'src_0000000a' }] },
+        transformations: [{ id: 'trf_0000000a', type_code: 'elision', ordre: 1, rang_partie: 1, libelles: { fr: { texte: 'Une voyelle tombe.' } } }],
+      })),
+      sources: { src_0000000a: { id: 'src_0000000a', type: 'dictionnaire', role: 'reference', reference: 'TLFi', url: 'javascript:alert(1)' } },
+    })
+
+    const inconnue = construireCodex(c, etat()).find((e) => e.id === MOT)!
+    expect(savoirPlus(inconnue, c)).toBeNull()
+
+    const trouvee = construireCodex(c, etat({ decouvertes: [decouverte] })).find((e) => e.id === MOT)!
+    expect(savoirPlus(trouvee, c)).toEqual({
+      chemin: [
+        { id: grec, nom: 'Grec ancien' },
+        { id: 'lng_00000f00', nom: 'Français' },
+      ],
+      relations: [
+        {
+          de: { id: 'unt_0000ge00', libelle: 'géo-', nature: 'prefixe' },
+          type: 'forme de composition',
+          texte: 'γῆ',
+          translitteration: 'gê',
+          glose: 'terre',
+          langue: 'Grec ancien',
+        },
+      ],
+      transformations: [{ type: 'élision', texte: 'Une voyelle tombe.', partie: 'géo-' }],
+      // La composition affichée fait foi, avant le socle de l'unité.
+      confiance: 'probable',
+      // Une adresse qui n'est pas en https n'est jamais un lien.
+      sources: [{ id: 'src_0000000a', reference: 'TLFi', detail: 'Référence · dictionnaire', url: null }],
+    })
+  })
 })
+
+const decouverte = { mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }

@@ -26,6 +26,9 @@
   --c-lang: #8f7bf0;
   --c-lang-tint: #e5e0fc;
   --c-lang-deep: #5541c2;
+  --c-family: #f59ac1;
+  --c-family-tint: #fde3ee;
+  --c-family-deep: #a8336a;
   --c-pli: #f4b740;
   --c-pli-tint: #fcecc6;
   --c-action: #ff6b4a;
@@ -602,3 +605,8 @@ button.disc { font: inherit; cursor: pointer; }
   .scrim { padding: 0; }
   .dialogue { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; align-content: start; }
 }
+
+/* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */
+.fasc-titre { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.fasc-nom { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; text-transform: none; }
+.fasc-num { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; }

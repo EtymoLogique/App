@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Exemplaires } from '../contrat'
 import type { BriqueJeu } from '../services/jeu'
 import { NATURES } from '../services/jeu'
+import { correspond } from '../services/recherche'
 import { ContenuBrique } from './Brique'
 
 export const TYPE_GLISSE = 'application/x-etymo-brique'
@@ -21,11 +22,6 @@ interface Props {
   onIndisponible: (message: string) => void
   /** Briques qui viennent d'être consommées : un « −1 » s'envole au-dessus. */
   consommees?: string[]
-}
-
-/** Sans accents ni casse, pour chercher « geo » comme « géo- ». */
-function normaliser(texte: string): string {
-  return texte.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
 }
 
 function exemplaires(n: number): string {
@@ -47,7 +43,8 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
       const cible = e.target as HTMLElement | null
-      if (e.key === '/' && cible?.tagName !== 'INPUT') {
+      // Écran caché (autre onglet) : le codex prend le raccourci.
+      if (e.key === '/' && cible?.tagName !== 'INPUT' && champ.current && !champ.current.closest('[hidden]')) {
         e.preventDefault()
         champ.current?.focus()
       }
@@ -63,17 +60,15 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
         .sort((a, b) => Date.parse(b.connue_le) - Date.parse(a.connue_le) || a.brique_id.localeCompare(b.brique_id)),
     [reserve, briques],
   )
-  const correspond = (e: Exemplaires, f: Filtre) => {
+  const dansLeFiltre = (e: Exemplaires, f: Filtre) => {
     const b = briques.get(e.brique_id) as BriqueJeu
     if (f === 'prefixe' || f === 'suffixe') return b.nature === f
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
     return true
   }
-  const cherchee = normaliser(recherche.trim())
   const visibles = connues.filter((e) => {
     const b = briques.get(e.brique_id) as BriqueJeu
-    const texte = normaliser(`${b.libelle} ${b.glose ?? ''}`)
-    return correspond(e, filtre) && (cherchee === '' || texte.includes(cherchee))
+    return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
   })
 
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length

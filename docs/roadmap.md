@@ -75,7 +75,10 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Liens entre cartes qui se font référence (morceaux du mot, composants, langue, formes, mots formés), vers les seules cartes découvertes, avec fil d’Ariane ; ni lien ni animation sur ce qui reste à découvrir | fait |
 | Textures insérées depuis les silhouettes publiées (teinte et évidements), reconstruites par la même liste blanche que Content ; lettre emblème et nom des cartes de langue (champ `glyphe` des langues) ; jaquette de chaque fascicule dans son filtre | fait |
 | Filtres, tri et carte ouverte dans l’adresse ([ADR 0034](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0034-ecran-dans-l-adresse.md)) | fait |
-| Recherche, objectifs et jalons | à faire |
+| Recherche parmi les seules cartes trouvées, par forme ou par sens (I-17), raccourci « / », jamais dans l’adresse | fait |
+| Vues Tout, Récentes, Familles et Objectifs, tenues dans l’adresse (`vue=`) ; familles déduites des recettes : les mots formés sur une brique trouvée | fait |
+| Onglet Objectifs (I-18) : familles à compléter avec leur détail, langues rencontrées | fait ; jalons avec J4 (Content : jalons) |
+| « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la fiche (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
 
 ## Décisions à formaliser
 

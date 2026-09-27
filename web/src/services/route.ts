@@ -1,5 +1,6 @@
 // Adresse de l'écran dans l'URL, pour qu'un rechargement ou un lien ramène
-// exactement au même endroit : onglet, filtres du codex et carte ouverte.
+// exactement au même endroit : onglet, vue et filtres du codex, carte ouverte.
+// La recherche n'y figure pas : l'adresse ne porte jamais de texte (ADR 0034).
 // Routes en fragment (#/codex/unt_…) : la PWA est servie en fichiers statiques,
 // sans réécriture d'URL côté serveur.
 
@@ -8,22 +9,30 @@ import { useCallback, useSyncExternalStore } from 'react'
 export type Onglet = 'table' | 'codex' | 'plis' | 'reglages'
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc'
+/** Vues du codex (maquette I-14) ; les types se filtrent à part. */
+export type VueCodex = 'tout' | 'recentes' | 'familles' | 'objectifs'
 
 export interface Route {
   onglet: Onglet
   /** Carte agrandie du codex. */
   carte: string | null
+  /** Section « En savoir plus » dépliée sous la carte agrandie (I-16). */
+  plus: boolean
+  vue: VueCodex
   filtre: FiltreCodex
   tri: TriCodex
+  /** Tri dans l'ordre inverse. */
+  inverse: boolean
   fascicule: number | null
 }
 
 const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'reglages']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc']
+const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'objectifs']
 const IDENTIFIANT = /^(unt|lng)_[0-9a-hjkmnp-tv-z]{8}$/
 
-export const ROUTE_PAR_DEFAUT: Route = { onglet: 'table', carte: null, filtre: 'tout', tri: 'n', fascicule: null }
+export const ROUTE_PAR_DEFAUT: Route = { onglet: 'table', carte: null, plus: false, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
 
 /** Lit une route ; toute valeur inconnue retombe sur sa valeur par défaut. */
 export function lireRoute(fragment: string): Route {
@@ -34,20 +43,29 @@ export function lireRoute(fragment: string): Route {
   const route: Route = {
     onglet: ONGLETS.includes(onglet as Onglet) ? (onglet as Onglet) : 'table',
     carte: null,
+    plus: false,
+    vue: VUES.includes(params.get('vue') as VueCodex) ? (params.get('vue') as VueCodex) : 'tout',
     filtre: FILTRES.includes(params.get('type') as FiltreCodex) ? (params.get('type') as FiltreCodex) : 'tout',
     tri: TRIS.includes(params.get('tri') as TriCodex) ? (params.get('tri') as TriCodex) : 'n',
+    inverse: params.get('sens') === 'inverse',
     fascicule: params.has('fascicule') && Number.isInteger(fascicule) && fascicule >= 0 ? fascicule : null,
   }
-  if (route.onglet === 'codex' && carte && IDENTIFIANT.test(carte)) route.carte = carte
+  if (route.onglet === 'codex' && carte && IDENTIFIANT.test(carte)) {
+    route.carte = carte
+    route.plus = params.get('plus') === '1'
+  }
   return route
 }
 
 export function ecrireRoute(route: Route): string {
   if (route.onglet !== 'codex') return `#/${route.onglet}`
   const params = new URLSearchParams()
+  if (route.vue !== 'tout') params.set('vue', route.vue)
   if (route.filtre !== 'tout') params.set('type', route.filtre)
   if (route.tri !== 'n') params.set('tri', route.tri)
+  if (route.inverse) params.set('sens', 'inverse')
   if (route.fascicule !== null) params.set('fascicule', String(route.fascicule))
+  if (route.carte && route.plus) params.set('plus', '1')
   const requete = params.toString()
   return `#/codex${route.carte ? `/${route.carte}` : ''}${requete ? `?${requete}` : ''}`
 }

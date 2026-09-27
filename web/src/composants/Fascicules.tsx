@@ -1,4 +1,4 @@
-import type { FasciculeParu } from '../services/jeu'
+import { type FasciculeParu, libelleFascicule } from '../services/jeu'
 import type { LecteurCatalogue } from '../services/catalogue'
 
 const dates = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' })
@@ -41,7 +41,10 @@ export function Fascicules({ parus, catalogue }: Props) {
             ) : (
               <div className="jaquette jaquette-absente" aria-hidden="true" />
             )}
-            <h3>Fascicule n°&nbsp;{numero}</h3>
+            <h3 className="fasc-titre" aria-label={libelleFascicule({ numero, manifeste })}>
+              <span className="fasc-nom">{manifeste.nom ?? 'Fascicule'}</span>
+              <span className="fasc-num">N°&nbsp;{numero}</span>
+            </h3>
             <p className="meta">
               Paru le <time dateTime={parution}>{date(parution)}</time>
               {mots !== undefined && <> · {mots} mots</>}

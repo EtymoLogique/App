@@ -215,4 +215,84 @@ describe('table de fusion', () => {
     expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Mots/ })).toHaveAttribute('aria-pressed', 'true')
   })
+
+  it('cherche dans le codex parmi les seules cartes découvertes', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    const champ = await screen.findByRole('searchbox', { name: /parmi les cartes découvertes/ })
+    // « terre » est aussi la piste du mot à trouver : seule la brique répond.
+    fireEvent.change(champ, { target: { value: 'terre' } })
+    expect(screen.getByText('Briques · 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^géo-, préfixe/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /à découvrir/ })).not.toBeInTheDocument()
+    fireEvent.change(champ, { target: { value: 'géologie' } })
+    expect(screen.getByText('Aucun résultat')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Effacer la recherche' }))
+    expect(champ).toHaveValue('')
+    // La recherche ne s'écrit jamais dans l'adresse (ADR 0034).
+    expect(window.location.hash).toBe('#/codex')
+  })
+
+  it('tient la vue du codex dans l’adresse : familles et objectifs', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Familles/ }))
+    expect(window.location.hash).toBe('#/codex?vue=familles')
+    expect(screen.getByRole('region', { name: 'Famille de géo- : 0 mots trouvés sur 1' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Objectifs/ }))
+    expect(window.location.hash).toBe('#/codex?vue=objectifs')
+    expect(screen.getByText('Familles à compléter')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Famille de géo- : 0 mots trouvés sur 1' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('ouvre « En savoir plus » depuis la fiche, jusque dans l’adresse', async () => {
+    const reponse: ReponseFusion = {
+      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
+      etat: etat({
+        version_etat: 2,
+        reserve: [ex(GEO, 1), ex(LOGIE, 0)],
+        decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }],
+      }),
+    }
+    render(<App api={client(vi.fn<ClientApi['fusion']>().mockResolvedValue(reponse))} catalogue={lecteur} />)
+    await poser('géo-', '-logie')
+    await act(async () => fireEvent.click(fusionner()))
+    const fiche = await screen.findByRole('dialog', { name: 'géologie' })
+    fireEvent.click(within(fiche).getByRole('button', { name: 'En savoir plus' }))
+
+    const carte = await screen.findByRole('dialog', { name: 'géologie' })
+    expect(window.location.hash).toBe(`#/codex/${MOT}?plus=1`)
+    expect(within(carte).getByRole('region', { name: 'En savoir plus sur géologie' })).toHaveTextContent('version du catalogue v1')
+    fireEvent.click(within(carte).getByRole('button', { name: 'Replier la section' }))
+    expect(within(carte).queryByRole('region', { name: /^En savoir plus/ })).not.toBeInTheDocument()
+    expect(window.location.hash).toBe(`#/codex/${MOT}`)
+  })
+
+  it('replie un groupe de cartes dans le tri par fascicule', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Fascicule' }))
+    const groupe = screen.getByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Replier le groupe/ })
+    expect(screen.getByRole('button', { name: /^géo-, préfixe/ })).toBeInTheDocument()
+    fireEvent.click(groupe)
+    expect(groupe).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: /^géo-, préfixe/ })).not.toBeInTheDocument()
+    fireEvent.click(groupe)
+    expect(screen.getByRole('button', { name: /^géo-, préfixe/ })).toBeInTheDocument()
+  })
+
+  it('inverse le tri quand on touche à nouveau le tri actif', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    await screen.findByRole('button', { name: /^géo-, préfixe/ })
+    const numeros = () => Array.from(document.querySelectorAll('.cb-grid .mini'), (b) => b.getAttribute('aria-label'))
+    const avant = numeros()
+    expect(avant.length).toBeGreaterThan(1)
+    fireEvent.click(screen.getByRole('button', { name: /^N°, ordre croissant/ }))
+    expect(window.location.hash).toBe('#/codex?sens=inverse')
+    expect(numeros()).toEqual([...avant].reverse())
+    // Un autre tri repart dans l'ordre croissant.
+    fireEvent.click(screen.getByRole('button', { name: 'A → Z' }))
+    expect(window.location.hash).toBe('#/codex?tri=az')
+  })
 })

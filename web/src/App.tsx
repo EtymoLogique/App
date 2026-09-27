@@ -40,7 +40,7 @@ export function App({ api, catalogue }: Props) {
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
   const [route, naviguer] = useRoute()
   const onglet = route.onglet
-  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null }), [naviguer])
+  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, plus: false }), [naviguer])
   const { jeu, etat } = partie
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
   const entrees = useMemo(
@@ -66,10 +66,14 @@ export function App({ api, catalogue }: Props) {
       : false
 
   const allerAuCodex = useCallback(
-    (motId?: string) => {
+    (motId?: string, plus = false) => {
       partie.fermerFiche()
       // La carte demandée s'ouvre filtres levés, pour être sûre d'y être.
-      naviguer(motId ? { onglet: 'codex', carte: motId, filtre: 'tout', tri: 'n', fascicule: null } : { onglet: 'codex', carte: null })
+      naviguer(
+        motId
+          ? { onglet: 'codex', carte: motId, plus, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
+          : { onglet: 'codex', carte: null, plus: false },
+      )
     },
     [partie, naviguer],
   )
@@ -254,6 +258,7 @@ export function App({ api, catalogue }: Props) {
                   reserve={etat?.reserve ?? []}
                   onFermer={partie.fermerFiche}
                   onCodex={() => allerAuCodex(fiche.motId)}
+                  onSavoirPlus={() => allerAuCodex(fiche.motId, true)}
                 />
               )}
             </>
