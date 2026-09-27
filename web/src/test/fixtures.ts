@@ -91,6 +91,7 @@ export function jeu(): CatalogueJeu {
     recettes: [{ id: RECETTE, motId: MOT, emplacements: [[GEO], [LOGIE]] }],
     exclusions: [],
     langues: new Map([[FR, 'français']]),
+    glyphes: new Map([[FR, 'É']]),
   }
 }
 

@@ -47,6 +47,8 @@ export interface CatalogueJeu {
   recettes: RecetteJeu[]
   exclusions: { combinaison: string[]; raison: string }[]
   langues: Map<string, string>
+  /** Lettre emblème de chaque carte de langue (É, Æ, Ω…), éditée dans Content. */
+  glyphes: Map<string, string>
 }
 
 export type Prevision =
@@ -59,14 +61,27 @@ function decoder<T>(octets: ArrayBuffer): T {
   return JSON.parse(new TextDecoder().decode(octets)) as T
 }
 
+type LangueIndex = { id?: unknown; glyphe?: unknown; libelles?: { fr?: { nom?: unknown } } }
+
+function languesDe(index: Calendrier): LangueIndex[] {
+  return (index.referentiels as { langues?: LangueIndex[] } | undefined)?.langues ?? []
+}
+
 function nomsDesLangues(index: Calendrier): Map<string, string> {
   const noms = new Map<string, string>()
-  const referentiels = index.referentiels as { langues?: { id?: unknown; libelles?: { fr?: { nom?: unknown } } }[] }
-  for (const langue of referentiels?.langues ?? []) {
+  for (const langue of languesDe(index)) {
     const nom = langue.libelles?.fr?.nom
     if (typeof langue.id === 'string' && typeof nom === 'string') noms.set(langue.id, nom)
   }
   return noms
+}
+
+function glyphesDesLangues(index: Calendrier): Map<string, string> {
+  const glyphes = new Map<string, string>()
+  for (const langue of languesDe(index)) {
+    if (typeof langue.id === 'string' && typeof langue.glyphe === 'string') glyphes.set(langue.id, langue.glyphe)
+  }
+  return glyphes
 }
 
 export function formeCanonique(carte: Carte): Forme | undefined {
@@ -130,6 +145,7 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
     recettes: [],
     exclusions: [],
     langues,
+    glyphes: glyphesDesLangues(index),
   }
   for (const entree of index.fascicules) {
     const manifeste = await lecteur.manifeste(entree.manifeste)

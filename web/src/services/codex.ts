@@ -53,8 +53,11 @@ export interface EntreeCodex {
   sens: string | null
   definition: string | null
   langueId: string | null
+  /** Lettre emblème d'une carte de langue. */
+  glyphe: string | null
   rarete: Rarete | null
   legendaire: boolean
+  /** Chemin haché de la silhouette dans le catalogue. */
   silhouette: string | null
   confiance: Confiance | null
   carte: Carte | null
@@ -94,7 +97,7 @@ function glose(carte: Carte): string | null {
 }
 
 /** Construit les cartes du codex pour les fascicules parus et l'état du joueur. */
-export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: (chemin: string) => string): EntreeCodex[] {
+export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCodex[] {
   const decouverts = new Set(etat?.decouvertes.map((d) => d.mot_id) ?? [])
   const connues = new Set(etat?.reserve.map((e) => e.brique_id) ?? [])
   const legendaires = new Set([...jeu.briques.values()].filter((b) => b.rarete === 'legendaire').map((b) => b.id))
@@ -162,10 +165,11 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: 
         sens: affixe ? glose(carte) : (sensLitteral(carte) ?? glose(carte)),
         definition: definition(carte),
         langueId: carte.langue_id,
+        glyphe: null,
         // La rareté est celle d'une brique élémentaire : une carte de mot n'en porte jamais (codex.html).
         rarete: affixe ? (carte.brique?.rarete ?? null) : null,
         legendaire,
-        silhouette: ref.silhouette ? urlMedia(ref.silhouette) : null,
+        silhouette: ref.silhouette ?? null,
         confiance: carte.fait?.confiance ?? null,
         carte,
         formes: formesDe(carte, estTrouvee),
@@ -188,9 +192,10 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: 
         sens: null,
         definition: null,
         langueId: ref.id,
+        glyphe: jeu.glyphes.get(ref.id) ?? nom.charAt(0).toUpperCase(),
         rarete: null,
         legendaire: false,
-        silhouette: ref.silhouette ? urlMedia(ref.silhouette) : null,
+        silhouette: ref.silhouette ?? null,
         confiance: null,
         carte: null,
         formes: [],

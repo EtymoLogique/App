@@ -1,4 +1,4 @@
-import { Fragment, cloneElement, useEffect, useRef, useState } from 'react'
+import { Fragment, cloneElement, createContext, useContext, useEffect, useRef, useState } from 'react'
 
 import {
   CONFIANCES,
@@ -12,6 +12,7 @@ import {
 import type { CatalogueJeu } from '../services/jeu'
 import { NATURES } from '../services/jeu'
 import { MotSegmente } from './MotSegmente'
+import { chargerSilhouette } from '../services/silhouettes'
 import { FormeRarete } from './Rarete'
 
 type Tri = 'n' | 'az' | 'type' | 'fasc'
@@ -36,10 +37,31 @@ function bandeau(type: TypeCarte): React.CSSProperties {
   return { '--tc': tc, '--tt': tt } as React.CSSProperties
 }
 
-/** Texture de carte (ADR 0023) : silhouette d'une seule teinte, seulement une fois la carte trouvée. */
+/** Lecture d'un média haché du catalogue, en texte. */
+type LireMedia = (chemin: string) => Promise<string>
+const LectureMedia = createContext<LireMedia | null>(null)
+
+/**
+ * Texture de carte (ADR 0023) : la silhouette, insérée dans la carte pour
+ * prendre sa teinte et le fond de ses évidements. Seulement une fois la carte
+ * trouvée, pour ne rien trahir.
+ */
 function Texture({ entree }: { entree: EntreeCodex }) {
-  if (!entree.trouvee || !entree.silhouette) return null
-  return <span className="card-art" aria-hidden="true" style={{ '--art': `url("${entree.silhouette}")` } as React.CSSProperties} />
+  const lire = useContext(LectureMedia)
+  const hote = useRef<HTMLSpanElement>(null)
+  const chemin = entree.trouvee ? entree.silhouette : null
+  useEffect(() => {
+    if (!chemin || !lire) return
+    let actif = true
+    void chargerSilhouette(chemin, lire).then((svg) => {
+      if (actif && svg && hote.current) hote.current.replaceChildren(svg)
+    })
+    return () => {
+      actif = false
+    }
+  }, [chemin, lire])
+  if (!chemin) return null
+  return <span ref={hote} className="card-art" aria-hidden="true" />
 }
 
 function Brique({ libelle, nature, className = 'bchip' }: { libelle: string; nature: string; className?: string }) {
@@ -90,12 +112,12 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
       {entree.trouvee ? (
         <>
           <Texture entree={entree} />
-          {entree.type === 'langue' && <span className="m-glyph">{entree.libelle.charAt(0)}</span>}
+          {entree.type === 'langue' && <span className="m-glyph">{entree.glyphe}</span>}
           {affixe ? (
             <Brique libelle={entree.libelle} nature={NATURES[entree.type as 'prefixe' | 'suffixe']} className="bchip m-brick" />
-          ) : entree.type !== 'langue' ? (
+          ) : (
             <span className="m-word">{entree.libelle}</span>
-          ) : null}
+          )}
           {entree.sens && <span className="m-lit">«&nbsp;{entree.sens}&nbsp;»</span>}
           <span className="m-foot">
             {entree.type === 'langue' ? (
@@ -245,7 +267,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
             <div className="bf-body">
               {entree.trouvee ? (
                 <>
-                  {entree.type === 'langue' && <p className="bf-glyph">{entree.libelle.charAt(0)}</p>}
+                  {entree.type === 'langue' && <p className="bf-glyph">{entree.glyphe}</p>}
                   {affixe ? (
                     <div className="brick bf-brick" data-kind={NATURES[entree.type as 'prefixe' | 'suffixe']}>
                       <span className="b-label">{entree.libelle}</span>
@@ -433,10 +455,12 @@ interface Props {
   onOuverte?: () => void
   /** Adresse d'un média du catalogue (jaquette d'un fascicule). */
   urlMedia: (chemin: string) => string
+  /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
+  lireMedia: LireMedia
 }
 
 /** Codex, vue globale (I-14, codex.html) : complétude par fascicule, filtres par type, tri, cartes et carte agrandie. */
-export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlMedia }: Props) {
+export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlMedia, lireMedia }: Props) {
   const [filtre, setFiltre] = useState<TypeCarte | 'tout'>('tout')
   const [ordre, setOrdre] = useState<Tri>('n')
   const [fascicule, setFascicule] = useState<number | 'tous'>('tous')
@@ -488,6 +512,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlM
   }, [aOuvrir, entrees, onVue, onOuverte])
 
   return (
+    <LectureMedia.Provider value={lireMedia}>
     <div className="codex-browser">
       <div className="cb-head">
         <div>
@@ -616,5 +641,6 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlM
         />
       )}
     </div>
+    </LectureMedia.Provider>
   )
 }

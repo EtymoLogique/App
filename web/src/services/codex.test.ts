@@ -11,7 +11,7 @@ function catalogue() {
 
 describe('codex', () => {
   it('montre les briques connues, et le mot en silhouette tant qu’il n’est pas découvert', () => {
-    const entrees = construireCodex(catalogue(), etat(), (c) => c)
+    const entrees = construireCodex(catalogue(), etat())
     const mot = entrees.find((e) => e.id === MOT)
     expect(mot).toMatchObject({ trouvee: false, sens: 'étude de la terre', resultat: true })
     expect(entrees.filter((e) => e.trouvee).map((e) => e.libelle)).toEqual(['géo-', '-logie'])
@@ -26,7 +26,7 @@ describe('codex', () => {
     c.briques.set(LOGIE, { ...logie, rarete: 'legendaire' })
     const carte = c.cartes.get(logie.uniteId)!
     c.cartes.set(logie.uniteId, { ...carte, brique: { ...carte.brique!, rarete: 'legendaire' } })
-    const entrees = construireCodex(c, etat({ reserve: [ex(GEO, 2)] }), (x) => x)
+    const entrees = construireCodex(c, etat({ reserve: [ex(GEO, 2)] }))
     expect(entrees.map((e) => e.id)).toEqual(['unt_0000ge00'])
   })
 })

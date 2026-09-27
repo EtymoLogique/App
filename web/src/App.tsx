@@ -41,8 +41,8 @@ export function App({ api, catalogue }: Props) {
   const { jeu, etat } = partie
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
   const entrees = useMemo(
-    () => (catalogueJeu ? construireCodex(catalogueJeu, etat, (chemin) => catalogue.url(chemin)) : []),
-    [catalogueJeu, etat, catalogue],
+    () => (catalogueJeu ? construireCodex(catalogueJeu, etat) : []),
+    [catalogueJeu, etat],
   )
   const mots = entrees.filter((e) => e.resultat)
   const motsTrouves = completude(mots).trouvees
@@ -228,6 +228,7 @@ export function App({ api, catalogue }: Props) {
                   aOuvrir={onglet === 'codex' ? carteAOuvrir : null}
                   onOuverte={() => setCarteAOuvrir(null)}
                   urlMedia={(chemin) => catalogue.url(chemin)}
+                  lireMedia={async (chemin) => new TextDecoder().decode(await catalogue.fichierHache(chemin))}
                 />
               </section>
 

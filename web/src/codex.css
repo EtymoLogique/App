@@ -94,7 +94,7 @@
 .mini.is-new:hover, .mini.is-new:focus-visible { box-shadow: 5px 6px 0 var(--pop-shadow), var(--new-halo); }
 /* Texture de carte (ADR 0023) : silhouette d'une seule teinte, sous le contenu, jamais sous le bandeau. */
 .card-art { position: absolute; z-index: 0; inset: 25px 0 0; overflow: hidden; color: var(--ink); opacity: 0.1; pointer-events: none; --art-bg: var(--paper); }
-.card-art::before { content: ""; position: absolute; inset: 0; background: currentColor; -webkit-mask: var(--art) center / cover no-repeat; mask: var(--art) center / cover no-repeat; }
+.card-art svg { display: block; width: 100%; height: 100%; }
 .mini > :not(.card-art):not(.cv-art):not(.m-top) { position: relative; z-index: 1; }
 .big-face .card-art { inset: 0; opacity: 0.085; --art-bg: var(--cream); }
 .big-face .bf-top, .big-face .bf-body, .big-face .bf-foot { position: relative; z-index: 1; }
