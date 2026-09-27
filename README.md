@@ -47,6 +47,23 @@ Chaque requête refuse les propriétés inconnues, et son corps est borné à 8 
 
 Prérequis : Rust 1.98, Node.js 24, Docker, Python et le dépôt Content à côté de celui-ci (`../content`).
 
+### En une commande, avec rechargement automatique
+
+```sh
+brew install watchexec          # une fois
+./scripts/dev.sh
+```
+
+Le script démarre la base, applique les migrations et compile le catalogue d’essai dans `.local/bucket` s’il manque. Il lance ensuite l’API sur <http://localhost:8080> et la PWA sur <http://localhost:5173>.
+
+- **API** : `watchexec` la recompile et la relance à chaque modification de `crates/`, `migrations/` ou `Cargo.toml`. Les requêtes SQL sont vérifiées contre la base locale, sans `cargo sqlx prepare`, mais pensez à le lancer avant de pousser.
+- **PWA** : Vite recharge à chaud chaque modification de `web/`.
+- **Catalogue** : l’API relit l’index toutes les 5 s. Pour repartir du catalogue de Content, supprimez `.local/bucket` et relancez le script.
+
+Ctrl-C arrête l’API et la PWA ; `docker compose stop` arrête la base.
+
+### Pas à pas
+
 ```sh
 # 1. Base de progression
 docker compose up -d --wait

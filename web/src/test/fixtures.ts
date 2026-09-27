@@ -4,7 +4,7 @@ import { vi } from 'vitest'
 
 import type { Carte, Etat, Manifeste, Recette } from '../contrat'
 import { LecteurCatalogue } from '../services/catalogue'
-import type { CatalogueJeu } from '../services/jeu'
+import { type CatalogueJeu, libelle } from '../services/jeu'
 
 export const GEO = 'brq_0000ge00'
 export const LOGIE = 'brq_000109e0'
@@ -75,6 +75,7 @@ export function jeu(): CatalogueJeu {
           uniteId: c.id,
           nature: c.nature,
           forme: c.formes[0]?.texte ?? '',
+          libelle: libelle(c.nature, c.formes[0]?.texte ?? ''),
           glose: c.sens[0]?.libelles.fr?.glose ?? null,
           langue: 'français',
           origine: null,

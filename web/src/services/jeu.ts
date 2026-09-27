@@ -23,6 +23,8 @@ export interface BriqueJeu {
   uniteId: string
   nature: Carte['nature']
   forme: string
+  /** Forme affichée, avec le trait d'union qui dit sa position : « géo- », « -logie ». */
+  libelle: string
   glose: string | null
   langue: string | null
   origine: string | null
@@ -77,6 +79,10 @@ export function definition(carte: Carte): string | null {
   return sens.map((s) => s.libelles.fr?.definition).find((d) => d) ?? null
 }
 
+export function libelle(nature: Carte['nature'], forme: string): string {
+  return nature === 'prefixe' ? `${forme}-` : nature === 'suffixe' ? `-${forme}` : forme
+}
+
 function brique(carte: Carte, langues: Map<string, string>): BriqueJeu | null {
   if (!carte.brique) return null
   const forme = carte.formes.find((f) => f.id === carte.brique?.forme_affichee_id) ?? formeCanonique(carte)
@@ -100,6 +106,7 @@ function brique(carte: Carte, langues: Map<string, string>): BriqueJeu | null {
     uniteId: carte.id,
     nature: carte.nature,
     forme: forme?.texte ?? '…',
+    libelle: libelle(carte.nature, forme?.texte ?? '…'),
     glose: sens?.libelles.fr?.glose ?? null,
     langue: langues.get(carte.langue_id) ?? null,
     origine,
@@ -184,4 +191,38 @@ export function prevoir(proposition: string[], jeu: CatalogueJeu, decouverts: Se
     return { type: 'presque', motif: 'incomplet' }
   }
   return { type: 'echec' }
+}
+
+/** Mots des fascicules parus, d'après leurs compteurs : hors légendaires, qui ne se trahissent jamais (ADR 0015). */
+export function totalMots(jeu: CatalogueJeu): number {
+  return jeu.fascicules.reduce((n, f) => {
+    const mots = (f.manifeste.compteurs as { mots?: unknown } | undefined)?.mots
+    return n + (typeof mots === 'number' ? mots : 0)
+  }, 0)
+}
+
+export const NATURES: Record<BriqueJeu['nature'], string> = { prefixe: 'préfixe', suffixe: 'suffixe', mot: 'mot' }
+
+/** Libellé accessible d'une brique : « préfixe géo- (terre) ». */
+export function nomAccessible(brique: BriqueJeu): string {
+  return `${NATURES[brique.nature]} ${brique.libelle}${brique.glose ? ` (${brique.glose})` : ''}`
+}
+
+/**
+ * Vrai si la réserve permet encore au moins une découverte : une recette d'un
+ * mot inconnu dont chaque emplacement trouve un exemplaire (game-design,
+ * « Réserve sans découverte possible »).
+ */
+export function decouvertePossible(jeu: CatalogueJeu, reserve: { brique_id: string; exemplaires: number }[], decouverts: Set<string>): boolean {
+  const stock = new Map(reserve.map((e) => [e.brique_id, e.exemplaires]))
+  return jeu.recettes.some((recette) => {
+    if (decouverts.has(recette.motId)) return false
+    const restants = new Map(stock)
+    return recette.emplacements.every((acceptees) => {
+      const brique = acceptees.find((b) => (restants.get(b) ?? 0) > 0)
+      if (!brique) return false
+      restants.set(brique, (restants.get(brique) ?? 0) - 1)
+      return true
+    })
+  })
 }

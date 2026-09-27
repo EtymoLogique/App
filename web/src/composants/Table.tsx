@@ -18,14 +18,16 @@ interface Props {
   onRetirer: (rang: number) => void
   onVider: () => void
   onFusionner: () => void
+  secousse?: { force: 'legere' | 'forte'; cle: number } | null
 }
 
 /**
- * La table de fusion : l'ordre fait partie de l'hypothèse. Glisser-déposer à
- * la souris, boutons au toucher et au clavier (ADR 0001).
+ * Table de fusion (design système 3.3) : emplacements numérotés, car l'ordre
+ * compte. Glisser-déposer à la souris, boutons au toucher et au clavier (ADR 0001).
  */
-export function Table({ table, briques, enAttente, bloquee, onAjouter, onDeplacer, onRetirer, onVider, onFusionner }: Props) {
+export function Table({ table, briques, enAttente, bloquee, onAjouter, onDeplacer, onRetirer, onVider, onFusionner, secousse }: Props) {
   const [survol, setSurvol] = useState<number | null>(null)
+  const emplacements = Math.max(TABLE_MIN, Math.min(TABLE_MAX, table.length + 1))
 
   const deposer = (e: React.DragEvent, rang: number) => {
     e.preventDefault()
@@ -36,90 +38,77 @@ export function Table({ table, briques, enAttente, bloquee, onAjouter, onDeplace
       return
     }
     const brique = e.dataTransfer.getData(TYPE_GLISSE)
-    if (brique) onAjouter(brique, rang)
+    if (brique) onAjouter(brique, Math.min(rang, table.length))
   }
 
-  const trop = table.length < TABLE_MIN ? `Posez au moins ${TABLE_MIN} briques.` : null
-  const raison = bloquee ?? trop
+  const raison = bloquee ?? (table.length < TABLE_MIN ? `Posez au moins ${TABLE_MIN} briques.` : null)
 
   return (
-    <div className="table">
+    <>
       <ol
-        className="table-emplacements"
+        key={secousse?.cle ?? 0}
+        className={secousse ? `slots secousse-${secousse.force}` : 'slots'}
         aria-label="Briques posées, dans l’ordre"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => deposer(e, table.length)}
       >
-        {table.map((id, rang) => {
-          const brique = briques.get(id)
-          if (!brique) return null
+        {Array.from({ length: emplacements }, (_, rang) => {
+          const id = table[rang]
+          const brique = id ? briques.get(id) : undefined
+          const classes = ['slot', brique ? 'filled' : '', survol === rang ? 'over' : ''].filter(Boolean).join(' ')
           return (
             <li
-              key={`${id}-${rang}`}
-              className={survol === rang ? 'emplacement survol' : 'emplacement'}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(TYPE_DEPLACE, String(rang))
-                e.dataTransfer.effectAllowed = 'move'
-              }}
+              key={brique ? `${id}-${rang}` : `vide-${rang}`}
+              className={classes}
               onDragOver={(e) => {
                 e.preventDefault()
                 setSurvol(rang)
               }}
               onDragLeave={() => setSurvol(null)}
-              onDrop={(e) => {
-                e.stopPropagation()
-                deposer(e, rang)
-              }}
+              onDrop={(e) => deposer(e, rang)}
             >
-              <Brique brique={brique} />
-              <span className="emplacement-actions">
-                <button
-                  type="button"
-                  disabled={rang === 0}
-                  onClick={() => onDeplacer(rang, rang - 1)}
-                  aria-label={`Avancer ${brique.forme}`}
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  disabled={rang === table.length - 1}
-                  onClick={() => onDeplacer(rang, rang + 1)}
-                  aria-label={`Reculer ${brique.forme}`}
-                >
-                  →
-                </button>
-                <button type="button" onClick={() => onRetirer(rang)} aria-label={`Retirer ${brique.forme}`}>
-                  ×
-                </button>
+              <span
+                className="slot-case"
+                draggable={brique !== undefined}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(TYPE_DEPLACE, String(rang))
+                  e.dataTransfer.effectAllowed = 'move'
+                }}
+              >
+                {brique ? (
+                  <span className="slot-brique" onClick={() => onRetirer(rang)}>
+                    <Brique brique={brique} />
+                  </span>
+                ) : (
+                  <span className="slot-num" aria-label={`Emplacement ${rang + 1}, vide`}>
+                    {rang + 1}
+                  </span>
+                )}
               </span>
+              {brique && (
+                <span className="slot-actions">
+                  <button type="button" className="btn-icone" disabled={rang === 0} onClick={() => onDeplacer(rang, rang - 1)} aria-label={`Avancer ${brique.libelle}`}>
+                    ←
+                  </button>
+                  <button type="button" className="btn-icone" disabled={rang === table.length - 1} onClick={() => onDeplacer(rang, rang + 1)} aria-label={`Reculer ${brique.libelle}`}>
+                    →
+                  </button>
+                  <button type="button" className="btn-icone" onClick={() => onRetirer(rang)} aria-label={`Retirer ${brique.libelle}`}>
+                    ×
+                  </button>
+                </span>
+              )}
             </li>
           )
         })}
-        {Array.from({ length: TABLE_MAX - table.length }, (_, i) => (
-          <li key={`vide-${i}`} className="emplacement vide" aria-hidden="true" />
-        ))}
       </ol>
-      <div className="table-actions">
-        <button type="button" onClick={onVider} disabled={table.length === 0 || enAttente}>
+      <div className="actions">
+        <button type="button" className="btn btn-secondary" onClick={onVider} disabled={table.length === 0 || enAttente}>
           Vider
         </button>
-        <button
-          type="button"
-          className="principal"
-          onClick={onFusionner}
-          disabled={raison !== null || enAttente}
-          aria-describedby={raison ? 'table-raison' : undefined}
-        >
+        <button type="button" className="btn btn-primary" onClick={onFusionner} disabled={raison !== null || enAttente}>
           {enAttente ? 'Fusion…' : 'Fusionner'}
         </button>
       </div>
-      {raison && table.length > 0 && (
-        <p id="table-raison" className="meta">
-          {raison}
-        </p>
-      )}
-    </div>
+      {raison && table.length > 0 && <p className="panel-tip">{raison}</p>}
+    </>
   )
 }

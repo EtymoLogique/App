@@ -24,8 +24,13 @@ Si le code s’écarte d’un ADR, ou si deux sources se contredisent, signalez 
 - **Chemins du catalogue** : seul `Chemin` (Rust) ou `cheminValide` (TypeScript) décide qu’un chemin est lisible ; chaque fichier haché est vérifié contre son empreinte.
 - **Prévisualisation d’une fusion** : `prevoir` (`web/src/services/jeu.ts`) est le miroir de `etymo_domaine::fusion::resoudre`. Changez les deux ensemble, avec leurs tests.
 - **Fichiers générés** (`contrat/openapi.json`, `web/src/contrat/api.d.ts`, `.sqlx/`) : régénérez-les, ne les éditez pas.
+- **Identité visuelle** : `web/src/styles.css` reprend les jetons et les composants du design système (`docs/assets/etymo.css` du dossier de conception). Pas de couleur en dur hors palette, pas de blanc pur, ombres dures en Encre ; une brique affiche son trait d’union (« géo- », « -logie »), jamais en texte brut. Contrôlez avec `python3 ../design/.agents/skills/visual-identity-check/check_identity.py web/src/styles.css` et la checklist du skill `visual-identity-check`.
 - **Vocabulaire du jeu** : « pli » (jamais « pack »), « codex », « exemplaire », « réserve », « brique », « fascicule ». Typographie française dans les libellés : « », ’, espaces insécables.
 - **Branches** (ADR 0028) : `develop` déploie en hors-prod, un tag `v*.*.*` en prod.
+
+## Développer
+
+Lancez une fois `./scripts/dev.sh` en arrière-plan (processus détaché, journal dans un fichier) et laissez-le tourner. L’API se recompile et redémarre toute seule quand `crates/` ou `migrations/` changent ; la PWA se recharge à chaud. Ne coupez ni ne relancez l’application après une modification : attendez la nouvelle ligne « API à l’écoute » dans le journal.
 
 ## Avant de conclure
 

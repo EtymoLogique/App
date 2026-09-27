@@ -332,6 +332,13 @@ export interface components {
             forme_id: components["schemas"]["IdCatalogue"];
             /** Format: int32 */
             rang: number;
+            /**
+             * Format: int32
+             * @description Morceau du mot résultat que couvre la partie, en caractères.
+             */
+            segment_debut?: number | null;
+            /** Format: int32 */
+            segment_fin?: number | null;
             sens_id: components["schemas"]["IdCatalogue"];
             unite_id: components["schemas"]["IdCatalogue"];
         };

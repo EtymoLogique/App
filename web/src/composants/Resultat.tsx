@@ -1,7 +1,7 @@
 import type { IssueFusion } from '../contrat'
 import type { CatalogueJeu, Prevision } from '../services/jeu'
 import { texteDuMot } from '../services/jeu'
-import { Brique } from './Brique'
+import { PetiteBrique } from './Brique'
 
 const RAISONS: Record<string, string> = {
   archaique: 'le mot est archaïque',
@@ -15,65 +15,76 @@ export type Retour =
   | { etat: 'confirme'; issue: IssueFusion }
   | { etat: 'message'; texte: string }
 
+type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
+
 interface Props {
   retour: Retour | null
   jeu: CatalogueJeu
   onOuvrirFiche: (motId: string) => void
 }
 
-function Message({ issue, jeu, onOuvrirFiche }: { issue: IssueFusion | Prevision } & Omit<Props, 'retour'>) {
+function Phrase({ issue, jeu, onOuvrirFiche }: { issue: IssueFusion | Prevision } & Omit<Props, 'retour'>): [Ton, React.ReactNode] {
+  const mot = (id: string) => (
+    <button type="button" className="btn-texte" onClick={() => onOuvrirFiche(id)}>
+      {texteDuMot(jeu.cartes.get(id))}
+    </button>
+  )
   switch (issue.type) {
     case 'decouverte':
-    case 'connue': {
-      const mot = texteDuMot(jeu.cartes.get(issue.mot_id))
-      return (
-        <p>
-          {issue.type === 'decouverte' ? <>Découverte : </> : <>Déjà dans votre codex : </>}
-          <button type="button" className="lien" onClick={() => onOuvrirFiche(issue.mot_id)}>
-            {mot}
-          </button>
-          {issue.type === 'connue' && <>. Rien n’est consommé.</>}
-        </p>
-      )
-    }
+      return ['win', <>Nouvelle découverte : {mot(issue.mot_id)}&nbsp;!</>]
+    case 'connue':
+      return ['known', <>{mot(issue.mot_id)} est déjà dans votre codex. Aucun exemplaire utilisé.</>]
     case 'presque':
-      return (
-        <p>
-          {issue.motif === 'ordre'
-            ? 'Presque ! Les bonnes briques, mais pas dans le bon ordre.'
-            : 'Presque ! Il manque encore une brique.'}
-        </p>
-      )
+      return [
+        'hint',
+        issue.motif === 'ordre' ? 'Bonnes briques… mais l’ordre compte.' : 'Bonnes briques… mais il en manque une.',
+      ]
     case 'exclue':
-      return <p>Cette combinaison existe, mais elle n’est pas retenue : {RAISONS[issue.raison] ?? issue.raison}.</p>
+      return [
+        'fail',
+        `Ce mot existe, mais il n’est pas retenu : ${RAISONS[issue.raison] ?? issue.raison}. Rien n’est perdu.`,
+      ]
     case 'reserve_insuffisante':
-      return (
-        <p>
-          Il vous manque un exemplaire de{' '}
+      return [
+        'fail',
+        <>
+          Plus assez d’exemplaires de{' '}
           {issue.briques.map((id) => {
             const brique = jeu.briques.get(id)
-            return brique ? <Brique key={id} brique={brique} compacte /> : null
+            return brique ? <PetiteBrique key={id} brique={brique} /> : null
           })}
-          . Les plis en apportent d’autres.
-        </p>
-      )
+          . Ouvrez un pli pour en retrouver.
+        </>,
+      ]
     case 'echec':
-      return <p>Aucun mot ne naît de cette combinaison. Essayer ne coûte rien.</p>
+      return ['fail', 'Aucune recette connue. Rien n’est perdu : vos exemplaires restent dans la réserve.']
   }
 }
 
-/** Retour de tentative (game-design) : la réponse du serveur remplace toujours la prévisualisation. */
+/**
+ * Retour de tentative : cercle d'état et phrase courte, annoncés par
+ * `aria-live` (design système 3.3). La réponse du serveur remplace toujours
+ * la prévisualisation.
+ */
 export function Resultat({ retour, jeu, onOuvrirFiche }: Props) {
+  let ton: Ton | undefined
+  let contenu: React.ReactNode = null
+  if (retour?.etat === 'message') {
+    ton = 'fail'
+    contenu = retour.texte
+  } else if (retour?.etat === 'prevision') {
+    ton = 'wait'
+    contenu = (
+      <>
+        {Phrase({ issue: retour.prevision, jeu, onOuvrirFiche })[1]} <span className="sr-only">En attente de confirmation.</span>
+      </>
+    )
+  } else if (retour?.etat === 'confirme') {
+    ;[ton, contenu] = Phrase({ issue: retour.issue, jeu, onOuvrirFiche })
+  }
   return (
-    <div className="resultat" role="status" aria-live="polite">
-      {retour?.etat === 'message' && <p>{retour.texte}</p>}
-      {retour?.etat === 'prevision' && (
-        <div className="prevision">
-          <Message issue={retour.prevision} jeu={jeu} onOuvrirFiche={onOuvrirFiche} />
-          <p className="meta">En attente de confirmation…</p>
-        </div>
-      )}
-      {retour?.etat === 'confirme' && <Message issue={retour.issue} jeu={jeu} onOuvrirFiche={onOuvrirFiche} />}
-    </div>
+    <p className="feedback" data-tone={ton} role="status" aria-live="polite">
+      {contenu}
+    </p>
   )
 }

@@ -101,6 +101,11 @@ pub struct Partie {
     pub unite_id: IdCatalogue,
     pub forme_id: IdCatalogue,
     pub sens_id: IdCatalogue,
+    /// Morceau du mot résultat que couvre la partie, en caractères.
+    #[serde(default)]
+    pub segment_debut: Option<u32>,
+    #[serde(default)]
+    pub segment_fin: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

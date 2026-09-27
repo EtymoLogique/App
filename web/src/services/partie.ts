@@ -39,6 +39,12 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const [retour, setRetour] = useState<Retour | null>(null)
   const [enAttente, setEnAttente] = useState(false)
   const [fiche, setFiche] = useState<FicheOuverte | null>(null)
+  /** Secousse de la table après une tentative (design système 4.3), relancée à chaque essai. */
+  const [secousse, setSecousse] = useState<{ force: 'legere' | 'forte'; cle: number } | null>(null)
+  /** Briques qui viennent d'être consommées : leur « −1 » s'envole dans la réserve. */
+  const [consommees, setConsommees] = useState<string[]>([])
+  /** Découvertes de la session pas encore vues dans le codex : compteur Corail de la navigation. */
+  const [nouvelles, setNouvelles] = useState(0)
   const actif = useRef(true)
   const restauree = useRef(false)
 
@@ -118,6 +124,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     const proposition = [...table]
     const decouverts = new Set(etat.decouvertes.map((d) => d.mot_id))
     setRetour({ etat: 'prevision', prevision: prevoir(proposition, catalogue, decouverts) })
+    setConsommees([])
     setEnAttente(true)
     try {
       const reponse = await api.fusion({
@@ -128,9 +135,18 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
       })
       confirmer(reponse.etat)
       setRetour({ etat: 'confirme', issue: reponse.issue })
-      if (reponse.issue.type === 'decouverte') {
+      const issue = reponse.issue
+      if (issue.type === 'decouverte') {
         setTable([])
-        setFiche({ motId: reponse.issue.mot_id, consommees: proposition })
+        setConsommees(proposition)
+        setNouvelles((n) => n + 1)
+        setFiche({ motId: issue.mot_id, consommees: proposition })
+      } else if (issue.type === 'connue') {
+        setFiche({ motId: issue.mot_id })
+      } else if (issue.type === 'presque') {
+        setSecousse((s) => ({ force: 'legere', cle: (s?.cle ?? 0) + 1 }))
+      } else if (issue.type === 'echec' || issue.type === 'exclue') {
+        setSecousse((s) => ({ force: 'forte', cle: (s?.cle ?? 0) + 1 }))
       }
     } catch (e) {
       if (e instanceof ErreurApi && e.statut === 409) {
@@ -152,11 +168,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     retour,
     enAttente,
     fiche,
+    secousse,
+    consommees,
+    nouvelles,
+    codexVu: useCallback(() => setNouvelles(0), []),
     ajouter,
     deplacer,
     retirer,
     vider,
     fusionner,
+    signaler: useCallback((texte: string) => setRetour({ etat: 'message', texte }), []),
     ouvrirFiche: useCallback((motId: string) => setFiche({ motId }), []),
     fermerFiche: useCallback(() => setFiche(null), []),
   }

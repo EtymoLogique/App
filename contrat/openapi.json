@@ -1096,6 +1096,23 @@
             "format": "int32",
             "minimum": 0
           },
+          "segment_debut": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Morceau du mot résultat que couvre la partie, en caractères.",
+            "minimum": 0
+          },
+          "segment_fin": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
           "sens_id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },

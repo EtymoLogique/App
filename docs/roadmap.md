@@ -54,9 +54,13 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 | `GET /etat` accorde les graines une fois ; `POST /fusion` transactionnelle et idempotente, `409` si l’état ou le catalogue est périmé | fait |
 | PWA : réserve (×n, posée, épuisée), table ordonnée (glisser-déposer, boutons, clavier), prévisualisation démentie au besoin par le serveur, fiche de découverte, liste des découvertes | fait |
 | Projection confirmée et table en cours gardées dans IndexedDB | fait |
+| Coque de l’application (I-01) : quatre destinations Table, Codex, Plis, Réglages ; barre d’onglets sur mobile, rail au-delà de 1 100 px ; compteur Corail des nouveautés | fait |
+| Conformité à l’identité visuelle : jetons et composants du design système, briques à trait d’union, cercles d’état, secousses, « −1 » qui s’envole, révélation en trois temps, fiche plein écran sur mobile ; contrôle `visual-identity-check` sans écart | fait |
+| Réserve sans découverte possible (I-13) : état vide qui mène aux plis | fait |
+| Réglages du MVP en cours (I-24) : apparence (système, atelier, nocturne), animations réduites, profil, licences | fait |
 | Démonstration : les trois premières découvertes du fascicule 0 (géologie, biologie, amener) avec ses graines | faite en local |
 
-Reportés : file d’attente des fusions hors connexion (J6), codex complet (J2), indices payants (J4).
+Reportés : file d’attente des fusions hors connexion (J6), codex complet et filtres de la réserve (J2), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
 
 ## Décisions à formaliser
 

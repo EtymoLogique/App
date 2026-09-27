@@ -1,35 +1,56 @@
 import type { Decouverte } from '../contrat'
 import type { CatalogueJeu } from '../services/jeu'
-import { texteDuMot } from '../services/jeu'
+import { definition, texteDuMot } from '../services/jeu'
 
 interface Props {
   decouvertes: Decouverte[]
   jeu: CatalogueJeu
+  total: number
   onOuvrirFiche: (motId: string) => void
 }
 
-export function Decouvertes({ decouvertes, jeu, onOuvrirFiche }: Props) {
-  // Compteurs des manifestes : hors légendaires, qui ne se trahissent jamais (ADR 0015).
-  const total = jeu.fascicules.reduce((n, f) => {
-    const mots = (f.manifeste.compteurs as { mots?: unknown } | undefined)?.mots
-    return n + (typeof mots === 'number' ? mots : 0)
-  }, 0)
+/** Découvertes : barre de progression Encre, mots trouvés, cases en pointillé pour ce qui manque. */
+export function Decouvertes({ decouvertes, jeu, total, onOuvrirFiche }: Props) {
+  const manquants = Math.max(total - decouvertes.length, 0)
+  const part = total > 0 ? Math.min(decouvertes.length / total, 1) : 0
   return (
-    <>
-      <p className="meta">
-        {decouvertes.length} mot{decouvertes.length > 1 ? 's' : ''} découvert{decouvertes.length > 1 ? 's' : ''} sur {total}
-      </p>
-      {decouvertes.length > 0 && (
-        <ol className="decouvertes">
-          {decouvertes.map((d) => (
+    <section className="discoveries" aria-labelledby="titre-decouvertes">
+      <div className="disc-head">
+        <h2 id="titre-decouvertes">Découvertes</h2>
+        <span>
+          {decouvertes.length} / {total}
+        </span>
+      </div>
+      <div
+        className="disc-bar"
+        role="progressbar"
+        aria-label="Mots découverts"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={decouvertes.length}
+      >
+        <i style={{ width: `${part * 100}%` }} />
+      </div>
+      <ul className="disc-grid">
+        {decouvertes.map((d) => {
+          const carte = jeu.cartes.get(d.mot_id)
+          return (
             <li key={d.mot_id}>
-              <button type="button" className="lien" onClick={() => onOuvrirFiche(d.mot_id)}>
-                {texteDuMot(jeu.cartes.get(d.mot_id))}
+              <button type="button" className="disc found" onClick={() => onOuvrirFiche(d.mot_id)}>
+                <span className="d-word">{texteDuMot(carte)}</span>
+                {carte && definition(carte) && <span className="d-def">{definition(carte)}</span>}
               </button>
             </li>
-          ))}
-        </ol>
-      )}
-    </>
+          )
+        })}
+        {Array.from({ length: manquants }, (_, i) => (
+          <li key={`manquant-${i}`}>
+            <span className="disc" aria-label="Mot à découvrir">
+              <span className="d-word">?</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
