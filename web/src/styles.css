@@ -368,6 +368,15 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .slot.filled:hover .brick { transform: translate(-2px, -3px) rotate(-1.5deg); box-shadow: 6px 7px 0 var(--pop-shadow); }
 .slot.filled:active .brick { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); }
 .op { font-family: var(--serif); font-size: 32px; }
+/* Ondes et confettis de la fusion : invisibles au repos, et sans mouvement réduit. */
+.burst { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; translate: -50% -50%; pointer-events: none; }
+.burst::before, .burst::after { position: absolute; inset: 0; border: 2px solid var(--c-action); border-radius: 50%; content: ""; opacity: 0; }
+.burst::after { border-color: var(--ink); }
+.confetti {
+  position: absolute; top: 50%; left: 50%; z-index: 6; display: none;
+  width: 9px; height: 13px; border: 1px solid var(--fixed-ink); border-radius: 2px;
+  background: var(--c); pointer-events: none;
+}
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions .btn-primary { flex: 1; }
 /* Cercle d'état + phrase courte : Corail plein = découverte, contour Encre = presque, Gris encre = échec, Encre plein = connu. */
@@ -463,11 +472,20 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .result { animation: pop 0.7s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .feedback { animation: bump 0.4s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .table-panel.ready .btn-primary:not(:disabled) { animation: readyPulse 1.5s infinite; }
-  :root:not([data-mouvement="reduit"]) .secousse-forte { animation: shake 0.5s; }
-  :root:not([data-mouvement="reduit"]) .secousse-legere { animation: shake-legere 0.3s; }
+  /* Refus doux (mouvement.html) : une secousse brève de 500 ms, aucune perte. */
+  :root:not([data-mouvement="reduit"]) .slots.shake { animation: shake 0.5s; }
+  /* Pop de découverte (mouvement.html, jeu.html) : les briques se rejoignent, deux ondes, des confettis. */
+  :root:not([data-mouvement="reduit"]) .slot { transition: transform 0.55s var(--ease-out), opacity 0.45s, background-color 0.2s, border-color 0.2s; }
+  :root:not([data-mouvement="reduit"]) .op { transition: opacity 0.3s, transform 0.5s var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="0"] { transform: translateX(72px) scale(0.6) rotate(-10deg); opacity: 0; }
+  :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="1"] { transform: translateX(-72px) scale(0.6) rotate(10deg); opacity: 0; }
+  :root:not([data-mouvement="reduit"]) .fusing .op { opacity: 0; transform: scale(2.4) rotate(90deg); }
+  :root:not([data-mouvement="reduit"]) .fusing .burst::before { animation: ring 0.8s var(--ease-out) 0.25s; }
+  :root:not([data-mouvement="reduit"]) .fusing .burst::after { animation: ring 0.8s var(--ease-out) 0.38s; }
+  :root:not([data-mouvement="reduit"]) .confetti { display: block; animation: fly 1s var(--ease-out) 0.32s both; }
   :root:not([data-mouvement="reduit"]) .b-minus { animation: minusUp 1.3s var(--ease-out) forwards; }
   /* Révélation en trois temps (I-11) : le mot, sa composition, puis les pistes. */
-  :root:not([data-mouvement="reduit"]) .dialogue { animation: pop 0.5s var(--ease-spring); }
+  :root:not([data-mouvement="reduit"]) .dialogue { animation: pop 0.48s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .fiche-temps-2 { animation: eqIn 0.6s var(--ease-spring) 0.35s both; }
   :root:not([data-mouvement="reduit"]) .fiche-temps-3 { animation: eqFade 0.5s ease-out 0.75s both; }
 }
@@ -484,7 +502,8 @@ button.disc { font: inherit; cursor: pointer; }
   30%, 50%, 70% { transform: translateX(-9px); }
   40%, 60% { transform: translateX(9px); }
 }
-@keyframes shake-legere { 25%, 75% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+@keyframes ring { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(30); } }
+@keyframes fly { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)); } }
 @keyframes minusUp { 0% { opacity: 0; transform: translate(-50%, 6px) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -6px) scale(1.1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -26px); } }
 @keyframes eqIn { from { opacity: 0; transform: translateY(14px) scale(0.85) rotate(-4deg); } }
 @keyframes eqFade { from { opacity: 0; transform: translateY(6px); } }
@@ -529,7 +548,7 @@ button.disc { font: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px;
   border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink-3);
 }
-.champ:focus-within { border-color: var(--ink); box-shadow: 0 0 0 3px var(--c-action-tint); color: var(--ink); }
+.champ:focus-within { border-color: var(--ink); color: var(--ink); }
 .champ input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; outline: none; }
 .champ input::placeholder { color: var(--ink-3); }
 .champ kbd { padding: 0 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }

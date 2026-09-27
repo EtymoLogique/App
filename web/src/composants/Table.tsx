@@ -15,6 +15,29 @@ interface Props {
   onDeplacer: (depuis: number, vers: number) => void
   onRetirer: (rang: number) => void
   secousse?: { force: 'legere' | 'forte'; cle: number } | null
+  /** Fusion réussie en cours : les deux briques se rejoignent, deux ondes et des confettis (mouvement.html). */
+  fusion?: number | null
+}
+
+const COULEURS_CONFETTIS = ['var(--c-prefix)', 'var(--c-action)', 'var(--c-suffix)', '#fffbf3']
+
+/** Confettis aux couleurs des briques, répartis en étoile (déterministe : rien d'aléatoire au rendu). */
+function Confettis() {
+  return (
+    <>
+      {Array.from({ length: 22 }, (_, i) => {
+        const angle = (i / 22) * Math.PI * 2 + (i % 3) * 0.2
+        const distance = 90 + ((i * 37) % 150)
+        const style = {
+          '--c': COULEURS_CONFETTIS[i % COULEURS_CONFETTIS.length],
+          '--dx': `${Math.round(Math.cos(angle) * distance)}px`,
+          '--dy': `${Math.round(Math.sin(angle) * distance)}px`,
+          '--r': `${((i * 97) % 720) - 360}deg`,
+        } as React.CSSProperties
+        return <span key={i} className="confetti" style={style} aria-hidden="true" />
+      })}
+    </>
+  )
 }
 
 /**
@@ -22,7 +45,7 @@ interface Props {
  * par « + », car l'ordre compte. On y glisse une brique ; toucher une case la
  * vide ; glisser une brique posée sur une autre case les échange.
  */
-export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, secousse }: Props) {
+export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, secousse, fusion }: Props) {
   const [survol, setSurvol] = useState<number | null>(null)
 
   const deposer = (e: React.DragEvent, rang: number) => {
@@ -38,7 +61,12 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
   }
 
   return (
-    <div key={secousse?.cle ?? 0} className={secousse ? `slots secousse-${secousse.force}` : 'slots'} role="group" aria-label="Briques posées, dans l’ordre">
+    <div
+      key={`${secousse?.cle ?? 0}-${fusion ?? 0}`}
+      className={['slots', secousse && !fusion ? 'shake' : '', fusion ? 'fusing' : ''].filter(Boolean).join(' ')}
+      role="group"
+      aria-label="Briques posées, dans l’ordre"
+    >
       {Array.from({ length: TABLE_MAX }, (_, rang) => {
         const id = table[rang]
         const brique = id ? briques.get(id) : undefined
@@ -53,6 +81,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
             <button
               type="button"
               className={classes}
+              data-slot={rang}
               aria-label={brique ? `Emplacement ${rang + 1} : ${brique.libelle}. Retirer` : `Emplacement ${rang + 1} vide`}
               draggable={brique !== undefined}
               onDragStart={(e) => {
@@ -77,6 +106,8 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
           </Fragment>
         )
       })}
+      <span className="burst" aria-hidden="true" />
+      {fusion ? <Confettis /> : null}
     </div>
   )
 }

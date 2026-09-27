@@ -161,6 +161,7 @@ export function App({ api, catalogue }: Props) {
                           briques={catalogueJeu.briques}
                           enAttente={partie.enAttente}
                           secousse={partie.secousse}
+                          fusion={partie.fusion}
                           onPoser={partie.poser}
                           onDeplacer={partie.deplacer}
                           onRetirer={partie.retirer}

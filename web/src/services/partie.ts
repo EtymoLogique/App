@@ -20,6 +20,13 @@ function message(e: unknown): string {
   return 'Une erreur est survenue. Réessayez plus tard.'
 }
 
+/** Durée de la fusion avant la révélation, comme la démo jeu.html. */
+const DUREE_FUSION_MS = 700
+
+function mouvementReduit(): boolean {
+  return document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+}
+
 /** Garde de la table les seules briques encore disponibles dans la réserve. */
 function tableValide(table: string[], etat: Etat): string[] {
   const restants = new Map(etat.reserve.map((e) => [e.brique_id, e.exemplaires]))
@@ -41,6 +48,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const [fiche, setFiche] = useState<FicheOuverte | null>(null)
   /** Secousse de la table après une tentative (design système 4.3), relancée à chaque essai. */
   const [secousse, setSecousse] = useState<{ force: 'legere' | 'forte'; cle: number } | null>(null)
+  /** Fusion réussie en cours d'animation (mouvement.html, « Pop de découverte ») : les briques se rejoignent. */
+  const [fusion, setFusion] = useState<number | null>(null)
   /** Briques qui viennent d'être consommées : leur « −1 » s'envole dans la réserve. */
   const [consommees, setConsommees] = useState<string[]>([])
   /** Découvertes de la session pas encore vues dans le codex : compteur Corail de la navigation. */
@@ -140,6 +149,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   }, [])
 
   const vider = useCallback(() => {
+    setSecousse(null)
     setTable([])
     setRetour(null)
   }, [])
@@ -151,6 +161,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     const decouverts = new Set(etat.decouvertes.map((d) => d.mot_id))
     setRetour({ etat: 'prevision', prevision: prevoir(proposition, catalogue, decouverts) })
     setConsommees([])
+    setSecousse(null)
     setEnAttente(true)
     try {
       const reponse = await api.fusion({
@@ -159,20 +170,24 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         version_catalogue: catalogue.version,
         briques: proposition,
       })
-      confirmer(reponse.etat)
-      setRetour({ etat: 'confirme', issue: reponse.issue })
       const issue = reponse.issue
       if (issue.type === 'decouverte') {
+        // Les briques se rejoignent, puis le mot se révèle et les « −1 » s'envolent (jeu.html, 700 ms).
+        setFusion((f) => (f ?? 0) + 1)
+        await new Promise((fin) => setTimeout(fin, mouvementReduit() ? 0 : DUREE_FUSION_MS))
+        setFusion(null)
+        confirmer(reponse.etat)
+        setRetour({ etat: 'confirme', issue })
         setTable([])
         setConsommees(proposition)
         setNouvelles((n) => new Set(n).add(issue.mot_id))
         setFiche({ motId: issue.mot_id, consommees: proposition })
-      } else if (issue.type === 'connue') {
-        setFiche({ motId: issue.mot_id })
-      } else if (issue.type === 'presque') {
-        setSecousse((s) => ({ force: 'legere', cle: (s?.cle ?? 0) + 1 }))
+      } else {
+        confirmer(reponse.etat)
+        setRetour({ etat: 'confirme', issue })
+        // Refus doux : une secousse brève, aucune perte (mouvement.html). Un mot déjà connu n'est pas refusé.
+        if (issue.type !== 'connue') setSecousse((s) => ({ force: 'forte', cle: (s?.cle ?? 0) + 1 }))
       }
-      // Un échec reste neutre : jamais de secousse punitive (maquette I-10).
     } catch (e) {
       if (e instanceof ErreurApi && e.statut === 409) {
         await synchroniser()
@@ -195,6 +210,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     enAttente,
     fiche,
     secousse,
+    fusion,
     consommees,
     nouvelles,
     carteVue: useCallback(

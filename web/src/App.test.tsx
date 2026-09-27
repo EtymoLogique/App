@@ -111,14 +111,14 @@ describe('table de fusion', () => {
     expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
   })
 
-  it('reste neutre sur un échec', async () => {
+  it('refuse doucement un échec : secousse brève, aucune perte', async () => {
     const fusion = vi.fn<ClientApi['fusion']>().mockResolvedValue({ issue: { type: 'echec' }, etat: etat() })
     render(<App api={client(fusion)} catalogue={lecteur} />)
     await poser('géo-', 'géo-')
     await act(async () => fireEvent.click(fusionner()))
     const retour = await screen.findByText('Aucune recette connue. Rien n’est perdu : essayez autre chose.')
     expect(retour).toHaveAttribute('data-tone', 'fail')
-    expect(document.querySelector('.secousse-forte')).toBeNull()
+    expect(document.querySelector('.slots.shake')).not.toBeNull()
   })
 
   it('rappelle la fiche d’un mot déjà découvert', async () => {
