@@ -539,6 +539,8 @@ button.disc { font: inherit; cursor: pointer; }
 .rangee-ecartee { justify-content: space-between; }
 .rangee-fin { justify-content: flex-end; }
 .rangee-centree { justify-content: center; }
+.rangee-une-ligne { flex-wrap: nowrap; }
+.empty:has(.rangee-une-ligne) { max-width: 460px; }
 .btn-s { min-height: 36px; padding: 6px 14px; font-size: 11px; }
 .btn-texte:disabled { opacity: 0.4; cursor: not-allowed; }
 .filet { width: 100%; height: 1px; margin: 4px 0; border: 0; background: var(--line); }
@@ -564,12 +566,6 @@ button.disc { font: inherit; cursor: pointer; }
 .feedback b { color: var(--ink); }
 .retour { display: grid; gap: 8px; padding: 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); text-align: left; }
 .retour-mot { font-family: var(--serif); font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
-.retour-pli { grid-template-columns: auto 1fr; align-items: center; width: 100%; }
-.pli-mini {
-  width: 56px; height: 76px; border: 2px solid var(--fixed-ink); border-radius: 10px;
-  background: repeating-linear-gradient(135deg, var(--c-pli-tint) 0 8px, var(--cream) 8px 16px);
-  box-shadow: inset 0 0 0 4px var(--cream), inset 0 0 0 5px var(--fixed-ink), 4px 4px 0 var(--pop-shadow);
-}
 
 /* Découvertes récentes sous la table (I-09, ordinateur). */
 .recentes { display: grid; gap: 10px; }

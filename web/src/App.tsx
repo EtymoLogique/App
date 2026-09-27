@@ -142,14 +142,7 @@ export function App({ api, catalogue }: Props) {
                         </span>
                         <h3>Aucun mot possible pour l’instant</h3>
                         <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
-                        <div className="retour retour-pli">
-                          <span className="pli-mini" aria-hidden="true" />
-                          <div>
-                            <b>Les plis apportent de nouveaux exemplaires</b>
-                            <p className="panel-tip">Une brique utile y est garantie au plus tard au 5ᵉ pli.</p>
-                          </div>
-                        </div>
-                        <div className="rangee rangee-centree">
+                        <div className="rangee rangee-centree rangee-une-ligne">
                           <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
                             Aller aux plis
                           </button>
