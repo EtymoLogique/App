@@ -158,7 +158,8 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null, urlMedia: 
         sens: affixe ? glose(carte) : (sensLitteral(carte) ?? glose(carte)),
         definition: definition(carte),
         langueId: carte.langue_id,
-        rarete: carte.brique?.rarete ?? null,
+        // La rareté est celle d'une brique élémentaire : une carte de mot n'en porte jamais (codex.html).
+        rarete: affixe ? (carte.brique?.rarete ?? null) : null,
         legendaire,
         silhouette: ref.silhouette ? urlMedia(ref.silhouette) : null,
         confiance: carte.fait?.confiance ?? null,
