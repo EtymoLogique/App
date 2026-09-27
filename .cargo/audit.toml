@@ -1,0 +1,6 @@
+[advisories]
+# rsa 0.9 (Marvin Attack) n'est dans Cargo.lock que par sqlx-mysql, que
+# sqlx-macros référence sans l'activer : il n'est jamais compilé ici (vérifié
+# par `cargo tree -i rsa --target all`, vide). À retirer si rsa apparaît
+# dans l'arbre des dépendances.
+ignore = ["RUSTSEC-2023-0071"]

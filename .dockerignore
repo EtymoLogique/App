@@ -1,0 +1,5 @@
+target/
+web/
+.local/
+.git/
+**/node_modules/

@@ -1,0 +1,5 @@
+# Même version qu'en CI et dans le Dockerfile.
+[toolchain]
+channel = "1.98"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

@@ -1,0 +1,13 @@
+# Rust
+/target/
+
+# Bucket simulé et artefacts locaux (voir README, « Développer en local »)
+/.local/
+
+# Variables locales : peuvent contenir des secrets
+.env
+.env.*
+!web/.env.development
+
+# Systèmes
+.DS_Store

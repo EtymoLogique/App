@@ -1,0 +1,124 @@
+name: Deploy
+
+# ADR 0028 : develop déploie en hors-prod, un tag v*.*.* en prod. Une branche
+# de feature ne déploie rien. Les environnements GitHub, leurs clés et leurs
+# variables sont posés par le dépôt Infra.
+on:
+  push:
+    branches:
+      - develop
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploiement-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ENVIRONNEMENT: ${{ startsWith(github.ref, 'refs/tags/v') && 'prod' || 'horsprod' }}
+
+jobs:
+  image:
+    name: Publish the API image
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'prod' || 'horsprod' }}
+    outputs:
+      image: ${{ steps.publication.outputs.image }}
+    env:
+      REGISTRE: ${{ vars.ETYMO_REGISTRE }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+    steps:
+      - name: Check the configuration
+        run: |
+          if [ -z "$REGISTRE" ] || [ -z "$SCW_SECRET_KEY" ]; then
+            echo "::error::Registre ou clé absents : l’environnement GitHub est posé par le dépôt Infra."
+            exit 1
+          fi
+
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and push
+        id: publication
+        run: |
+          echo "$SCW_SECRET_KEY" | docker login "${REGISTRE%%/*}" --username nologin --password-stdin
+          etiquette="$REGISTRE/api:${GITHUB_SHA::12}"
+          docker build --tag "$etiquette" --label "org.opencontainers.image.revision=$GITHUB_SHA" .
+          docker push "$etiquette"
+          image="$(docker inspect --format '{{index .RepoDigests 0}}' "$etiquette")"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Image de l’API ($ENVIRONNEMENT)"
+            echo
+            echo "À épingler dans le dépôt Infra (\`api.image\`, \`taches.image\`) :"
+            echo
+            echo "\`$image\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  pwa:
+    name: Publish the PWA
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'prod' || 'horsprod' }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.SCW_DEFAULT_REGION }}
+      AWS_ENDPOINT_URL_S3: https://s3.${{ vars.SCW_DEFAULT_REGION }}.scw.cloud
+      # Scaleway n'accepte pas les sommes de contrôle ajoutées par défaut
+      # depuis AWS CLI 2.23.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      BUCKET: ${{ vars.ETYMO_BUCKET_PWA }}
+      VITE_URL_API: ${{ vars.ETYMO_URL_API }}
+      VITE_URL_CATALOGUE: ${{ vars.ETYMO_URL_CATALOGUE }}
+    steps:
+      - name: Check the configuration
+        run: |
+          for nom in AWS_ACCESS_KEY_ID BUCKET VITE_URL_API VITE_URL_CATALOGUE; do
+            if [ -z "${!nom}" ]; then
+              echo "::error::$nom absente : l’environnement GitHub est posé par le dépôt Infra."
+              exit 1
+            fi
+          done
+
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      # Les fichiers hachés d'abord, immuables ; puis la coque, jamais mise en
+      # cache par HTTP (ADR 0024), pour qu'elle ne désigne jamais un fichier absent.
+      - name: Upload to the PWA bucket
+        working-directory: web/dist
+        run: |
+          aws s3 sync assets/ "s3://$BUCKET/assets/" --size-only --no-progress \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync . "s3://$BUCKET/" --exclude "assets/*" --exclude "manifest.webmanifest" --no-progress \
+            --cache-control "no-cache"
+          aws s3 cp manifest.webmanifest "s3://$BUCKET/manifest.webmanifest" --no-progress \
+            --content-type application/manifest+json --cache-control "no-cache"
+          echo "PWA ${GITHUB_SHA::12} déposée dans s3://$BUCKET/ ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ÉtymoLogique">
+  <g transform="rotate(-6 32 32)">
+    <rect x="12" y="12" width="44" height="44" rx="12" fill="#0f1f19"/>
+    <rect x="7" y="7" width="44" height="44" rx="12" fill="#ff6b4a" stroke="#0f1f19" stroke-width="2.5"/>
+    <text x="29" y="40" text-anchor="middle" fill="#0f1f19" font-family="Iowan Old Style, Palatino Linotype, Book Antiqua, Palatino, Georgia, serif" font-size="25" font-weight="700" letter-spacing="-0.5">ÉL</text>
+  </g>
+</svg>

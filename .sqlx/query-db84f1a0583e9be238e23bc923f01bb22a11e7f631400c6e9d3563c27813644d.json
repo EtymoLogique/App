@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT version_etat, version_catalogue FROM joueur WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version_etat",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "version_catalogue",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "db84f1a0583e9be238e23bc923f01bb22a11e7f631400c6e9d3563c27813644d"
+}

@@ -1,0 +1,44 @@
+[package]
+name = "etymo-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+axum = "0.8.9"
+base64 = "0.23.1"
+chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
+clap = { version = "4.6.7", features = ["derive", "env"] }
+etymo-catalogue = { version = "0.1.0", path = "../catalogue" }
+etymo-contrat = { version = "0.1.0", path = "../contrat" }
+etymo-domaine = { version = "0.1.0", path = "../domaine" }
+etymo-taches = { version = "0.1.0", path = "../taches" }
+governor = "0.10.4"
+hex = "0.4.3"
+hmac = "0.13.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "uuid", "macros", "migrate"] }
+subtle = "2.6.1"
+thiserror = "2.0.21"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.7.1", features = ["cors", "limit", "set-header", "trace", "timeout"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+utoipa = { version = "6.0.0", features = ["uuid", "chrono"] }
+uuid = { version = "1.26.1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+etymo-catalogue = { path = "../catalogue", features = ["essai"] }
+http-body-util = "0.1.5"
+reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["test-util"] }

@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_VERSION: "1.98"
+  SQLX_VERSION: "0.8.6"
+  CARGO_TERM_COLOR: always
+  # Requêtes vérifiées à la compilation grâce à .sqlx/, sans base.
+  SQLX_OFFLINE: "true"
+
+jobs:
+  rust:
+    name: API et tâches (Rust)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      base:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: etymo
+          POSTGRES_PASSWORD: etymo-ci
+          POSTGRES_DB: etymo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U etymo -d etymo"
+          --health-interval 2s --health-timeout 2s --health-retries 30
+    env:
+      # Pour #[sqlx::test] seulement : chaque test crée sa propre base.
+      DATABASE_URL: postgres://etymo:etymo-ci@localhost:5432/etymo
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal --component clippy,rustfmt
+          rustup default "$RUST_VERSION"
+
+      - name: Cache the build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Check the formatting
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Run the tests
+        run: cargo test --workspace --locked
+
+      - name: Check the SQL query data (.sqlx)
+        env:
+          SQLX_OFFLINE: "false"
+        run: |
+          cargo install sqlx-cli --version "$SQLX_VERSION" --no-default-features --features postgres,rustls --locked
+          sqlx migrate run --source migrations
+          cargo sqlx prepare --workspace --check -- --all-targets
+
+      - name: Check the OpenAPI contract
+        run: |
+          cargo run -q -p etymo-api -- openapi > contrat/openapi.json
+          git diff --exit-code contrat/openapi.json || {
+            echo "::error::contrat/openapi.json est périmé : lancez « cargo run -p etymo-api -- openapi > contrat/openapi.json »."
+            exit 1
+          }
+
+      - name: Audit the dependencies
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+
+  web:
+    name: PWA (TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the dependencies
+        run: npm ci
+
+      - name: Check the generated contract types
+        run: |
+          npm run contrat
+          git diff --exit-code src/contrat/api.d.ts || {
+            echo "::error::src/contrat/api.d.ts est périmé : lancez « npm run contrat »."
+            exit 1
+          }
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run the tests
+        run: npm test
+
+      - name: Build
+        env:
+          VITE_URL_API: https://api.exemple.test
+          VITE_URL_CATALOGUE: https://catalogue.exemple.test/public
+        run: npm run build
+
+      - name: Audit the dependencies
+        run: npm audit --audit-level=high
+
+  image:
+    name: Image de l’API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the image
+        run: docker build --tag etymo-api:ci .
+
+      - name: Check the entrypoint
+        run: docker run --rm etymo-api:ci openapi > /dev/null

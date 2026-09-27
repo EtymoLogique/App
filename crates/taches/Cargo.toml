@@ -1,0 +1,27 @@
+[package]
+name = "etymo-taches"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = "0.1.92"
+bytes = "1.12.1"
+chrono = "0.4.45"
+etymo-catalogue = { version = "0.1.0", path = "../catalogue" }
+object_store = { version = "0.14.2", features = ["aws", "fs"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "uuid", "macros", "migrate"] }
+thiserror = "2.0.21"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.44"
+
+[dev-dependencies]
+etymo-catalogue = { path = "../catalogue", features = ["essai"] }
+tempfile = "3.27.0"

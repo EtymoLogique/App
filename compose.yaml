@@ -1,0 +1,23 @@
+# Environnement de développement local : base de progression PostgreSQL.
+# Identifiants de développement seulement, jamais utilisés ailleurs.
+name: etymologique
+
+services:
+  base:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: etymo
+      POSTGRES_PASSWORD: etymo-dev
+      POSTGRES_DB: etymo
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etymo -d etymo"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - base:/var/lib/postgresql/data
+
+volumes:
+  base:

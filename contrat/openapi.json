@@ -1,0 +1,499 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API de jeu d'ÉtymoLogique",
+    "description": "Commandes de la PWA. Le serveur fait foi (ADR 0007).",
+    "license": {
+      "name": "AGPL-3.0-or-later",
+      "identifier": "AGPL-3.0-or-later"
+    },
+    "version": "1"
+  },
+  "paths": {
+    "/etat": {
+      "get": {
+        "tags": [
+          "profil"
+        ],
+        "summary": "Projection de l'état confirmé du joueur.",
+        "operationId": "etat",
+        "responses": {
+          "200": {
+            "description": "État confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Etat"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/sante": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "État du service. Répond même si la base est au repos (Serverless SQL).",
+        "operationId": "sante",
+        "responses": {
+          "200": {
+            "description": "Service disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sante"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session": {
+      "post": {
+        "tags": [
+          "profil"
+        ],
+        "summary": "Ouvre ou renouvelle la session d'un profil invité.",
+        "description": "Au premier appel pour une installation, le profil est créé avec\nl'empreinte du secret. Ensuite, le même secret doit être présenté.",
+        "operationId": "session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSession"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Session ouverte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Secret incorrect",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Calendrier": {
+        "type": "object",
+        "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
+        "required": [
+          "format",
+          "version",
+          "referentiels",
+          "fascicules"
+        ],
+        "properties": {
+          "essai": {
+            "type": "boolean"
+          },
+          "fascicules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntreeFascicule"
+            }
+          },
+          "format": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "referentiels": {
+            "description": "Langues, systèmes d'écriture et conventions, recopiés tels quels."
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "CarteManifeste": {
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "carte"
+        ],
+        "properties": {
+          "carte": {
+            "$ref": "#/components/schemas/Chemin"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "silhouette": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Chemin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Chemin": {
+        "type": "string",
+        "description": "Chemin haché d'un fichier de l'artefact, relatif au préfixe publié.",
+        "pattern": "^(f/[0-9a-f]{64}\\.json|r/[0-9a-f]{64}\\.json|a/[0-9a-f]{64}\\.svg)$"
+      },
+      "CodeErreur": {
+        "type": "string",
+        "enum": [
+          "requete_invalide",
+          "non_authentifie",
+          "interdit",
+          "conflit",
+          "trop_de_requetes",
+          "indisponible",
+          "interne"
+        ]
+      },
+      "DemandeSession": {
+        "type": "object",
+        "description": "Ouverture ou renouvellement de la session d'un profil invité.\n\nLe client génère une fois pour toutes l'identifiant d'installation et le\nsecret, et les garde dans son stockage local. Le serveur n'en garde que\nl'empreinte. Aucune donnée personnelle n'est demandée.",
+        "required": [
+          "installation",
+          "secret"
+        ],
+        "properties": {
+          "installation": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant aléatoire de l'installation (UUID v4)."
+          },
+          "secret": {
+            "type": "string",
+            "description": "Secret aléatoire de 256 bits, en base64url sans remplissage.",
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntreeFascicule": {
+        "type": "object",
+        "required": [
+          "numero",
+          "parution",
+          "manifeste"
+        ],
+        "properties": {
+          "manifeste": {
+            "$ref": "#/components/schemas/Chemin"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "parution": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Erreur": {
+        "type": "object",
+        "description": "Erreur renvoyée par l'API. Le message est destiné au diagnostic, pas au joueur.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CodeErreur"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Etat": {
+        "type": "object",
+        "description": "Projection de l'état confirmé du joueur : des identifiants et des nombres,\njamais de texte du catalogue (ADR 0027).",
+        "required": [
+          "version_etat"
+        ],
+        "properties": {
+          "version_catalogue": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Version du catalogue active pour ce joueur, `null` avant toute parution."
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Incrémentée à chaque commande acceptée ; sert à détecter un conflit."
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdCatalogue": {
+        "type": "string",
+        "description": "Identifiant opaque du catalogue : `<préfixe>_<8 caractères base32>`.",
+        "example": "brq_2e9chtta",
+        "pattern": "^[a-z]{3}_[0-9a-hjkmnp-tv-z]{8}$"
+      },
+      "LangueManifeste": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "silhouette": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Chemin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Manifeste": {
+        "type": "object",
+        "required": [
+          "format",
+          "numero",
+          "parution"
+        ],
+        "properties": {
+          "cartes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CarteManifeste"
+            }
+          },
+          "compteurs": {},
+          "exclusions": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Chemin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "format": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "jalons": {
+            "type": "array",
+            "items": {}
+          },
+          "jaquette": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Chemin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "langues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LangueManifeste"
+            }
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "parution": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pli": {},
+          "recettes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecetteManifeste"
+            }
+          },
+          "test": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecetteManifeste": {
+        "type": "object",
+        "required": [
+          "id",
+          "chemin"
+        ],
+        "properties": {
+          "chemin": {
+            "$ref": "#/components/schemas/Chemin"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "resultat",
+          "ingredient"
+        ]
+      },
+      "Sante": {
+        "type": "object",
+        "required": [
+          "statut",
+          "version_api"
+        ],
+        "properties": {
+          "statut": {
+            "$ref": "#/components/schemas/StatutSante"
+          },
+          "version_api": {
+            "type": "string",
+            "description": "Version du code de l'API."
+          },
+          "version_catalogue": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Version du catalogue chargée en mémoire, `null` si aucun index n'est publié."
+          }
+        },
+        "additionalProperties": false
+      },
+      "Session": {
+        "type": "object",
+        "required": [
+          "jeton",
+          "expire_le",
+          "nouveau"
+        ],
+        "properties": {
+          "expire_le": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin de validité du jeton (15 minutes)."
+          },
+          "jeton": {
+            "type": "string",
+            "description": "Jeton signé, à présenter dans `Authorization: Bearer …`."
+          },
+          "nouveau": {
+            "type": "boolean",
+            "description": "Vrai si le profil vient d'être créé."
+          }
+        },
+        "additionalProperties": false
+      },
+      "StatutSante": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "degrade"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "service"
+    },
+    {
+      "name": "profil",
+      "description": "Profil invité, sans donnée personnelle"
+    }
+  ]
+}

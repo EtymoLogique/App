@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Documentation en français : noms propres et termes du jeu sans backticks.
+doc_markdown = "allow"
+# Les extracteurs axum imposent des fonctions async, même sans attente.
+unused_async_trait_impl = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
