@@ -1,66 +1,112 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
-import type { Calendrier, Manifeste } from './contrat'
+import type { ReponseFusion } from './contrat'
 import { ClientApi, ErreurApi } from './services/api'
-import { LecteurCatalogue } from './services/catalogue'
+import type { LecteurCatalogue } from './services/catalogue'
+import { effacerPartie } from './services/local'
+import { GEO, LOGIE, MOT, RECETTE, etat, lecteurFictif } from './test/fixtures'
 
-const H = '0'.repeat(64)
-
-function catalogue(index: Calendrier | null, manifeste?: Partial<Manifeste>): LecteurCatalogue {
-  const lecteur = new LecteurCatalogue('https://catalogue.exemple.test/public')
-  vi.spyOn(lecteur, 'index').mockResolvedValue(index)
-  vi.spyOn(lecteur, 'manifeste').mockResolvedValue({
-    format: 1,
-    numero: 0,
-    parution: '2026-10-01T08:00:00+02:00',
-    jaquette: `a/${H}.svg`,
-    exclusions: null,
-    cartes: [],
-    langues: [],
-    recettes: [],
-    compteurs: { mots: 7 },
-    pli: {},
-    jalons: [],
-    test: true,
-    ...manifeste,
-  })
-  return lecteur
+function client(fusion?: ClientApi['fusion']): ClientApi {
+  const api = new ClientApi('https://api.exemple.test')
+  vi.spyOn(api, 'etat').mockResolvedValue(etat())
+  if (fusion) vi.spyOn(api, 'fusion').mockImplementation(fusion)
+  return api
 }
 
-function api(etat: () => Promise<unknown>): ClientApi {
-  const client = new ClientApi('https://api.exemple.test')
-  vi.spyOn(client, 'etat').mockImplementation(etat as ClientApi['etat'])
-  return client
+let lecteur: LecteurCatalogue
+
+async function poser(...formes: string[]) {
+  const reserve = await screen.findByRole('region', { name: 'Réserve' })
+  for (const forme of formes) {
+    fireEvent.click(within(reserve).getByText(forme).closest('button') as HTMLElement)
+  }
 }
 
-const INDEX: Calendrier = {
-  format: 1,
-  version: 'v1',
-  essai: true,
-  referentiels: {},
-  fascicules: [{ numero: 0, parution: '2026-10-01T08:00:00+02:00', manifeste: `f/${H}.json` }],
-}
-
-describe('App', () => {
-  it('affiche les fascicules parus et leur jaquette', async () => {
-    render(<App api={api(() => Promise.resolve({ version_etat: 0, version_catalogue: 'v1' }))} catalogue={catalogue(INDEX)} />)
-    expect(await screen.findByRole('heading', { name: 'Fascicule n°\u00a00' })).toBeInTheDocument()
-    expect(screen.getByText(/7 mots/)).toBeInTheDocument()
-    expect(screen.getByText('Essai')).toBeInTheDocument()
-    expect(await screen.findByText('Profil invité')).toBeInTheDocument()
-    expect(document.querySelector('img.jaquette')).toHaveAttribute('src', `https://catalogue.exemple.test/public/a/${H}.svg`)
+describe('table de fusion', () => {
+  beforeEach(async () => {
+    lecteur = lecteurFictif()
+    await effacerPartie()
   })
 
-  it('annonce un catalogue encore vide', async () => {
-    render(<App api={api(() => Promise.resolve({ version_etat: 0, version_catalogue: null }))} catalogue={catalogue(null)} />)
-    expect(await screen.findByText('Aucun fascicule n’est encore paru.')).toBeInTheDocument()
+  it('affiche la réserve de départ et ses exemplaires', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    const reserve = await screen.findByRole('region', { name: 'Réserve' })
+    expect(await within(reserve).findByLabelText('2 exemplaires')).toBeInTheDocument()
+    expect(within(reserve).getByLabelText('1 exemplaire')).toBeInTheDocument()
+    expect(screen.getByText('0 mot découvert sur 1')).toBeInTheDocument()
   })
 
-  it('signale une API injoignable sans bloquer le catalogue', async () => {
-    render(<App api={api(() => Promise.reject(new ErreurApi(0, 'reseau', 'x')))} catalogue={catalogue(INDEX)} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('injoignable')
-    expect(await screen.findByRole('heading', { name: 'Fascicule n°\u00a00' })).toBeInTheDocument()
+  it('réserve un exemplaire par brique posée', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('logie')
+    const reserve = screen.getByRole('region', { name: 'Réserve' })
+    const logie = within(reserve).getByText('logie').closest('button') as HTMLElement
+    expect(logie).toHaveAttribute('aria-disabled', 'true')
+    expect(logie).toHaveAttribute('title', 'Tous ses exemplaires sont déjà sur la table.')
+    expect(screen.getByRole('button', { name: 'Fusionner' })).toBeDisabled()
+  })
+
+  it('confirme une découverte et ouvre sa fiche', async () => {
+    const reponse: ReponseFusion = {
+      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
+      etat: etat({
+        version_etat: 2,
+        reserve: [
+          { brique_id: GEO, exemplaires: 1 },
+          { brique_id: LOGIE, exemplaires: 0 },
+        ],
+        decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }],
+      }),
+    }
+    const fusion = vi.fn<ClientApi['fusion']>().mockResolvedValue(reponse)
+    render(<App api={client(fusion)} catalogue={lecteur} />)
+    await poser('géo', 'logie')
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Fusionner' })))
+
+    expect(fusion).toHaveBeenCalledWith(
+      expect.objectContaining({ version_etat: 1, version_catalogue: 'v1', briques: [GEO, LOGIE] }),
+    )
+    const fiche = await screen.findByRole('dialog', { name: 'géologie' })
+    expect(within(fiche).getByText('Science de la Terre.')).toBeInTheDocument()
+    expect(within(fiche).getByText('étude de la terre')).toBeInTheDocument()
+    expect(within(fiche).getAllByText('−1')).toHaveLength(2)
+    expect(within(screen.getByRole('region', { name: 'Réserve' })).getByText('Épuisée')).toBeInTheDocument()
+    expect(screen.getByText('1 mot découvert sur 1')).toBeInTheDocument()
+  })
+
+  it('affiche la réponse du serveur, pas la prévisualisation', async () => {
+    const fusion = vi.fn<ClientApi['fusion']>().mockResolvedValue({ issue: { type: 'presque', motif: 'ordre' }, etat: etat() })
+    render(<App api={client(fusion)} catalogue={lecteur} />)
+    await poser('logie', 'géo')
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Fusionner' })))
+    expect(await screen.findByText('Presque ! Les bonnes briques, mais pas dans le bon ordre.')).toBeInTheDocument()
+    expect(screen.queryByText('En attente de confirmation…')).not.toBeInTheDocument()
+  })
+
+  it('se resynchronise après un conflit', async () => {
+    const api = client(() => Promise.reject(new ErreurApi(409, 'conflit', 'version_etat périmée')))
+    render(<App api={api} catalogue={lecteur} />)
+    await poser('géo', 'logie')
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Fusionner' })))
+    expect(await screen.findByText(/Votre partie a changé entre-temps/)).toBeInTheDocument()
+    expect(api.etat).toHaveBeenCalledTimes(2)
+  })
+
+  it('attend le réseau pour fusionner', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('géo', 'logie')
+    expect(screen.getByRole('button', { name: 'Fusionner' })).toBeDisabled()
+    expect(screen.getByText('Hors connexion : la fusion attend le réseau.')).toBeInTheDocument()
+  })
+
+  it('réordonne au clavier', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('géo', 'logie')
+    fireEvent.click(screen.getByRole('button', { name: 'Avancer logie' }))
+    const posees = within(screen.getByRole('list', { name: 'Briques posées, dans l’ordre' })).getAllByText(/géo|logie/)
+    expect(posees.map((e) => e.textContent)).toEqual(['logie', 'géo'])
   })
 })

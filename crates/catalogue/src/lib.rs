@@ -4,16 +4,23 @@
 //! (`parutions.json`), des manifestes de fascicule (`f/…`) et des ressources
 //! (`r/…`, `a/…`) rangés sous l'empreinte SHA-256 de leurs octets.
 
+pub mod carte;
 pub mod chemin;
 #[cfg(any(test, feature = "essai"))]
 pub mod essai;
 pub mod format;
+pub mod jeu;
 pub mod lecteur;
 
 use std::sync::Arc;
 
+pub use carte::Carte;
 pub use chemin::{Chemin, ErreurChemin};
-pub use format::{Calendrier, CarteManifeste, EntreeFascicule, Manifeste, RecetteManifeste};
+pub use format::{
+    Calendrier, CarteManifeste, Emplacement, EntreeFascicule, Exclusion, Exclusions, Graine,
+    Manifeste, Recette, RecetteManifeste,
+};
+pub use jeu::Jeu;
 pub use lecteur::{Lecteur, LecteurDossier, LecteurHttp};
 
 /// Nom de l'index global, seul fichier modifiable du préfixe `public/`.
@@ -40,11 +47,13 @@ pub enum ErreurCatalogue {
 /// Version du format d'artefact que ce code sait lire.
 pub const FORMAT: u32 = 1;
 
-/// Un fascicule paru et son manifeste vérifié.
+/// Un fascicule paru, son manifeste, ses recettes et ses exclusions, vérifiés.
 #[derive(Debug, Clone)]
 pub struct FasciculeCharge {
     pub entree: EntreeFascicule,
     pub manifeste: Manifeste,
+    pub recettes: Vec<Recette>,
+    pub exclusions: Vec<Exclusion>,
 }
 
 /// Catalogue publié, tel que l'API le garde en mémoire.
@@ -52,6 +61,8 @@ pub struct FasciculeCharge {
 pub struct CatalogueCharge {
     pub index: Calendrier,
     pub fascicules: Vec<FasciculeCharge>,
+    /// Règles du jeu tirées des fascicules parus.
+    pub jeu: Jeu,
 }
 
 impl CatalogueCharge {
@@ -112,12 +123,36 @@ pub async fn charger(
     let mut fascicules = Vec::with_capacity(index.fascicules.len());
     for entree in &index.fascicules {
         let manifeste = lire_manifeste(lecteur, &entree.manifeste).await?;
+        let mut recettes = Vec::with_capacity(manifeste.recettes.len());
+        for reference in &manifeste.recettes {
+            recettes.push(lire_json::<Recette>(lecteur, &reference.chemin).await?);
+        }
+        let exclusions = match &manifeste.exclusions {
+            Some(chemin) => lire_json::<Exclusions>(lecteur, chemin).await?.exclusions,
+            None => Vec::new(),
+        };
         fascicules.push(FasciculeCharge {
             entree: entree.clone(),
             manifeste,
+            recettes,
+            exclusions,
         });
     }
-    Ok(Some(Arc::new(CatalogueCharge { index, fascicules })))
+    let jeu = Jeu::depuis(&fascicules);
+    Ok(Some(Arc::new(CatalogueCharge {
+        index,
+        fascicules,
+        jeu,
+    })))
+}
+
+/// Lit une ressource JSON hachée et la décode.
+pub async fn lire_json<T: serde::de::DeserializeOwned>(
+    lecteur: &dyn Lecteur,
+    chemin: &Chemin,
+) -> Result<T, ErreurCatalogue> {
+    let octets = lire_hache(lecteur, chemin).await?;
+    decoder(chemin.as_str(), &octets)
 }
 
 pub(crate) fn decoder<T: serde::de::DeserializeOwned>(

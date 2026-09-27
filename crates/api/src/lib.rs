@@ -8,6 +8,7 @@ pub mod erreur;
 pub mod extraction;
 pub mod jeton;
 pub mod openapi;
+pub mod progression;
 pub mod routes;
 pub mod secret;
 

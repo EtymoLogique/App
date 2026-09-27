@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO decouverte (joueur_id, mot_id, recette_id, numero)\n         SELECT $1, $2, $3, COALESCE(MAX(numero), 0) + 1 FROM decouverte WHERE joueur_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9444a9b81047cf33b0f01d31c907c43045cc43f9c1e33c8607f7c26bf4d32fa3"
+}

@@ -15,7 +15,7 @@
         "tags": [
           "profil"
         ],
-        "summary": "Projection de l'état confirmé du joueur.",
+        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.",
         "operationId": "etat",
         "responses": {
           "200": {
@@ -40,6 +40,92 @@
           },
           "429": {
             "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/fusion": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Tente une fusion. Le serveur fait foi (ADR 0007, ADR 0027) : il valide la\nrecette, vérifie la réserve, consomme les exemplaires et ajoute le mot au\ncodex dans une seule transaction. Seule une découverte modifie l'état ;\nelle seule est enregistrée pour l'idempotence, et elle seule exige que\n`version_etat` et `version_catalogue` soient à jour (sinon `409`).",
+        "operationId": "fusion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeFusion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Issue de la fusion et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseFusion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,6 +228,128 @@
   },
   "components": {
     "schemas": {
+      "BTreeMap_LibelleTexte": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "required": [
+            "texte"
+          ],
+          "properties": {
+            "texte": {
+              "type": "string"
+            }
+          }
+        },
+        "propertyNames": {
+          "type": "object",
+          "required": [
+            "texte"
+          ],
+          "properties": {
+            "texte": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BTreeMap_LibellesComposition": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "explication_courte": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sens_litteral": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "propertyNames": {
+          "type": "object",
+          "properties": {
+            "explication_courte": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sens_litteral": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "BTreeMap_LibellesSens": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "definition": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "glose": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "propertyNames": {
+          "type": "object",
+          "properties": {
+            "definition": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "glose": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "BriqueCarte": {
+        "type": "object",
+        "required": [
+          "id",
+          "forme_affichee_id",
+          "sens_affiche_id",
+          "rarete"
+        ],
+        "properties": {
+          "forme_affichee_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "rarete": {
+            "$ref": "#/components/schemas/Rarete"
+          },
+          "sens_affiche_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
       "Calendrier": {
         "type": "object",
         "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
@@ -171,6 +379,62 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "Carte": {
+        "type": "object",
+        "required": [
+          "id",
+          "nature",
+          "langue_id",
+          "formes",
+          "sens"
+        ],
+        "properties": {
+          "brique": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BriqueCarte",
+                "description": "Présente si l'unité se pose sur la table."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionCarte"
+            }
+          },
+          "formes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Forme"
+            }
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "langue_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "nature": {
+            "$ref": "#/components/schemas/Nature"
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelationCarte"
+            }
+          },
+          "sens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sens"
+            }
           }
         }
       },
@@ -220,6 +484,101 @@
           "interne"
         ]
       },
+      "CompositionCarte": {
+        "type": "object",
+        "required": [
+          "id",
+          "parties",
+          "libelles"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "libelles": {
+            "$ref": "#/components/schemas/BTreeMap_LibellesComposition"
+          },
+          "parties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Partie"
+            }
+          },
+          "preferee": {
+            "type": "boolean"
+          },
+          "transformations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transformation"
+            }
+          }
+        }
+      },
+      "Decouverte": {
+        "type": "object",
+        "required": [
+          "mot_id",
+          "recette_id",
+          "numero",
+          "decouverte_le"
+        ],
+        "properties": {
+          "decouverte_le": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mot_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de la découverte dans le codex du joueur, à partir de 1."
+          },
+          "recette_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeFusion": {
+        "type": "object",
+        "description": "Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "briques"
+        ],
+        "properties": {
+          "briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Briques posées sur la table, dans l'ordre.",
+            "maxItems": 4,
+            "minItems": 2
+          },
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4) : une commande\nrejouée renvoie la réponse enregistrée sans rien modifier."
+          },
+          "version_catalogue": {
+            "type": "string",
+            "description": "Version du catalogue avec laquelle la proposition a été préparée.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandeSession": {
         "type": "object",
         "description": "Ouverture ou renouvellement de la session d'un profil invité.\n\nLe client génère une fois pour toutes l'identifiant d'installation et le\nsecret, et les garde dans son stockage local. Le serveur n'en garde que\nl'empreinte. Aucune donnée personnelle n'est demandée.",
@@ -242,6 +601,26 @@
           }
         },
         "additionalProperties": false
+      },
+      "Emplacement": {
+        "type": "object",
+        "required": [
+          "rang",
+          "briques_acceptees"
+        ],
+        "properties": {
+          "briques_acceptees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            }
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       },
       "EntreeFascicule": {
         "type": "object",
@@ -286,9 +665,25 @@
         "type": "object",
         "description": "Projection de l'état confirmé du joueur : des identifiants et des nombres,\njamais de texte du catalogue (ADR 0027).",
         "required": [
-          "version_etat"
+          "version_etat",
+          "reserve",
+          "decouvertes"
         ],
         "properties": {
+          "decouvertes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Decouverte"
+            },
+            "description": "Mots découverts, dans l'ordre de leur découverte."
+          },
+          "reserve": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Exemplaires"
+            },
+            "description": "Briques connues et leurs exemplaires, triées par brique. Une brique à 0\nexemplaire est épuisée mais reste connue."
+          },
           "version_catalogue": {
             "type": [
               "string",
@@ -299,16 +694,271 @@
           "version_etat": {
             "type": "integer",
             "format": "int64",
-            "description": "Incrémentée à chaque commande acceptée ; sert à détecter un conflit."
+            "description": "Incrémentée à chaque mutation acceptée ; sert à détecter un conflit."
           }
         },
         "additionalProperties": false
+      },
+      "Etymon": {
+        "type": "object",
+        "required": [
+          "id",
+          "langue_id",
+          "forme"
+        ],
+        "properties": {
+          "forme": {
+            "$ref": "#/components/schemas/Forme"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "langue_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "sens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sens"
+            }
+          }
+        }
+      },
+      "Exclusion": {
+        "type": "object",
+        "required": [
+          "id",
+          "combinaison",
+          "raison"
+        ],
+        "properties": {
+          "combinaison": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            }
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "raison": {
+            "type": "string"
+          }
+        }
+      },
+      "Exclusions": {
+        "type": "object",
+        "description": "Ressource « exclusions » d'un fascicule.",
+        "required": [
+          "exclusions"
+        ],
+        "properties": {
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Exclusion"
+            }
+          }
+        }
+      },
+      "Exemplaires": {
+        "type": "object",
+        "required": [
+          "brique_id",
+          "exemplaires"
+        ],
+        "properties": {
+          "brique_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "exemplaires": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "Forme": {
+        "type": "object",
+        "required": [
+          "id",
+          "texte",
+          "role",
+          "systeme_ecriture_id"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "role": {
+            "type": "string",
+            "description": "`canonique` pour la forme de référence."
+          },
+          "systeme_ecriture_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "texte": {
+            "type": "string"
+          },
+          "translitterations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Translitteration"
+            }
+          }
+        }
+      },
+      "Graine": {
+        "type": "object",
+        "required": [
+          "brique_id",
+          "exemplaires"
+        ],
+        "properties": {
+          "brique_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "exemplaires": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 1
+          }
+        }
       },
       "IdCatalogue": {
         "type": "string",
         "description": "Identifiant opaque du catalogue : `<préfixe>_<8 caractères base32>`.",
         "example": "brq_2e9chtta",
         "pattern": "^[a-z]{3}_[0-9a-hjkmnp-tv-z]{8}$"
+      },
+      "IssueFusion": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Nouveau mot au codex : un exemplaire de chaque brique posée est consommé.",
+            "required": [
+              "recette_id",
+              "mot_id",
+              "type"
+            ],
+            "properties": {
+              "mot_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "recette_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "decouverte"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Recette d'un mot déjà découvert : rien n'est consommé.",
+            "required": [
+              "recette_id",
+              "mot_id",
+              "type"
+            ],
+            "properties": {
+              "mot_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "recette_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "connue"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Combinaison attestée volontairement écartée, avec sa raison.",
+            "required": [
+              "raison",
+              "type"
+            ],
+            "properties": {
+              "raison": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "exclue"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Pertinente, mais mal ordonnée ou incomplète.",
+            "required": [
+              "motif",
+              "type"
+            ],
+            "properties": {
+              "motif": {
+                "$ref": "#/components/schemas/MotifPresque"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "presque"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Aucune correspondance.",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "echec"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Recette exacte, mais la réserve ne contient pas un exemplaire de chaque brique.",
+            "required": [
+              "briques",
+              "type"
+            ],
+            "properties": {
+              "briques": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IdCatalogue"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "reserve_insuffisante"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Issue d'une fusion. Seule une découverte consomme des exemplaires."
       },
       "LangueManifeste": {
         "type": "object",
@@ -335,6 +985,7 @@
         "type": "object",
         "required": [
           "format",
+          "id",
           "numero",
           "parution"
         ],
@@ -360,6 +1011,17 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "graines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Graine"
+            },
+            "description": "Réserve de départ du fascicule (ADR 0030)."
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Identifiant opaque du fascicule : les données du joueur le désignent par lui."
           },
           "jalons": {
             "type": "array",
@@ -402,6 +1064,82 @@
           }
         }
       },
+      "MotifPresque": {
+        "type": "string",
+        "enum": [
+          "ordre",
+          "incomplet"
+        ]
+      },
+      "Nature": {
+        "type": "string",
+        "enum": [
+          "mot",
+          "prefixe",
+          "suffixe"
+        ]
+      },
+      "Partie": {
+        "type": "object",
+        "required": [
+          "rang",
+          "unite_id",
+          "forme_id",
+          "sens_id"
+        ],
+        "properties": {
+          "forme_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "sens_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
+      "Rarete": {
+        "type": "string",
+        "enum": [
+          "commune",
+          "peu_commune",
+          "rare",
+          "legendaire"
+        ]
+      },
+      "Recette": {
+        "type": "object",
+        "description": "Ressource « recette » : la composition jouée et ses emplacements ordonnés.",
+        "required": [
+          "id",
+          "composition_id",
+          "resultat_id",
+          "emplacements"
+        ],
+        "properties": {
+          "composition_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "emplacements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Emplacement"
+            }
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "resultat_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
       "RecetteManifeste": {
         "type": "object",
         "required": [
@@ -416,6 +1154,49 @@
             "$ref": "#/components/schemas/IdCatalogue"
           }
         }
+      },
+      "RelationCarte": {
+        "type": "object",
+        "required": [
+          "id",
+          "type_code"
+        ],
+        "properties": {
+          "etymon": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Etymon",
+                "description": "L'étymon : l'unité d'origine, recopiée dans la carte."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "type_code": {
+            "type": "string"
+          }
+        }
+      },
+      "ReponseFusion": {
+        "type": "object",
+        "required": [
+          "issue",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "issue": {
+            "$ref": "#/components/schemas/IssueFusion"
+          }
+        },
+        "additionalProperties": false
       },
       "Role": {
         "type": "string",
@@ -448,6 +1229,27 @@
         },
         "additionalProperties": false
       },
+      "Sens": {
+        "type": "object",
+        "required": [
+          "id",
+          "rang",
+          "libelles"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "libelles": {
+            "$ref": "#/components/schemas/BTreeMap_LibellesSens"
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "Session": {
         "type": "object",
         "required": [
@@ -478,6 +1280,46 @@
           "ok",
           "degrade"
         ]
+      },
+      "Transformation": {
+        "type": "object",
+        "required": [
+          "id",
+          "type_code",
+          "ordre",
+          "libelles"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "libelles": {
+            "$ref": "#/components/schemas/BTreeMap_LibelleTexte"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "type_code": {
+            "type": "string"
+          }
+        }
+      },
+      "Translitteration": {
+        "type": "object",
+        "required": [
+          "convention_id",
+          "texte"
+        ],
+        "properties": {
+          "convention_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "texte": {
+            "type": "string"
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -494,6 +1336,10 @@
     {
       "name": "profil",
       "description": "Profil invité, sans donnée personnelle"
+    },
+    {
+      "name": "jeu",
+      "description": "Commandes de jeu : le serveur fait foi"
     }
   ]
 }

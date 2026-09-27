@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT brique_id, nombre FROM exemplaire WHERE joueur_id = $1 ORDER BY brique_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "brique_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "nombre",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "6bcbfa2806a00aaa49c5828be9bb14924e80c46a1190c3a66d075016db7d1349"
+}

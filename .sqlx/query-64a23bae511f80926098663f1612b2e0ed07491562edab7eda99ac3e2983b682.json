@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO graine_accordee (joueur_id, fascicule_id) VALUES ($1, $2)\n             ON CONFLICT DO NOTHING RETURNING fascicule_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fascicule_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "64a23bae511f80926098663f1612b2e0ed07491562edab7eda99ac3e2983b682"
+}

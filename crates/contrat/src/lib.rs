@@ -5,6 +5,8 @@
 //! Toute requête refuse les propriétés inconnues.
 
 use chrono::{DateTime, Utc};
+use etymo_domaine::IdCatalogue;
+use etymo_domaine::fusion::MotifPresque;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -40,13 +42,85 @@ pub struct Session {
 
 /// Projection de l'état confirmé du joueur : des identifiants et des nombres,
 /// jamais de texte du catalogue (ADR 0027).
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Etat {
-    /// Incrémentée à chaque commande acceptée ; sert à détecter un conflit.
+    /// Incrémentée à chaque mutation acceptée ; sert à détecter un conflit.
     pub version_etat: i64,
     /// Version du catalogue active pour ce joueur, `null` avant toute parution.
     pub version_catalogue: Option<String>,
+    /// Briques connues et leurs exemplaires, triées par brique. Une brique à 0
+    /// exemplaire est épuisée mais reste connue.
+    pub reserve: Vec<Exemplaires>,
+    /// Mots découverts, dans l'ordre de leur découverte.
+    pub decouvertes: Vec<Decouverte>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Exemplaires {
+    pub brique_id: IdCatalogue,
+    #[schema(minimum = 0, maximum = 5)]
+    pub exemplaires: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Decouverte {
+    pub mot_id: IdCatalogue,
+    pub recette_id: IdCatalogue,
+    /// Rang de la découverte dans le codex du joueur, à partir de 1.
+    pub numero: i32,
+    pub decouverte_le: DateTime<Utc>,
+}
+
+/// Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeFusion {
+    /// Clé d'idempotence générée par le client (UUID v4) : une commande
+    /// rejouée renvoie la réponse enregistrée sans rien modifier.
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    /// Version du catalogue avec laquelle la proposition a été préparée.
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    /// Briques posées sur la table, dans l'ordre.
+    #[schema(min_items = 2, max_items = 4)]
+    pub briques: Vec<IdCatalogue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseFusion {
+    pub issue: IssueFusion,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Issue d'une fusion. Seule une découverte consomme des exemplaires.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum IssueFusion {
+    /// Nouveau mot au codex : un exemplaire de chaque brique posée est consommé.
+    Decouverte {
+        recette_id: IdCatalogue,
+        mot_id: IdCatalogue,
+    },
+    /// Recette d'un mot déjà découvert : rien n'est consommé.
+    Connue {
+        recette_id: IdCatalogue,
+        mot_id: IdCatalogue,
+    },
+    /// Combinaison attestée volontairement écartée, avec sa raison.
+    Exclue { raison: String },
+    /// Pertinente, mais mal ordonnée ou incomplète.
+    Presque { motif: MotifPresque },
+    /// Aucune correspondance.
+    Echec,
+    /// Recette exacte, mais la réserve ne contient pas un exemplaire de chaque brique.
+    ReserveInsuffisante { briques: Vec<IdCatalogue> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

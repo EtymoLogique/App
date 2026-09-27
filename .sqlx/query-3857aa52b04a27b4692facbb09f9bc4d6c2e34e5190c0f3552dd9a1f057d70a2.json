@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO exemplaire (joueur_id, brique_id, nombre) VALUES ($1, $2, $3)\n                 ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = exemplaire.nombre + EXCLUDED.nombre",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3857aa52b04a27b4692facbb09f9bc4d6c2e34e5190c0f3552dd9a1f057d70a2"
+}

@@ -8,8 +8,8 @@ La suite du travail est dans la [roadmap](docs/roadmap.md).
 
 | Chemin | Rôle |
 |---|---|
-| `crates/domaine/` | Types et règles du jeu, sans entrée-sortie : identifiants opaques du catalogue. |
-| `crates/catalogue/` | Lecture de l’artefact publié : index, manifestes, chemins hachés, vérification des empreintes. |
+| `crates/domaine/` | Types et règles du jeu, sans entrée-sortie : identifiants opaques, résolution d’une fusion, plafond de la réserve. |
+| `crates/catalogue/` | Lecture de l’artefact publié : index, manifestes, recettes, exclusions, cartes, chemins hachés, vérification des empreintes. |
 | `crates/contrat/` | Requêtes et réponses de l’API : **source de vérité du contrat**. |
 | `crates/taches/` | Tâches planifiées : parution des fascicules ([ADR 0029](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0029-parution-par-promotion-de-prefixe.md)), purges. |
 | `crates/api/` | Binaire `etymo-api` : l’API (axum, sqlx) et les sous-commandes des tâches. |
@@ -38,7 +38,8 @@ La suite du travail est dans la [roadmap](docs/roadmap.md).
 |---|---|
 | `GET /sante` | État du service et version du catalogue chargée. |
 | `POST /session` | Ouvre la session d’un profil invité : identifiant d’installation (UUID v4) et secret de 256 bits, générés par la PWA. Le serveur n’en garde que l’empreinte SHA-256 et rend un jeton HMAC valable 15 minutes. |
-| `GET /etat` | Projection de l’état confirmé du joueur. Jeton requis. |
+| `GET /etat` | Synchronise le joueur : accorde une fois les graines de chaque fascicule paru ([ADR 0030](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0030-reserve-de-depart-par-fascicule.md)), puis renvoie l’état confirmé : réserve et découvertes. Jeton requis. |
+| `POST /fusion` | Tente une fusion : de 2 à 4 briques ordonnées. Issues : `decouverte` (un exemplaire de chaque brique consommé, mot ajouté au codex), `connue`, `exclue`, `presque` (`ordre` ou `incomplet`), `echec`, `reserve_insuffisante`. Seule une découverte modifie l’état : elle exige `version_etat` et `version_catalogue` à jour (sinon `409`) et elle seule est enregistrée pour l’idempotence. Jeton requis. |
 
 Chaque requête refuse les propriétés inconnues, et son corps est borné à 8 Kio. Le débit est limité en mémoire, par adresse réseau pour `/session` et par profil ailleurs : aucune adresse n’est stockée. CORS n’accepte que l’origine de la PWA.
 

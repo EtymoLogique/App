@@ -1,4 +1,4 @@
-import type { FasciculeParu } from '../App'
+import type { FasciculeParu } from '../services/jeu'
 import type { LecteurCatalogue } from '../services/catalogue'
 
 const dates = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' })
@@ -25,10 +25,10 @@ export function Fascicules({ parus, catalogue }: Props) {
 
   return (
     <ul className="fascicules">
-      {parus.map(({ entree, manifeste }) => {
+      {parus.map(({ numero, parution, manifeste }) => {
         const mots = nombreDeMots(manifeste.compteurs)
         return (
-          <li key={entree.numero} className="fascicule">
+          <li key={numero} className="fascicule">
             {manifeste.jaquette ? (
               <img
                 className="jaquette"
@@ -41,9 +41,9 @@ export function Fascicules({ parus, catalogue }: Props) {
             ) : (
               <div className="jaquette jaquette-absente" aria-hidden="true" />
             )}
-            <h2>Fascicule n°&nbsp;{entree.numero}</h2>
+            <h3>Fascicule n°&nbsp;{numero}</h3>
             <p className="meta">
-              Paru le <time dateTime={entree.parution}>{date(entree.parution)}</time>
+              Paru le <time dateTime={parution}>{date(parution)}</time>
               {mots !== undefined && <> · {mots} mots</>}
             </p>
             {manifeste.test && <span className="pastille essai">Essai</span>}

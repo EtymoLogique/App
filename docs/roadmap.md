@@ -43,8 +43,23 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 - Exposer à la tâche `parution` le bucket du catalogue dans `ETYMO_BUCKET_CATALOGUE` (et `ETYMO_S3_POINT` hors `fr-par`).
 - Activer `api`, `base` et `taches` avec l’image épinglée que publie le workflow *Deploy* (`…/api@sha256:…`).
 
+## J1 — Table de fusion et réserve
+
+| Tâche | État |
+|---|---|
+| Graines déclarées par le fascicule, validées et compilées dans le manifeste (dépôt Content, [ADR 0030](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0030-reserve-de-depart-par-fascicule.md)) | fait |
+| Catalogue en mémoire : recettes, exclusions, cartes, graines | fait |
+| Résolution d’une fusion (`etymo_domaine::fusion`) : découverte, connue, exclue, presque (ordre, incomplet), échec | fait |
+| Migrations : `exemplaire`, `decouverte`, `mouvement`, `graine_accordee` | fait |
+| `GET /etat` accorde les graines une fois ; `POST /fusion` transactionnelle et idempotente, `409` si l’état ou le catalogue est périmé | fait |
+| PWA : réserve (×n, posée, épuisée), table ordonnée (glisser-déposer, boutons, clavier), prévisualisation démentie au besoin par le serveur, fiche de découverte, liste des découvertes | fait |
+| Projection confirmée et table en cours gardées dans IndexedDB | fait |
+| Démonstration : les trois premières découvertes du fascicule 0 (géologie, biologie, amener) avec ses graines | faite en local |
+
+Reportés : file d’attente des fusions hors connexion (J6), codex complet (J2), indices payants (J4).
+
 ## Décisions à formaliser
 
-- **Nouvel ADR dans le dossier de conception** : le contrat a pour source de vérité les types Rust, dont on génère l’OpenAPI puis les types TypeScript. Côté front, l’outillage est Vite avec vite-plugin-pwa. Cet ADR précise l’[ADR 0024](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0024-architecture-logicielle-et-hebergement.md).
+- **Contrat et outillage** : [ADR 0031](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0031-contrat-genere-et-outillage-de-la-pwa.md), proposé.
 - **Écart à trancher** : l’[ADR 0026](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0026-depot-prive-du-catalogue-sans-logique.md) place tout le code, compilateur compris, dans un dépôt public. Or le compilateur vit dans Content, et App comme Infra sont privés.
 - **Index global** : il garde les référentiels sous `referentiels`, comme le calendrier. Le [modèle de données](https://github.com/lunik/EtymoLogique/blob/master/docs/modele-donnees.md#index-global) les montre à la racine.

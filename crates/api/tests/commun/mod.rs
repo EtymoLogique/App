@@ -1,0 +1,94 @@
+//! Banc d'essai commun : routeur complet, base neuve par test (`#[sqlx::test]`)
+//! et catalogue fictif sur disque.
+#![allow(dead_code)]
+
+use std::sync::Arc;
+
+use axum::Router;
+use axum::body::Body;
+use axum::http::{HeaderValue, Request, StatusCode, header};
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use etymo_api::{CatalogueVivant, EtatApp, Limiteurs, Signataire, routeur};
+use etymo_catalogue::{INDEX, LecteurDossier, essai};
+use http_body_util::BodyExt;
+use serde_json::{Value, json};
+use sqlx::PgPool;
+use tower::ServiceExt;
+use uuid::Uuid;
+
+pub const ORIGINE: &str = "https://pwa.exemple.test";
+
+pub struct Banc {
+    pub routeur: Router,
+    _dossier: tempfile::TempDir,
+}
+
+pub async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
+    let dossier = tempfile::tempdir().unwrap();
+    let manifeste = essai::fascicule(dossier.path(), 0, "2026-10-01T08:00:00+02:00");
+    essai::calendrier(
+        dossier.path(),
+        INDEX,
+        "v-essai",
+        &[(0, "2026-10-01T08:00:00+02:00", &manifeste)],
+    );
+    let catalogue = CatalogueVivant::nouveau(Box::new(LecteurDossier::nouveau(dossier.path())));
+    catalogue.rafraichir().await.unwrap();
+    let etat = Arc::new(EtatApp {
+        base,
+        catalogue,
+        signataire: Signataire::nouveau(&[3; 32]).unwrap(),
+        limiteurs,
+    });
+    Banc {
+        routeur: routeur(etat, &[HeaderValue::from_static(ORIGINE)]),
+        _dossier: dossier,
+    }
+}
+
+pub async fn appeler(
+    routeur: &Router,
+    requete: Request<Body>,
+) -> (StatusCode, axum::http::HeaderMap, Value) {
+    let reponse = routeur.clone().oneshot(requete).await.unwrap();
+    let statut = reponse.status();
+    let entetes = reponse.headers().clone();
+    let octets = reponse.into_body().collect().await.unwrap().to_bytes();
+    let corps = serde_json::from_slice(&octets).unwrap_or(Value::Null);
+    (statut, entetes, corps)
+}
+
+pub fn post_session(corps: &Value) -> Request<Body> {
+    Request::post("/session")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(corps.to_string()))
+        .unwrap()
+}
+
+pub fn get_etat(jeton: &str) -> Request<Body> {
+    Request::get("/etat")
+        .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
+        .body(Body::empty())
+        .unwrap()
+}
+
+pub fn secret(octet: u8) -> String {
+    URL_SAFE_NO_PAD.encode([octet; 32])
+}
+
+pub fn post_fusion(jeton: &str, corps: &Value) -> Request<Body> {
+    Request::post("/fusion")
+        .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(corps.to_string()))
+        .unwrap()
+}
+
+/// Ouvre la session d'un profil neuf et renvoie son jeton.
+pub async fn session(routeur: &Router) -> String {
+    let demande = json!({ "installation": Uuid::new_v4(), "secret": secret(9) });
+    let (statut, _, corps) = appeler(routeur, post_session(&demande)).await;
+    assert_eq!(statut, StatusCode::OK, "{corps}");
+    corps["jeton"].as_str().unwrap().to_owned()
+}

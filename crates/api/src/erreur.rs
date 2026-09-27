@@ -16,6 +16,12 @@ pub enum ErreurApi {
     NonAuthentifie,
     #[error("trop de requêtes")]
     TropDeRequetes,
+    #[error("conflit : {0}")]
+    Conflit(&'static str),
+    #[error("catalogue indisponible")]
+    Indisponible,
+    #[error("erreur interne")]
+    Interne(String),
     #[error("base indisponible")]
     Base(#[from] sqlx::Error),
 }
@@ -43,6 +49,20 @@ impl IntoResponse for ErreurApi {
                 CodeErreur::TropDeRequetes,
                 self.to_string(),
             ),
+            Self::Conflit(_) => (StatusCode::CONFLICT, CodeErreur::Conflit, self.to_string()),
+            Self::Indisponible => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                CodeErreur::Indisponible,
+                self.to_string(),
+            ),
+            Self::Interne(cause) => {
+                tracing::error!(%cause, "erreur interne");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    CodeErreur::Interne,
+                    "erreur interne".to_owned(),
+                )
+            }
             Self::Base(e) => {
                 tracing::error!(erreur = %e, "erreur de base");
                 (

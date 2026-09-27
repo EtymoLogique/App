@@ -36,6 +36,8 @@ pub struct EntreeFascicule {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Manifeste {
     pub format: u32,
+    /// Identifiant opaque du fascicule : les données du joueur le désignent par lui.
+    pub id: IdCatalogue,
     pub numero: u32,
     #[schema(value_type = String, format = DateTime)]
     pub parution: DateTime<FixedOffset>,
@@ -58,6 +60,44 @@ pub struct Manifeste {
     #[serde(default)]
     #[schema(value_type = Vec<Value>)]
     pub jalons: serde_json::Value,
+    /// Réserve de départ du fascicule (ADR 0030).
+    #[serde(default)]
+    pub graines: Vec<Graine>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Graine {
+    pub brique_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub exemplaires: u8,
+}
+
+/// Ressource « recette » : la composition jouée et ses emplacements ordonnés.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Recette {
+    pub id: IdCatalogue,
+    pub composition_id: IdCatalogue,
+    pub resultat_id: IdCatalogue,
+    pub emplacements: Vec<Emplacement>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Emplacement {
+    pub rang: u32,
+    pub briques_acceptees: Vec<IdCatalogue>,
+}
+
+/// Ressource « exclusions » d'un fascicule.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Exclusions {
+    pub exclusions: Vec<Exclusion>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Exclusion {
+    pub id: IdCatalogue,
+    pub combinaison: Vec<IdCatalogue>,
+    pub raison: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

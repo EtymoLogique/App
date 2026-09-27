@@ -9,6 +9,12 @@
   --line: rgba(15, 31, 25, 0.14);
   --pop-shadow: #0f1f19;
   --fixed-ink: #0f1f19;
+  /* Fond des briques et des boutons : identique de jour et de nuit. */
+  --fixed-cream: #fffbf3;
+  --c-prefix: #cdf25a;
+  --c-prefix-tint: #eef9c4;
+  --c-suffix: #4fd1c5;
+  --c-suffix-tint: #d4f3ef;
   --c-pli: #f4b740;
   --c-pli-tint: #fcecc6;
   --c-action: #ff6b4a;
@@ -48,7 +54,12 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, p, ul { margin: 0; }
+h1, h2, h3, p, ul, ol { margin: 0; }
+button { font: inherit; color: inherit; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 :focus-visible { outline: 2px solid var(--c-action); outline-offset: 3px; }
 
 .entete {
@@ -105,3 +116,105 @@ h1 { font-family: var(--serif); font-size: clamp(28px, 4vw, 40px); letter-spacin
   .sceau { transition: rotate 0.5s var(--ease-spring); }
   .marque:hover .sceau { rotate: 0deg; }
 }
+
+/* ---------- Zones de la page ---------- */
+.zone { display: grid; gap: 16px; }
+.zone h2 { font-family: var(--serif); font-size: 24px; letter-spacing: -0.01em; }
+.fascicule h3 { font-family: var(--serif); font-size: 20px; }
+.lien {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font-weight: 700; text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* ---------- Briques (game-design, « Représentation des briques ») ---------- */
+.brique {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 8px 14px; min-height: 44px;
+  border: 1.5px solid var(--fixed-ink); border-radius: 10px;
+  background: var(--fixed-cream); color: var(--fixed-ink);
+  box-shadow: 2px 2px 0 var(--pop-shadow);
+}
+.brique-prefixe { background: var(--c-prefix); border-radius: 10px 4px 4px 10px; }
+.brique-suffixe { background: var(--c-suffix); border-radius: 4px 10px 10px 4px; }
+.brique-mot { background: var(--fixed-cream); }
+.brique-forme { font-family: var(--serif); font-size: 20px; font-weight: 700; }
+.brique-glose { font-size: 13px; font-style: italic; }
+.brique-pastille {
+  padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  background: var(--fixed-ink); color: var(--fixed-cream);
+}
+.brique.tous-poses { opacity: 0.4; box-shadow: none; }
+.brique.epuisee {
+  border-style: dashed; box-shadow: none; color: var(--ink-2); border-color: var(--ink-3);
+  background: repeating-linear-gradient(135deg, var(--paper-2) 0 6px, var(--paper) 6px 12px);
+}
+.brique.epuisee .brique-pastille { background: var(--ink-3); }
+.brique.compacte { padding: 2px 8px; min-height: 0; gap: 4px; box-shadow: none; vertical-align: baseline; }
+.brique.compacte .brique-forme { font-size: 16px; }
+
+/* ---------- Réserve ---------- */
+.reserve { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.case-brique { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 10px; }
+.case-brique[aria-disabled="true"] { cursor: not-allowed; }
+@media (prefers-reduced-motion: no-preference) {
+  .case-brique:not([aria-disabled="true"]) .brique { transition: transform 0.15s var(--ease-spring); }
+  .case-brique:not([aria-disabled="true"]):hover .brique { transform: translate(-1px, -2px); }
+}
+
+/* ---------- Table de fusion ---------- */
+.zone-table h1 { font-size: clamp(26px, 3.5vw, 36px); }
+.table { display: grid; gap: 12px; }
+.table-emplacements {
+  list-style: none; padding: 16px; margin: 0;
+  display: flex; flex-wrap: wrap; gap: 12px; min-height: 96px;
+  border: 1.5px dashed var(--ink-3); border-radius: var(--radius);
+  background: var(--cream);
+}
+.emplacement { display: grid; gap: 6px; justify-items: center; }
+.emplacement.vide {
+  width: 96px; min-height: 44px; border: 1.5px dashed var(--line); border-radius: 10px;
+}
+.emplacement.survol .brique { outline: 2px solid var(--c-action); outline-offset: 3px; }
+.emplacement-actions { display: flex; gap: 4px; }
+.emplacement-actions button {
+  min-width: 32px; min-height: 32px; border: 1.5px solid var(--ink); border-radius: 8px;
+  background: var(--paper); cursor: pointer;
+}
+.emplacement-actions button:disabled { opacity: 0.35; cursor: default; }
+.table-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.table-actions button {
+  min-height: 44px; padding: 8px 20px; border: 1.5px solid var(--fixed-ink); border-radius: 999px;
+  background: var(--fixed-cream); color: var(--fixed-ink); font-weight: 700; cursor: pointer;
+}
+.table-actions .principal { background: var(--c-action); box-shadow: 3px 3px 0 var(--fixed-ink); }
+.table-actions button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.resultat { min-height: 1.5em; font-size: 17px; }
+.prevision { opacity: 0.75; }
+
+/* ---------- Découvertes ---------- */
+.decouvertes { display: flex; flex-wrap: wrap; gap: 8px 16px; padding-left: 1.4em; }
+
+/* ---------- Fiche de découverte ---------- */
+.voile {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(15, 31, 25, 0.55);
+}
+.fiche {
+  position: relative; width: min(520px, 100%); max-height: 90vh; overflow: auto;
+  display: grid; gap: 12px; padding: 28px;
+  border: 1.5px solid var(--fixed-ink); border-radius: 22px;
+  background: var(--cream); color: var(--ink);
+  box-shadow: 6px 6px 0 var(--pop-shadow);
+}
+.fiche h2 { font-family: var(--serif); font-size: 36px; letter-spacing: -0.02em; }
+.fiche h3 { font-size: 15px; }
+.fiche-fermer {
+  position: absolute; top: 12px; right: 12px; width: 40px; height: 40px;
+  border: 1.5px solid var(--ink); border-radius: 999px; background: var(--paper); cursor: pointer; font-size: 20px;
+}
+.composition { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.plus { font-weight: 700; }
+.transformation { font-size: 14px; color: var(--ink-2); }
+.consommes ul { list-style: none; padding: 0; display: grid; gap: 6px; }
+.moins { font-weight: 700; color: var(--c-danger); }

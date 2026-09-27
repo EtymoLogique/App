@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE joueur SET version_catalogue = $2 WHERE id = $1 AND version_catalogue IS DISTINCT FROM $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9098de7f6ad514c1abcbf2f9ef57ced08f65d09e158eefc40289323628ea1566"
+}

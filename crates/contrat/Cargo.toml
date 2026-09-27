@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
+etymo-domaine = { version = "0.1.0", path = "../domaine" }
 serde = { version = "1.0.229", features = ["derive"] }
 utoipa = { version = "6.0.0", features = ["uuid", "chrono"] }
 uuid = { version = "1.26.1", features = ["serde"] }

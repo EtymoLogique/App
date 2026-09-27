@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { Erreur, Etat, Sante, Session } from '../contrat'
+import type { DemandeFusion, Erreur, Etat, ReponseFusion, Sante, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -59,17 +59,36 @@ export class ClientApi {
     return this.session
   }
 
-  async etat(): Promise<Etat> {
+  /** Appel authentifié ; une session expirée est rouverte une fois. */
+  private async authentifie<T>(chemin: string, init: RequestInit = {}): Promise<T> {
+    const avec = (jeton: string): RequestInit => ({
+      ...init,
+      headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${jeton}` },
+    })
     const { jeton } = await this.ouvrirSession()
     try {
-      return await this.appeler<Etat>('/etat', { headers: { Authorization: `Bearer ${jeton}` } })
+      return await this.appeler<T>(chemin, avec(jeton))
     } catch (e) {
       if (e instanceof ErreurApi && e.statut === 401) {
         this.session = undefined
         const nouvelle = await this.ouvrirSession()
-        return this.appeler<Etat>('/etat', { headers: { Authorization: `Bearer ${nouvelle.jeton}` } })
+        return this.appeler<T>(chemin, avec(nouvelle.jeton))
       }
       throw e
     }
+  }
+
+  /** Synchronise le joueur : graines des fascicules parus, puis état confirmé. */
+  etat(): Promise<Etat> {
+    return this.authentifie('/etat')
+  }
+
+  /** Tente une fusion. Un `409` (état ou catalogue périmé) impose une resynchronisation. */
+  fusion(demande: DemandeFusion): Promise<ReponseFusion> {
+    return this.authentifie('/fusion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
   }
 }

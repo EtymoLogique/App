@@ -27,8 +27,21 @@ async fn charge_l_index_et_ses_manifestes() {
     assert_eq!(catalogue.fascicules.len(), 1);
     let charge = &catalogue.fascicules[0].manifeste;
     assert_eq!(charge.numero, 0);
-    // jaquette, carte, recette
-    assert_eq!(charge.ressources().len(), 3);
+    // jaquette, carte, recette, exclusions
+    assert_eq!(charge.ressources().len(), 4);
+    assert_eq!(charge.graines.len(), 2);
+
+    let jeu = &catalogue.jeu;
+    assert_eq!(jeu.recettes.len(), 1);
+    // Emplacements remis dans l'ordre de leur rang.
+    let attendus: Vec<Vec<etymo_domaine::IdCatalogue>> = vec![
+        vec![essai::GEO.parse().unwrap()],
+        vec![essai::LOGIE.parse().unwrap()],
+    ];
+    assert_eq!(jeu.recettes[0].emplacements, attendus);
+    assert_eq!(jeu.exclusions.len(), 1);
+    assert!(jeu.briques.contains(&essai::GEO.parse().unwrap()));
+    assert_eq!(jeu.graines[0].0.as_str(), "fsc_00000000");
 }
 
 #[tokio::test]
@@ -69,4 +82,30 @@ async fn le_lecteur_de_dossier_refuse_de_remonter() {
     let lecteur = LecteurDossier::nouveau(dossier.path());
     assert!(lecteur.lire("../secret").await.is_err());
     assert!(lecteur.lire("/etc/passwd").await.is_err());
+}
+
+/// Lit toutes les ressources d'un vrai artefact compilé par le dépôt Content,
+/// si `ETYMO_ARTEFACT` désigne son dossier (par exemple `.local/bucket/staging`).
+#[tokio::test]
+async fn lit_un_artefact_reel_si_disponible() {
+    let Ok(dossier) = std::env::var("ETYMO_ARTEFACT") else {
+        return;
+    };
+    let lecteur = LecteurDossier::nouveau(&dossier);
+    let calendrier = lire_calendrier(&lecteur, CALENDRIER)
+        .await
+        .unwrap()
+        .unwrap();
+    for entree in &calendrier.fascicules {
+        let manifeste = lire_manifeste(&lecteur, &entree.manifeste).await.unwrap();
+        for carte in &manifeste.cartes {
+            let lue: Carte = lire_json(&lecteur, &carte.carte).await.unwrap();
+            assert_eq!(lue.id, carte.id);
+        }
+        for recette in &manifeste.recettes {
+            lire_json::<Recette>(&lecteur, &recette.chemin)
+                .await
+                .unwrap();
+        }
+    }
 }

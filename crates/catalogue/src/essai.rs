@@ -24,8 +24,15 @@ pub fn deposer(racine: &Path, dossier: &str, extension: &str, octets: &[u8]) -> 
     chemin
 }
 
-/// Écrit un fascicule minimal (une carte, une recette, une jaquette) et renvoie
-/// le chemin de son manifeste.
+/// Briques du fascicule fictif : `GEO` + `LOGIE` donne le mot `MOT`.
+pub const GEO: &str = "brq_0000ge00";
+pub const LOGIE: &str = "brq_000109e0";
+pub const BIO: &str = "brq_0000b100";
+pub const MOT: &str = "unt_0000000a";
+pub const RECETTE: &str = "rct_0000000a";
+
+/// Écrit un fascicule minimal (une carte, une recette, des exclusions, une
+/// jaquette, des graines) et renvoie le chemin de son manifeste.
 #[must_use]
 pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
     let jaquette = deposer(
@@ -38,27 +45,48 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         racine,
         "r",
         "json",
-        &canonique(&json!({ "id": "unt_0000000a", "n": numero })),
+        &canonique(&json!({ "id": MOT, "n": numero })),
     );
     let recette = deposer(
         racine,
         "r",
         "json",
-        &canonique(&json!({ "id": "rct_0000000a" })),
+        &canonique(&json!({
+            "id": RECETTE,
+            "composition_id": "cmp_0000000a",
+            "resultat_id": MOT,
+            "emplacements": [
+                { "rang": 2, "briques_acceptees": [LOGIE] },
+                { "rang": 1, "briques_acceptees": [GEO] }
+            ]
+        })),
+    );
+    let exclusions = deposer(
+        racine,
+        "r",
+        "json",
+        &canonique(
+            &json!({ "exclusions": [{ "id": "exc_0000000a", "combinaison": [BIO, GEO], "raison": "rare" }] }),
+        ),
     );
     let manifeste = json!({
         "format": 1,
+        "id": format!("fsc_{numero:08}"),
         "numero": numero,
         "parution": parution,
         "test": true,
         "jaquette": jaquette,
-        "exclusions": null,
-        "cartes": [{ "id": "unt_0000000a", "role": "resultat", "carte": carte, "silhouette": null }],
+        "exclusions": exclusions,
+        "cartes": [{ "id": MOT, "role": "resultat", "carte": carte, "silhouette": null }],
         "langues": [],
-        "recettes": [{ "id": "rct_0000000a", "chemin": recette }],
+        "recettes": [{ "id": RECETTE, "chemin": recette }],
         "compteurs": { "mots": 1 },
-        "pli": { "briques": [] },
-        "jalons": []
+        "pli": { "briques": [{ "id": GEO, "rarete": "commune", "unite_id": "unt_0000000g" }] },
+        "jalons": [],
+        "graines": [
+            { "brique_id": GEO, "exemplaires": 2 },
+            { "brique_id": LOGIE, "exemplaires": 1 }
+        ]
     });
     deposer(racine, "f", "json", &canonique(&manifeste))
 }

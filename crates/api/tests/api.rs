@@ -1,80 +1,16 @@
 //! Tests de bout en bout du routeur, contre une base PostgreSQL neuve par test
 //! (`#[sqlx::test]`, migrations appliquées) et un catalogue fictif sur disque.
 
-use std::sync::Arc;
+mod commun;
 
-use axum::Router;
 use axum::body::Body;
-use axum::http::{HeaderValue, Request, StatusCode, header};
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use etymo_api::{CatalogueVivant, EtatApp, Limiteurs, Signataire, routeur};
-use etymo_catalogue::{INDEX, LecteurDossier, essai};
-use http_body_util::BodyExt;
-use serde_json::{Value, json};
+use axum::http::{Request, StatusCode, header};
+use etymo_api::{Limiteurs, Signataire};
+use serde_json::json;
 use sqlx::PgPool;
-use tower::ServiceExt;
 use uuid::Uuid;
 
-const ORIGINE: &str = "https://pwa.exemple.test";
-
-struct Banc {
-    routeur: Router,
-    _dossier: tempfile::TempDir,
-}
-
-async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
-    let dossier = tempfile::tempdir().unwrap();
-    let manifeste = essai::fascicule(dossier.path(), 0, "2026-10-01T08:00:00+02:00");
-    essai::calendrier(
-        dossier.path(),
-        INDEX,
-        "v-essai",
-        &[(0, "2026-10-01T08:00:00+02:00", &manifeste)],
-    );
-    let catalogue = CatalogueVivant::nouveau(Box::new(LecteurDossier::nouveau(dossier.path())));
-    catalogue.rafraichir().await.unwrap();
-    let etat = Arc::new(EtatApp {
-        base,
-        catalogue,
-        signataire: Signataire::nouveau(&[3; 32]).unwrap(),
-        limiteurs,
-    });
-    Banc {
-        routeur: routeur(etat, &[HeaderValue::from_static(ORIGINE)]),
-        _dossier: dossier,
-    }
-}
-
-async fn appeler(
-    routeur: &Router,
-    requete: Request<Body>,
-) -> (StatusCode, axum::http::HeaderMap, Value) {
-    let reponse = routeur.clone().oneshot(requete).await.unwrap();
-    let statut = reponse.status();
-    let entetes = reponse.headers().clone();
-    let octets = reponse.into_body().collect().await.unwrap().to_bytes();
-    let corps = serde_json::from_slice(&octets).unwrap_or(Value::Null);
-    (statut, entetes, corps)
-}
-
-fn post_session(corps: &Value) -> Request<Body> {
-    Request::post("/session")
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(corps.to_string()))
-        .unwrap()
-}
-
-fn get_etat(jeton: &str) -> Request<Body> {
-    Request::get("/etat")
-        .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
-        .body(Body::empty())
-        .unwrap()
-}
-
-fn secret(octet: u8) -> String {
-    URL_SAFE_NO_PAD.encode([octet; 32])
-}
+use commun::{ORIGINE, appeler, banc, get_etat, post_session, secret};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn sante_donne_la_version_du_catalogue(base: PgPool) {
@@ -118,10 +54,7 @@ async fn cree_puis_reprend_un_profil_invite(base: PgPool) {
 
     let (statut, _, corps) = appeler(&banc.routeur, get_etat(&jeton)).await;
     assert_eq!(statut, StatusCode::OK);
-    assert_eq!(
-        corps,
-        json!({ "version_etat": 0, "version_catalogue": "v-essai" })
-    );
+    assert_eq!(corps["version_catalogue"], "v-essai");
 }
 
 #[sqlx::test(migrations = "../../migrations")]

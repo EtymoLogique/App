@@ -11,10 +11,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Projection de l'état confirmé du joueur. */
+        /**
+         * Synchronise le joueur : accorde les graines des fascicules parus qu'il
+         *     n'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.
+         */
         get: operations["etat"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fusion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tente une fusion. Le serveur fait foi (ADR 0007, ADR 0027) : il valide la
+         *     recette, vérifie la réserve, consomme les exemplaires et ajoute le mot au
+         *     codex dans une seule transaction. Seule une découverte modifie l'état ;
+         *     elle seule est enregistrée pour l'idempotence, et elle seule exige que
+         *     `version_etat` et `version_catalogue` soient à jour (sinon `409`).
+         */
+        post: operations["fusion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -63,6 +89,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        BTreeMap_LibelleTexte: {
+            [key: string]: {
+                texte: string;
+            };
+        };
+        BTreeMap_LibellesComposition: {
+            [key: string]: {
+                explication_courte?: string | null;
+                sens_litteral?: string | null;
+            };
+        };
+        BTreeMap_LibellesSens: {
+            [key: string]: {
+                definition?: string | null;
+                glose?: string | null;
+            };
+        };
+        BriqueCarte: {
+            forme_affichee_id: components["schemas"]["IdCatalogue"];
+            id: components["schemas"]["IdCatalogue"];
+            rarete: components["schemas"]["Rarete"];
+            sens_affiche_id: components["schemas"]["IdCatalogue"];
+        };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
@@ -76,6 +125,16 @@ export interface components {
             referentiels: unknown;
             version: string;
         };
+        Carte: {
+            brique?: components["schemas"]["BriqueCarte"] | null;
+            compositions?: components["schemas"]["CompositionCarte"][];
+            formes: components["schemas"]["Forme"][];
+            id: components["schemas"]["IdCatalogue"];
+            langue_id: components["schemas"]["IdCatalogue"];
+            nature: components["schemas"]["Nature"];
+            relations?: components["schemas"]["RelationCarte"][];
+            sens: components["schemas"]["Sens"][];
+        };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
@@ -86,6 +145,42 @@ export interface components {
         Chemin: string;
         /** @enum {string} */
         CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
+        CompositionCarte: {
+            id: components["schemas"]["IdCatalogue"];
+            libelles: components["schemas"]["BTreeMap_LibellesComposition"];
+            parties: components["schemas"]["Partie"][];
+            preferee?: boolean;
+            transformations?: components["schemas"]["Transformation"][];
+        };
+        Decouverte: {
+            /** Format: date-time */
+            decouverte_le: string;
+            mot_id: components["schemas"]["IdCatalogue"];
+            /**
+             * Format: int32
+             * @description Rang de la découverte dans le codex du joueur, à partir de 1.
+             */
+            numero: number;
+            recette_id: components["schemas"]["IdCatalogue"];
+        };
+        /** @description Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table. */
+        DemandeFusion: {
+            /** @description Briques posées sur la table, dans l'ordre. */
+            briques: components["schemas"]["IdCatalogue"][];
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4) : une commande
+             *     rejouée renvoie la réponse enregistrée sans rien modifier.
+             */
+            commande: string;
+            /** @description Version du catalogue avec laquelle la proposition a été préparée. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /**
          * @description Ouverture ou renouvellement de la session d'un profil invité.
          *
@@ -101,6 +196,11 @@ export interface components {
             installation: string;
             /** @description Secret aléatoire de 256 bits, en base64url sans remplissage. */
             secret: string;
+        };
+        Emplacement: {
+            briques_acceptees: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            rang: number;
         };
         EntreeFascicule: {
             manifeste: components["schemas"]["Chemin"];
@@ -119,19 +219,86 @@ export interface components {
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            /** @description Mots découverts, dans l'ordre de leur découverte. */
+            decouvertes: components["schemas"]["Decouverte"][];
+            /**
+             * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
+             *     exemplaire est épuisée mais reste connue.
+             */
+            reserve: components["schemas"]["Exemplaires"][];
             /** @description Version du catalogue active pour ce joueur, `null` avant toute parution. */
             version_catalogue?: string | null;
             /**
              * Format: int64
-             * @description Incrémentée à chaque commande acceptée ; sert à détecter un conflit.
+             * @description Incrémentée à chaque mutation acceptée ; sert à détecter un conflit.
              */
             version_etat: number;
+        };
+        Etymon: {
+            forme: components["schemas"]["Forme"];
+            id: components["schemas"]["IdCatalogue"];
+            langue_id: components["schemas"]["IdCatalogue"];
+            sens?: components["schemas"]["Sens"][];
+        };
+        Exclusion: {
+            combinaison: components["schemas"]["IdCatalogue"][];
+            id: components["schemas"]["IdCatalogue"];
+            raison: string;
+        };
+        /** @description Ressource « exclusions » d'un fascicule. */
+        Exclusions: {
+            exclusions: components["schemas"]["Exclusion"][];
+        };
+        Exemplaires: {
+            brique_id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            exemplaires: number;
+        };
+        Forme: {
+            id: components["schemas"]["IdCatalogue"];
+            /** @description `canonique` pour la forme de référence. */
+            role: string;
+            systeme_ecriture_id: components["schemas"]["IdCatalogue"];
+            texte: string;
+            translitterations?: components["schemas"]["Translitteration"][];
+        };
+        Graine: {
+            brique_id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            exemplaires: number;
         };
         /**
          * @description Identifiant opaque du catalogue : `<préfixe>_<8 caractères base32>`.
          * @example brq_2e9chtta
          */
         IdCatalogue: string;
+        /** @description Issue d'une fusion. Seule une découverte consomme des exemplaires. */
+        IssueFusion: {
+            mot_id: components["schemas"]["IdCatalogue"];
+            recette_id: components["schemas"]["IdCatalogue"];
+            /** @enum {string} */
+            type: "decouverte";
+        } | {
+            mot_id: components["schemas"]["IdCatalogue"];
+            recette_id: components["schemas"]["IdCatalogue"];
+            /** @enum {string} */
+            type: "connue";
+        } | {
+            raison: string;
+            /** @enum {string} */
+            type: "exclue";
+        } | {
+            motif: components["schemas"]["MotifPresque"];
+            /** @enum {string} */
+            type: "presque";
+        } | {
+            /** @enum {string} */
+            type: "echec";
+        } | {
+            briques: components["schemas"]["IdCatalogue"][];
+            /** @enum {string} */
+            type: "reserve_insuffisante";
+        };
         LangueManifeste: {
             id: components["schemas"]["IdCatalogue"];
             silhouette?: components["schemas"]["Chemin"] | null;
@@ -142,6 +309,10 @@ export interface components {
             exclusions?: components["schemas"]["Chemin"] | null;
             /** Format: int32 */
             format: number;
+            /** @description Réserve de départ du fascicule (ADR 0030). */
+            graines?: components["schemas"]["Graine"][];
+            /** @description Identifiant opaque du fascicule : les données du joueur le désignent par lui. */
+            id: components["schemas"]["IdCatalogue"];
             jalons?: unknown[];
             jaquette?: components["schemas"]["Chemin"] | null;
             langues?: components["schemas"]["LangueManifeste"][];
@@ -153,9 +324,39 @@ export interface components {
             recettes?: components["schemas"]["RecetteManifeste"][];
             test?: boolean;
         };
+        /** @enum {string} */
+        MotifPresque: "ordre" | "incomplet";
+        /** @enum {string} */
+        Nature: "mot" | "prefixe" | "suffixe";
+        Partie: {
+            forme_id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            rang: number;
+            sens_id: components["schemas"]["IdCatalogue"];
+            unite_id: components["schemas"]["IdCatalogue"];
+        };
+        /** @enum {string} */
+        Rarete: "commune" | "peu_commune" | "rare" | "legendaire";
+        /** @description Ressource « recette » : la composition jouée et ses emplacements ordonnés. */
+        Recette: {
+            composition_id: components["schemas"]["IdCatalogue"];
+            emplacements: components["schemas"]["Emplacement"][];
+            id: components["schemas"]["IdCatalogue"];
+            resultat_id: components["schemas"]["IdCatalogue"];
+        };
         RecetteManifeste: {
             chemin: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
+        };
+        RelationCarte: {
+            etymon?: components["schemas"]["Etymon"] | null;
+            id: components["schemas"]["IdCatalogue"];
+            type_code: string;
+        };
+        ReponseFusion: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            issue: components["schemas"]["IssueFusion"];
         };
         /** @enum {string} */
         Role: "resultat" | "ingredient";
@@ -165,6 +366,12 @@ export interface components {
             version_api: string;
             /** @description Version du catalogue chargée en mémoire, `null` si aucun index n'est publié. */
             version_catalogue?: string | null;
+        };
+        Sens: {
+            id: components["schemas"]["IdCatalogue"];
+            libelles: components["schemas"]["BTreeMap_LibellesSens"];
+            /** Format: int32 */
+            rang: number;
         };
         Session: {
             /**
@@ -179,6 +386,17 @@ export interface components {
         };
         /** @enum {string} */
         StatutSante: "ok" | "degrade";
+        Transformation: {
+            id: components["schemas"]["IdCatalogue"];
+            libelles: components["schemas"]["BTreeMap_LibelleTexte"];
+            /** Format: int32 */
+            ordre: number;
+            type_code: string;
+        };
+        Translitteration: {
+            convention_id: components["schemas"]["IdCatalogue"];
+            texte: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -217,6 +435,75 @@ export interface operations {
             };
             /** @description Trop de requêtes */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    fusion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeFusion"];
+            };
+        };
+        responses: {
+            /** @description Issue de la fusion et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseFusion"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

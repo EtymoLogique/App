@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT mot_id, recette_id, numero, decouverte_le FROM decouverte WHERE joueur_id = $1 ORDER BY numero",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mot_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "recette_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "numero",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "decouverte_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d19d2ff66d64beb2d7092eb31befded8cf3f4edeccde45c83bd9ef5d861438a8"
+}

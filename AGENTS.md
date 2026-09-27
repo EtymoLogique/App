@@ -22,6 +22,7 @@ Si le code s’écarte d’un ADR, ou si deux sources se contredisent, signalez 
 - **Validation côté serveur** : `deny_unknown_fields` sur toute requête, taille bornée, formats vérifiés (UUID v4, secret de 256 bits).
 - **La base de progression ne copie aucun texte du catalogue** : des identifiants opaques et des nombres.
 - **Chemins du catalogue** : seul `Chemin` (Rust) ou `cheminValide` (TypeScript) décide qu’un chemin est lisible ; chaque fichier haché est vérifié contre son empreinte.
+- **Prévisualisation d’une fusion** : `prevoir` (`web/src/services/jeu.ts`) est le miroir de `etymo_domaine::fusion::resoudre`. Changez les deux ensemble, avec leurs tests.
 - **Fichiers générés** (`contrat/openapi.json`, `web/src/contrat/api.d.ts`, `.sqlx/`) : régénérez-les, ne les éditez pas.
 - **Vocabulaire du jeu** : « pli » (jamais « pack »), « codex », « exemplaire », « réserve », « brique », « fascicule ». Typographie française dans les libellés : « », ’, espaces insécables.
 - **Branches** (ADR 0028) : `develop` déploie en hors-prod, un tag `v*.*.*` en prod.

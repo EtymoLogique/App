@@ -651,6 +651,7 @@ name = "etymo-contrat"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "etymo-domaine",
  "serde",
  "serde_json",
  "utoipa",

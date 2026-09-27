@@ -8,11 +8,21 @@ use crate::routes;
 #[derive(OpenApi)]
 #[openapi(
     info(title = "API de jeu d'ÉtymoLogique", description = "Commandes de la PWA. Le serveur fait foi (ADR 0007)."),
-    paths(routes::sante, routes::session, routes::etat),
+    paths(routes::sante, routes::session, routes::etat, routes::fusion),
     // Formats de l'artefact du catalogue, lus par la PWA sur le CDN (ADR 0027).
-    components(schemas(etymo_catalogue::Calendrier, etymo_catalogue::Manifeste)),
+    components(schemas(
+        etymo_catalogue::Calendrier,
+        etymo_catalogue::Manifeste,
+        etymo_catalogue::Recette,
+        etymo_catalogue::Exclusions,
+        etymo_catalogue::Carte,
+    )),
     modifiers(&Session),
-    tags((name = "service"), (name = "profil", description = "Profil invité, sans donnée personnelle"))
+    tags(
+        (name = "service"),
+        (name = "profil", description = "Profil invité, sans donnée personnelle"),
+        (name = "jeu", description = "Commandes de jeu : le serveur fait foi"),
+    )
 )]
 pub struct Contrat;
 
