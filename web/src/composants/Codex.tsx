@@ -494,7 +494,6 @@ export function Codex({ entrees, jeu, nouvelles, onVue, aOuvrir, onOuverte, urlM
           <h2 className="cb-title">
             Vue <em>globale</em>
           </h2>
-          <p className="cb-sub">Touchez une carte pour l’agrandir, puis retournez-la pour voir toutes les formes trouvées. Touchez un fascicule pour n’afficher que ses cartes.</p>
         </div>
         <span className="cb-count">
           {tout.trouvees} / {tout.total} cartes découvertes
