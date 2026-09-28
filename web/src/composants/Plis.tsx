@@ -136,7 +136,6 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
     <div className="pk-chooser">
       <div className="pk-chooser-head">
         <div>
-          <p className="pk-label">Étape 1</p>
           <h2 className="jk-title">
             Choisir <em>un fascicule</em>
           </h2>
@@ -144,8 +143,8 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
         <div>
           <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
           <p className="pk-note pk-ready" role="status">
-            <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} />
-            <span>
+            <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} restant={energie.restant} grand />
+            <span className="sr-only">
               {energie.charges > 0 ? `${energie.charges === 1 ? 'Un pli prêt à être ouvert' : 'Deux plis prêts à être ouverts'}` : `Prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
             </span>
           </p>
@@ -371,7 +370,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
     <div className="pk-ecran">
       <div className="pk-current">
         <p>
-          <span className="pk-label">Étape 2 · pli du fascicule</span> <b>{nom}</b>
+          <span className="pk-label">Pli du fascicule</span> <b>{nom}</b>
         </p>
         <button type="button" className="btn btn-secondary" onClick={onRetour} disabled={etape === 'opening'}>
           ← Changer de fascicule
