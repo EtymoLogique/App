@@ -83,9 +83,6 @@
 .m-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--ink-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; }
 .m-lang { display: inline-flex; align-items: center; gap: 5px; }
 .m-lang i { width: 8px; height: 8px; flex: none; border-radius: 50%; }
-.m-dots { display: inline-flex; gap: 3px; }
-.m-dots i { width: 6px; height: 6px; border: 1px solid var(--ink-2); border-radius: 50%; }
-.m-dots i.on { border-color: var(--ink); background: var(--ink); }
 .mini.locked { background: repeating-linear-gradient(-45deg, var(--paper) 0 8px, var(--paper-2) 8px 16px); }
 .m-q { color: var(--ink-3); font-family: var(--serif); font-size: 52px; font-style: italic; line-height: 1; text-align: center; }
 /* Carte nouvelle : une pastille Corail cernée d’Encre dans le bandeau, après le N°, jusqu’à la première consultation. */
@@ -254,7 +251,6 @@
   .m-lit { font-size: clamp(10px, 12cqi, 13px); }
   .m-q { font-size: 38px; }
   .m-kind { display: none; }
-  .m-foot .m-dots { display: none; }
   .viewer { grid-template-areas: "trail trail" "card card" "prev next" "hint hint"; gap: 12px; padding: 16px; }
   .viewer-nav.prev { justify-self: end; }
   .viewer-nav.next { justify-self: start; }

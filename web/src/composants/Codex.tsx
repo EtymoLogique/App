@@ -155,17 +155,10 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
                 {trouvees} / {nbFormes} formes
               </span>
             ) : (
-              <>
-                <span className="m-lang">
-                  <i />
-                  {langue}
-                </span>
-                <span className="m-dots">
-                  {entree.formes.map((f, i) => (
-                    <i key={i} className={f.trouvee ? 'on' : undefined} />
-                  ))}
-                </span>
-              </>
+              <span className="m-lang">
+                <i />
+                {langue}
+              </span>
             )}
           </span>
         </>
