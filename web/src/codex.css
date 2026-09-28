@@ -197,8 +197,8 @@
   background: var(--tc); color: var(--tt);
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
 }
-.bf-type { padding: 4px 10px; border: 1.5px solid currentColor; border-radius: 999px; }
-.bf-side { display: inline-flex; align-items: center; gap: 8px; }
+/* Même bandeau que la mini-carte : le type en texte, puis la forme de rareté. */
+.bf-side { display: inline-flex; align-items: center; gap: 6px; }
 .bf-rar { width: 16px; height: 16px; }
 .bf-body { display: flex; flex: 1; flex-direction: column; justify-content: safe center; gap: 12px; padding: 22px 26px; overflow-y: auto; }
 .bb-body { justify-content: flex-start; }

@@ -261,8 +261,8 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
     <div className="bf-top">
       <span>{numero(entree.n)}</span>
       <span className="bf-side">
-        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
         <span className="bf-type">{type.libelle}</span>
+        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
       </span>
     </div>
   )
