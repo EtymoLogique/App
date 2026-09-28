@@ -358,12 +358,12 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
                 Chances par type
               </p>
               <div className="pk-odds">
-                {(['prefixe', 'suffixe', 'mot'] as const)
+                {(['prefixe', 'suffixe'] as const)
                   .filter((t) => parType(t) > 0)
                   .map((t) => (
                     <span key={t} className="pk-odd">
-                      <i className="pk-type" style={{ '--c': t === 'prefixe' ? 'var(--c-prefix)' : t === 'suffixe' ? 'var(--c-suffix)' : 'var(--fixed-ink)' } as React.CSSProperties} aria-hidden="true" />
-                      <span>{t === 'prefixe' ? 'Préfixes' : t === 'suffixe' ? 'Suffixes' : 'Mots'}</span>
+                      <i className="pk-type" style={{ '--c': t === 'prefixe' ? 'var(--c-prefix)' : 'var(--c-suffix)' } as React.CSSProperties} aria-hidden="true" />
+                      <span>{t === 'prefixe' ? 'Préfixes' : 'Suffixes'}</span>
                       <b>{pourcentage(parType(t))}</b>
                     </span>
                   ))}

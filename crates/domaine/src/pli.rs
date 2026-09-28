@@ -67,10 +67,9 @@ pub struct BriquePli {
 /// Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Equilibrage {
-    /// Poids de chaque rareté (62, 26, 10, 2).
+    /// Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est
+    /// proportionnelle au poids de sa seule rareté (ADR 0035).
     pub poids_raretes: BTreeMap<Rarete, u32>,
-    /// Poids de chaque type, en centièmes (préfixe 100, suffixe 125).
-    pub poids_types: BTreeMap<NaturePli, u32>,
     /// Gouttes rapportées par tout pli (ADR 0020).
     pub base_encre: u32,
     /// Gouttes en plus pour un doublon sous le plafond (ADR 0019).
@@ -114,32 +113,20 @@ pub struct Compteurs {
     pub plis_sans_utilite: u32,
 }
 
-/// Poids exacts des briques : poids de la rareté × poids du type, réparti entre
-/// les briques de même rareté et de même type (ADR 0011). Pour rester en
-/// nombres entiers, chaque poids est multiplié par le PPCM des tailles de classe.
+/// Poids des briques : le poids de la seule rareté de chacune (ADR 0035).
+/// Deux briques de même rareté ont toujours la même chance.
 #[must_use]
 pub fn poids(briques: &[BriquePli], equilibrage: &Equilibrage) -> Vec<u64> {
-    let mut classes: BTreeMap<(Rarete, NaturePli), u64> = BTreeMap::new();
-    for b in briques {
-        *classes.entry((b.rarete, b.nature)).or_default() += 1;
-    }
-    let commun = classes.values().fold(1, |m, &n| ppcm(m, n));
     briques
         .iter()
-        .map(|b| {
-            let rarete = u64::from(*equilibrage.poids_raretes.get(&b.rarete).unwrap_or(&0));
-            let nature = u64::from(*equilibrage.poids_types.get(&b.nature).unwrap_or(&100));
-            rarete * nature * (commun / classes[&(b.rarete, b.nature)])
-        })
+        .map(|b| u64::from(*equilibrage.poids_raretes.get(&b.rarete).unwrap_or(&0)))
         .collect()
 }
 
-fn pgcd(a: u64, b: u64) -> u64 {
-    if b == 0 { a } else { pgcd(b, a % b) }
-}
-
-fn ppcm(a: u64, b: u64) -> u64 {
-    a / pgcd(a, b) * b
+/// Un pli ne tire que des préfixes et des suffixes, jamais un mot (ADR 0035).
+#[must_use]
+pub fn tirable(brique: &BriquePli) -> bool {
+    brique.nature != NaturePli::Mot
 }
 
 /// Tire un indice parmi des poids, avec un aléa uniforme dans `[0, somme)`.
@@ -353,11 +340,6 @@ mod tests {
                 (Rarete::Rare, 10),
                 (Rarete::Legendaire, 2),
             ]),
-            poids_types: BTreeMap::from([
-                (NaturePli::Prefixe, 100),
-                (NaturePli::Suffixe, 125),
-                (NaturePli::Mot, 100),
-            ]),
             base_encre: 2,
             encre_doublon: BTreeMap::from([
                 (Rarete::Commune, 1),
@@ -394,12 +376,15 @@ mod tests {
     }
 
     #[test]
-    fn repartit_le_poids_d_une_classe_entre_ses_briques() {
+    fn le_poids_d_une_brique_est_celui_de_sa_rarete() {
         let p = poids(&briques(), &equilibrage());
-        // Deux préfixes communs se partagent 62 × 100 ; le suffixe commun a 62 × 125 à lui seul.
-        assert_eq!(p[0], p[1]);
-        assert_eq!(p[0] * 2 * 125, p[2] * 100);
-        assert_eq!(p[2] * 10, p[3] * 62);
+        // Même rareté, même chance, quel que soit le type ou le nombre de voisines.
+        assert_eq!(p, vec![62, 62, 62, 10]);
+        assert!(!tirable(&brique(
+            "brq_0000m000",
+            NaturePli::Mot,
+            Rarete::Commune
+        )));
     }
 
     #[test]

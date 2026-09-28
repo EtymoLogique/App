@@ -316,12 +316,11 @@ export interface components {
              * @description Une brique nouvelle au plus tard à ce pli après la dernière nouveauté.
              */
             garantie_nouveaute: number;
-            /** @description Poids de chaque rareté (62, 26, 10, 2). */
+            /**
+             * @description Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est
+             *     proportionnelle au poids de sa seule rareté (ADR 0035).
+             */
             poids_raretes: {
-                [key: string]: number;
-            };
-            /** @description Poids de chaque type, en centièmes (préfixe 100, suffixe 125). */
-            poids_types: {
                 [key: string]: number;
             };
         };

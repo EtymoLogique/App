@@ -912,7 +912,6 @@
         "description": "Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009).",
         "required": [
           "poids_raretes",
-          "poids_types",
           "base_encre",
           "encre_doublon",
           "encre_reserve_pleine",
@@ -978,7 +977,7 @@
           },
           "poids_raretes": {
             "type": "object",
-            "description": "Poids de chaque rareté (62, 26, 10, 2).",
+            "description": "Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est\nproportionnelle au poids de sa seule rareté (ADR 0035).",
             "additionalProperties": {
               "type": "integer",
               "format": "int32",
@@ -992,24 +991,6 @@
                 "peu_commune",
                 "rare",
                 "legendaire"
-              ]
-            }
-          },
-          "poids_types": {
-            "type": "object",
-            "description": "Poids de chaque type, en centièmes (préfixe 100, suffixe 125).",
-            "additionalProperties": {
-              "type": "integer",
-              "format": "int32",
-              "minimum": 0
-            },
-            "propertyNames": {
-              "type": "string",
-              "description": "Nature d'une brique tirable : préfixe, suffixe ou mot posé tel quel.",
-              "enum": [
-                "prefixe",
-                "suffixe",
-                "mot"
               ]
             }
           }

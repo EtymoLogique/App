@@ -7,19 +7,16 @@ const equilibrage = manifeste.pli!.equilibrage!
 const brique = (id: string, nature: BriquePli['nature'], rarete: BriquePli['rarete']): BriquePli => ({ id, unite_id: 'unt_00000000', nature, rarete })
 
 describe('plis', () => {
-  it('répartit le poids d’une classe entre ses briques, comme le serveur', () => {
+  it('pondère chaque brique par sa seule rareté, comme le serveur', () => {
     const briques = [
       brique('brq_0000ge00', 'prefixe', 'commune'),
       brique('brq_0000b100', 'prefixe', 'commune'),
       brique('brq_000109e0', 'suffixe', 'commune'),
       brique('brq_0000000r', 'suffixe', 'rare'),
     ]
-    const p = poids(briques, equilibrage)
-    expect(p[0]).toBe(p[1])
-    expect(p[0]! * 2 * 125).toBe(p[2]! * 100)
-    expect(p[2]! * 10).toBe(p[3]! * 62)
+    expect(poids(briques, equilibrage)).toEqual([62, 62, 62, 10])
     const c = chances(briques, equilibrage)
-    expect(c.parRarete.commune + c.parRarete.rare).toBeCloseTo(1)
+    expect(c.parRarete.commune).toBeCloseTo(186 / 196)
   })
 
   it('n’arrondit jamais une chance à 0 % ni à 100 %', () => {

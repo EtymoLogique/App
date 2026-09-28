@@ -9,9 +9,9 @@ type PliManifeste = NonNullable<Manifeste['pli']>
 export type BriquePli = NonNullable<PliManifeste['briques']>[number]
 export type Equilibrage = NonNullable<PliManifeste['equilibrage']>
 
-/** Briques tirables d'un fascicule. */
+/** Briques tirables d'un fascicule : ses préfixes et ses suffixes, jamais un mot (ADR 0035). */
 export function briquesDuPli(f: FasciculeParu): BriquePli[] {
-  return f.manifeste.pli?.briques ?? []
+  return (f.manifeste.pli?.briques ?? []).filter((b) => b.nature !== 'mot')
 }
 
 export const ORDRE_RARETES: Rarete[] = ['commune', 'peu_commune', 'rare', 'legendaire']
@@ -22,24 +22,9 @@ export const LIBELLES_RARETES: Record<Rarete, string> = {
   legendaire: 'Légendaire',
 }
 
-function pgcd(a: number, b: number): number {
-  return b === 0 ? a : pgcd(b, a % b)
-}
-
-/**
- * Poids exacts : poids de la rareté × poids du type, réparti entre les briques
- * de même rareté et de même type, multiplié par le PPCM des tailles de classe.
- */
+/** Poids des briques : celui de leur seule rareté (ADR 0035), miroir de `etymo_domaine::pli::poids`. */
 export function poids(briques: BriquePli[], equilibrage: Equilibrage): number[] {
-  const classes = new Map<string, number>()
-  const cle = (b: BriquePli) => `${b.rarete}/${b.nature ?? 'mot'}`
-  for (const b of briques) classes.set(cle(b), (classes.get(cle(b)) ?? 0) + 1)
-  const commun = [...classes.values()].reduce((m, n) => (m / pgcd(m, n)) * n, 1)
-  return briques.map((b) => {
-    const rarete = equilibrage.poids_raretes[b.rarete] ?? 0
-    const nature = equilibrage.poids_types[b.nature ?? 'mot'] ?? 100
-    return rarete * nature * (commun / (classes.get(cle(b)) ?? 1))
-  })
+  return briques.map((b) => equilibrage.poids_raretes[b.rarete] ?? 0)
 }
 
 export interface Chances {

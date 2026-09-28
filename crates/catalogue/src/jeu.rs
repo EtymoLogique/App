@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
-use etymo_domaine::pli::BriquePli;
+use etymo_domaine::pli::{self, BriquePli};
 
 use crate::{EquilibrageManifeste, FasciculeCharge, Graine};
 
@@ -63,7 +63,8 @@ impl Jeu {
                 }));
             let pli = &fascicule.manifeste.pli;
             jeu.briques.extend(pli.briques.iter().map(|b| b.id.clone()));
-            // Un pli ne s'ouvre qu'avec son équilibrage et la nature de chaque brique.
+            // Un pli ne s'ouvre qu'avec son équilibrage et la nature de chaque
+            // brique ; il ne tire jamais un mot (ADR 0035).
             let briques: Option<Vec<BriquePli>> = pli
                 .briques
                 .iter()
@@ -74,7 +75,8 @@ impl Jeu {
                         rarete: b.rarete,
                     })
                 })
-                .collect();
+                .collect::<Option<Vec<_>>>()
+                .map(|v| v.into_iter().filter(pli::tirable).collect());
             jeu.plis.push(PliJeu {
                 fascicule_id: fascicule.manifeste.id.clone(),
                 equilibrage: pli.equilibrage.clone().filter(|_| briques.is_some()),
