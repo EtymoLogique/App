@@ -5,7 +5,7 @@ import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
 import { type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir } from './jeu'
-import { etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
+import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
 
@@ -68,7 +68,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const actif = useRef(true)
   const restauree = useRef(false)
 
-  const confirmer = useCallback((nouvel: Etat) => {
+  const confirmer = useCallback((recu: Etat) => {
+    const nouvel = completerEtat(recu)
     setEtat(nouvel)
     setTable((t) => tableValide(t, nouvel))
     void memoriserEtat(nouvel)
