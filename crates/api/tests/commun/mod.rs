@@ -40,6 +40,7 @@ pub async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
         catalogue,
         signataire: Signataire::nouveau(&[3; 32]).unwrap(),
         limiteurs,
+        recharge: etymo_domaine::energie::RECHARGE,
     });
     Banc {
         routeur: routeur(etat, &[HeaderValue::from_static(ORIGINE)]),

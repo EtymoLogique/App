@@ -125,7 +125,7 @@ pub async fn etat(
         .execute(&mut *tx)
         .await?;
     }
-    let etat = progression::etat(&mut tx, joueur).await?;
+    let etat = progression::etat(&mut tx, joueur, app.recharge).await?;
     tx.commit().await?;
     Ok(Json(etat))
 }
@@ -208,7 +208,7 @@ pub async fn fusion(
         Issue::Echec => IssueFusion::Echec,
     };
     let reponse = ReponseFusion {
-        etat: progression::etat(&mut tx, joueur).await?,
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
         issue,
     };
     if matches!(reponse.issue, IssueFusion::Decouverte { .. }) {
@@ -363,7 +363,7 @@ pub async fn ouvrir_pli(
     let maintenant = Utc::now();
     let energie = progression::lire_energie(&mut tx, joueur)
         .await?
-        .consommer(maintenant)
+        .consommer(maintenant, app.recharge)
         .ok_or(ErreurApi::Interdit("aucune charge d'énergie"))?;
 
     let stock = progression::stock(&mut tx, joueur).await?;
@@ -407,7 +407,7 @@ pub async fn ouvrir_pli(
         },
         exemplaires: tirage.apres,
         etait_epuisee: tirage.avant == Some(0),
-        etat: progression::etat(&mut tx, joueur).await?,
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
     };
     let enregistree =
         serde_json::to_value(&reponse).map_err(|e| ErreurApi::Interne(e.to_string()))?;
