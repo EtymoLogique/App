@@ -32,7 +32,7 @@ function mouvementReduit(): boolean {
 /** « 1 / 2 » et le temps restant ; arrêté à 2 / 2 (ADR 0020). */
 function useEnergie(etat: Etat | null) {
   const maintenant = useMaintenant()
-  if (!etat) return { charges: 0, capacite: 2, texte: 'Énergie en attente du serveur', progression: 0 }
+  if (!etat) return { charges: 0, capacite: 2, texte: 'Plis en attente du serveur', progression: 0, restant: undefined }
   const { capacite, recharge_s } = etat.energie
   const { charges, prochaine } = energieA(etat.energie, maintenant)
   const reste = prochaine === null ? 0 : prochaine - maintenant
@@ -41,6 +41,7 @@ function useEnergie(etat: Etat | null) {
     capacite,
     texte: prochaine === null ? 'Deux plis prêts à être ouverts' : `+1 dans ${duree(reste)}`,
     progression: prochaine === null ? 1 : 1 - reste / (recharge_s * 1000),
+    restant: prochaine === null ? undefined : duree(reste),
   }
 }
 
@@ -55,6 +56,7 @@ function PlisEnAttente({
   urlMedia,
   progression,
   grand = false,
+  restant,
 }: {
   charges: number
   capacite: number
@@ -63,6 +65,8 @@ function PlisEnAttente({
   /** Avancée de la recharge en cours, de 0 à 1 : dessinée dans le premier pli en pointillés. */
   progression: number
   grand?: boolean
+  /** Temps restant avant le prochain pli, écrit sous l'anneau (grand format seulement). */
+  restant?: string
 }) {
   return (
     <span className={grand ? 'pk-waiting is-grand' : 'pk-waiting'} role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
@@ -78,10 +82,13 @@ function PlisEnAttente({
         ) : (
           <span key={i} className="jk-mini is-xs is-empty">
             {i === charges && (
-              <svg className="pk-recharge" viewBox="0 0 60 60">
-                <circle className="ring-track" cx="30" cy="30" r="24" />
-                <circle className="ring-fill" cx="30" cy="30" r="24" style={{ strokeDasharray: 150.8, strokeDashoffset: 150.8 * (1 - progression) }} />
-              </svg>
+              <span className="pk-recharge">
+                <svg viewBox="0 0 60 60">
+                  <circle className="ring-track" cx="30" cy="30" r="24" />
+                  <circle className="ring-fill" cx="30" cy="30" r="24" style={{ strokeDasharray: 150.8, strokeDashoffset: 150.8 * (1 - progression) }} />
+                </svg>
+                {grand && restant && <span className="pk-restant">{restant}</span>}
+              </span>
             )}
           </span>
         ),
@@ -375,8 +382,17 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
           <div className="pk-card pk-energie">
             <p className="pk-label">Plis en attente</p>
             <div className="pk-attente">
-              <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} grand />
-              <small>{energie.texte}</small>
+              <PlisEnAttente
+                charges={energie.charges}
+                capacite={energie.capacite}
+                jaquette={fascicule.manifeste.jaquette}
+                urlMedia={urlMedia}
+                progression={energie.progression}
+                restant={energie.restant}
+                grand
+              />
+              {/* Le compte à rebours vit dans le pli en pointillés ; plein, le temps s'arrête. */}
+              <small className={energie.charges < energie.capacite ? 'sr-only' : undefined}>{energie.texte}</small>
             </div>
             <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. Les plis ne limitent jamais les fusions.</p>
           </div>
