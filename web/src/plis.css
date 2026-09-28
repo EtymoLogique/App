@@ -219,7 +219,6 @@
   transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
 }
 button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 var(--pop-shadow); }
-button.pk-fasc:hover .jk-mini { rotate: 2deg; }
 .pk-fasc:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .pk-fasc.is-next { border-style: dashed; background: transparent; cursor: default; }
 .pk-fasc .jk-mini { max-width: 112px; }
