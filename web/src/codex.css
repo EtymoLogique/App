@@ -198,6 +198,8 @@
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .bf-type { padding: 4px 10px; border: 1.5px solid currentColor; border-radius: 999px; }
+.bf-side { display: inline-flex; align-items: center; gap: 8px; }
+.bf-rar { width: 16px; height: 16px; }
 .bf-body { display: flex; flex: 1; flex-direction: column; justify-content: safe center; gap: 12px; padding: 22px 26px; overflow-y: auto; }
 .bb-body { justify-content: flex-start; }
 .bf-glyph { color: var(--tc); font-family: var(--serif); font-size: clamp(80px, 12vw, 120px); line-height: 0.85; -webkit-text-stroke: 1.5px #0f1f19; }
@@ -301,12 +303,10 @@
 .m-side { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
 .m-kind { overflow: hidden; text-overflow: ellipsis; }
 /* Dans le bandeau, la rareté prend la teinte profonde du bandeau, sans contour : jamais d'Ambre sur une couleur vive.
-   Le trait prend la couleur du bandeau, pour garder les facettes du diamant sans cerner la forme. */
-.mini .m-rar { width: 12px; height: 12px; margin-right: -4px; fill: var(--rd, var(--c-pli)); stroke: var(--tc); }
-.mini[data-type="prefixe"] { --rd: var(--c-prefix-deep); }
-.mini[data-type="suffixe"] { --rd: var(--c-suffix-deep); }
-/* Rareté d'un mot (ADR 0040) : jamais d'Ambre ; sur le bandeau Encre, toujours foncé, une teinte plus claire d'Encre. */
-.mini[data-type="mot"] { --rd: color-mix(in srgb, var(--fixed-ink), #f3eee3 38%); }
+   Le trait prend la couleur du bandeau, pour garder les facettes du diamant sans cerner la forme.
+   La teinte `--rd` vient de `bandeau()` : plus claire que le bandeau Encre d'un mot (ADR 0040). */
+.mini .m-rar, .bf-rar { fill: var(--rd); stroke: var(--tc); }
+.mini .m-rar { width: 12px; height: 12px; margin-right: -4px; }
 .mini.is-legend { border-color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .cb-fasc-btn, .cb-fasc-bar i { transition: none; } }
 

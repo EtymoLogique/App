@@ -50,14 +50,16 @@ const VUES: [VueCodex, string][] = [
 
 /** Bandeau : couleur du type de ressource ; Encre pour un mot (identité, « une couleur, un seul sens »). */
 function bandeau(type: TypeCarte): React.CSSProperties {
-  const couleurs: Record<TypeCarte, [string, string]> = {
-    mot: ['var(--fixed-ink)', '#f3eee3'],
-    prefixe: ['var(--c-prefix)', 'var(--fixed-ink)'],
-    suffixe: ['var(--c-suffix)', 'var(--fixed-ink)'],
-    langue: ['var(--c-lang)', 'var(--fixed-ink)'],
+  // Bandeau, texte, et teinte de la forme de rareté posée dessus : plus foncée
+  // qu'un bandeau clair, plus claire que le bandeau Encre d'un mot (ADR 0040).
+  const couleurs: Record<TypeCarte, [string, string, string]> = {
+    mot: ['var(--fixed-ink)', '#f3eee3', 'color-mix(in srgb, var(--fixed-ink), #f3eee3 38%)'],
+    prefixe: ['var(--c-prefix)', 'var(--fixed-ink)', 'var(--c-prefix-deep)'],
+    suffixe: ['var(--c-suffix)', 'var(--fixed-ink)', 'var(--c-suffix-deep)'],
+    langue: ['var(--c-lang)', 'var(--fixed-ink)', 'var(--c-lang-deep)'],
   }
-  const [tc, tt] = couleurs[type]
-  return { '--tc': tc, '--tt': tt } as React.CSSProperties
+  const [tc, tt, rd] = couleurs[type]
+  return { '--tc': tc, '--tt': tt, '--rd': rd } as React.CSSProperties
 }
 
 /** Lecture d'un média haché du catalogue, en texte. */
@@ -258,7 +260,10 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const haut = (
     <div className="bf-top">
       <span>{numero(entree.n)}</span>
-      <span className="bf-type">{type.libelle}</span>
+      <span className="bf-side">
+        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
+        <span className="bf-type">{type.libelle}</span>
+      </span>
     </div>
   )
 
