@@ -12,13 +12,14 @@ export interface Reglages {
 }
 
 const CLE = 'etymologique.reglages'
-const DEFAUT: Reglages = { theme: 'systeme', mouvement: 'systeme' }
+const DEFAUT: Reglages = { theme: 'atelier', mouvement: 'systeme' }
+const THEMES: readonly Theme[] = ['systeme', 'atelier', 'nocturne']
 
 function lire(): Reglages {
   try {
     const valeur = JSON.parse(localStorage.getItem(CLE) ?? '{}') as Partial<Reglages>
     return {
-      theme: valeur.theme === 'atelier' || valeur.theme === 'nocturne' ? valeur.theme : 'systeme',
+      theme: valeur.theme && THEMES.includes(valeur.theme) ? valeur.theme : DEFAUT.theme,
       mouvement: valeur.mouvement === 'reduit' ? 'reduit' : 'systeme',
     }
   } catch {

@@ -190,6 +190,7 @@ describe('table de fusion', () => {
 
   it('applique le thème choisi dans les réglages', async () => {
     render(<App api={client()} catalogue={lecteur} />)
+    expect(document.documentElement.dataset.theme).toBe('atelier')
     fireEvent.click(screen.getByRole('button', { name: 'Réglages' }))
     fireEvent.click(screen.getByLabelText('Nocturne'))
     expect(document.documentElement.dataset.theme).toBe('nocturne')
