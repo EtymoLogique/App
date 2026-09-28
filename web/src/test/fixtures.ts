@@ -112,6 +112,10 @@ export function etat(partiel: Partial<Etat> = {}): Etat {
       ex(LOGIE, 1),
     ],
     decouvertes: [],
+    energie: { charges: 2, capacite: 2, prochaine_charge: null, recharge_s: 43_200 },
+    encre: 0,
+    compteurs_plis: [],
+    historique_plis: [],
     ...partiel,
   }
 }

@@ -7,10 +7,11 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    DemandeFusion, DemandeSession, Erreur, Etat, IssueFusion, ReponseFusion, Sante, Session,
-    StatutSante,
+    DemandeFusion, DemandePli, DemandeSession, Erreur, Etat, IssueFusion, OuverturePli,
+    ReponseFusion, ReponsePli, Sante, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
+use etymo_domaine::pli;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
@@ -22,6 +23,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/session", post(session))
         .route("/etat", get(etat))
         .route("/fusion", post(fusion))
+        .route("/pli", post(ouvrir_pli))
 }
 
 /// État du service. Répond même si la base est au repos (Serverless SQL).
@@ -161,16 +163,7 @@ pub async fn fusion(
 
     let mut tx = app.base.begin().await?;
     let version_etat = progression::verrouiller(&mut tx, joueur).await?;
-    let deja = sqlx::query_scalar!(
-        "SELECT reponse FROM commande WHERE joueur_id = $1 AND id = $2",
-        joueur,
-        demande.commande
-    )
-    .fetch_optional(&mut *tx)
-    .await?;
-    if let Some(reponse) = deja {
-        let reponse =
-            serde_json::from_value(reponse).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    if let Some(reponse) = commande_rejouee(&mut tx, joueur, demande.commande).await? {
         return Ok(Json(reponse));
     }
 
@@ -234,5 +227,198 @@ pub async fn fusion(
         // Une proposition qui ne modifie rien ne laisse aucune ligne (modèle de données §7).
         tx.rollback().await?;
     }
+    Ok(Json(reponse))
+}
+
+/// Réponse enregistrée d'une commande déjà traitée : rejouée à l'identique.
+async fn commande_rejouee<T: serde::de::DeserializeOwned>(
+    tx: &mut sqlx::PgConnection,
+    joueur: uuid::Uuid,
+    commande: uuid::Uuid,
+) -> Result<Option<T>, ErreurApi> {
+    sqlx::query_scalar!(
+        "SELECT reponse FROM commande WHERE joueur_id = $1 AND id = $2",
+        joueur,
+        commande
+    )
+    .fetch_optional(tx)
+    .await?
+    .map(|r| serde_json::from_value(r).map_err(|e| ErreurApi::Interne(e.to_string())))
+    .transpose()
+}
+
+/// Décision d'un pli, avant toute écriture.
+struct Tirage<'a> {
+    brique: &'a pli::BriquePli,
+    resultat: pli::Resultat,
+    regle: pli::Regle,
+    gouttes: u32,
+    /// Exemplaires avant et après ; `None` avant : brique inconnue.
+    avant: Option<u8>,
+    apres: u8,
+    compteurs: pli::Compteurs,
+}
+
+/// Choisit la règle (tirage, garantie, filet), tire la brique et calcule ses
+/// effets : le domaine décide, l'aléa vient du système.
+fn tirer_pli<'a>(
+    jeu: &etymo_catalogue::Jeu,
+    pli_jeu: &'a etymo_catalogue::PliJeu,
+    parametres: &pli::Equilibrage,
+    mut stock: std::collections::HashMap<etymo_domaine::IdCatalogue, u8>,
+    decouverts: &std::collections::HashSet<etymo_domaine::IdCatalogue>,
+    compteurs: pli::Compteurs,
+) -> Result<Tirage<'a>, ErreurApi> {
+    let bloque_avant = !pli::decouverte_possible(&jeu.recettes, &stock, decouverts);
+    let connues: std::collections::HashSet<_> = stock.keys().cloned().collect();
+    let utiles = pli::briques_utiles(&pli_jeu.briques, &jeu.recettes, &stock, decouverts);
+    let (regle, eligibles) = pli::regle(
+        &pli_jeu.briques,
+        compteurs,
+        parametres,
+        &connues,
+        &utiles,
+        bloque_avant,
+    );
+    let somme = pli::somme_eligible(&pli_jeu.briques, &eligibles, parametres);
+    let brique = pli::tirer(&pli_jeu.briques, &eligibles, parametres, alea(somme)?)
+        .ok_or_else(|| ErreurApi::Interne("aucune brique tirable".into()))?;
+    let avant = stock.get(&brique.id).copied();
+    let resultat = pli::resultat(avant);
+    let apres = match resultat {
+        pli::Resultat::ReservePleine => avant.unwrap_or(0),
+        _ => avant.unwrap_or(0) + 1,
+    };
+    stock.insert(brique.id.clone(), apres);
+    let bloque_apres = !pli::decouverte_possible(&jeu.recettes, &stock, decouverts);
+    Ok(Tirage {
+        brique,
+        resultat,
+        regle,
+        gouttes: pli::encre(resultat, brique.rarete, parametres),
+        avant,
+        apres,
+        compteurs: pli::compteurs_apres(compteurs, resultat, bloque_avant, bloque_apres),
+    })
+}
+
+/// Aléa cryptographique uniforme dans `[0, somme)`, sans biais (rejet).
+fn alea(somme: u64) -> Result<u64, ErreurApi> {
+    let borne = pli::borne_sans_biais(somme);
+    loop {
+        let tire = getrandom::u64().map_err(|e| ErreurApi::Interne(e.to_string()))?;
+        if tire <= borne {
+            return Ok(tire % somme.max(1));
+        }
+    }
+}
+
+/// Ouvre le pli d'un fascicule paru (ADR 0011, 0012, 0016, 0019, 0020). Le
+/// serveur fait foi : il consomme une charge, tire la brique avec un aléa
+/// cryptographique, applique la garantie de nouveauté ou le filet d'utilité,
+/// crédite l'exemplaire et l'encre, dans une seule transaction idempotente.
+#[utoipa::path(post, path = "/pli", tag = "jeu", security(("session" = [])), request_body = DemandePli,
+    responses(
+        (status = 200, description = "Brique tirée et état confirmé", body = ReponsePli),
+        (status = 400, description = "Requête invalide ou fascicule sans pli", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Aucune charge d'énergie", body = Erreur),
+        (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn ouvrir_pli(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandePli>,
+) -> Result<Json<ReponsePli>, ErreurApi> {
+    if demande.commande.get_version_num() != 4 {
+        return Err(ErreurApi::RequeteInvalide(
+            "commande : UUID v4 attendu".into(),
+        ));
+    }
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    let pli_jeu = jeu
+        .pli(&demande.fascicule_id)
+        .filter(|p| !p.briques.is_empty())
+        .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : aucun pli paru".into()))?;
+    let equilibrage = pli_jeu
+        .equilibrage
+        .as_ref()
+        .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : pli sans équilibrage".into()))?;
+
+    let mut tx = app.base.begin().await?;
+    let version_etat = progression::verrouiller(&mut tx, joueur).await?;
+    if let Some(reponse) = commande_rejouee(&mut tx, joueur, demande.commande).await? {
+        return Ok(Json(reponse));
+    }
+    if demande.version_etat != version_etat {
+        return Err(ErreurApi::Conflit("version_etat périmée"));
+    }
+    if demande.version_catalogue != catalogue.version() {
+        return Err(ErreurApi::Conflit("version_catalogue périmée"));
+    }
+
+    let maintenant = Utc::now();
+    let energie = progression::lire_energie(&mut tx, joueur)
+        .await?
+        .consommer(maintenant)
+        .ok_or(ErreurApi::Interdit("aucune charge d'énergie"))?;
+
+    let stock = progression::stock(&mut tx, joueur).await?;
+    let decouverts = progression::mots_decouverts(&mut tx, joueur).await?;
+    let compteurs = progression::compteurs(&mut tx, joueur, &demande.fascicule_id).await?;
+    let tirage = tirer_pli(
+        jeu,
+        pli_jeu,
+        &equilibrage.parametres,
+        stock,
+        &decouverts,
+        compteurs,
+    )?;
+
+    progression::ouvrir_pli(
+        &mut tx,
+        joueur,
+        &progression::EffetsPli {
+            commande: demande.commande,
+            fascicule: &demande.fascicule_id,
+            brique: &tirage.brique.id,
+            resultat: tirage.resultat,
+            regle: tirage.regle,
+            gouttes: tirage.gouttes,
+            energie,
+            compteurs: tirage.compteurs,
+            version_equilibrage: &equilibrage.version,
+            maintenant,
+        },
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponsePli {
+        ouverture: OuverturePli {
+            fascicule_id: demande.fascicule_id.clone(),
+            brique_id: tirage.brique.id.clone(),
+            resultat: tirage.resultat,
+            regle: tirage.regle,
+            encre: tirage.gouttes,
+            ouvert_le: maintenant,
+        },
+        exemplaires: tirage.apres,
+        etait_epuisee: tirage.avant == Some(0),
+        etat: progression::etat(&mut tx, joueur).await?,
+    };
+    let enregistree =
+        serde_json::to_value(&reponse).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    sqlx::query!(
+        "INSERT INTO commande (joueur_id, id, type, statut, reponse) VALUES ($1, $2, 'ouvrir_pli', 'acceptee', $3)",
+        joueur,
+        demande.commande,
+        enregistree,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(Json(reponse))
 }

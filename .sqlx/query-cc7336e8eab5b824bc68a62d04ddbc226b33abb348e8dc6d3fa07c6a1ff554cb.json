@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT plis_sans_nouveaute, plis_sans_utilite FROM compteur_pli\n         WHERE joueur_id = $1 AND fascicule_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "plis_sans_nouveaute",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "plis_sans_utilite",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "cc7336e8eab5b824bc68a62d04ddbc226b33abb348e8dc6d3fa07c6a1ff554cb"
+}

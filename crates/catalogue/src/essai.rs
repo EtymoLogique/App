@@ -81,7 +81,23 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "langues": [],
         "recettes": [{ "id": RECETTE, "chemin": recette }],
         "compteurs": { "mots": 1 },
-        "pli": { "briques": [{ "id": GEO, "rarete": "commune", "unite_id": "unt_0000000g" }] },
+        "pli": {
+            "briques": [
+                { "id": GEO, "nature": "prefixe", "rarete": "commune", "unite_id": "unt_0000000g" },
+                { "id": LOGIE, "nature": "suffixe", "rarete": "commune", "unite_id": "unt_00000109" },
+                { "id": BIO, "nature": "prefixe", "rarete": "rare", "unite_id": "unt_0000000b" }
+            ],
+            "equilibrage": {
+                "version": "essai",
+                "poids_raretes": { "commune": 62, "peu_commune": 26, "rare": 10, "legendaire": 2 },
+                "poids_types": { "prefixe": 100, "suffixe": 125, "mot": 100 },
+                "base_encre": 2,
+                "encre_doublon": { "commune": 1, "peu_commune": 2, "rare": 4, "legendaire": 10 },
+                "encre_reserve_pleine": { "commune": 2, "peu_commune": 4, "rare": 8, "legendaire": 20 },
+                "garantie_nouveaute": 6,
+                "filet_utilite": 5
+            }
+        },
         "jalons": [],
         "graines": [
             { "brique_id": GEO, "exemplaires": 2 },

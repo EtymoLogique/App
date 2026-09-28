@@ -18,6 +18,8 @@ pub enum ErreurApi {
     TropDeRequetes,
     #[error("conflit : {0}")]
     Conflit(&'static str),
+    #[error("interdit : {0}")]
+    Interdit(&'static str),
     #[error("catalogue indisponible")]
     Indisponible,
     #[error("erreur interne")]
@@ -50,6 +52,11 @@ impl IntoResponse for ErreurApi {
                 self.to_string(),
             ),
             Self::Conflit(_) => (StatusCode::CONFLICT, CodeErreur::Conflit, self.to_string()),
+            Self::Interdit(_) => (
+                StatusCode::FORBIDDEN,
+                CodeErreur::Interdit,
+                self.to_string(),
+            ),
             Self::Indisponible => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 CodeErreur::Indisponible,
