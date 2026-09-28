@@ -48,9 +48,24 @@ function useEnergie(etat: Etat | null) {
  * Plis en attente, en petit : une jaquette par charge prête, un pli en
  * pointillés pour chaque charge en recharge (plis.html, « en recharge »).
  */
-function PlisEnAttente({ charges, capacite, jaquette, urlMedia }: { charges: number; capacite: number; jaquette: string | null | undefined; urlMedia: (c: string) => string }) {
+function PlisEnAttente({
+  charges,
+  capacite,
+  jaquette,
+  urlMedia,
+  progression,
+  grand = false,
+}: {
+  charges: number
+  capacite: number
+  jaquette: string | null | undefined
+  urlMedia: (c: string) => string
+  /** Avancée de la recharge en cours, de 0 à 1 : dessinée dans le premier pli en pointillés. */
+  progression: number
+  grand?: boolean
+}) {
   return (
-    <span className="pk-waiting" role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
+    <span className={grand ? 'pk-waiting is-grand' : 'pk-waiting'} role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
       {Array.from({ length: capacite }, (_, i) =>
         i < charges ? (
           <span key={i} className="jk-mini is-xs">
@@ -61,7 +76,14 @@ function PlisEnAttente({ charges, capacite, jaquette, urlMedia }: { charges: num
             )}
           </span>
         ) : (
-          <span key={i} className="jk-mini is-xs is-empty" />
+          <span key={i} className="jk-mini is-xs is-empty">
+            {i === charges && (
+              <svg className="pk-recharge" viewBox="0 0 60 60">
+                <circle className="ring-track" cx="30" cy="30" r="24" />
+                <circle className="ring-fill" cx="30" cy="30" r="24" style={{ strokeDasharray: 150.8, strokeDashoffset: 150.8 * (1 - progression) }} />
+              </svg>
+            )}
+          </span>
         ),
       )}
     </span>
@@ -115,7 +137,7 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
         <div>
           <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
           <p className="pk-note pk-ready" role="status">
-            <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
+            <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} />
             <span>
               {energie.charges > 0 ? `${energie.charges === 1 ? 'Un pli prêt à être ouvert' : 'Deux plis prêts à être ouverts'}` : `Prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
             </span>
@@ -351,22 +373,12 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
       <div className="pk-layout">
         <aside className="pk-side">
           <div className="pk-card pk-energie">
-            <p className="pk-label">Énergie</p>
-            <div className="energy">
-              <svg viewBox="0 0 60 60" aria-hidden="true">
-                <circle className="ring-track" cx="30" cy="30" r="26" />
-                <circle className="ring-fill" cx="30" cy="30" r="26" style={{ strokeDashoffset: 163.36 * (1 - energie.progression) }} />
-                <circle className="ring-edge" cx="30" cy="30" r="29.5" />
-                <circle className="ring-edge" cx="30" cy="30" r="22.5" />
-              </svg>
-              <div>
-                <strong className="pk-ready">
-                  <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
-                </strong>
-                <small>{energie.texte}</small>
-              </div>
+            <p className="pk-label">Plis en attente</p>
+            <div className="pk-attente">
+              <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} grand />
+              <small>{energie.texte}</small>
             </div>
-            <p className="pk-note">Une charge revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. L’énergie ne sert qu’aux plis, jamais aux fusions.</p>
+            <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. Les plis ne limitent jamais les fusions.</p>
           </div>
           {lesChances && (
             <div className="pk-card">
