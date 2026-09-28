@@ -327,7 +327,9 @@ button.pk-fasc:hover .jk-mini { rotate: 2deg; }
 .pk-card > summary.pk-label:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
 /* Plis en attente, en petit, à côté du compteur d'énergie. */
-.pk-ready, .energy strong.pk-ready { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pk-ready { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pk-waiting { display: inline-flex; gap: 5px; }
-.pk-waiting .jk-mini.is-xs { width: 18px; rotate: -3deg; }
-.pk-waiting .jk-mini.is-xs:nth-child(2) { rotate: 3deg; }
+.pk-waiting .jk-mini.is-xs { width: 22px; rotate: none; }
+.energy strong.pk-ready { display: flex; margin-bottom: 6px; }
+.energy .pk-waiting .jk-mini.is-xs { width: 26px; }
+.pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }

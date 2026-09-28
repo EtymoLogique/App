@@ -50,7 +50,7 @@ function useEnergie(etat: Etat | null) {
  */
 function PlisEnAttente({ charges, capacite, jaquette, urlMedia }: { charges: number; capacite: number; jaquette: string | null | undefined; urlMedia: (c: string) => string }) {
   return (
-    <span className="pk-waiting" aria-hidden="true">
+    <span className="pk-waiting" role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
       {Array.from({ length: capacite }, (_, i) =>
         i < charges ? (
           <span key={i} className="jk-mini is-xs">
@@ -116,10 +116,9 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
           <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
           <p className="pk-note pk-ready" role="status">
             <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
-            <span className="pk-energy-count">
-              {energie.charges}&nbsp;/&nbsp;{energie.capacite}
-            </span>{' '}
-            · {energie.charges > 0 ? `${energie.charges === 1 ? 'un pli prêt' : 'deux plis prêts'}` : `prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
+            <span>
+              {energie.charges > 0 ? `${energie.charges === 1 ? 'Un pli prêt' : 'Deux plis prêts'}` : `Prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
+            </span>
           </p>
         </div>
       </div>
@@ -335,6 +334,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
   const rareteTiree = reponse ? briques.find((b) => b.id === reponse.ouverture.brique_id)?.rarete : undefined
 
   const parType = (nature: 'prefixe' | 'suffixe' | 'mot') => lesChances?.briques.filter((c) => (c.brique.nature ?? 'mot') === nature).reduce((n, c) => n + c.chance, 0) ?? 0
+  const visibles = briques.filter((b) => b.rarete !== 'legendaire' || reserve.has(b.id)).length
+  const visiblesConnues = briques.filter((b) => reserve.has(b.id)).length
   const legendairesInconnues = lesChances?.briques.filter((c) => c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)) ?? []
 
   return (
@@ -360,7 +361,6 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
               </svg>
               <div>
                 <strong className="pk-ready">
-                  {energie.charges}&nbsp;/&nbsp;{energie.capacite}
                   <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
                 </strong>
                 <small>{energie.texte}</small>
@@ -509,7 +509,13 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
           </div>
           {lesChances && (
             <details className="pk-card" open>
-              <summary className="pk-label">Toutes les briques du fascicule</summary>
+              <summary className="pk-label">
+                <span>Toutes les briques du fascicule</span>
+                {/* Les légendaires inconnues ne comptent jamais (ADR 0015). */}
+                <span className="pk-count">
+                  {visiblesConnues}&nbsp;/&nbsp;{visibles}
+                </span>
+              </summary>
               <div className="pk-pool">
                 {lesChances.briques
                   .filter((c) => !(c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)))
