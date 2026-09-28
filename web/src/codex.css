@@ -416,6 +416,8 @@
 .fam-bar { display: block; height: 8px; overflow: hidden; border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-2); }
 .fam-bar i { display: block; height: 100%; border-radius: 999px; background: var(--c-family); }
 .fam-bar.is-lang i { background: var(--c-lang); }
+/* Jalon : il donne un pli, il prend la couleur des plis. */
+.fam-bar.is-jalon i { background: var(--c-pli); }
 .fam-btn {
   width: 100%; cursor: pointer; font: inherit; text-align: left;
   transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);

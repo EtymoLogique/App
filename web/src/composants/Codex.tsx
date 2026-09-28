@@ -682,7 +682,7 @@ function Jalons({ jeu, entrees, atteints }: { jeu: CatalogueJeu; entrees: Entree
               </span>
               <span className="fam-count">{fait ? '✓ atteint' : `${n} / ${j.decouvertes}`}</span>
             </span>
-            <span className="fam-bar" aria-hidden="true">
+            <span className="fam-bar is-jalon" aria-hidden="true">
               <i style={{ width: `${fait ? 100 : (n / j.decouvertes) * 100}%` }} />
             </span>
             <span className="rangee" aria-label="Récompense">
