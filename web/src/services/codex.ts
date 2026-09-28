@@ -176,8 +176,9 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
         definition: definition(carte),
         langueId: carte.langue_id,
         glyphe: null,
-        // Un affixe porte la rareté de sa brique ; un mot, celle que ses briques lui donnent (ADR 0040).
-        rarete: affixe ? (carte.brique?.rarete ?? null) : recettes.length > 0 ? rareteMot(carte.id, jeu) : null,
+        // Un affixe porte la rareté de sa brique ; un mot, celle que ses briques lui donnent,
+        // et la plus basse s'il ne naît d'aucune fusion (ADR 0040).
+        rarete: affixe ? (carte.brique?.rarete ?? null) : rareteMot(carte.id, jeu),
         legendaire,
         silhouette: ref.silhouette ?? null,
         confiance: carte.fait?.confiance ?? null,

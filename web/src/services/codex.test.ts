@@ -20,6 +20,12 @@ describe('codex', () => {
     expect(entrees.find((e) => e.libelle === 'géo-')?.rarete).toBe('commune')
   })
 
+  it('donne la rareté la plus basse à un mot qui ne naît d’aucune fusion', () => {
+    const c = catalogue()
+    c.recettes = []
+    expect(construireCodex(c, etat()).find((e) => e.id === MOT)?.rarete).toBe('commune')
+  })
+
   it('ne trahit jamais une légendaire inconnue ni le mot qui en dépend', () => {
     const c = catalogue()
     const logie = c.briques.get(LOGIE)!
