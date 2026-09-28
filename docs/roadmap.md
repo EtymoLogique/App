@@ -83,6 +83,7 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 ### Exigence reportée à J6
 
 - **Version déployée, version affichée.** Après le déploiement de J2 en hors-prod, le navigateur a d’abord servi l’ancienne PWA depuis le cache du service worker : il a fallu recharger une seconde fois (`registerType: 'autoUpdate'` sans rechargement de la page). Quand le service worker sera traité, une PWA qui n’est plus alignée sur ce qui est déployé doit forcer un rechargement, immédiatement, sans compter sur un second chargement ni sur la fermeture des onglets. Une table en cours reste sauvegardée dans IndexedDB et survit à ce rechargement.
+  **Fait, avancé de J6** ([ADR 0037](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0037-ecran-de-mise-a-jour-de-la-pwa.md)) : `registerType: 'prompt'` ; à l’ouverture de la page, puis chaque minute, au retour sur l’onglet et au retour du réseau, le navigateur relit `sw.js` sur le CDN (jamais l’API, qui reste à zéro). Une nouvelle version s’installe en attente et un écran plein bloque le jeu jusqu’à « Mettre à jour », qui l’active et recharge tous les onglets.
 
 ## J3 — Énergie et plis (en cours)
 
