@@ -108,7 +108,7 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 - **Mot ingrédient** : un mot qui sert d’ingrédient (*biologie*, *mener*) ne sort plus d’un pli (ADR 0035). Il ne vient que des graines : décider comment une découverte donne des exemplaires de son mot.
 - ~~**Légendaires à 0 %**~~ : tranché par l’[ADR 0036](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0036-chances-des-legendaires-toujours-affichees.md) : la loi impose d’afficher toutes les probabilités, la ligne reste même à 0 % ; le secret porte sur le nombre et la nature des légendaires.
 
-## J4 — Encre, sabliers, indices, jalons (en cours)
+## J4 — Encre, sabliers, indices, jalons (fait)
 
 | Tâche | État |
 |---|---|
@@ -121,8 +121,9 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Jalons accordés dans la découverte et à la synchronisation (`GET /etat`) ; pli de jalon (`ouverture_pli` d’origine `jalon`, règle `deterministe`), encre si réserve pleine ; sabliers sans plafond | fait |
 | PWA : onglet Boutique (`#/boutique`) avec les échanges (encre contre sabliers, lots de 1, 3 et 12, sans plafond) et l’achat de gouttes en euros « Bientôt ouvert », verrouillé ; raccourci sous les plis en chargement (« Faire avancer le temps avec des sabliers », sinon « Échanger contre des gouttes ») ; ressources (plis prêts, gouttes, sabliers) dans la navigation, compteurs animés, gouttes et nouveautés affichées après le rituel du pli ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
 | Recette locale : 3 découvertes → pli de jalon (philo-, -iste) ; 3 sabliers → recharge −3 h ; indices 1 → 5 : 200 → 45 gouttes ; Objectifs 3 / 6 | fait |
-| Rareté des mots (ADR 0040, proposé) : plus haute rareté des briques de la recette la moins rare ; forme au codex et dans la fiche (« Rare ! », « Légendaire ! ») ; `encre_decouverte` de l’équilibrage créditée à la découverte | fait (Content : équilibrage `2026-09-28c`) ; recette locale à faire |
-| Déploiement hors-prod et démonstration | à faire |
+| Rareté des mots (ADR 0040, proposé) : plus haute rareté des briques de la recette la moins rare ; forme au codex et dans la fiche (« Rare ! », « Légendaire ! ») ; `encre_decouverte` de l’équilibrage créditée à la découverte | fait (Content : équilibrage `2026-09-28c`) ; 2 gouttes par découverte vérifiées en hors-prod |
+| Image J4 de l’API épinglée dans Infra (`9e48455`), *Plan* puis *Apply* horsprod ; PWA `8f0dbfe03d1c` ; catalogue `d6d91be93d05` paru | fait |
+| Démonstration en hors-prod (API) : 3 découvertes → jalon `jal_nde6rzt4` et pli de jalon (philo-, -iste) ; indice niveau 1 : 6 → 1 goutte ; refus `403` (encre, sabliers insuffisants), `409` (état périmé) | fait |
 
 Écarts assumés : l’annonce du jalon passe par la fiche de découverte, pas par le rituel du pli ; la feuille des indices est un dialogue sur ordinateur comme sur mobile, pas un panneau latéral ; sur un environnement à recharge courte, un sablier vaut un douzième de la recharge (1 h en production).
 
