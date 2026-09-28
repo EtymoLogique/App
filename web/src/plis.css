@@ -353,6 +353,8 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 
 /* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */
 .pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
-.pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 16px; }
+.pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 20px; }
 .pk-chooser-head .pk-note { margin-top: 0; }
-.pk-chooser > .pk-energie { margin-bottom: 16px; }
+.pk-chooser > .pk-energie { margin-bottom: 20px; }
+/* Atelier : l’écart vient de la grille (20 px), pas des marges. */
+.pk-ecran > .pk-current { margin-bottom: 0; }
