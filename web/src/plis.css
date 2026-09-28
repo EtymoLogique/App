@@ -352,3 +352,6 @@ button.pk-fasc:hover .jk-mini { rotate: 2deg; }
   .pk-layout .pk-energie { order: -2; }
   .pk-layout .pk-stage { order: -1; }
 }
+
+/* Texte posé sur le fond tramé : une surface Crème pour la lisibilité. */
+.pk-intro { display: inline-block; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); }

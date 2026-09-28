@@ -141,7 +141,7 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
           </h2>
         </div>
         <div>
-          <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
+          <p className="pk-note pk-intro">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
           <p className="pk-note pk-ready" role="status">
             <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} restant={energie.restant} grand />
             <span className="sr-only">
