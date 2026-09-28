@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat, OuverturePli, Rarete, ReponsePli } from '../contrat'
+import type { Etat, OuverturePli, Rarete, ReponsePli, ReponseSablier } from '../contrat'
 import { useMaintenant } from '../services/horloge'
 import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule } from '../services/jeu'
 import {
@@ -17,6 +17,7 @@ import {
 } from '../services/plis'
 import { Brique, PetiteBrique } from './Brique'
 import { FormeRarete } from './Rarete'
+import { CarteSabliers } from './Sabliers'
 
 /** Glyphes inventés que la plume essaie avant d'écrire la brique (plis.html). */
 const INVENT = Array.from('ꜳꝏƺȣǂꞷʘƨƾȹꭥꝭꜧƕξψϡϟϠѦ')
@@ -139,25 +140,51 @@ interface Props {
   fascicule: string | null
   onChoisir: (fascicule: string | null) => void
   ouvrirPli: (fascicule: string) => Promise<ReponsePli | { erreur: string }>
+  utiliserSabliers: (nombre: number) => Promise<ReponseSablier | { erreur: string }>
   onEssayer: () => void
   urlMedia: (chemin: string) => string
 }
 
 /** Écran des plis (I-19 à I-21) : choisir un fascicule, puis ouvrir son pli. */
-export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, onEssayer, urlMedia }: Props) {
+export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabliers, onEssayer, urlMedia }: Props) {
   const choisi = jeu.fascicules.find((f) => f.manifeste.id === fascicule)
-  if (!choisi) return <Choix jeu={jeu} etat={etat} onChoisir={onChoisir} urlMedia={urlMedia} />
-  return <Atelier key={choisi.manifeste.id} jeu={jeu} etat={etat} fascicule={choisi} onRetour={() => onChoisir(null)} ouvrirPli={ouvrirPli} onEssayer={onEssayer} urlMedia={urlMedia} />
+  if (!choisi) return <Choix jeu={jeu} etat={etat} onChoisir={onChoisir} utiliserSabliers={utiliserSabliers} urlMedia={urlMedia} />
+  return (
+    <Atelier
+      key={choisi.manifeste.id}
+      jeu={jeu}
+      etat={etat}
+      fascicule={choisi}
+      onRetour={() => onChoisir(null)}
+      ouvrirPli={ouvrirPli}
+      utiliserSabliers={utiliserSabliers}
+      onEssayer={onEssayer}
+      urlMedia={urlMedia}
+    />
+  )
 }
 
 /** Choix du fascicule (I-19) : jaquette, briques connues et exemplaires, pour choisir en connaissance de cause. */
-function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Etat | null; onChoisir: (f: string) => void; urlMedia: (c: string) => string }) {
+function Choix({
+  jeu,
+  etat,
+  onChoisir,
+  utiliserSabliers,
+  urlMedia,
+}: {
+  jeu: CatalogueJeu
+  etat: Etat | null
+  onChoisir: (f: string) => void
+  utiliserSabliers: Props['utiliserSabliers']
+  urlMedia: (c: string) => string
+}) {
   const energie = useEnergie(etat)
   if (jeu.fascicules.length === 0) return <p className="pk-empty">Aucun fascicule n’est encore paru.</p>
   const parus = [...jeu.fascicules].sort((a, b) => b.numero - a.numero)
   return (
     <div className="pk-chooser">
       <CartePlisEnAttente energie={energie} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
+      <CarteSabliers etat={etat} utiliser={utiliserSabliers} />
       <div className="pk-chooser-head">
         <div>
           <h2 className="jk-title">
@@ -223,12 +250,13 @@ interface AtelierProps {
   fascicule: FasciculeParu
   onRetour: () => void
   ouvrirPli: Props['ouvrirPli']
+  utiliserSabliers: Props['utiliserSabliers']
   onEssayer: () => void
   urlMedia: (c: string) => string
 }
 
 /** Atelier du pli (I-20) et rituel d'ouverture (I-21). */
-function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedia }: AtelierProps) {
+function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, utiliserSabliers, onEssayer, urlMedia }: AtelierProps) {
   const energie = useEnergie(etat)
   const briques = briquesDuPli(fascicule)
   const equilibrage = fascicule.manifeste.pli?.equilibrage
@@ -450,6 +478,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
               <li>Une brique nouvelle garantie au moins tous les {garantie} plis.</li>
               <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli.</li>
               <li>Deux plis au plus en attente, un toutes les 12&nbsp;h.</li>
+              <li>Un sablier avance la recharge d’une heure&nbsp;: 12 par jour au plus.</li>
               <li>La garantie de nouveauté et le filet se comptent par fascicule.</li>
             </ul>
           </details>
@@ -531,9 +560,10 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
               <small>gouttes</small>
             </div>
             <p className="pk-note">
-              Chaque pli rapporte {gouttes(equilibrage?.base_encre ?? 2)}. Un doublon en ajoute selon sa rareté, le double si la réserve est pleine. Sabliers et indices arrivent bientôt.
+              Chaque pli rapporte {gouttes(equilibrage?.base_encre ?? 2)}. Un doublon en ajoute selon sa rareté, le double si la réserve est pleine. Échangez-les contre des sabliers (1&nbsp;goutte) ou des indices, depuis la table.
             </p>
           </div>
+          <CarteSabliers etat={etat} utiliser={utiliserSabliers} />
           {lesChances && (
             <details className="pk-card" open>
               <summary className="pk-label">

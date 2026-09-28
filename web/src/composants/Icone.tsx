@@ -39,6 +39,12 @@ const TRACES = {
       <path d="M12 11v6M12 7.5h.01" />
     </>
   ),
+  verrou: (
+    <>
+      <rect x="5" y="11" width="14" height="9.5" rx="2" />
+      <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
+    </>
+  ),
 } as const
 
 export type NomIcone = keyof typeof TRACES

@@ -100,3 +100,39 @@ export function reserveDuFascicule(jeu: CatalogueJeu, etat: Etat | null, f: Fasc
   const lignes = (etat?.reserve ?? []).filter((e) => ids.has(e.brique_id) && jeu.briques.has(e.brique_id))
   return { connues: lignes.length, exemplaires: lignes.reduce((n, e) => n + e.exemplaires, 0) }
 }
+
+/** Plafonds des sabliers (ADR 0018), repris de l'état quand il les donne. */
+export const PLAFOND_SABLIERS_JOUR = 12
+
+/** Avance d'un sablier : un douzième de la recharge, 1 h en production (`etymo_domaine::sablier::duree`). */
+export function dureeSablier(energie: EnergieEtat): number {
+  return (energie.recharge_s * 1000) / 12
+}
+
+/** Temps qu'il reste avant que l'énergie soit pleine ; au-delà, un sablier ne sert plus. */
+function avantPlein(energie: EnergieEtat, maintenant: number): number {
+  const { charges, prochaine } = energieA(energie, maintenant)
+  if (prochaine === null) return 0
+  return prochaine - maintenant + (energie.capacite - charges - 1) * energie.recharge_s * 1000
+}
+
+/** Temps perdu en utilisant `n` sabliers : ce qui dépasse les deux charges (miroir de `Energie::avancer`). */
+export function perteSablier(energie: EnergieEtat, n: number, maintenant: number): number {
+  return Math.max(0, n * dureeSablier(energie) - avantPlein(energie, maintenant))
+}
+
+/** Sabliers utilisables sans rien perdre. */
+export function nombreSansPerte(energie: EnergieEtat, maintenant: number): number {
+  return Math.floor(avantPlein(energie, maintenant) / dureeSablier(energie))
+}
+
+/**
+ * Sabliers pris parmi ceux détenus, puis payés une goutte chacun ; `null` si
+ * le plafond du jour ou l'encre ne le permettent pas (`etymo_domaine::sablier::repartir`).
+ */
+export function repartirSabliers(n: number, detenus: number, encre: number, utilises: number, plafond = PLAFOND_SABLIERS_JOUR): { detenus: number; encre: number } | null {
+  if (n <= 0 || utilises + n > plafond) return null
+  const depuisDetenus = Math.min(n, detenus)
+  const depuisEncre = n - depuisDetenus
+  return depuisEncre <= encre ? { detenus: depuisDetenus, encre: depuisEncre } : null
+}

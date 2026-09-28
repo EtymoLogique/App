@@ -6,6 +6,7 @@ import type { CatalogueJeu } from '../services/jeu'
 import { NATURES, definition, formeCanonique, texteDuMot } from '../services/jeu'
 import { Brique, PetiteBrique } from './Brique'
 import { MotSegmente } from './MotSegmente'
+import { Sablier } from './Sabliers'
 
 interface Props {
   motId: string
@@ -14,6 +15,8 @@ interface Props {
   reserve: Exemplaires[]
   /** Briques consommées par la découverte qui vient d'avoir lieu. */
   consommees?: string[]
+  /** Jalons atteints par cette découverte : leur récompense est déjà dans la réserve. */
+  jalons?: string[]
   onFermer: () => void
   /** Ouvre la carte du mot dans le codex. */
   onCodex: () => void
@@ -26,7 +29,7 @@ interface Props {
  * sa composition, puis les pistes ouvertes. Dialogue centré sur ordinateur,
  * plein écran sur mobile. Échap ou « Continuer » la ferme.
  */
-export function Fiche({ motId, jeu, entree, reserve, consommees, onFermer, onCodex, onSavoirPlus }: Props) {
+export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], onFermer, onCodex, onSavoirPlus }: Props) {
   const continuer = useRef<HTMLButtonElement>(null)
   const dialogue = useRef<HTMLElement>(null)
   const voile = useRef<HTMLDivElement>(null)
@@ -171,6 +174,31 @@ export function Fiche({ motId, jeu, entree, reserve, consommees, onFermer, onCod
                 })}
               </ul>
             )}
+          </div>
+        )}
+
+        {jalons.length > 0 && (
+          <div className="fiche-temps fiche-jalon" role="status">
+            <p className="fiche-etape">Jalon atteint</p>
+            {jeu.fascicules
+              .flatMap((f) => f.manifeste.jalons ?? [])
+              .filter((j) => jalons.includes(j.id))
+              .map((j) => (
+                <p key={j.id} className="rangee">
+                  <span>
+                    {j.decouvertes} découverte{j.decouvertes > 1 ? 's' : ''}&nbsp;: pli de jalon reçu
+                  </span>
+                  {(j.pli ?? []).map((id) => {
+                    const b = jeu.briques.get(id)
+                    return b ? <PetiteBrique key={id} brique={b} /> : null
+                  })}
+                  {(j.sabliers ?? 0) > 0 && (
+                    <span className="recompense">
+                      <Sablier /> +{j.sabliers} sablier{(j.sabliers ?? 0) > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </p>
+              ))}
           </div>
         )}
 

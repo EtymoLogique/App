@@ -358,3 +358,7 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 .pk-chooser > .pk-energie { margin-bottom: 20px; }
 /* Atelier : l’écart vient de la grille (20 px), pas des marges. */
 .pk-ecran > .pk-current { margin-bottom: 0; }
+
+/* Lien d'action dans une phrase (feuille des sabliers) : souligné, cible tactile pleine hauteur. */
+.btn-lien { min-height: 44px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.btn-lien:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }

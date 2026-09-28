@@ -21,7 +21,9 @@ import { type FasciculeParu, NATURES, libelleFascicule } from '../services/jeu'
 import type { Route, TriCodex, VueCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
 import { chargerSilhouette } from '../services/silhouettes'
+import { PetiteBrique } from './Brique'
 import { FormeRarete } from './Rarete'
+import { Sablier } from './Sabliers'
 
 type Tri = TriCodex
 const TRIS: [Tri, string][] = [
@@ -650,6 +652,58 @@ interface Props {
   urlMedia: (chemin: string) => string
   /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
   lireMedia: LireMedia
+  /** Jalons atteints, confirmés par le serveur (ADR 0038). */
+  jalonsAtteints?: string[]
+}
+
+/**
+ * Jalons des fascicules parus (I-18) : atteints, ou progression vers le
+ * prochain. La récompense s'affiche d'avance : jamais un tirage (ADR 0038).
+ */
+function Jalons({ jeu, entrees, atteints }: { jeu: CatalogueJeu; entrees: EntreeCodex[]; atteints: Set<string> }) {
+  const lignes = jeu.fascicules.flatMap((f) => {
+    const trouves = entrees.filter((e) => e.fascicule === f.numero && e.resultat && e.trouvee).length
+    return (f.manifeste.jalons ?? []).map((j) => ({ f, j, trouves }))
+  })
+  if (lignes.length === 0) return <p className="cb-note">Aucun jalon pour l’instant.</p>
+  return (
+    <>
+      {lignes.map(({ f, j, trouves }) => {
+        const fait = atteints.has(j.id)
+        const n = Math.min(trouves, j.decouvertes)
+        return (
+          <div key={j.id} className="fam">
+            <span className="fam-head">
+              <span className="fam-name">
+                <b className="fam-word">
+                  {j.decouvertes} découverte{j.decouvertes > 1 ? 's' : ''}
+                </b>{' '}
+                <small>{f.manifeste.nom ?? `Fascicule ${f.numero}`}</small>
+              </span>
+              <span className="fam-count">{fait ? '✓ atteint' : `${n} / ${j.decouvertes}`}</span>
+            </span>
+            <span className="fam-bar" aria-hidden="true">
+              <i style={{ width: `${fait ? 100 : (n / j.decouvertes) * 100}%` }} />
+            </span>
+            <span className="rangee" aria-label="Récompense">
+              {(j.pli ?? []).map((id) => {
+                const b = jeu.briques.get(id)
+                return b ? <PetiteBrique key={id} brique={b} /> : null
+              })}
+              {(j.sabliers ?? 0) > 0 && (
+                <span className="pk-inkbox">
+                  <Sablier />
+                  <small>
+                    {j.sabliers} sablier{(j.sabliers ?? 0) > 1 ? 's' : ''}
+                  </small>
+                </span>
+              )}
+            </span>
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 /**
@@ -657,7 +711,7 @@ interface Props {
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
  */
-export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
+export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia, jalonsAtteints = [] }: Props) {
   const filtre = vue.filtre
   const ordre = vue.tri
   const fascicule = vue.fascicule ?? 'tous'
@@ -931,7 +985,8 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
               </span>
             </div>
             <p className="more-k">Jalons</p>
-            <p className="cb-note">Les jalons arrivent avec les plis. Leur récompense sera toujours annoncée d’avance, jamais tirée au hasard.</p>
+            <Jalons jeu={jeu} entrees={entrees} atteints={new Set(jalonsAtteints)} />
+            <p className="cb-note">Chaque récompense est annoncée d’avance, jamais tirée au hasard.</p>
           </div>
           {detail && (
             <section ref={detailFamille} className="obj-detail" aria-label={`Famille de ${detail.brique.libelle}`}>

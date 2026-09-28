@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Codex } from './composants/Codex'
 import { Fiche } from './composants/Fiche'
+import { Indices } from './composants/Indices'
 import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
 import { Plis } from './composants/Plis'
@@ -95,6 +96,8 @@ export function App({ api, catalogue }: Props) {
     setOnglet('plis')
   }
   const fiche = partie.fiche
+  const [indices, setIndices] = useState(false)
+  const fermerIndices = useCallback(() => setIndices(false), [])
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
@@ -143,10 +146,14 @@ export function App({ api, catalogue }: Props) {
                   <span className="mono">
                     {motsTrouves} / {mots.length} mots
                   </span>
+                  <button type="button" className="btn btn-secondary" onClick={() => setIndices(true)} disabled={!etat}>
+                    Indices
+                  </button>
                   <button type="button" className="btn-icone" aria-label="Ouvrir le codex" onClick={() => allerAuCodex()}>
                     <Icone nom="codex" />
                   </button>
                 </EnTete>
+                {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} onFermer={fermerIndices} />}
 
                 <div className="jeu">
                   <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
@@ -249,6 +256,7 @@ export function App({ api, catalogue }: Props) {
                   onChangerVue={naviguer}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   lireMedia={async (chemin) => new TextDecoder().decode(await catalogue.fichierHache(chemin))}
+                  jalonsAtteints={etat?.jalons_atteints}
                 />
               </section>
 
@@ -260,6 +268,7 @@ export function App({ api, catalogue }: Props) {
                   fascicule={route.pli}
                   onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
                   ouvrirPli={partie.ouvrirPli}
+                  utiliserSabliers={partie.utiliserSabliers}
                   onEssayer={() => setOnglet('table')}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                 />
@@ -269,6 +278,7 @@ export function App({ api, catalogue }: Props) {
                 <Fiche
                   motId={fiche.motId}
                   consommees={fiche.consommees}
+                  jalons={fiche.jalons}
                   entree={entrees.find((e) => e.id === fiche.motId)}
                   jeu={catalogueJeu}
                   reserve={etat?.reserve ?? []}
