@@ -101,7 +101,7 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Navigation : Table, Plis, Codex, Réglages | fait |
 | Déploiement hors-prod : PWA, catalogue (`988a1c0b8eed`) et documentation publiés | fait |
 | Image J3 de l’API et des tâches épinglée dans Infra (`ae1cd64`), *Plan* relancé après la panne Scaleway (`503`), *Apply* horsprod | fait |
-| Démonstration en hors-prod | à faire, après l’*Apply* |
+| Démonstration en hors-prod (API, 28 septembre) : profil invité, deux plis (doublon, encre), `403` sans charge et prochaine charge à +12 h, fusion puis découverte, historique des plis | fait |
 
 ### Décisions ouvertes de J3
 
