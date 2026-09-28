@@ -44,6 +44,30 @@ function useEnergie(etat: Etat | null) {
   }
 }
 
+/**
+ * Plis en attente, en petit : une jaquette par charge prête, un pli en
+ * pointillés pour chaque charge en recharge (plis.html, « en recharge »).
+ */
+function PlisEnAttente({ charges, capacite, jaquette, urlMedia }: { charges: number; capacite: number; jaquette: string | null | undefined; urlMedia: (c: string) => string }) {
+  return (
+    <span className="pk-waiting" aria-hidden="true">
+      {Array.from({ length: capacite }, (_, i) =>
+        i < charges ? (
+          <span key={i} className="jk-mini is-xs">
+            {jaquette && (
+              <span className="jk-art">
+                <img src={urlMedia(jaquette)} alt="" decoding="async" />
+              </span>
+            )}
+          </span>
+        ) : (
+          <span key={i} className="jk-mini is-xs is-empty" />
+        ),
+      )}
+    </span>
+  )
+}
+
 function Jaquette({ chemin, urlMedia }: { chemin: string | null | undefined; urlMedia: (c: string) => string }) {
   return (
     <span className={chemin ? 'jk-mini' : 'jk-mini is-empty'} aria-hidden="true">
@@ -90,7 +114,8 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
         </div>
         <div>
           <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
-          <p className="pk-note" role="status">
+          <p className="pk-note pk-ready" role="status">
+            <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
             <span className="pk-energy-count">
               {energie.charges}&nbsp;/&nbsp;{energie.capacite}
             </span>{' '}
@@ -334,8 +359,9 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
                 <circle className="ring-edge" cx="30" cy="30" r="22.5" />
               </svg>
               <div>
-                <strong>
+                <strong className="pk-ready">
                   {energie.charges}&nbsp;/&nbsp;{energie.capacite}
+                  <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
                 </strong>
                 <small>{energie.texte}</small>
               </div>
@@ -346,7 +372,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
             <div className="pk-card">
               <p className="pk-label">Chances par rareté</p>
               <div className="pk-odds">
-                {ORDRE_RARETES.filter((r) => lesChances.parRarete[r] > 0).map((r) => (
+                {ORDRE_RARETES.map((r) => (
                   <span key={r} className="pk-odd">
                     <FormeRarete rarete={r} />
                     <span>{LIBELLES_RARETES[r]}</span>
@@ -482,8 +508,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
             </p>
           </div>
           {lesChances && (
-            <div className="pk-card">
-              <p className="pk-label">Toutes les briques du fascicule</p>
+            <details className="pk-card" open>
+              <summary className="pk-label">Toutes les briques du fascicule</summary>
               <div className="pk-pool">
                 {lesChances.briques
                   .filter((c) => !(c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)))
@@ -511,14 +537,14 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
                   </span>
                 )}
               </div>
-            </div>
+            </details>
           )}
-          <div className="pk-card">
-            <p className="pk-label">Derniers tirages</p>
+          <details className="pk-card" open>
+            <summary className="pk-label">Derniers tirages</summary>
             <div className="pk-history">
               {historique.length === 0 ? <span className="pk-empty">Aucun pli ouvert pour l’instant.</span> : historique.map((h, i) => <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} />)}
             </div>
-          </div>
+          </details>
         </aside>
       </div>
     </div>
