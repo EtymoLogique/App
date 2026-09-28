@@ -5,8 +5,8 @@ export type { Onglet }
 
 const ONGLETS: { id: Onglet; libelle: string; icone: NomIcone }[] = [
   { id: 'table', libelle: 'Table', icone: 'table' },
-  { id: 'codex', libelle: 'Codex', icone: 'codex' },
   { id: 'plis', libelle: 'Plis', icone: 'pli' },
+  { id: 'codex', libelle: 'Codex', icone: 'codex' },
   { id: 'reglages', libelle: 'Réglages', icone: 'reglages' },
 ]
 
