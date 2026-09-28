@@ -39,7 +39,7 @@ function useEnergie(etat: Etat | null) {
   return {
     charges,
     capacite,
-    texte: prochaine === null ? 'Deux plis prêts' : `+1 dans ${duree(reste)}`,
+    texte: prochaine === null ? 'Deux plis prêts à être ouverts' : `+1 dans ${duree(reste)}`,
     progression: prochaine === null ? 1 : 1 - reste / (recharge_s * 1000),
   }
 }
@@ -117,7 +117,7 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
           <p className="pk-note pk-ready" role="status">
             <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
             <span>
-              {energie.charges > 0 ? `${energie.charges === 1 ? 'Un pli prêt' : 'Deux plis prêts'}` : `Prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
+              {energie.charges > 0 ? `${energie.charges === 1 ? 'Un pli prêt à être ouvert' : 'Deux plis prêts à être ouverts'}` : `Prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
             </span>
           </p>
         </div>
