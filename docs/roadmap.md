@@ -99,13 +99,13 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Recette locale (filet, garantie, réserve pleine, `409`, mouvement réduit, onglets) et corrections | fait |
 | Navigation : Table, Plis, Codex, Réglages | fait |
 | Déploiement hors-prod : PWA, catalogue (`988a1c0b8eed`) et documentation publiés | fait |
-| Image J3 de l’API et des tâches épinglée dans Infra (`ae1cd64`) : *Plan* bloqué par une panne de l’API Edge Services de Scaleway (`503`), puis *Apply* | à faire |
+| Image J3 de l’API et des tâches épinglée dans Infra (`ae1cd64`), *Plan* relancé après la panne Scaleway (`503`), *Apply* horsprod | fait |
 | Démonstration en hors-prod | à faire, après l’*Apply* |
 
 ### Décisions ouvertes de J3
 
 - **Mot ingrédient** : un mot qui sert d’ingrédient (*biologie*, *mener*) ne sort plus d’un pli (ADR 0035). Il ne vient que des graines : décider comment une découverte donne des exemplaires de son mot.
-- **Légendaires à 0 %** : la ligne « Légendaire » toujours affichée révèle qu’un fascicule n’en contient aucune, alors que l’ADR 0015 garde le suspense sur leur nombre. À consigner dans un ADR, ou à n’afficher que si le fascicule en contient.
+- ~~**Légendaires à 0 %**~~ : tranché par l’[ADR 0036](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0036-chances-des-legendaires-toujours-affichees.md) : la loi impose d’afficher toutes les probabilités, la ligne reste même à 0 % ; le secret porte sur le nombre et la nature des légendaires.
 
 ## Décisions à formaliser
 
