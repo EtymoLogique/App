@@ -353,5 +353,6 @@ button.pk-fasc:hover .jk-mini { rotate: 2deg; }
   .pk-layout .pk-stage { order: -1; }
 }
 
-/* Texte posé sur le fond tramé : une surface Crème pour la lisibilité. */
-.pk-intro { display: inline-block; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); }
+/* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */
+.pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.pk-chooser-head .pk-note:first-child { margin-top: 0; }
