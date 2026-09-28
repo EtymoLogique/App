@@ -572,6 +572,8 @@ button.disc { font: inherit; cursor: pointer; }
 .scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
 .scrim-fond { position: absolute; inset: 0; background: rgba(15, 31, 25, 0.5); }
 .scrim .dialogue { position: relative; }
+/* Nouvelle version déployée : plein écran opaque, au-dessus de tout, jeu inaccessible. */
+.scrim.mise-a-jour { z-index: 100; background: var(--paper); }
 /* Pendant le vol vers le codex, la navigation passe devant le voile pour recevoir la carte. */
 .scrim.en-vol { pointer-events: none; }
 .coque:has(.scrim.en-vol) .navigation { z-index: 70; }

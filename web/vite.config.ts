@@ -75,8 +75,9 @@ export default defineConfig(({ mode }) => {
       catalogueLocal(env.ETYMO_BUCKET_LOCAL),
       ...(mode === 'test' ? [] : [csp(env)]),
       VitePWA({
-        registerType: 'autoUpdate',
-        injectRegister: 'script-defer',
+        // Enregistré par `MiseAJour` : une nouvelle version attend l'accord du joueur.
+        registerType: 'prompt',
+        injectRegister: false,
         manifest: {
           name: 'ÉtymoLogique',
           short_name: 'ÉtymoLogique',
