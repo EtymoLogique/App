@@ -128,7 +128,6 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
       <span className="m-top">
         <span>
           {numero(entree.n)}
-          {nouvelle && entree.trouvee && <span className="new-dot" />}
         </span>
         <span className="m-side">
           <span className="m-kind">{type.libelle}</span>

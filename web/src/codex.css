@@ -88,9 +88,7 @@
 .m-dots i.on { border-color: var(--ink); background: var(--ink); }
 .mini.locked { background: repeating-linear-gradient(-45deg, var(--paper) 0 8px, var(--paper-2) 8px 16px); }
 .m-q { color: var(--ink-3); font-family: var(--serif); font-size: 52px; font-style: italic; line-height: 1; text-align: center; }
-/* Carte nouvelle : une pastille Corail cernée d’Encre dans le bandeau, après le N°, jusqu’à la première consultation. */
-.new-dot { display: inline-block; flex: none; width: 8px; height: 8px; margin-left: 6px; border: 1.5px solid var(--fixed-ink); border-radius: 50%; background: var(--c-action); vertical-align: 0; }
-.bf-top .new-dot { width: 10px; height: 10px; margin-left: 8px; vertical-align: -1px; }
+/* Carte nouvelle : un halo Corail diffus, jusqu’à la première consultation. */
 .mini.is-new { --new-halo: 0 0 30px 8px color-mix(in srgb, var(--c-action) 60%, transparent); box-shadow: var(--new-halo); }
 .mini.is-new:hover, .mini.is-new:focus-visible { box-shadow: 5px 6px 0 var(--pop-shadow), var(--new-halo); }
 /* Texture de carte (ADR 0023) : silhouette d'une seule teinte, sous le contenu, jamais sous le bandeau. */
