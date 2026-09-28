@@ -36,6 +36,8 @@ pub struct EtatApp {
     pub catalogue: CatalogueVivant,
     pub signataire: Signataire,
     pub limiteurs: Limiteurs,
+    /// Durée d'une recharge de pli.
+    pub recharge: chrono::TimeDelta,
 }
 
 pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {

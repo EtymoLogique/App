@@ -1,4 +1,5 @@
-//! Énergie (ADR 0020) : 2 charges au plus, une toutes les 12 h, à l'horloge du
+//! Énergie (ADR 0020) : 2 charges au plus, une toutes les 12 h en production,
+//! à l'horloge du
 //! serveur. Quand les deux charges sont prêtes, le temps s'arrête ; ouvrir un
 //! pli relance la recharge si l'énergie était pleine, sinon la recharge en
 //! cours continue. Rien n'est stocké entre deux lectures : l'état se rattrape
@@ -9,7 +10,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 /// Charges au plus : deux plis peuvent attendre le joueur.
 pub const CAPACITE: u8 = 2;
 
-/// Durée d'une recharge.
+/// Durée d'une recharge par défaut ; l'API la règle par `ETYMO_RECHARGE_S`.
 pub const RECHARGE: TimeDelta = TimeDelta::hours(12);
 
 /// Charges et instant de la prochaine, nul si l'énergie est pleine.
@@ -31,17 +32,17 @@ impl Energie {
 
     /// Rattrape les charges revenues jusqu'à `maintenant`.
     #[must_use]
-    pub fn a(self, maintenant: DateTime<Utc>) -> Self {
+    pub fn a(self, maintenant: DateTime<Utc>, recharge: TimeDelta) -> Self {
         let mut energie = self;
         while energie.charges < CAPACITE {
             match energie.prochaine_charge {
                 Some(prochaine) if prochaine <= maintenant => {
                     energie.charges += 1;
                     energie.prochaine_charge =
-                        (energie.charges < CAPACITE).then(|| prochaine + RECHARGE);
+                        (energie.charges < CAPACITE).then(|| prochaine + recharge);
                 }
                 // Une énergie incomplète sans échéance est incohérente : on relance la recharge.
-                None => energie.prochaine_charge = Some(maintenant + RECHARGE),
+                None => energie.prochaine_charge = Some(maintenant + recharge),
                 Some(_) => break,
             }
         }
@@ -54,14 +55,14 @@ impl Energie {
 
     /// Consomme une charge pour ouvrir un pli, ou `None` s'il n'y en a pas.
     #[must_use]
-    pub fn consommer(self, maintenant: DateTime<Utc>) -> Option<Self> {
-        let energie = self.a(maintenant);
+    pub fn consommer(self, maintenant: DateTime<Utc>, recharge: TimeDelta) -> Option<Self> {
+        let energie = self.a(maintenant, recharge);
         if energie.charges == 0 {
             return None;
         }
         Some(Self {
             charges: energie.charges - 1,
-            prochaine_charge: Some(energie.prochaine_charge.unwrap_or(maintenant + RECHARGE)),
+            prochaine_charge: Some(energie.prochaine_charge.unwrap_or(maintenant + recharge)),
         })
     }
 }
@@ -76,7 +77,7 @@ mod tests {
 
     #[test]
     fn ouvrir_depuis_le_plein_relance_la_recharge() {
-        let e = Energie::pleine().consommer(t(0)).unwrap();
+        let e = Energie::pleine().consommer(t(0), RECHARGE).unwrap();
         assert_eq!(
             e,
             Energie {
@@ -88,8 +89,8 @@ mod tests {
 
     #[test]
     fn la_recharge_en_cours_continue() {
-        let e = Energie::pleine().consommer(t(0)).unwrap();
-        let e = e.consommer(t(3)).unwrap();
+        let e = Energie::pleine().consommer(t(0), RECHARGE).unwrap();
+        let e = e.consommer(t(3), RECHARGE).unwrap();
         assert_eq!(
             e,
             Energie {
@@ -97,7 +98,7 @@ mod tests {
                 prochaine_charge: Some(t(12))
             }
         );
-        assert!(e.consommer(t(11)).is_none());
+        assert!(e.consommer(t(11), RECHARGE).is_none());
     }
 
     #[test]
@@ -107,12 +108,12 @@ mod tests {
             prochaine_charge: Some(t(12)),
         };
         assert_eq!(
-            e.a(t(12)),
+            e.a(t(12), RECHARGE),
             Energie {
                 charges: 1,
                 prochaine_charge: Some(t(24))
             }
         );
-        assert_eq!(e.a(t(100)), Energie::pleine());
+        assert_eq!(e.a(t(100), RECHARGE), Energie::pleine());
     }
 }

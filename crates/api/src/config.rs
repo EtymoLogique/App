@@ -63,6 +63,10 @@ pub struct ConfigServeur {
     /// Intervalle de relecture de l'index du catalogue, en secondes.
     #[arg(long, env = "ETYMO_RELECTURE_CATALOGUE_S", default_value_t = 60)]
     pub relecture_s: u64,
+
+    /// Durée d'une recharge de pli, en secondes : 12 h en production, moins hors production.
+    #[arg(long, env = "ETYMO_RECHARGE_S", default_value_t = 43_200)]
+    pub recharge_s: u32,
 }
 
 #[derive(Debug, Clone, Args)]

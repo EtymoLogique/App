@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
 use etymo_contrat::{CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, OuverturePli};
 use etymo_domaine::IdCatalogue;
@@ -35,7 +35,11 @@ pub async fn verrouiller(tx: &mut PgConnection, joueur: Uuid) -> Result<i64, Err
     .ok_or(ErreurApi::NonAuthentifie)
 }
 
-pub async fn etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Etat, ErreurApi> {
+pub async fn etat(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    recharge: TimeDelta,
+) -> Result<Etat, ErreurApi> {
     let ligne = sqlx::query!(
         "SELECT version_etat, version_catalogue FROM joueur WHERE id = $1",
         joueur
@@ -74,7 +78,7 @@ pub async fn etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Etat, ErreurApi
     })
     .collect::<Result<_, ErreurApi>>()?;
     let maintenant = Utc::now();
-    let energie = lire_energie(&mut *tx, joueur).await?.a(maintenant);
+    let energie = lire_energie(&mut *tx, joueur).await?.a(maintenant, recharge);
     let encre = lire_encre(&mut *tx, joueur).await?;
     let compteurs_plis = sqlx::query!(
         "SELECT fascicule_id, plis_sans_nouveaute, plis_sans_utilite FROM compteur_pli
@@ -121,7 +125,7 @@ pub async fn etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Etat, ErreurApi
             charges: energie.charges,
             capacite: energie::CAPACITE,
             prochaine_charge: energie.prochaine_charge,
-            recharge_s: u32::try_from(energie::RECHARGE.num_seconds()).unwrap_or(u32::MAX),
+            recharge_s: u32::try_from(recharge.num_seconds()).unwrap_or(u32::MAX),
         },
         encre,
         compteurs_plis,
