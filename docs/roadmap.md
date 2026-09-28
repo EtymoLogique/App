@@ -84,6 +84,19 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 
 - **Version déployée, version affichée.** Après le déploiement de J2 en hors-prod, le navigateur a d’abord servi l’ancienne PWA depuis le cache du service worker : il a fallu recharger une seconde fois (`registerType: 'autoUpdate'` sans rechargement de la page). Quand le service worker sera traité, une PWA qui n’est plus alignée sur ce qui est déployé doit forcer un rechargement, immédiatement, sans compter sur un second chargement ni sur la fermeture des onglets. Une table en cours reste sauvegardée dans IndexedDB et survit à ce rechargement.
 
+## J3 — Énergie et plis (en cours)
+
+| Tâche | État |
+|---|---|
+| Équilibrage versionné (Content, `ludique/equilibrage.json`) recopié dans le `pli` de chaque manifeste, avec la nature de chaque brique | fait |
+| Énergie : 2 charges, une toutes les 12 h, à l’horloge du serveur ; le temps s’arrête à 2 / 2 | fait |
+| `POST /pli` : aléa cryptographique (rejet sans biais), poids rareté × type répartis par classe, garantie au 6ᵉ pli, filet au 5ᵉ (le filet passe avant), transactionnel et idempotent, `409` si périmé, `403` sans charge | fait |
+| Doublons et encre : 2 gouttes par pli, barèmes du doublon et de la réserve pleine ; chaque variation dans `mouvement` | fait |
+| Historique des plis (`ouverture_pli`, les 20 derniers dans l’état) | fait |
+| Écran des plis : choix du fascicule (I-19), atelier (I-20) avec énergie, chances par rareté, type et brique, légendaires inconnues regroupées, garanties, encre, historique, règles ; compteur de plis prêts sur l’onglet | fait |
+| Rituel d’ouverture (I-21) : charge, écriture, explosion, révélation (≈ 1,6 s), passable, direct en mouvement réduit | fait |
+| Démonstration en hors-prod | à faire |
+
 ## Décisions à formaliser
 
 - **Contrat et outillage** : [ADR 0031](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0031-contrat-genere-et-outillage-de-la-pwa.md), proposé.

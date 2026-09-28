@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat } from '../contrat'
+import type { Etat, ReponsePli } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -206,9 +206,41 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     }
   }, [api, jeu, etat, cases, confirmer, synchroniser])
 
+  /**
+   * Ouvre le pli d'un fascicule (ADR 0011) : le serveur tire la brique. Rien
+   * n'est annoncé avant sa réponse ; une erreur n'est jamais un succès local.
+   */
+  const ouvrirPli = useCallback(
+    async (fascicule: string): Promise<ReponsePli | { erreur: string }> => {
+      if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
+      try {
+        const reponse = await api.pli({
+          commande: crypto.randomUUID(),
+          version_etat: etat.version_etat,
+          version_catalogue: jeu.valeur.version,
+          fascicule_id: fascicule,
+        })
+        confirmer(reponse.etat)
+        return reponse
+      } catch (e) {
+        if (e instanceof ErreurApi && e.statut === 409) {
+          await synchroniser()
+          return { erreur: 'Votre partie a changé entre-temps. Elle est à jour : réessayez.' }
+        }
+        if (e instanceof ErreurApi && e.statut === 403) {
+          await synchroniser()
+          return { erreur: 'Aucun pli n’est prêt pour le moment.' }
+        }
+        return { erreur: message(e) }
+      }
+    },
+    [api, jeu, etat, confirmer, synchroniser],
+  )
+
   return {
     jeu,
     etat,
+    ouvrirPli,
     erreurEtat,
     table,
     cases,

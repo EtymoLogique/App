@@ -16,6 +16,8 @@ export interface Route {
   onglet: Onglet
   /** Carte agrandie du codex. */
   carte: string | null
+  /** Fascicule dont l'atelier des plis est ouvert (#/plis/fsc_…). */
+  pli: string | null
   /** Section « En savoir plus » dépliée sous la carte agrandie (I-16). */
   plus: boolean
   vue: VueCodex
@@ -31,8 +33,9 @@ const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc']
 const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'objectifs']
 const IDENTIFIANT = /^(unt|lng)_[0-9a-hjkmnp-tv-z]{8}$/
+const FASCICULE = /^fsc_[0-9a-hjkmnp-tv-z]{8}$/
 
-export const ROUTE_PAR_DEFAUT: Route = { onglet: 'table', carte: null, plus: false, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
+export const ROUTE_PAR_DEFAUT: Route = { onglet: 'table', carte: null, pli: null, plus: false, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
 
 /** Lit une route ; toute valeur inconnue retombe sur sa valeur par défaut. */
 export function lireRoute(fragment: string): Route {
@@ -43,6 +46,7 @@ export function lireRoute(fragment: string): Route {
   const route: Route = {
     onglet: ONGLETS.includes(onglet as Onglet) ? (onglet as Onglet) : 'table',
     carte: null,
+    pli: null,
     plus: false,
     vue: VUES.includes(params.get('vue') as VueCodex) ? (params.get('vue') as VueCodex) : 'tout',
     filtre: FILTRES.includes(params.get('type') as FiltreCodex) ? (params.get('type') as FiltreCodex) : 'tout',
@@ -50,6 +54,7 @@ export function lireRoute(fragment: string): Route {
     inverse: params.get('sens') === 'inverse',
     fascicule: params.has('fascicule') && Number.isInteger(fascicule) && fascicule >= 0 ? fascicule : null,
   }
+  if (route.onglet === 'plis' && carte && FASCICULE.test(carte)) route.pli = carte
   if (route.onglet === 'codex' && carte && IDENTIFIANT.test(carte)) {
     route.carte = carte
     route.plus = params.get('plus') === '1'
@@ -58,6 +63,7 @@ export function lireRoute(fragment: string): Route {
 }
 
 export function ecrireRoute(route: Route): string {
+  if (route.onglet === 'plis') return `#/plis${route.pli ? `/${route.pli}` : ''}`
   if (route.onglet !== 'codex') return `#/${route.onglet}`
   const params = new URLSearchParams()
   if (route.vue !== 'tout') params.set('vue', route.vue)

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 
 import './styles.css'
 import './codex.css'
+import './plis.css'
 import { App } from './App'
 import { config } from './config'
 import { ClientApi } from './services/api'
