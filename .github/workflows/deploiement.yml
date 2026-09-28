@@ -111,14 +111,37 @@ jobs:
           npm run build
 
       # Les fichiers hachés d'abord, immuables ; puis la coque, jamais mise en
-      # cache par HTTP (ADR 0024), pour qu'elle ne désigne jamais un fichier absent.
+      # cache par le navigateur (ADR 0024), pour qu'elle ne désigne jamais un
+      # fichier absent. Le CDN la garde une heure (s-maxage) : l'étape suivante
+      # le purge.
       - name: Upload to the PWA bucket
         working-directory: web/dist
         run: |
+          coque="public, max-age=0, must-revalidate, s-maxage=3600"
           aws s3 sync assets/ "s3://$BUCKET/assets/" --size-only --no-progress \
             --cache-control "public, max-age=31536000, immutable"
           aws s3 sync . "s3://$BUCKET/" --exclude "assets/*" --exclude "manifest.webmanifest" --no-progress \
-            --cache-control "no-cache"
+            --cache-control "$coque"
           aws s3 cp manifest.webmanifest "s3://$BUCKET/manifest.webmanifest" --no-progress \
-            --content-type application/manifest+json --cache-control "no-cache"
+            --content-type application/manifest+json --cache-control "$coque"
           echo "PWA ${GITHUB_SHA::12} déposée dans s3://$BUCKET/ ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
+
+      # Sans purge, le CDN servirait l'ancienne coque jusqu'à une heure.
+      - name: Purge the CDN cache
+        if: vars.ETYMO_PIPELINE_CDN != ''
+        env:
+          PIPELINE: ${{ vars.ETYMO_PIPELINE_CDN }}
+          API: https://api.scaleway.com/edge-services/v1beta1
+        run: |
+          id="$(curl -sSf -X POST "$API/purge-requests" -H "X-Auth-Token: $AWS_SECRET_ACCESS_KEY" \
+            -H "Content-Type: application/json" -d "{\"pipeline_id\": \"$PIPELINE\", \"all\": true}" | jq -r .id)"
+          for _ in $(seq 60); do
+            statut="$(curl -sSf "$API/purge-requests/$id" -H "X-Auth-Token: $AWS_SECRET_ACCESS_KEY" | jq -r .status)"
+            case "$statut" in
+              done) echo "Cache du CDN purgé." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+              error) echo "::error::Purge $id en erreur."; exit 1 ;;
+            esac
+            sleep 5
+          done
+          echo "::error::Purge $id toujours « $statut » après 5 minutes."
+          exit 1
