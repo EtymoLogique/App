@@ -193,6 +193,7 @@ pub async fn fusion(
             let besoins: Vec<_> = consommation(&demande.briques).into_iter().collect();
             let manquantes = progression::manquantes(&mut tx, joueur, &besoins).await?;
             if manquantes.is_empty() {
+                let gouttes = jeu.encre_decouverte(&mot_id);
                 progression::decouvrir(
                     &mut tx,
                     joueur,
@@ -200,12 +201,17 @@ pub async fn fusion(
                     &besoins,
                     &recette_id,
                     &mot_id,
+                    gouttes,
                 )
                 .await?;
                 jalons = progression::accorder_jalons(&mut tx, joueur, jeu, Some(demande.commande))
                     .await?;
                 progression::incrementer_version(&mut tx, joueur).await?;
-                IssueFusion::Decouverte { recette_id, mot_id }
+                IssueFusion::Decouverte {
+                    recette_id,
+                    mot_id,
+                    gouttes,
+                }
             } else {
                 IssueFusion::ReserveInsuffisante {
                     briques: manquantes,

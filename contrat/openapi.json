@@ -1317,6 +1317,25 @@
             "description": "Gouttes rapportées par tout pli (ADR 0020).",
             "minimum": 0
           },
+          "encre_decouverte": {
+            "type": "object",
+            "description": "Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).\nAbsent d'un manifeste antérieur : une découverte ne rapporte rien.",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          },
           "encre_doublon": {
             "type": "object",
             "description": "Gouttes en plus pour un doublon sous le plafond (ADR 0019).",
@@ -1705,6 +1724,12 @@
               "type"
             ],
             "properties": {
+              "gouttes": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).",
+                "minimum": 0
+              },
               "mot_id": {
                 "$ref": "#/components/schemas/IdCatalogue"
               },

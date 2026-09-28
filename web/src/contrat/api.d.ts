@@ -414,6 +414,13 @@ export interface components {
              * @description Gouttes rapportées par tout pli (ADR 0020).
              */
             base_encre: number;
+            /**
+             * @description Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).
+             *     Absent d'un manifeste antérieur : une découverte ne rapporte rien.
+             */
+            encre_decouverte?: {
+                [key: string]: number;
+            };
             /** @description Gouttes en plus pour un doublon sous le plafond (ADR 0019). */
             encre_doublon: {
                 [key: string]: number;
@@ -545,6 +552,11 @@ export interface components {
         };
         /** @description Issue d'une fusion. Seule une découverte consomme des exemplaires. */
         IssueFusion: {
+            /**
+             * Format: int32
+             * @description Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).
+             */
+            gouttes?: number;
             mot_id: components["schemas"]["IdCatalogue"];
             recette_id: components["schemas"]["IdCatalogue"];
             /** @enum {string} */

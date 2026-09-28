@@ -11,11 +11,14 @@ use sqlx::PgPool;
 use commun::{appeler, banc, commande, get_etat, post, post_fusion, session, somme_mouvements};
 
 async fn donner_encre(base: &PgPool, gouttes: i32) {
-    sqlx::query("INSERT INTO encre (joueur_id, gouttes) SELECT id, $1 FROM joueur")
-        .bind(gouttes)
-        .execute(base)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO encre (joueur_id, gouttes) SELECT id, $1 FROM joueur
+         ON CONFLICT (joueur_id) DO UPDATE SET gouttes = encre.gouttes + EXCLUDED.gouttes",
+    )
+    .bind(gouttes)
+    .execute(base)
+    .await
+    .unwrap();
     sqlx::query("INSERT INTO mouvement (joueur_id, ressource, delta, motif) SELECT id, 'encre', $1, 'pli' FROM joueur")
         .bind(gouttes)
         .execute(base)

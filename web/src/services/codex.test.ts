@@ -16,7 +16,7 @@ describe('codex', () => {
     expect(mot).toMatchObject({ trouvee: false, sens: 'étude de la terre', resultat: true })
     expect(entrees.filter((e) => e.trouvee).map((e) => e.libelle)).toEqual(['géo-', '-logie'])
     expect(completude(entrees)).toEqual({ trouvees: 2, total: 3, legendaires: 0 })
-    expect(entrees.find((e) => e.id === MOT)?.rarete).toBeNull()
+    expect(entrees.find((e) => e.id === MOT)?.rarete).toBe('commune')
     expect(entrees.find((e) => e.libelle === 'géo-')?.rarete).toBe('commune')
   })
 

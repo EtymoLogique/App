@@ -14,6 +14,8 @@ export interface FicheOuverte {
   consommees?: string[]
   /** Jalons atteints par cette découverte, à annoncer (ADR 0038). */
   jalons?: string[]
+  /** Gouttes d'encre gagnées par cette découverte (ADR 0040). */
+  gouttes?: number
 }
 
 function message(e: unknown): string {
@@ -190,7 +192,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         // Le « −1 » ne s'envole qu'une fois (1,3 s) : il ne doit pas rejouer quand l'écran réapparaît.
         setTimeout(() => setConsommees((c) => (c === proposition ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
         setNouvelles((n) => new Set(n).add(issue.mot_id))
-        setFiche({ motId: issue.mot_id, consommees: proposition, jalons: reponse.jalons ?? [] })
+        setFiche({ motId: issue.mot_id, consommees: proposition, jalons: reponse.jalons ?? [], gouttes: issue.gouttes ?? 0 })
       } else {
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })

@@ -55,6 +55,27 @@ impl Jeu {
             .map(|b| b.rarete)
     }
 
+    /// Rareté d'un mot, dérivée des briques de ses recettes (ADR 0040).
+    #[must_use]
+    pub fn rarete_mot(&self, mot: &IdCatalogue) -> pli::Rarete {
+        pli::rarete_mot(self.recettes.iter().filter(|r| &r.mot_id == mot), |b| {
+            self.rarete(b)
+        })
+    }
+
+    /// Gouttes que rapporte la découverte d'un mot : barème de l'équilibrage
+    /// du fascicule qui le publie, selon sa rareté (ADR 0040).
+    #[must_use]
+    pub fn encre_decouverte(&self, mot: &IdCatalogue) -> u32 {
+        self.jalons
+            .iter()
+            .find(|f| f.mots.contains(mot))
+            .and_then(|f| self.equilibrage(&f.fascicule_id))
+            .and_then(|e| e.parametres.encre_decouverte.get(&self.rarete_mot(mot)))
+            .copied()
+            .unwrap_or(0)
+    }
+
     /// Équilibrage du pli d'un fascicule.
     #[must_use]
     pub fn equilibrage(&self, fascicule: &IdCatalogue) -> Option<&EquilibrageManifeste> {

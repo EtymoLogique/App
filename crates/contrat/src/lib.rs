@@ -284,6 +284,9 @@ pub enum IssueFusion {
     Decouverte {
         recette_id: IdCatalogue,
         mot_id: IdCatalogue,
+        /// Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).
+        #[serde(default)]
+        gouttes: u32,
     },
     /// Recette d'un mot déjà découvert : rien n'est consommé.
     Connue {

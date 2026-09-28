@@ -803,7 +803,8 @@ pub async fn manquantes(
     Ok(manquantes)
 }
 
-/// Consomme les exemplaires et ajoute le mot au codex (ADR 0012).
+/// Consomme les exemplaires, ajoute le mot au codex (ADR 0012) et crédite
+/// l'encre de la découverte (ADR 0040).
 pub async fn decouvrir(
     tx: &mut PgConnection,
     joueur: Uuid,
@@ -811,7 +812,18 @@ pub async fn decouvrir(
     besoins: &[(&IdCatalogue, u8)],
     recette: &IdCatalogue,
     mot: &IdCatalogue,
+    gouttes: u32,
 ) -> Result<(), ErreurApi> {
+    let gouttes = i32::try_from(gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        gouttes,
+        "decouverte",
+        Utc::now(),
+    )
+    .await?;
     for (brique, besoin) in besoins {
         sqlx::query!(
             "UPDATE exemplaire SET nombre = nombre - $3 WHERE joueur_id = $1 AND brique_id = $2",

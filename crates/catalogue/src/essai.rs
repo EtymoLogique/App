@@ -93,6 +93,7 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
                 "base_encre": 2,
                 "encre_doublon": { "commune": 1, "peu_commune": 2, "rare": 4, "legendaire": 10 },
                 "encre_reserve_pleine": { "commune": 2, "peu_commune": 4, "rare": 8, "legendaire": 20 },
+                "encre_decouverte": { "commune": 3, "peu_commune": 5, "rare": 10, "legendaire": 25 },
                 "garantie_nouveaute": 6,
                 "filet_utilite": 5
             }

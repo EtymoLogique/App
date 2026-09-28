@@ -3,9 +3,11 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import type { Exemplaires } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
 import type { CatalogueJeu } from '../services/jeu'
-import { NATURES, definition, formeCanonique, texteDuMot } from '../services/jeu'
+import { NATURES, definition, formeCanonique, rareteMot, texteDuMot } from '../services/jeu'
+import { LIBELLES_RARETES } from '../services/plis'
 import { Brique, PetiteBrique } from './Brique'
 import { MotSegmente } from './MotSegmente'
+import { FormeRarete } from './Rarete'
 import { Sablier } from './Sabliers'
 
 interface Props {
@@ -17,6 +19,8 @@ interface Props {
   consommees?: string[]
   /** Jalons atteints par cette découverte : leur récompense est déjà dans la réserve. */
   jalons?: string[]
+  /** Gouttes d'encre gagnées par cette découverte (ADR 0040). */
+  gouttes?: number
   onFermer: () => void
   /** Ouvre la carte du mot dans le codex. */
   onCodex: () => void
@@ -27,7 +31,7 @@ interface Props {
  * sa composition, puis les pistes ouvertes. Dialogue centré sur ordinateur,
  * plein écran sur mobile. Échap ou « Continuer » la ferme.
  */
-export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], onFermer, onCodex }: Props) {
+export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], gouttes = 0, onFermer, onCodex }: Props) {
   const continuer = useRef<HTMLButtonElement>(null)
   const dialogue = useRef<HTMLElement>(null)
   const voile = useRef<HTMLDivElement>(null)
@@ -93,12 +97,15 @@ export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], on
   // Pistes ouvertes : un mot qui se pose lui-même comme brique rejoint le catalogue des plis.
   const pistes = carte.brique ? [`Nouvelle brique au catalogue des plis : ${formeCanonique(carte)?.texte ?? mot}`] : []
   const numero = entree ? `N°\u00a0${String(entree.n).padStart(3, '0')}` : ''
+  // L'intensité de la révélation grandit avec la rareté du mot, comme pour un pli (ADR 0040).
+  const rarete = rareteMot(motId, jeu)
+  const annonce = rarete === 'legendaire' ? 'Légendaire\u00a0!' : rarete === 'rare' ? 'Rare\u00a0!' : 'Nouvelle découverte'
 
   return (
     <div className={enVol ? 'scrim en-vol' : 'scrim'} onClick={() => !enVol && onFermer()}>
       <div ref={voile} className="scrim-fond" aria-hidden="true" />
-      <section ref={dialogue} className="dialogue fiche" role="dialog" aria-modal="true" aria-labelledby="fiche-titre" onClick={(e) => e.stopPropagation()}>
-        <p className="r-kicker">{nouvelle ? `Nouvelle découverte · ${numero}` : `Déjà dans le codex · ${numero}`}</p>
+      <section ref={dialogue} className="dialogue fiche" data-rarity={nouvelle ? rarete : undefined} role="dialog" aria-modal="true" aria-labelledby="fiche-titre" onClick={(e) => e.stopPropagation()}>
+        <p className="r-kicker">{nouvelle ? `${annonce} · ${numero}` : `Déjà dans le codex · ${numero}`}</p>
 
         <div className="fiche-temps fiche-temps-1">
           <p className="fiche-etape">1 · Le mot</p>
@@ -106,6 +113,11 @@ export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], on
             <MotSegmente mot={mot} morceaux={morceaux} />
           </h2>
           {definition(carte) && <p className="r-def">{definition(carte)}</p>}
+          <p className="fiche-rarete">
+            <FormeRarete rarete={rarete} />
+            {LIBELLES_RARETES[rarete]}
+            {nouvelle && gouttes > 0 && <span className="fiche-encre">+{gouttes}&nbsp;goutte{gouttes > 1 ? 's' : ''} d’encre</span>}
+          </p>
           {langue && (
             <p className="fiche-langue">
               <i aria-hidden="true" />

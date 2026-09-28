@@ -290,6 +290,7 @@ export function App({ api, catalogue }: Props) {
                   motId={fiche.motId}
                   consommees={fiche.consommees}
                   jalons={fiche.jalons}
+                  gouttes={fiche.gouttes}
                   entree={entrees.find((e) => e.id === fiche.motId)}
                   jeu={catalogueJeu}
                   reserve={etat?.reserve ?? []}
