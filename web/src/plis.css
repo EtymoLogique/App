@@ -348,7 +348,6 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 /* Mobile : l'énergie passe au-dessus du pli, le reste de l'atelier dessous. */
 @media (max-width: 760px) {
   .pk-layout .pk-side { display: contents; }
-  .pk-layout .pk-energie { order: -2; }
   .pk-layout .pk-stage { order: -1; }
 }
 
@@ -356,4 +355,4 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 .pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
 .pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 16px; }
 .pk-chooser-head .pk-note { margin-top: 0; }
-.pk-chooser > .pk-energie { margin-bottom: 24px; }
+.pk-chooser > .pk-energie { margin-bottom: 16px; }

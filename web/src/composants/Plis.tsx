@@ -157,6 +157,7 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
   const parus = [...jeu.fascicules].sort((a, b) => b.numero - a.numero)
   return (
     <div className="pk-chooser">
+      <CartePlisEnAttente energie={energie} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
       <div className="pk-chooser-head">
         <div>
           <h2 className="jk-title">
@@ -165,7 +166,6 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
         </div>
         <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
       </div>
-      <CartePlisEnAttente energie={energie} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
       <div className="pk-fasc-list">
         {parus.map((f) => {
           const { connues, exemplaires } = reserveDuFascicule(jeu, etat, f)
@@ -384,6 +384,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
 
   return (
     <div className="pk-ecran">
+      <CartePlisEnAttente energie={energie} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
       <div className="pk-current">
         <p>
           <span className="pk-label">Pli du fascicule</span> <b>{nom}</b>
@@ -394,7 +395,6 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
       </div>
       <div className="pk-layout">
         <aside className="pk-side">
-          <CartePlisEnAttente energie={energie} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
           {lesChances && (
             <div className="pk-card">
               <p className="pk-label">Chances par rareté</p>
