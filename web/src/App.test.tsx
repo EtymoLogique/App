@@ -319,7 +319,7 @@ describe('table de fusion', () => {
     await act(async () => fireEvent.click(pack))
     expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
     expect(await screen.findByText('+1 exemplaire · ×3', undefined, { timeout: 3000 })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')
+    expect(screen.getByText('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')).toHaveAttribute('role', 'status')
     // Changer d'onglet garde l'atelier du fascicule choisi.
     fireEvent.click(screen.getByRole('button', { name: /^Table/ }))
     fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))

@@ -354,4 +354,6 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 
 /* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */
 .pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
-.pk-chooser-head .pk-note:first-child { margin-top: 0; }
+.pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 16px; }
+.pk-chooser-head .pk-note { margin-top: 0; }
+.pk-chooser > .pk-energie { margin-bottom: 24px; }

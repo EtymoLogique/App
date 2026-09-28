@@ -97,6 +97,29 @@ function PlisEnAttente({
   )
 }
 
+/** Carte « Plis en attente » (I-20), identique sur le choix du fascicule et dans l'atelier. */
+function CartePlisEnAttente({ energie, jaquette, urlMedia }: { energie: ReturnType<typeof useEnergie>; jaquette: string | null | undefined; urlMedia: (c: string) => string }) {
+  return (
+    <div className="pk-card pk-energie">
+      <p className="pk-label">Plis en attente</p>
+      <div className="pk-attente" role="status">
+        <PlisEnAttente
+          charges={energie.charges}
+          capacite={energie.capacite}
+          jaquette={jaquette}
+          urlMedia={urlMedia}
+          progression={energie.progression}
+          restant={energie.restant}
+          grand
+        />
+        {/* Le compte à rebours vit dans le pli en pointillés ; plein, le temps s'arrête. */}
+        <small className={energie.charges < energie.capacite ? 'sr-only' : undefined}>{energie.texte}</small>
+      </div>
+      <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. Les plis ne limitent jamais les fusions.</p>
+    </div>
+  )
+}
+
 function Jaquette({ chemin, urlMedia }: { chemin: string | null | undefined; urlMedia: (c: string) => string }) {
   return (
     <span className={chemin ? 'jk-mini' : 'jk-mini is-empty'} aria-hidden="true">
@@ -140,16 +163,9 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
             Choisir <em>un fascicule</em>
           </h2>
         </div>
-        <div>
-          <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
-          <p className="pk-note pk-ready" role="status">
-            <PlisEnAttente charges={energie.charges} capacite={energie.capacite} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} progression={energie.progression} restant={energie.restant} grand />
-            <span className="sr-only">
-              {energie.charges > 0 ? `${energie.charges === 1 ? 'Un pli prêt à être ouvert' : 'Deux plis prêts à être ouverts'}` : `Prochain pli dans ${energie.texte.replace('+1 dans ', '')}`}
-            </span>
-          </p>
-        </div>
+        <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
       </div>
+      <CartePlisEnAttente energie={energie} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
       <div className="pk-fasc-list">
         {parus.map((f) => {
           const { connues, exemplaires } = reserveDuFascicule(jeu, etat, f)
@@ -378,23 +394,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
       </div>
       <div className="pk-layout">
         <aside className="pk-side">
-          <div className="pk-card pk-energie">
-            <p className="pk-label">Plis en attente</p>
-            <div className="pk-attente">
-              <PlisEnAttente
-                charges={energie.charges}
-                capacite={energie.capacite}
-                jaquette={fascicule.manifeste.jaquette}
-                urlMedia={urlMedia}
-                progression={energie.progression}
-                restant={energie.restant}
-                grand
-              />
-              {/* Le compte à rebours vit dans le pli en pointillés ; plein, le temps s'arrête. */}
-              <small className={energie.charges < energie.capacite ? 'sr-only' : undefined}>{energie.texte}</small>
-            </div>
-            <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. Les plis ne limitent jamais les fusions.</p>
-          </div>
+          <CartePlisEnAttente energie={energie} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
           {lesChances && (
             <div className="pk-card">
               <p className="pk-label">Chances par rareté</p>
