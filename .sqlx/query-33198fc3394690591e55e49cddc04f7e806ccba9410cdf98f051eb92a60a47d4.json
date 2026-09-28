@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT fascicule_id, brique_id, resultat, regle, encre, ouvert_le FROM ouverture_pli\n         WHERE joueur_id = $1 ORDER BY ouvert_le DESC, id DESC LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fascicule_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "brique_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "resultat",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "regle",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "encre",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "ouvert_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "33198fc3394690591e55e49cddc04f7e806ccba9410cdf98f051eb92a60a47d4"
+}

@@ -7,6 +7,7 @@
 use chrono::{DateTime, Utc};
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::MotifPresque;
+use etymo_domaine::pli::{Regle, Resultat};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -54,6 +55,76 @@ pub struct Etat {
     pub reserve: Vec<Exemplaires>,
     /// Mots découverts, dans l'ordre de leur découverte.
     pub decouvertes: Vec<Decouverte>,
+    /// Charges de pli, à l'horloge du serveur (ADR 0020).
+    pub energie: EnergieEtat,
+    /// Gouttes d'encre détenues.
+    pub encre: u32,
+    /// Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro.
+    pub compteurs_plis: Vec<CompteurPli>,
+    /// Derniers plis ouverts, du plus récent au plus ancien.
+    pub historique_plis: Vec<OuverturePli>,
+}
+
+/// Énergie à l'instant de la réponse.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnergieEtat {
+    #[schema(minimum = 0, maximum = 2)]
+    pub charges: u8,
+    pub capacite: u8,
+    /// Retour de la prochaine charge ; `null` quand l'énergie est pleine : le temps s'arrête.
+    pub prochaine_charge: Option<DateTime<Utc>>,
+    /// Durée d'une recharge, en secondes.
+    pub recharge_s: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompteurPli {
+    pub fascicule_id: IdCatalogue,
+    /// Plis ouverts depuis la dernière brique nouvelle.
+    pub plis_sans_nouveaute: u32,
+    /// Plis consécutifs ouverts sans découverte possible.
+    pub plis_sans_utilite: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OuverturePli {
+    pub fascicule_id: IdCatalogue,
+    pub brique_id: IdCatalogue,
+    pub resultat: Resultat,
+    pub regle: Regle,
+    /// Gouttes gagnées.
+    pub encre: u32,
+    pub ouvert_le: DateTime<Utc>,
+}
+
+/// Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandePli {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    /// Version du catalogue dont le client a lu les chances.
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub fascicule_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponsePli {
+    pub ouverture: OuverturePli,
+    /// Exemplaires de la brique après le pli.
+    #[schema(minimum = 0, maximum = 5)]
+    pub exemplaires: u8,
+    /// Vrai si la brique était épuisée : « De retour ! ».
+    pub etait_epuisee: bool,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

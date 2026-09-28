@@ -5,8 +5,8 @@ export type { Onglet }
 
 const ONGLETS: { id: Onglet; libelle: string; icone: NomIcone }[] = [
   { id: 'table', libelle: 'Table', icone: 'table' },
-  { id: 'codex', libelle: 'Codex', icone: 'codex' },
   { id: 'plis', libelle: 'Plis', icone: 'pli' },
+  { id: 'codex', libelle: 'Codex', icone: 'codex' },
   { id: 'reglages', libelle: 'Réglages', icone: 'reglages' },
 ]
 
@@ -41,7 +41,7 @@ export function Navigation({ actif, compteurs, onChoisir }: Props) {
             <Icone nom={icone} />
             {libelle}
             {n > 0 && (
-              <span className="count" aria-label={`${n} nouveauté${n > 1 ? 's' : ''}`}>
+              <span className="count" aria-label={id === 'plis' ? `${n} pli${n > 1 ? 's' : ''} prêt${n > 1 ? 's' : ''}` : `${n} nouveauté${n > 1 ? 's' : ''}`}>
                 {n}
               </span>
             )}

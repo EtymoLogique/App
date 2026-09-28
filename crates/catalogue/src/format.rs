@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset};
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
 use serde::{Deserialize, Serialize};
 
 use crate::Chemin;
@@ -57,9 +58,9 @@ pub struct Manifeste {
     #[serde(default)]
     #[schema(value_type = Value)]
     pub compteurs: serde_json::Value,
+    /// Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011).
     #[serde(default)]
-    #[schema(value_type = Value)]
-    pub pli: serde_json::Value,
+    pub pli: PliManifeste,
     #[serde(default)]
     #[schema(value_type = Vec<Value>)]
     pub jalons: serde_json::Value,
@@ -108,6 +109,33 @@ pub struct Exclusion {
 pub enum Role {
     Resultat,
     Ingredient,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct PliManifeste {
+    #[serde(default)]
+    pub briques: Vec<BriquePliManifeste>,
+    /// Absent d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas.
+    #[serde(default)]
+    pub equilibrage: Option<EquilibrageManifeste>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BriquePliManifeste {
+    pub id: IdCatalogue,
+    pub unite_id: IdCatalogue,
+    /// Absente d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas.
+    #[serde(default)]
+    pub nature: Option<NaturePli>,
+    pub rarete: Rarete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct EquilibrageManifeste {
+    /// Version des paramètres, inscrite dans l'historique de chaque pli.
+    pub version: String,
+    #[serde(flatten)]
+    pub parametres: Equilibrage,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

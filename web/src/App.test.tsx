@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
-import type { ReponseFusion } from './contrat'
+import type { ReponseFusion, ReponsePli } from './contrat'
 import { ClientApi, ErreurApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { effacerPartie } from './services/local'
@@ -294,5 +294,36 @@ describe('table de fusion', () => {
     // Un autre tri repart dans l'ordre croissant.
     fireEvent.click(screen.getByRole('button', { name: 'A → Z' }))
     expect(window.location.hash).toBe('#/codex?tri=az')
+  })
+
+  it('ouvre le pli d’un fascicule et révèle la brique donnée par le serveur', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    const reponse: ReponsePli = {
+      ouverture: { fascicule_id: 'fsc_00000000', brique_id: GEO, resultat: 'doublon', regle: 'tirage', encre: 3, ouvert_le: '2026-10-02T10:00:00Z' },
+      exemplaires: 3,
+      etait_epuisee: false,
+      etat: etat({
+        version_etat: 2,
+        reserve: [ex(GEO, 3), ex(LOGIE, 1)],
+        encre: 3,
+        energie: { charges: 1, capacite: 2, prochaine_charge: '2026-10-02T22:00:00Z', recharge_s: 43_200 },
+      }),
+    }
+    const pli = vi.spyOn(api, 'pli').mockResolvedValue(reponse)
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    expect(window.location.hash).toBe('#/plis/fsc_00000000')
+    const pack = await screen.findByRole('button', { name: 'Ouvrir le pli du fascicule Essai' })
+    await act(async () => fireEvent.click(pack))
+    expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
+    expect(await screen.findByText('+1 exemplaire · ×3', undefined, { timeout: 3000 })).toBeInTheDocument()
+    expect(screen.getByText('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')).toHaveAttribute('role', 'status')
+    // Changer d'onglet garde l'atelier du fascicule choisi.
+    fireEvent.click(screen.getByRole('button', { name: /^Table/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
+    await waitFor(() => expect(window.location.hash).toBe('#/plis/fsc_00000000'))
+    delete document.documentElement.dataset.mouvement
   })
 })

@@ -1,0 +1,360 @@
+/*
+ * Plis (plis.html, maquettes I-19 à I-21) : repris d'etymo.css du dossier de
+ * conception, sections « Plis », « Rituel d'ouverture » et « Choix du
+ * fascicule ». Palette du pli : neutres et Ambre seulement (ADR 0016).
+ */
+
+.energy { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.energy svg { width: 60px; height: 60px; flex: none; overflow: visible; rotate: -90deg; }
+.ring-track { fill: none; stroke: var(--paper-2); stroke-width: 6; }
+.ring-edge { fill: none; stroke: var(--ink); stroke-width: 1; }
+.ring-fill { fill: none; stroke: var(--c-pli); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 163.36; stroke-dashoffset: 0; }
+.energy strong { display: block; font-family: var(--mono); font-size: 18px; }
+.energy small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
+.pk-layout { display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr) minmax(220px, 0.8fr); gap: 20px; align-items: start; }
+.pk-side { display: grid; gap: 20px; }
+.pk-card { padding: 20px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
+.pk-label { margin-bottom: 14px; color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+.pk-note { margin-top: 12px; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+.pk-pool { display: flex; flex-wrap: wrap; gap: 8px; min-height: 30px; }
+.pk-pool .bchip.missing { animation: poolPulse 2.4s ease-in-out infinite; }
+.pk-pool .bchip.missing:nth-child(2n) { animation-delay: -1.2s; }
+.pk-history { display: grid; gap: 8px; }
+.pk-hist-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; animation: eqIn 0.6s var(--ease-spring) both; }
+.pk-hist-item small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.pk-empty { color: var(--ink-3); font-size: 13px; }
+.pk-rules { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 13px; }
+.pk-rules li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+.pk-rules li::before { width: 8px; height: 8px; margin-top: 6px; background: var(--c-pli-deep); content: ""; rotate: 45deg; }
+.pk-stage {
+  position: relative; isolation: isolate;
+  display: grid; grid-template-areas: "main" "scribe" "status" "actions"; grid-template-rows: minmax(310px, 1fr) auto auto auto;
+  justify-items: center; align-items: center; gap: 10px;
+  min-height: 600px; padding: 32px 24px 28px; overflow: hidden;
+  border: 1.5px solid var(--line-strong); border-radius: 24px;
+  background: radial-gradient(circle at 50% 40%, rgba(244, 183, 64, 0.26), transparent 58%), var(--cream);
+  cursor: default;
+}
+.pk-stage[data-state="opening"] { cursor: pointer; }
+.pk-rays {
+  position: absolute; z-index: -1; top: 38%; left: 50%;
+  width: 980px; height: 980px; translate: -50% -50%;
+  background: repeating-conic-gradient(rgba(244, 183, 64, 0.3) 0deg 7deg, transparent 7deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  opacity: 0; transition: opacity 0.6s ease;
+  animation: spin 22s linear infinite;
+}
+.pk-stage.pk-writing .pk-rays { opacity: 0.35; animation-duration: 6s; }
+.pk-stage.pk-revealed .pk-rays { opacity: 1; }
+.pk-flash {
+  position: absolute; z-index: 3; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 38%, #fffbf3 0 12%, rgba(244, 183, 64, 0.85) 28%, rgba(252, 236, 198, 0.6) 45%, transparent 65%);
+  opacity: 0;
+}
+.pk-stage.pk-burst .pk-flash { animation: pkFlash 0.7s ease-out; }
+.pk-pack {
+  grid-area: main; position: relative;
+  width: 200px; height: 272px; padding: 0; border: 0;
+  background: none; cursor: pointer;
+  filter: drop-shadow(0 26px 30px rgba(15, 31, 25, 0.22));
+  animation: pkFloat 4s ease-in-out infinite;
+  transition: filter 0.4s, scale 0.4s var(--ease-spring);
+}
+.pk-pack:disabled { cursor: default; pointer-events: none; }
+.pk-pack:not(:disabled):hover { animation-play-state: paused; }
+.pk-half { position: absolute; inset: 0; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease 0.1s; }
+.pk-half.top { clip-path: inset(0 0 50% 0); }
+.pk-half.bottom { clip-path: inset(50% 0 0 0); }
+.pk-face {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 22px 12px;
+  border: 2px solid #0f1f19; border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(244, 183, 64, 0.35), transparent 52%),
+    repeating-linear-gradient(135deg, #fcecc6 0 12px, #fffbf3 12px 24px);
+  box-shadow: inset 0 0 0 7px #fffbf3, inset 0 0 0 8.5px #0f1f19;
+  color: #0f1f19; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.pk-top b { color: var(--c-pli-deep); font-weight: 700; }
+.pk-seal {
+  position: absolute; top: 50%; left: 50%; translate: -50% -50%;
+  display: grid; place-items: center;
+  width: 78px; height: 78px; border: 2px solid #0f1f19; border-radius: 50%;
+  background: var(--c-pli); color: #0f1f19;
+  box-shadow: 0 0 0 8px rgba(244, 183, 64, 0.18), 0 0 34px rgba(244, 183, 64, 0.5); /* identite: ok — halo Ambre du rituel, repris de plis.html */
+  font-family: var(--serif); font-size: 28px; font-weight: 700;
+  animation: sealPulse 2.4s ease-in-out infinite;
+  transition: transform 0.35s ease-out, opacity 0.35s ease-out;
+}
+.pk-stage.pk-charging .pk-pack { animation: pkShake 0.32s linear infinite; }
+.pk-stage.pk-writing .pk-pack { scale: 1.14; animation: pkTremble 0.09s linear infinite; filter: drop-shadow(0 0 34px rgba(244, 183, 64, 0.8)); } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+.pk-stage.pk-writing .pk-seal { animation: sealCharge 1.4s ease-in forwards; }
+.pk-stage.pk-burst .pk-pack { animation: none; pointer-events: none; }
+.pk-stage.pk-burst .pk-half.top { transform: translate(-40px, -190px) rotate(-22deg); opacity: 0; }
+.pk-stage.pk-burst .pk-half.bottom { transform: translate(40px, 190px) rotate(18deg); opacity: 0; }
+.pk-stage.pk-burst .pk-seal { transform: scale(2.6); opacity: 0; animation: none; }
+.pk-stage[data-state="recharging"] .pk-pack { opacity: 0.5; filter: grayscale(1) drop-shadow(0 26px 30px rgba(15, 31, 25, 0.15)); animation-play-state: paused; }
+.pk-stage[data-state="recharging"] .pk-seal { animation: none; box-shadow: none; }
+.pk-stage.pk-entering .pk-pack { animation: pkEnter 0.8s var(--ease-spring); }
+.pk-stage.pk-no-trans .pk-half, .pk-stage.pk-no-trans .pk-seal { transition: none; }
+.pk-glyph {
+  position: absolute; z-index: 4; top: 38%; left: 50%;
+  color: var(--c); font-family: var(--serif); font-size: var(--s, 22px); font-weight: 700;
+  pointer-events: none; text-shadow: 0 0 12px currentColor;
+  animation: fly 1.2s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+}
+.pk-scribe {
+  position: absolute; z-index: 2; top: 50%; left: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0;
+  width: 164px; height: 156px; padding: 8px 6px 14px; overflow: hidden;
+  border: 1.5px solid #0f1f19; border-radius: 12px;
+  background: radial-gradient(circle at 50% 80%, rgba(244, 183, 64, 0.22), transparent 70%), #fffbf3;
+  box-shadow: 0 0 0 5px rgba(255, 251, 243, 0.75), 0 0 24px rgba(244, 183, 64, 0.45); /* identite: ok — halo Ambre du rituel, repris de plis.html */
+  opacity: 0; transform: translate(-50%, -50%) scale(0.4);
+  pointer-events: none;
+  transition: opacity 0.18s ease-out, transform 0.32s var(--ease-spring);
+}
+.pk-scribe::before {
+  position: absolute; z-index: 1; inset: 0 0 auto; height: 34%;
+  background: linear-gradient(#fffbf3 10%, rgba(255, 251, 243, 0));
+  content: ""; pointer-events: none;
+}
+.pk-stage.pk-writing .pk-scribe { opacity: 1; transform: translate(-50%, -50%); animation: scribeCharge 1.4s ease-in forwards; }
+.pk-stage.pk-burst .pk-scribe { opacity: 0; transform: translate(-50%, -50%) scale(1.25); transition-duration: 0.22s; }
+.pk-stage.pk-writing .pk-seal { animation: none; opacity: 0; transform: scale(0.5); }
+.pk-tagline {
+  grid-area: scribe; z-index: 2; min-height: 36px;
+  color: var(--ink-3);
+  font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", "Brush Script MT", cursive;
+  font-size: 22px; line-height: 1.5; text-align: center;
+  animation: idleInk 3s ease-in-out infinite;
+  transition: opacity 0.25s;
+}
+.pk-stage:is(.pk-charging, .pk-writing, .pk-burst, .pk-revealed) .pk-tagline { opacity: 0; animation: none; }
+.pk-status { grid-area: status; z-index: 2; min-height: 22px; color: var(--ink-2); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+.pk-stage[data-state="opening"] .pk-status { color: var(--ink-3); animation: blink 1.2s steps(2) infinite; }
+.pk-actions { grid-area: actions; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.pk-odds { display: grid; gap: 6px; }
+.pk-odd { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.pk-odd b, .pk-brickodd b { color: var(--ink); font-family: var(--mono); font-size: 12px; }
+.pk-pity { height: 8px; overflow: hidden; border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-2); }
+.pk-pity i { display: block; width: 0; height: 100%; background: var(--c-pli); transition: width 0.6s var(--ease-out); }
+.pk-inkbox { display: flex; align-items: baseline; gap: 8px; }
+.pk-inkbox strong { font-family: var(--serif); font-size: 34px; line-height: 1; }
+.pk-inkbox small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; }
+.pk-drop { width: 14px; height: 14px; border: 1.5px solid #0f1f19; border-radius: 50% 0 50% 50%; background: var(--c-pli); rotate: -45deg; align-self: center; }
+.pk-hintbtn { width: 100%; margin-top: 14px; min-height: 40px; }
+.pk-glass { width: 16px; height: 20px; align-self: center; fill: var(--c-pli); stroke: var(--fixed-ink); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.pk-sandbtn { min-height: 44px; }
+.pk-pool { display: grid; gap: 6px; }
+.pk-brickodd { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 10px; }
+.pk-brickodd small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.pk-hist-item { display: grid; grid-template-columns: auto auto 1fr; }
+.pk-hist-item small { text-align: right; }
+.pk-hist-item.dup { opacity: 0.85; border-style: dashed; }
+.pk-rarity { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; animation: eqFade 0.4s ease-out 0.45s both; }
+.pk-rarity .rar { width: 22px; height: 22px; stroke-width: 1.2; }
+.pk-stage[data-rarity="legendaire"] .pk-rarity .rar { animation: rarGlint 1.6s var(--ease-out) 0.5s both; }
+.pk-ink { color: var(--c-pli-deep); font-family: var(--serif); font-size: 20px; font-style: italic; animation: eqFade 0.4s ease-out 0.55s both; }
+.pk-brick.is-dup { animation: pkDup 0.6s var(--ease-spring) both; }
+.pk-stage[data-rarity="rare"].pk-revealed .pk-rays { animation-duration: 10s; }
+.pk-stage[data-rarity="legendaire"].pk-revealed .pk-rays { animation-duration: 5s; opacity: 1; filter: saturate(1.6); }
+.pk-stage[data-rarity="legendaire"].pk-burst .pk-flash { animation-duration: 1.1s; }
+.pk-stage[data-rarity="legendaire"] .pk-kicker, .pk-stage[data-rarity="rare"] .pk-kicker { font-size: 16px; }
+.pk-reveal { grid-area: main; position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.pk-reveal[hidden] { display: none; }
+.pk-kicker { color: var(--c-pli-deep); font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; animation: eqFade 0.4s ease-out 0.35s both; }
+.pk-brick { padding: 18px 26px; cursor: default; box-shadow: 6px 6px 0 #0f1f19; animation: pkLand 0.75s var(--ease-spring) both; }
+.pk-brick .b-label { font-size: clamp(44px, 6vw, 64px); line-height: 1; }
+.pk-brick .b-meta { font-size: 12px; }
+.pk-origin { color: var(--ink-2); font-family: var(--serif); font-size: 18px; font-style: italic; animation: eqFade 0.4s ease-out 0.5s both; }
+@media (max-width: 1100px) {
+  .pk-layout { grid-template-columns: 1fr 1fr; }
+  .pk-stage { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 760px) {
+  .pk-layout { grid-template-columns: 1fr; }
+  .pk-stage { min-height: 540px; padding: 24px 14px; }
+  .pk-rays { width: 640px; height: 640px; }
+}
+.pk-pack { width: 236px; height: 320px; }
+.pk-face { padding: 20px 12px; background: #fffbf3; }
+.pk-top { letter-spacing: 0.08em; }
+.pk-art {
+  position: absolute; inset: 9px; overflow: hidden;
+  border-radius: 10px; background: #fcecc6;
+}
+.pk-art svg, .jk-art svg { display: block; width: 100%; height: 100%; }
+.pk-top, .pk-bottom {
+  position: relative; z-index: 1; max-width: calc(100% - 12px);
+  padding: 3px 8px; border: 1px solid #0f1f19; border-radius: 999px;
+  background: #fffbf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pk-bottom { font-size: 8px; }
+.pk-brand {
+  display: inline-grid; place-items: center; width: 13px; height: 13px; margin: -2px 5px 0 0;
+  border: 1px solid #0f1f19; border-radius: 3.5px; background: #fffbf3; color: #0f1f19;
+  font-family: var(--serif); font-size: 6px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+  vertical-align: middle; rotate: -6deg;
+}
+.pk-stage[data-state="recharging"] .pk-pack { opacity: 1; filter: none; animation: none; transform: rotate(-2deg); }
+.pk-stage[data-state="recharging"] .pk-face {
+  border-style: dashed; border-color: var(--ink-3);
+  background: repeating-linear-gradient(135deg, #e8dfcc 0 8px, #fffbf3 8px 16px);
+  box-shadow: none;
+}
+.pk-stage[data-state="recharging"] .pk-art { opacity: 0; }
+.pk-stage[data-state="recharging"] .pk-top, .pk-stage[data-state="recharging"] .pk-bottom { border-style: dashed; color: #5c6b62; }
+.pk-stage[data-state="recharging"] .pk-seal { border-style: dashed; background: #fffbf3; color: #5c6b62; }
+.pk-chooser[hidden], .pk-current[hidden], .pk-layout[hidden] { display: none; }
+.pk-chooser-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 32px; align-items: end; margin-bottom: 24px; }
+.pk-chooser-head .pk-label { margin-bottom: 8px; }
+.pk-fasc-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.pk-fasc {
+  display: grid; grid-template-columns: 112px 1fr; gap: 18px; align-items: center; padding: 18px;
+  border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); color: var(--ink);
+  cursor: pointer; font: inherit; text-align: left;
+  transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
+}
+button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 var(--pop-shadow); }
+.pk-fasc:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.pk-fasc.is-next { border-style: dashed; background: transparent; cursor: default; }
+.pk-fasc .jk-mini { max-width: 112px; }
+.pk-fasc-info { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.pk-fasc-info b { color: var(--ink); font-family: var(--serif); font-size: 24px; line-height: 1.1; }
+.pk-fasc-k { color: var(--c-pli-deep); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+:root[data-theme="nocturne"] .pk-fasc-k { color: var(--c-pli); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pk-fasc-k { color: var(--c-pli); } }
+.pk-fasc-go { margin-top: 6px; color: var(--c-action-deep); font-weight: 700; }
+:root[data-theme="nocturne"] .pk-fasc-go { color: var(--c-action); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pk-fasc-go { color: var(--c-action); } }
+.pk-current { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding: 12px 16px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.pk-current p { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.pk-current .pk-label { margin: 0; }
+.pk-current b { font-family: var(--serif); font-size: 20px; }
+@media (max-width: 760px) {
+  .pk-chooser-head { grid-template-columns: 1fr; gap: 12px; }
+  .pk-fasc-list { grid-template-columns: 1fr; }
+  .pk-fasc { grid-template-columns: 84px 1fr; gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .pk-fasc { transition: none; } }
+.sc-line {
+  position: relative; display: block; flex: none;
+  color: var(--ink);
+  font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", "Brush Script MT", cursive;
+  font-size: 24px; line-height: 1.3; white-space: nowrap;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.sc-line.old { opacity: 0.45; transform: scale(0.84); }
+.sc-line::after {
+  position: absolute; top: 55%; right: -8px; left: -8px;
+  height: 2.5px; border-radius: 2px; background: var(--c-action);
+  content: ""; rotate: -4deg;
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform 0.14s ease-out;
+}
+.sc-line.struck::after { transform: scaleX(1); }
+.sc-line.final { color: var(--ink); font-family: var(--serif); font-size: 26px; font-weight: 700; }
+.sc-line.final::after { display: none; }
+.sc-line.inked { text-shadow: 0 0 18px rgba(244, 183, 64, 0.9); } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+.sc-line.sc-brick {
+  margin-top: 6px; padding: 0 10px 2px;
+  border: 2px solid #0f1f19; border-radius: 9px;
+  background: var(--c-prefix); color: #0f1f19;
+  box-shadow: 3px 3px 0 #0f1f19;
+  font-size: 24px; text-shadow: none;
+}
+.sc-line.sc-brick[data-kind="suffixe"] { background: var(--c-suffix); }
+.sc-line.sc-brick.inked { box-shadow: 3px 3px 0 #0f1f19, 0 0 30px rgba(244, 183, 64, 0.85); } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+.sc-brick .sc-ch.flick { color: #0f1f19; opacity: 0.35; }
+.sc-brick .sc-caret { background: #0f1f19; }
+.sc-ch { display: inline-block; animation: inkIn 0.16s ease-out; }
+.sc-ch.flick { color: var(--c-pli-deep); opacity: 0.85; }
+@keyframes inkIn { from { opacity: 0; transform: translateY(-6px) scale(1.4); filter: blur(2px); } }
+.sc-caret { display: inline-block; width: 2px; height: 0.9em; margin-left: 3px; background: var(--c-pli-deep); vertical-align: -0.08em; animation: blink 0.5s steps(2) infinite; }
+
+@keyframes inkIn { from { opacity: 0; transform: translateY(-6px) scale(1.4); filter: blur(2px); } }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes poolPulse { 50% { border-color: var(--c-pli-deep); color: var(--c-pli-deep); } }
+@keyframes pkFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes pkFloat { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-14px) rotate(2deg); } }
+@keyframes sealPulse { 50% { box-shadow: 0 0 0 14px rgba(244, 183, 64, 0.1), 0 0 48px rgba(244, 183, 64, 0.7); } } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+@keyframes pkShake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-5px, 2px) rotate(-3deg); }
+  40% { transform: translate(5px, -2px) rotate(3deg); }
+  60% { transform: translate(-4px, -1px) rotate(-2deg); }
+  80% { transform: translate(4px, 1px) rotate(2deg); }
+}
+@keyframes pkTremble { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-1.5px, 1px); } 75% { transform: translate(1.5px, -1px); } }
+@keyframes sealCharge { to { transform: scale(1.3); box-shadow: 0 0 0 22px rgba(244, 183, 64, 0.2), 0 0 90px var(--c-pli); } } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+@keyframes pkEnter { from { opacity: 0; transform: translateY(80px) scale(0.6) rotate(10deg); } }
+@keyframes scribeCharge { to { box-shadow: 0 0 0 7px rgba(255, 251, 243, 0.8), 0 0 70px var(--c-pli); } } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+@keyframes idleInk { 50% { opacity: 0.45; } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes rarGlint { 0% { transform: scale(0) rotate(-40deg); } 55% { transform: scale(1.35) rotate(8deg); filter: drop-shadow(0 0 8px var(--c-pli)); } 100% { transform: none; filter: drop-shadow(0 0 3px var(--c-pli)); } } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+@keyframes pkDup { 0% { opacity: 0; transform: scale(0.7); } 60% { opacity: 1; transform: scale(1.05) rotate(2deg); } 100% { transform: rotate(-2deg); } }
+@keyframes pkLand {
+  0% { opacity: 0; transform: translateY(-80px) scale(0.3) rotate(-28deg); }
+  60% { opacity: 1; transform: translateY(10px) scale(1.12) rotate(4deg); }
+  100% { transform: rotate(-2deg); }
+}
+
+/* ---------- Ajustements de l'application ---------- */
+.pk-ecran { display: grid; gap: 20px; }
+.pk-fasc-list { margin-top: 4px; }
+.pk-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pk-odd .rar, .pk-brickodd .rar { width: 14px; height: 14px; }
+.pk-type { width: 11px; height: 11px; border: 1px solid var(--fixed-ink); border-radius: 3px; background: var(--c); }
+.pk-unknown { color: var(--ink-3); font-family: var(--mono); letter-spacing: 0.2em; }
+.pk-energy-count { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .pk-pack, .pk-seal, .pk-rays, .pk-tagline, .pk-hist-item, .pk-pool .bchip.missing,
+  .pk-kicker, .pk-brick, .pk-rarity, .pk-origin, .pk-ink { animation: none; }
+}
+:root[data-mouvement="reduit"] :is(.pk-pack, .pk-seal, .pk-rays, .pk-tagline, .pk-hist-item, .pk-kicker, .pk-brick, .pk-rarity, .pk-origin, .pk-ink) { animation: none; }
+
+/* Sections repliables de l'atelier : le libellé sert de bouton. */
+.pk-card > summary.pk-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; cursor: pointer; list-style: none; }
+.pk-card > summary.pk-label::-webkit-details-marker { display: none; }
+.pk-card > summary.pk-label::after { content: "›"; font-size: 16px; line-height: 1; rotate: 90deg; }
+.pk-card:not([open]) > summary.pk-label { margin-bottom: 0; }
+.pk-card:not([open]) > summary.pk-label::after { rotate: 0deg; }
+.pk-card > summary.pk-label:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* Plis en attente, en petit, à côté du compteur d'énergie. */
+.pk-ready { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pk-waiting { display: inline-flex; gap: 6px; }
+.pk-waiting .jk-mini.is-xs { width: 28px; rotate: none; }
+.pk-waiting.is-grand { gap: 12px; }
+.pk-waiting.is-grand .jk-mini.is-xs { width: 64px; border-width: 2px; border-radius: 8px; box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19; }
+.pk-waiting.is-grand .jk-mini.is-xs .jk-art { inset: 5px; border-radius: 5px; }
+.pk-waiting.is-grand .jk-mini.is-empty { box-shadow: none; }
+/* Pli en recharge : fond uni Crème sous ses pointillés. */
+.pk-waiting .jk-mini.is-empty { background: var(--cream); }
+/* Recharge en cours : un petit anneau au cœur du premier pli en pointillés. */
+.pk-recharge { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.pk-recharge svg { width: 62%; overflow: visible; rotate: -90deg; }
+.pk-recharge .ring-track, .pk-recharge .ring-fill { stroke-width: 7; }
+.pk-recharge .ring-track { stroke: var(--line); }
+.pk-restant { color: var(--ink-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; line-height: 1; }
+.pk-attente { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.pk-attente small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
+.pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }
+
+/* Mobile : l'énergie passe au-dessus du pli, le reste de l'atelier dessous. */
+@media (max-width: 760px) {
+  .pk-layout .pk-side { display: contents; }
+  .pk-layout .pk-stage { order: -1; }
+}
+
+/* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */
+.pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 20px; }
+.pk-chooser-head .pk-note { margin-top: 0; }
+.pk-chooser > .pk-energie { margin-bottom: 20px; }
+/* Atelier : l’écart vient de la grille (20 px), pas des marges. */
+.pk-ecran > .pk-current { margin-bottom: 0; }

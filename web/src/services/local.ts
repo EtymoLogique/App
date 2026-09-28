@@ -13,11 +13,26 @@ function stockage(): UseStore {
   return magasin
 }
 
+/**
+ * Complète un état antérieur aux plis (projection locale ou API pas encore à
+ * jour) : énergie inconnue, sans charge, jusqu'à une réponse complète.
+ */
+export function completerEtat(etat: Etat): Etat {
+  return {
+    ...etat,
+    energie: etat.energie ?? { charges: 0, capacite: 2, prochaine_charge: null, recharge_s: 43_200 },
+    encre: etat.encre ?? 0,
+    compteurs_plis: etat.compteurs_plis ?? [],
+    historique_plis: etat.historique_plis ?? [],
+  }
+}
+
 export async function etatConfirme(): Promise<Etat | null> {
   const etat: unknown = await get('etat', stockage())
   if (typeof etat !== 'object' || etat === null) return null
   const { version_etat, reserve, decouvertes } = etat as Partial<Etat>
-  return typeof version_etat === 'number' && Array.isArray(reserve) && Array.isArray(decouvertes) ? (etat as Etat) : null
+  if (typeof version_etat !== 'number' || !Array.isArray(reserve) || !Array.isArray(decouvertes)) return null
+  return completerEtat(etat as Etat)
 }
 
 export function memoriserEtat(etat: Etat): Promise<void> {

@@ -1,10 +1,10 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { Codex } from './composants/Codex'
-import { Fascicules } from './composants/Fascicules'
 import { Fiche } from './composants/Fiche'
 import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
+import { Plis } from './composants/Plis'
 import { Reglages } from './composants/Reglages'
 import { Reserve } from './composants/Reserve'
 import { Resultat } from './composants/Resultat'
@@ -16,6 +16,8 @@ import { TABLE_MIN, decouvertePossible } from './services/jeu'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
 import { useRoute } from './services/route'
+import { useMaintenant } from './services/horloge'
+import { energieA } from './services/plis'
 import { useEnLigne } from './services/reseau'
 
 interface Props {
@@ -40,8 +42,19 @@ export function App({ api, catalogue }: Props) {
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
   const [route, naviguer] = useRoute()
   const onglet = route.onglet
-  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, plus: false }), [naviguer])
+  // Changer d'onglet conserve l'état de chaque écran (interfaces, règle 01) : l'atelier du pli choisi reste ouvert.
+  const dernierPli = useRef<string | null>(null)
+  useEffect(() => {
+    if (route.onglet === 'plis') dernierPli.current = route.pli
+  }, [route.onglet, route.pli])
+  const setOnglet = useCallback(
+    (o: Onglet) => naviguer({ onglet: o, carte: null, pli: o === 'plis' ? dernierPli.current : null, plus: false }),
+    [naviguer],
+  )
   const { jeu, etat } = partie
+  // Plis prêts : compteur de l'onglet, rafraîchi quand une charge revient.
+  const maintenant = useMaintenant()
+  const plisPrets = etat ? energieA(etat.energie, maintenant).charges : 0
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
   const entrees = useMemo(
     () => (catalogueJeu ? construireCodex(catalogueJeu, etat) : []),
@@ -86,7 +99,7 @@ export function App({ api, catalogue }: Props) {
 
   return (
     <div className="coque">
-      <Navigation actif={onglet} compteurs={{ codex: partie.nouvelles.size }} onChoisir={setOnglet} />
+      <Navigation actif={onglet} compteurs={{ codex: partie.nouvelles.size, plis: plisPrets }} onChoisir={setOnglet} />
 
       <div className="contenu">
         <main className="page">
@@ -241,12 +254,15 @@ export function App({ api, catalogue }: Props) {
 
               <section {...ecran('plis')}>
                 <EnTete titre="Plis" id="titre-plis" />
-                <p className="banniere">
-                  <Icone nom="info" />
-                  <span>L’ouverture des plis arrive bientôt. Vos briques restent toutes jouables sur la table.</span>
-                </p>
-                <h2>Fascicules parus</h2>
-                <Fascicules parus={catalogueJeu.fascicules} catalogue={catalogue} />
+                <Plis
+                  jeu={catalogueJeu}
+                  etat={etat}
+                  fascicule={route.pli}
+                  onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
+                  ouvrirPli={partie.ouvrirPli}
+                  onEssayer={() => setOnglet('table')}
+                  urlMedia={(chemin) => catalogue.url(chemin)}
+                />
               </section>
 
               {fiche && (

@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeFusion, Erreur, Etat, ReponseFusion, Sante, Session } from '../contrat'
+import type { DemandeFusion, DemandePli, Erreur, Etat, ReponseFusion, ReponsePli, Sante, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -86,6 +86,15 @@ export class ClientApi {
   /** Tente une fusion. Un `409` (état ou catalogue périmé) impose une resynchronisation. */
   fusion(demande: DemandeFusion): Promise<ReponseFusion> {
     return this.authentifie('/fusion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Ouvre le pli d'un fascicule : le serveur tire la brique. `403` sans charge, `409` si l'état est périmé. */
+  pli(demande: DemandePli): Promise<ReponsePli> {
+    return this.authentifie('/pli', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

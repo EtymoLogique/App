@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat } from '../contrat'
+import type { Etat, ReponsePli } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
 import { type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir } from './jeu'
-import { etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
+import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
 
@@ -68,7 +68,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const actif = useRef(true)
   const restauree = useRef(false)
 
-  const confirmer = useCallback((nouvel: Etat) => {
+  const confirmer = useCallback((recu: Etat) => {
+    const nouvel = completerEtat(recu)
     setEtat(nouvel)
     setTable((t) => tableValide(t, nouvel))
     void memoriserEtat(nouvel)
@@ -206,9 +207,44 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     }
   }, [api, jeu, etat, cases, confirmer, synchroniser])
 
+  /**
+   * Ouvre le pli d'un fascicule (ADR 0011) : le serveur tire la brique. Rien
+   * n'est annoncé avant sa réponse ; une erreur n'est jamais un succès local.
+   */
+  const ouvrirPli = useCallback(
+    async (fascicule: string): Promise<ReponsePli | { erreur: string }> => {
+      if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
+      try {
+        const reponse = await api.pli({
+          commande: crypto.randomUUID(),
+          version_etat: etat.version_etat,
+          version_catalogue: jeu.valeur.version,
+          fascicule_id: fascicule,
+        })
+        confirmer(reponse.etat)
+        // Une brique nouvelle entre au codex : sa carte se signale en Corail jusqu'à ce qu'on l'ouvre.
+        const unite = jeu.valeur.briques.get(reponse.ouverture.brique_id)?.uniteId
+        if (reponse.ouverture.resultat === 'nouvelle' && unite) setNouvelles((n) => new Set(n).add(unite))
+        return reponse
+      } catch (e) {
+        if (e instanceof ErreurApi && e.statut === 409) {
+          await synchroniser()
+          return { erreur: 'Votre partie a changé entre-temps. Elle est à jour : réessayez.' }
+        }
+        if (e instanceof ErreurApi && e.statut === 403) {
+          await synchroniser()
+          return { erreur: 'Aucun pli n’est prêt pour le moment.' }
+        }
+        return { erreur: message(e) }
+      }
+    },
+    [api, jeu, etat, confirmer, synchroniser],
+  )
+
   return {
     jeu,
     etat,
+    ouvrirPli,
     erreurEtat,
     table,
     cases,

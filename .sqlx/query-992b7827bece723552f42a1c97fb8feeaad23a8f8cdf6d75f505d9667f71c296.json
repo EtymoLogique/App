@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT charges, prochaine_charge FROM energie WHERE joueur_id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "charges",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "prochaine_charge",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "992b7827bece723552f42a1c97fb8feeaad23a8f8cdf6d75f505d9667f71c296"
+}

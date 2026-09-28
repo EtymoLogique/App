@@ -142,6 +142,102 @@
         ]
       }
     },
+    "/pli": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Ouvre le pli d'un fascicule paru (ADR 0011, 0012, 0016, 0019, 0020). Le\nserveur fait foi : il consomme une charge, tire la brique avec un aléa\ncryptographique, applique la garantie de nouveauté ou le filet d'utilité,\ncrédite l'exemplaire et l'encre, dans une seule transaction idempotente.",
+        "operationId": "ouvrir_pli",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandePli"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Brique tirée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponsePli"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou fascicule sans pli",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aucune charge d'énergie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/sante": {
       "get": {
         "tags": [
@@ -350,6 +446,36 @@
           }
         }
       },
+      "BriquePliManifeste": {
+        "type": "object",
+        "required": [
+          "id",
+          "unite_id",
+          "rarete"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "nature": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NaturePli",
+                "description": "Absente d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rarete": {
+            "$ref": "#/components/schemas/Rarete"
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
       "Calendrier": {
         "type": "object",
         "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
@@ -549,6 +675,32 @@
           }
         }
       },
+      "CompteurPli": {
+        "type": "object",
+        "required": [
+          "fascicule_id",
+          "plis_sans_nouveaute",
+          "plis_sans_utilite"
+        ],
+        "properties": {
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "plis_sans_nouveaute": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis ouverts depuis la dernière brique nouvelle.",
+            "minimum": 0
+          },
+          "plis_sans_utilite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis consécutifs ouverts sans découverte possible.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "Confiance": {
         "type": "string",
         "enum": [
@@ -622,6 +774,37 @@
         },
         "additionalProperties": false
       },
+      "DemandePli": {
+        "type": "object",
+        "description": "Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "fascicule_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandeSession": {
         "type": "object",
         "description": "Ouverture ou renouvellement de la session d'un profil invité.\n\nLe client génère une fois pour toutes l'identifiant d'installation et le\nsecret, et les garde dans son stockage local. Le serveur n'en garde que\nl'empreinte. Aucune donnée personnelle n'est demandée.",
@@ -665,6 +848,43 @@
           }
         }
       },
+      "EnergieEtat": {
+        "type": "object",
+        "description": "Énergie à l'instant de la réponse.",
+        "required": [
+          "charges",
+          "capacite",
+          "recharge_s"
+        ],
+        "properties": {
+          "capacite": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "charges": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 2,
+            "minimum": 0
+          },
+          "prochaine_charge": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Retour de la prochaine charge ; `null` quand l'énergie est pleine : le temps s'arrête."
+          },
+          "recharge_s": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée d'une recharge, en secondes.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "EntreeFascicule": {
         "type": "object",
         "required": [
@@ -686,6 +906,114 @@
             "format": "date-time"
           }
         }
+      },
+      "Equilibrage": {
+        "type": "object",
+        "description": "Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009).",
+        "required": [
+          "poids_raretes",
+          "base_encre",
+          "encre_doublon",
+          "encre_reserve_pleine",
+          "garantie_nouveaute",
+          "filet_utilite"
+        ],
+        "properties": {
+          "base_encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes rapportées par tout pli (ADR 0020).",
+            "minimum": 0
+          },
+          "encre_doublon": {
+            "type": "object",
+            "description": "Gouttes en plus pour un doublon sous le plafond (ADR 0019).",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          },
+          "encre_reserve_pleine": {
+            "type": "object",
+            "description": "Gouttes en plus quand la réserve est pleine (ADR 0011).",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          },
+          "filet_utilite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Une brique utile au plus tard à ce pli consécutif sans découverte possible.",
+            "minimum": 0
+          },
+          "garantie_nouveaute": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Une brique nouvelle au plus tard à ce pli après la dernière nouveauté.",
+            "minimum": 0
+          },
+          "poids_raretes": {
+            "type": "object",
+            "description": "Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est\nproportionnelle au poids de sa seule rareté (ADR 0035).",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          }
+        }
+      },
+      "EquilibrageManifeste": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Equilibrage"
+          },
+          {
+            "type": "object",
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "description": "Version des paramètres, inscrite dans l'historique de chaque pli."
+              }
+            }
+          }
+        ]
       },
       "Erreur": {
         "type": "object",
@@ -710,15 +1038,43 @@
         "required": [
           "version_etat",
           "reserve",
-          "decouvertes"
+          "decouvertes",
+          "energie",
+          "encre",
+          "compteurs_plis",
+          "historique_plis"
         ],
         "properties": {
+          "compteurs_plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompteurPli"
+            },
+            "description": "Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro."
+          },
           "decouvertes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Decouverte"
             },
             "description": "Mots découverts, dans l'ordre de leur découverte."
+          },
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes d'encre détenues.",
+            "minimum": 0
+          },
+          "energie": {
+            "$ref": "#/components/schemas/EnergieEtat",
+            "description": "Charges de pli, à l'horloge du serveur (ADR 0020)."
+          },
+          "historique_plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OuverturePli"
+            },
+            "description": "Derniers plis ouverts, du plus récent au plus ancien."
           },
           "reserve": {
             "type": "array",
@@ -1125,7 +1481,10 @@
             "type": "string",
             "format": "date-time"
           },
-          "pli": {},
+          "pli": {
+            "$ref": "#/components/schemas/PliManifeste",
+            "description": "Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011)."
+          },
           "recettes": {
             "type": "array",
             "items": {
@@ -1151,6 +1510,51 @@
           "prefixe",
           "suffixe"
         ]
+      },
+      "NaturePli": {
+        "type": "string",
+        "description": "Nature d'une brique tirable : préfixe, suffixe ou mot posé tel quel.",
+        "enum": [
+          "prefixe",
+          "suffixe",
+          "mot"
+        ]
+      },
+      "OuverturePli": {
+        "type": "object",
+        "required": [
+          "fascicule_id",
+          "brique_id",
+          "resultat",
+          "regle",
+          "encre",
+          "ouvert_le"
+        ],
+        "properties": {
+          "brique_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes gagnées.",
+            "minimum": 0
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "ouvert_le": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "regle": {
+            "$ref": "#/components/schemas/Regle"
+          },
+          "resultat": {
+            "$ref": "#/components/schemas/Resultat"
+          }
+        },
+        "additionalProperties": false
       },
       "Partie": {
         "type": "object",
@@ -1194,8 +1598,31 @@
           }
         }
       },
+      "PliManifeste": {
+        "type": "object",
+        "properties": {
+          "briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriquePliManifeste"
+            }
+          },
+          "equilibrage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EquilibrageManifeste",
+                "description": "Absent d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "Rarete": {
         "type": "string",
+        "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
         "enum": [
           "commune",
           "peu_commune",
@@ -1244,6 +1671,15 @@
             "$ref": "#/components/schemas/IdCatalogue"
           }
         }
+      },
+      "Regle": {
+        "type": "string",
+        "description": "Règle qui a décidé de la brique tirée.",
+        "enum": [
+          "tirage",
+          "garantie",
+          "filet"
+        ]
       },
       "RelationCarte": {
         "type": "object",
@@ -1297,6 +1733,45 @@
           }
         },
         "additionalProperties": false
+      },
+      "ReponsePli": {
+        "type": "object",
+        "required": [
+          "ouverture",
+          "exemplaires",
+          "etait_epuisee",
+          "etat"
+        ],
+        "properties": {
+          "etait_epuisee": {
+            "type": "boolean",
+            "description": "Vrai si la brique était épuisée : « De retour ! »."
+          },
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "exemplaires": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Exemplaires de la brique après le pli.",
+            "maximum": 5,
+            "minimum": 0
+          },
+          "ouverture": {
+            "$ref": "#/components/schemas/OuverturePli"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Resultat": {
+        "type": "string",
+        "description": "Ce que la brique tirée apporte à la réserve.",
+        "enum": [
+          "nouvelle",
+          "doublon",
+          "reserve_pleine"
+        ]
       },
       "Role": {
         "type": "string",

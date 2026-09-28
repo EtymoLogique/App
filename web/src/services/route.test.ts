@@ -4,7 +4,7 @@ import { ROUTE_PAR_DEFAUT, ecrireRoute, lireRoute } from './route'
 
 describe('route', () => {
   it('écrit puis relit la même vue du codex', () => {
-    const route = { onglet: 'codex' as const, carte: 'unt_dg3f1bfz', plus: true, vue: 'familles' as const, filtre: 'mot' as const, tri: 'az' as const, inverse: true, fascicule: 0 }
+    const route = { onglet: 'codex' as const, carte: 'unt_dg3f1bfz', pli: null, plus: true, vue: 'familles' as const, filtre: 'mot' as const, tri: 'az' as const, inverse: true, fascicule: 0 }
     expect(ecrireRoute(route)).toBe('#/codex/unt_dg3f1bfz?vue=familles&type=mot&tri=az&sens=inverse&fascicule=0&plus=1')
     expect(lireRoute(ecrireRoute(route))).toEqual(route)
   })
@@ -19,5 +19,11 @@ describe('route', () => {
     expect(lireRoute('#/ailleurs')).toEqual(ROUTE_PAR_DEFAUT)
     expect(lireRoute('#/codex/<script>?vue=z&type=x&tri=y&fascicule=-1')).toEqual({ ...ROUTE_PAR_DEFAUT, onglet: 'codex' })
     expect(lireRoute('#/plis')).toEqual({ ...ROUTE_PAR_DEFAUT, onglet: 'plis' })
+  })
+
+  it('ouvre l’atelier du pli d’un fascicule', () => {
+    expect(lireRoute('#/plis/fsc_qcnkaf5m')).toEqual({ ...ROUTE_PAR_DEFAUT, onglet: 'plis', pli: 'fsc_qcnkaf5m' })
+    expect(ecrireRoute({ ...ROUTE_PAR_DEFAUT, onglet: 'plis', pli: 'fsc_qcnkaf5m' })).toBe('#/plis/fsc_qcnkaf5m')
+    expect(lireRoute('#/plis/unt_dg3f1bfz').pli).toBeNull()
   })
 })

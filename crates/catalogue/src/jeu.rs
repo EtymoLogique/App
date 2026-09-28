@@ -5,8 +5,9 @@ use std::collections::HashSet;
 
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
+use etymo_domaine::pli::{self, BriquePli};
 
-use crate::{FasciculeCharge, Graine};
+use crate::{EquilibrageManifeste, FasciculeCharge, Graine};
 
 #[derive(Debug, Clone, Default)]
 pub struct Jeu {
@@ -16,6 +17,24 @@ pub struct Jeu {
     pub briques: HashSet<IdCatalogue>,
     /// Graines de chaque fascicule paru, par identifiant de fascicule.
     pub graines: Vec<(IdCatalogue, Vec<Graine>)>,
+    /// Pli de chaque fascicule paru.
+    pub plis: Vec<PliJeu>,
+}
+
+/// Le pli d'un fascicule : ses briques tirables et son équilibrage.
+#[derive(Debug, Clone)]
+pub struct PliJeu {
+    pub fascicule_id: IdCatalogue,
+    pub briques: Vec<BriquePli>,
+    /// Absent d'un manifeste antérieur à l'équilibrage : ce pli ne s'ouvre pas.
+    pub equilibrage: Option<EquilibrageManifeste>,
+}
+
+impl Jeu {
+    #[must_use]
+    pub fn pli(&self, fascicule: &IdCatalogue) -> Option<&PliJeu> {
+        self.plis.iter().find(|p| &p.fascicule_id == fascicule)
+    }
 }
 
 impl Jeu {
@@ -42,18 +61,27 @@ impl Jeu {
                     combinaison: e.combinaison.clone(),
                     raison: e.raison.clone(),
                 }));
-            if let Some(briques) = fascicule
-                .manifeste
-                .pli
-                .get("briques")
-                .and_then(|b| b.as_array())
-            {
-                jeu.briques.extend(
-                    briques
-                        .iter()
-                        .filter_map(|b| b.get("id")?.as_str()?.parse::<IdCatalogue>().ok()),
-                );
-            }
+            let pli = &fascicule.manifeste.pli;
+            jeu.briques.extend(pli.briques.iter().map(|b| b.id.clone()));
+            // Un pli ne s'ouvre qu'avec son équilibrage et la nature de chaque
+            // brique ; il ne tire jamais un mot (ADR 0035).
+            let briques: Option<Vec<BriquePli>> = pli
+                .briques
+                .iter()
+                .map(|b| {
+                    Some(BriquePli {
+                        id: b.id.clone(),
+                        nature: b.nature?,
+                        rarete: b.rarete,
+                    })
+                })
+                .collect::<Option<Vec<_>>>()
+                .map(|v| v.into_iter().filter(pli::tirable).collect());
+            jeu.plis.push(PliJeu {
+                fascicule_id: fascicule.manifeste.id.clone(),
+                equilibrage: pli.equilibrage.clone().filter(|_| briques.is_some()),
+                briques: briques.unwrap_or_default(),
+            });
             jeu.briques.extend(
                 fascicule
                     .manifeste

@@ -20,14 +20,8 @@ pub enum Nature {
     Suffixe,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Rarete {
-    Commune,
-    PeuCommune,
-    Rare,
-    Legendaire,
-}
+/// La rareté est une règle de jeu : elle vit dans le domaine.
+pub use etymo_domaine::pli::Rarete;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Carte {

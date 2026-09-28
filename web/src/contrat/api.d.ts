@@ -47,6 +47,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pli": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvre le pli d'un fascicule paru (ADR 0011, 0012, 0016, 0019, 0020). Le
+         *     serveur fait foi : il consomme une charge, tire la brique avec un aléa
+         *     cryptographique, applique la garantie de nouveauté ou le filet d'utilité,
+         *     crédite l'exemplaire et l'encre, dans une seule transaction idempotente.
+         */
+        post: operations["ouvrir_pli"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sante": {
         parameters: {
             query?: never;
@@ -112,6 +134,12 @@ export interface components {
             rarete: components["schemas"]["Rarete"];
             sens_affiche_id: components["schemas"]["IdCatalogue"];
         };
+        BriquePliManifeste: {
+            id: components["schemas"]["IdCatalogue"];
+            nature?: components["schemas"]["NaturePli"] | null;
+            rarete: components["schemas"]["Rarete"];
+            unite_id: components["schemas"]["IdCatalogue"];
+        };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
@@ -158,6 +186,19 @@ export interface components {
             preferee?: boolean;
             transformations?: components["schemas"]["Transformation"][];
         };
+        CompteurPli: {
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            /**
+             * Format: int32
+             * @description Plis ouverts depuis la dernière brique nouvelle.
+             */
+            plis_sans_nouveaute: number;
+            /**
+             * Format: int32
+             * @description Plis consécutifs ouverts sans découverte possible.
+             */
+            plis_sans_utilite: number;
+        };
         /** @enum {string} */
         Confiance: "etablie" | "probable" | "discutee" | "non_retenue";
         Decouverte: {
@@ -189,6 +230,22 @@ export interface components {
              */
             version_etat: number;
         };
+        /** @description Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi. */
+        DemandePli: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /**
          * @description Ouverture ou renouvellement de la session d'un profil invité.
          *
@@ -210,12 +267,66 @@ export interface components {
             /** Format: int32 */
             rang: number;
         };
+        /** @description Énergie à l'instant de la réponse. */
+        EnergieEtat: {
+            /** Format: int32 */
+            capacite: number;
+            /** Format: int32 */
+            charges: number;
+            /**
+             * Format: date-time
+             * @description Retour de la prochaine charge ; `null` quand l'énergie est pleine : le temps s'arrête.
+             */
+            prochaine_charge?: string | null;
+            /**
+             * Format: int32
+             * @description Durée d'une recharge, en secondes.
+             */
+            recharge_s: number;
+        };
         EntreeFascicule: {
             manifeste: components["schemas"]["Chemin"];
             /** Format: int32 */
             numero: number;
             /** Format: date-time */
             parution: string;
+        };
+        /** @description Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009). */
+        Equilibrage: {
+            /**
+             * Format: int32
+             * @description Gouttes rapportées par tout pli (ADR 0020).
+             */
+            base_encre: number;
+            /** @description Gouttes en plus pour un doublon sous le plafond (ADR 0019). */
+            encre_doublon: {
+                [key: string]: number;
+            };
+            /** @description Gouttes en plus quand la réserve est pleine (ADR 0011). */
+            encre_reserve_pleine: {
+                [key: string]: number;
+            };
+            /**
+             * Format: int32
+             * @description Une brique utile au plus tard à ce pli consécutif sans découverte possible.
+             */
+            filet_utilite: number;
+            /**
+             * Format: int32
+             * @description Une brique nouvelle au plus tard à ce pli après la dernière nouveauté.
+             */
+            garantie_nouveaute: number;
+            /**
+             * @description Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est
+             *     proportionnelle au poids de sa seule rareté (ADR 0035).
+             */
+            poids_raretes: {
+                [key: string]: number;
+            };
+        };
+        EquilibrageManifeste: components["schemas"]["Equilibrage"] & {
+            /** @description Version des paramètres, inscrite dans l'historique de chaque pli. */
+            version: string;
         };
         /** @description Erreur renvoyée par l'API. Le message est destiné au diagnostic, pas au joueur. */
         Erreur: {
@@ -227,8 +338,19 @@ export interface components {
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
+            compteurs_plis: components["schemas"]["CompteurPli"][];
             /** @description Mots découverts, dans l'ordre de leur découverte. */
             decouvertes: components["schemas"]["Decouverte"][];
+            /**
+             * Format: int32
+             * @description Gouttes d'encre détenues.
+             */
+            encre: number;
+            /** @description Charges de pli, à l'horloge du serveur (ADR 0020). */
+            energie: components["schemas"]["EnergieEtat"];
+            /** @description Derniers plis ouverts, du plus récent au plus ancien. */
+            historique_plis: components["schemas"]["OuverturePli"][];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
@@ -339,7 +461,8 @@ export interface components {
             numero: number;
             /** Format: date-time */
             parution: string;
-            pli?: unknown;
+            /** @description Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011). */
+            pli?: components["schemas"]["PliManifeste"];
             recettes?: components["schemas"]["RecetteManifeste"][];
             test?: boolean;
         };
@@ -347,6 +470,24 @@ export interface components {
         MotifPresque: "ordre" | "incomplet";
         /** @enum {string} */
         Nature: "mot" | "prefixe" | "suffixe";
+        /**
+         * @description Nature d'une brique tirable : préfixe, suffixe ou mot posé tel quel.
+         * @enum {string}
+         */
+        NaturePli: "prefixe" | "suffixe" | "mot";
+        OuverturePli: {
+            brique_id: components["schemas"]["IdCatalogue"];
+            /**
+             * Format: int32
+             * @description Gouttes gagnées.
+             */
+            encre: number;
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            /** Format: date-time */
+            ouvert_le: string;
+            regle: components["schemas"]["Regle"];
+            resultat: components["schemas"]["Resultat"];
+        };
         Partie: {
             forme_id: components["schemas"]["IdCatalogue"];
             /** Format: int32 */
@@ -361,7 +502,14 @@ export interface components {
             sens_id: components["schemas"]["IdCatalogue"];
             unite_id: components["schemas"]["IdCatalogue"];
         };
-        /** @enum {string} */
+        PliManifeste: {
+            briques?: components["schemas"]["BriquePliManifeste"][];
+            equilibrage?: components["schemas"]["EquilibrageManifeste"] | null;
+        };
+        /**
+         * @description Rareté d'une brique élémentaire : quatre niveaux, quatre formes.
+         * @enum {string}
+         */
         Rarete: "commune" | "peu_commune" | "rare" | "legendaire";
         /** @description Ressource « recette » : la composition jouée et ses emplacements ordonnés. */
         Recette: {
@@ -374,6 +522,11 @@ export interface components {
             chemin: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
         };
+        /**
+         * @description Règle qui a décidé de la brique tirée.
+         * @enum {string}
+         */
+        Regle: "tirage" | "garantie" | "filet";
         RelationCarte: {
             etymon?: components["schemas"]["Etymon"] | null;
             fait?: components["schemas"]["Fait"] | null;
@@ -385,6 +538,23 @@ export interface components {
             etat: components["schemas"]["Etat"];
             issue: components["schemas"]["IssueFusion"];
         };
+        ReponsePli: {
+            /** @description Vrai si la brique était épuisée : « De retour ! ». */
+            etait_epuisee: boolean;
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Exemplaires de la brique après le pli.
+             */
+            exemplaires: number;
+            ouverture: components["schemas"]["OuverturePli"];
+        };
+        /**
+         * @description Ce que la brique tirée apporte à la réserve.
+         * @enum {string}
+         */
+        Resultat: "nouvelle" | "doublon" | "reserve_pleine";
         /** @enum {string} */
         Role: "resultat" | "ingredient";
         Sante: {
@@ -525,6 +695,84 @@ export interface operations {
             };
             /** @description Session absente ou expirée */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    ouvrir_pli: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandePli"];
+            };
+        };
+        responses: {
+            /** @description Brique tirée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponsePli"];
+                };
+            };
+            /** @description Requête invalide ou fascicule sans pli */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucune charge d'énergie */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

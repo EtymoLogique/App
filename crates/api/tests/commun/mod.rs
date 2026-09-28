@@ -85,6 +85,14 @@ pub fn post_fusion(jeton: &str, corps: &Value) -> Request<Body> {
         .unwrap()
 }
 
+pub fn post_pli(jeton: &str, corps: &Value) -> Request<Body> {
+    Request::post("/pli")
+        .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(corps.to_string()))
+        .unwrap()
+}
+
 /// Ouvre la session d'un profil neuf et renvoie son jeton.
 pub async fn session(routeur: &Router) -> String {
     let demande = json!({ "installation": Uuid::new_v4(), "secret": secret(9) });
