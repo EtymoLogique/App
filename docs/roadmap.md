@@ -88,14 +88,24 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 
 | Tâche | État |
 |---|---|
-| Équilibrage versionné (Content, `ludique/equilibrage.json`) recopié dans le `pli` de chaque manifeste, avec la nature de chaque brique | fait |
+| Équilibrage versionné (Content, `ludique/equilibrage.json`, version `2026-09-28b`) recopié dans le `pli` de chaque manifeste, avec la nature de chaque brique | fait |
 | Énergie : 2 charges, une toutes les 12 h, à l’horloge du serveur ; le temps s’arrête à 2 / 2 | fait |
-| `POST /pli` : aléa cryptographique (rejet sans biais), poids rareté × type répartis par classe, garantie au 6ᵉ pli, filet au 5ᵉ (le filet passe avant), transactionnel et idempotent, `409` si périmé, `403` sans charge | fait |
+| `POST /pli` : aléa cryptographique (rejet sans biais), garantie au 6ᵉ pli, filet au 5ᵉ (le filet passe avant), transactionnel et idempotent, `409` si périmé, `403` sans charge | fait |
+| Pli d’affixes pondéré par la seule rareté ([ADR 0035](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0035-plis-d-affixes-ponderes-par-la-rarete.md)) : préfixes et suffixes seulement, jamais un mot ; plus de poids de type ni de répartition par classe | fait |
 | Doublons et encre : 2 gouttes par pli, barèmes du doublon et de la réserve pleine ; chaque variation dans `mouvement` | fait |
 | Historique des plis (`ouverture_pli`, les 20 derniers dans l’état) | fait |
-| Écran des plis : choix du fascicule (I-19), atelier (I-20) avec énergie, chances par rareté, type et brique, légendaires inconnues regroupées, garanties, encre, historique, règles ; compteur de plis prêts sur l’onglet | fait |
+| Écran des plis : choix du fascicule (I-19) et atelier (I-20) ; carte « Plis en attente » commune aux deux écrans (jaquette par pli prêt, pli en pointillés avec anneau et compte à rebours) ; chances par rareté (légendaire toujours affichée), par type et par brique, légendaires inconnues regroupées ; garanties, encre ; briques du fascicule (compteur connues / total) et derniers tirages repliables ; règles ; compteur de plis prêts sur l’onglet | fait |
 | Rituel d’ouverture (I-21) : charge, écriture, explosion, révélation (≈ 1,6 s), passable, direct en mouvement réduit | fait |
-| Démonstration en hors-prod | à faire |
+| Recette locale (filet, garantie, réserve pleine, `409`, mouvement réduit, onglets) et corrections | fait |
+| Navigation : Table, Plis, Codex, Réglages | fait |
+| Déploiement hors-prod : PWA, catalogue (`988a1c0b8eed`) et documentation publiés | fait |
+| Image J3 de l’API et des tâches épinglée dans Infra (`ae1cd64`) : *Plan* bloqué par une panne de l’API Edge Services de Scaleway (`503`), puis *Apply* | à faire |
+| Démonstration en hors-prod | à faire, après l’*Apply* |
+
+### Décisions ouvertes de J3
+
+- **Mot ingrédient** : un mot qui sert d’ingrédient (*biologie*, *mener*) ne sort plus d’un pli (ADR 0035). Il ne vient que des graines : décider comment une découverte donne des exemplaires de son mot.
+- **Légendaires à 0 %** : la ligne « Légendaire » toujours affichée révèle qu’un fascicule n’en contient aucune, alors que l’ADR 0015 garde le suspense sur leur nombre. À consigner dans un ADR, ou à n’afficher que si le fascicule en contient.
 
 ## Décisions à formaliser
 
