@@ -92,6 +92,8 @@ pub enum Regle {
     Garantie,
     /// Filet d'utilité : tirage parmi les briques qui rendent une découverte possible.
     Filet,
+    /// Pli de jalon : briques déclarées par le fascicule (ADR 0038).
+    Deterministe,
 }
 
 /// Ce que la brique tirée apporte à la réserve.

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(-SUM(delta), 0)::integer FROM mouvement\n         WHERE joueur_id = $1 AND ressource = 'sablier' AND motif = 'sablier' AND delta < 0 AND le > $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "coalesce",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e9a879fbacf0db81bfdc60f6867b75431beb89cfc505cec2528436f2c034fad3"
+}

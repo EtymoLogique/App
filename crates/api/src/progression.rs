@@ -6,11 +6,15 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
-use etymo_contrat::{CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, OuverturePli};
+use etymo_contrat::{
+    CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, IndiceObtenu, OuverturePli,
+    SabliersEtat,
+};
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::energie::{self, Energie};
-use etymo_domaine::pli::{Compteurs, Regle, Resultat};
+use etymo_domaine::pli::{self, Compteurs, Regle, Resultat};
 use etymo_domaine::reserve::ajout_plafonne;
+use etymo_domaine::{indice, jalon, sablier};
 use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -78,7 +82,9 @@ pub async fn etat(
     })
     .collect::<Result<_, ErreurApi>>()?;
     let maintenant = Utc::now();
-    let energie = lire_energie(&mut *tx, joueur).await?.a(maintenant, recharge);
+    let energie = lire_energie(&mut *tx, joueur)
+        .await?
+        .a(maintenant, recharge);
     let encre = lire_encre(&mut *tx, joueur).await?;
     let compteurs_plis = sqlx::query!(
         "SELECT fascicule_id, plis_sans_nouveaute, plis_sans_utilite FROM compteur_pli
@@ -96,26 +102,13 @@ pub async fn etat(
         })
     })
     .collect::<Result<_, ErreurApi>>()?;
-    let historique_plis = sqlx::query!(
-        "SELECT fascicule_id, brique_id, resultat, regle, encre, ouvert_le FROM ouverture_pli
-         WHERE joueur_id = $1 ORDER BY ouvert_le DESC, id DESC LIMIT $2",
-        joueur,
-        HISTORIQUE,
-    )
-    .fetch_all(&mut *tx)
-    .await?
-    .into_iter()
-    .map(|l| {
-        Ok(OuverturePli {
-            fascicule_id: id(&l.fascicule_id)?,
-            brique_id: id(&l.brique_id)?,
-            resultat: enumere(&l.resultat)?,
-            regle: enumere(&l.regle)?,
-            encre: positif(l.encre),
-            ouvert_le: l.ouvert_le,
-        })
-    })
-    .collect::<Result<_, ErreurApi>>()?;
+    let historique_plis = lire_historique(&mut *tx, joueur).await?;
+    let indices = lire_indices(&mut *tx, joueur).await?;
+    let mut jalons_atteints: Vec<_> = jalons_atteints(&mut *tx, joueur)
+        .await?
+        .into_iter()
+        .collect();
+    jalons_atteints.sort();
     Ok(Etat {
         version_etat: ligne.version_etat,
         version_catalogue: ligne.version_catalogue,
@@ -130,7 +123,70 @@ pub async fn etat(
         encre,
         compteurs_plis,
         historique_plis,
+        sabliers: sabliers_etat(&mut *tx, joueur, maintenant, recharge).await?,
+        indices,
+        jalons_atteints,
+        prix_indices: indice::PRIX_INDICE.to_vec(),
     })
+}
+
+/// Niveaux d'indice obtenus, par recette puis par niveau.
+async fn lire_indices(tx: &mut PgConnection, joueur: Uuid) -> Result<Vec<IndiceObtenu>, ErreurApi> {
+    sqlx::query!(
+        "SELECT recette_id, niveau FROM indice WHERE joueur_id = $1 ORDER BY recette_id, niveau",
+        joueur
+    )
+    .fetch_all(tx)
+    .await?
+    .into_iter()
+    .map(|l| {
+        Ok(IndiceObtenu {
+            recette_id: id(&l.recette_id)?,
+            niveau: u8::try_from(l.niveau).unwrap_or(0),
+        })
+    })
+    .collect()
+}
+
+async fn sabliers_etat(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    maintenant: DateTime<Utc>,
+    recharge: TimeDelta,
+) -> Result<SabliersEtat, ErreurApi> {
+    Ok(SabliersEtat {
+        detenus: lire_sabliers(&mut *tx, joueur).await?,
+        utilises_24h: sabliers_utilises(&mut *tx, joueur, maintenant, recharge).await?,
+        plafond_jour: sablier::PLAFOND_JOUR,
+        plafond_detenus: sablier::PLAFOND_DETENUS,
+    })
+}
+
+/// Derniers plis ouverts, du plus récent au plus ancien.
+async fn lire_historique(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+) -> Result<Vec<OuverturePli>, ErreurApi> {
+    sqlx::query!(
+        "SELECT fascicule_id, brique_id, resultat, regle, encre, ouvert_le FROM ouverture_pli
+         WHERE joueur_id = $1 ORDER BY ouvert_le DESC, id DESC LIMIT $2",
+        joueur,
+        HISTORIQUE,
+    )
+    .fetch_all(tx)
+    .await?
+    .into_iter()
+    .map(|l| {
+        Ok(OuverturePli {
+            fascicule_id: id(&l.fascicule_id)?,
+            brique_id: id(&l.brique_id)?,
+            resultat: enumere(&l.resultat)?,
+            regle: enumere(&l.regle)?,
+            encre: positif(l.encre),
+            ouvert_le: l.ouvert_le,
+        })
+    })
+    .collect()
 }
 
 /// Plis rendus dans l'état : l'historique récent seulement.
@@ -253,52 +309,30 @@ pub async fn ouvrir_pli(
     .execute(&mut *tx)
     .await?;
     if effets.resultat != Resultat::ReservePleine {
-        sqlx::query!(
-            "INSERT INTO exemplaire (joueur_id, brique_id, nombre, connue_le) VALUES ($1, $2, 1, $3)
-             ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = exemplaire.nombre + 1",
+        crediter_exemplaire(
+            &mut *tx,
             joueur,
+            Some(effets.commande),
             brique,
+            "pli",
             effets.maintenant,
         )
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query!(
-            "INSERT INTO mouvement (joueur_id, commande_id, ressource, brique_id, delta, motif, le)
-             VALUES ($1, $2, 'exemplaire', $3, 1, 'pli', $4)",
-            joueur,
-            effets.commande,
-            brique,
-            effets.maintenant,
-        )
-        .execute(&mut *tx)
         .await?;
     }
-    if gouttes > 0 {
-        sqlx::query!(
-            "INSERT INTO encre (joueur_id, gouttes) VALUES ($1, $2)
-             ON CONFLICT (joueur_id) DO UPDATE SET gouttes = encre.gouttes + EXCLUDED.gouttes",
-            joueur,
-            gouttes,
-        )
-        .execute(&mut *tx)
-        .await?;
-        let motif = if effets.resultat == Resultat::Nouvelle {
-            "pli"
-        } else {
-            "doublon"
-        };
-        sqlx::query!(
-            "INSERT INTO mouvement (joueur_id, commande_id, ressource, delta, motif, le)
-             VALUES ($1, $2, 'encre', $3, $4, $5)",
-            joueur,
-            effets.commande,
-            gouttes,
-            motif,
-            effets.maintenant,
-        )
-        .execute(&mut *tx)
-        .await?;
-    }
+    let motif = if effets.resultat == Resultat::Nouvelle {
+        "pli"
+    } else {
+        "doublon"
+    };
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(effets.commande),
+        gouttes,
+        motif,
+        effets.maintenant,
+    )
+    .await?;
     sqlx::query!(
         "INSERT INTO compteur_pli (joueur_id, fascicule_id, plis_sans_nouveaute, plis_sans_utilite)
          VALUES ($1, $2, $3, $4)
@@ -311,22 +345,397 @@ pub async fn ouvrir_pli(
     )
     .execute(&mut *tx)
     .await?;
+    historiser_pli(&mut *tx, joueur, effets, "energie", gouttes).await
+}
+
+async fn historiser_pli(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    effets: &EffetsPli<'_>,
+    origine: &str,
+    gouttes: i32,
+) -> Result<(), ErreurApi> {
     sqlx::query!(
         "INSERT INTO ouverture_pli
              (joueur_id, fascicule_id, origine, brique_id, resultat, regle, encre, version_equilibrage, ouvert_le)
-         VALUES ($1, $2, 'energie', $3, $4, $5, $6, $7, $8)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         joueur,
         effets.fascicule.as_str(),
-        brique,
+        origine,
+        effets.brique.as_str(),
         texte(effets.resultat)?,
         texte(effets.regle)?,
         gouttes,
         effets.version_equilibrage,
         effets.maintenant,
     )
-    .execute(&mut *tx)
+    .execute(tx)
     .await?;
     Ok(())
+}
+
+/// Un exemplaire de plus, tracé dans `mouvement`.
+async fn crediter_exemplaire(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Option<Uuid>,
+    brique: &str,
+    motif: &str,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    sqlx::query!(
+        "INSERT INTO exemplaire (joueur_id, brique_id, nombre, connue_le) VALUES ($1, $2, 1, $3)
+         ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = exemplaire.nombre + 1",
+        joueur,
+        brique,
+        maintenant,
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        "INSERT INTO mouvement (joueur_id, commande_id, ressource, brique_id, delta, motif, le)
+         VALUES ($1, $2, 'exemplaire', $3, 1, $4, $5)",
+        joueur,
+        commande,
+        brique,
+        motif,
+        maintenant,
+    )
+    .execute(tx)
+    .await?;
+    Ok(())
+}
+
+/// Ajoute (ou retire, `gouttes` négatif) de l'encre, tracée dans `mouvement`.
+async fn crediter_encre(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Option<Uuid>,
+    gouttes: i32,
+    motif: &str,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    if gouttes == 0 {
+        return Ok(());
+    }
+    // Un débit ne passe pas par l'insertion : sa ligne proposée serait négative.
+    if gouttes > 0 {
+        sqlx::query!(
+            "INSERT INTO encre (joueur_id, gouttes) VALUES ($1, $2)
+             ON CONFLICT (joueur_id) DO UPDATE SET gouttes = encre.gouttes + EXCLUDED.gouttes",
+            joueur,
+            gouttes,
+        )
+        .execute(&mut *tx)
+        .await?;
+    } else {
+        sqlx::query!(
+            "UPDATE encre SET gouttes = gouttes + $2 WHERE joueur_id = $1",
+            joueur,
+            gouttes,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    sqlx::query!(
+        "INSERT INTO mouvement (joueur_id, commande_id, ressource, delta, motif, le)
+         VALUES ($1, $2, 'encre', $3, $4, $5)",
+        joueur,
+        commande,
+        gouttes,
+        motif,
+        maintenant,
+    )
+    .execute(tx)
+    .await?;
+    Ok(())
+}
+
+/// Ajoute (ou retire) des sabliers détenus, tracés dans `mouvement`.
+async fn crediter_sabliers(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Option<Uuid>,
+    delta: i32,
+    motif: &str,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    if delta == 0 {
+        return Ok(());
+    }
+    let delta_court = i16::try_from(delta).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    if delta > 0 {
+        sqlx::query!(
+            "INSERT INTO sablier (joueur_id, detenus) VALUES ($1, $2)
+             ON CONFLICT (joueur_id) DO UPDATE SET detenus = sablier.detenus + EXCLUDED.detenus",
+            joueur,
+            delta_court,
+        )
+        .execute(&mut *tx)
+        .await?;
+    } else {
+        sqlx::query!(
+            "UPDATE sablier SET detenus = detenus + $2 WHERE joueur_id = $1",
+            joueur,
+            delta_court,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    sqlx::query!(
+        "INSERT INTO mouvement (joueur_id, commande_id, ressource, delta, motif, le)
+         VALUES ($1, $2, 'sablier', $3, $4, $5)",
+        joueur,
+        commande,
+        delta,
+        motif,
+        maintenant,
+    )
+    .execute(tx)
+    .await?;
+    Ok(())
+}
+
+pub async fn lire_sabliers(tx: &mut PgConnection, joueur: Uuid) -> Result<u32, ErreurApi> {
+    Ok(
+        sqlx::query_scalar!("SELECT detenus FROM sablier WHERE joueur_id = $1", joueur)
+            .fetch_optional(tx)
+            .await?
+            .map_or(0, |n| u32::try_from(n).unwrap_or(0)),
+    )
+}
+
+/// Sabliers utilisés sur la fenêtre glissante du plafond quotidien.
+pub async fn sabliers_utilises(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    maintenant: DateTime<Utc>,
+    recharge: TimeDelta,
+) -> Result<u32, ErreurApi> {
+    let somme = sqlx::query_scalar!(
+        "SELECT COALESCE(-SUM(delta), 0)::integer FROM mouvement
+         WHERE joueur_id = $1 AND ressource = 'sablier' AND motif = 'sablier' AND delta < 0 AND le > $2",
+        joueur,
+        maintenant - sablier::fenetre(recharge),
+    )
+    .fetch_one(tx)
+    .await?;
+    Ok(somme.map_or(0, positif))
+}
+
+/// Utilise `nombre` sabliers : les détenus d'abord, puis ceux payés en encre.
+/// Renvoie la répartition (détenus, encre).
+pub async fn utiliser_sabliers(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Uuid,
+    nombre: u32,
+    recharge: TimeDelta,
+    maintenant: DateTime<Utc>,
+) -> Result<(u32, u32), ErreurApi> {
+    let energie = lire_energie(&mut *tx, joueur).await?;
+    let avancee = energie
+        .avancer(maintenant, recharge, nombre)
+        .ok_or(ErreurApi::Interdit("énergie pleine"))?;
+    let detenus = lire_sabliers(&mut *tx, joueur).await?;
+    let encre = lire_encre(&mut *tx, joueur).await?;
+    let utilises = sabliers_utilises(&mut *tx, joueur, maintenant, recharge).await?;
+    let (depuis_detenus, depuis_encre) = sablier::repartir(nombre, detenus, encre, utilises)
+        .ok_or(ErreurApi::Interdit(
+            "plafond quotidien ou encre insuffisante",
+        ))?;
+    let achetes = i32::try_from(depuis_encre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    let prix = i32::try_from(depuis_encre * sablier::GOUTTES_PAR_SABLIER)
+        .map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        -prix,
+        "sablier",
+        maintenant,
+    )
+    .await?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        achetes,
+        "sablier",
+        maintenant,
+    )
+    .await?;
+    let utilises = i32::try_from(nombre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        -utilises,
+        "sablier",
+        maintenant,
+    )
+    .await?;
+    ecrire_energie(&mut *tx, joueur, avancee).await?;
+    Ok((depuis_detenus, depuis_encre))
+}
+
+async fn ecrire_energie(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    energie: Energie,
+) -> Result<(), ErreurApi> {
+    sqlx::query!(
+        "INSERT INTO energie (joueur_id, charges, prochaine_charge) VALUES ($1, $2, $3)
+         ON CONFLICT (joueur_id) DO UPDATE SET charges = EXCLUDED.charges, prochaine_charge = EXCLUDED.prochaine_charge",
+        joueur,
+        i16::from(energie.charges),
+        energie.prochaine_charge,
+    )
+    .execute(tx)
+    .await?;
+    Ok(())
+}
+
+/// Niveaux d'indice déjà obtenus pour une recette.
+pub async fn niveau_indice(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    recette: &IdCatalogue,
+) -> Result<u8, ErreurApi> {
+    let niveau = sqlx::query_scalar!(
+        "SELECT COALESCE(MAX(niveau), 0)::smallint FROM indice WHERE joueur_id = $1 AND recette_id = $2",
+        joueur,
+        recette.as_str(),
+    )
+    .fetch_one(tx)
+    .await?;
+    Ok(niveau.map_or(0, |n| u8::try_from(n).unwrap_or(0)))
+}
+
+/// Paie un niveau d'indice et l'enregistre.
+pub async fn acheter_indice(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Uuid,
+    recette: &IdCatalogue,
+    niveau: u8,
+    prix: u32,
+) -> Result<(), ErreurApi> {
+    if lire_encre(&mut *tx, joueur).await? < prix {
+        return Err(ErreurApi::Interdit("encre insuffisante"));
+    }
+    let prix = i32::try_from(prix).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        -prix,
+        "indice",
+        Utc::now(),
+    )
+    .await?;
+    sqlx::query!(
+        "INSERT INTO indice (joueur_id, recette_id, niveau) VALUES ($1, $2, $3)",
+        joueur,
+        recette.as_str(),
+        i16::from(niveau),
+    )
+    .execute(tx)
+    .await?;
+    Ok(())
+}
+
+async fn jalons_atteints(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+) -> Result<HashSet<IdCatalogue>, ErreurApi> {
+    sqlx::query_scalar!(
+        "SELECT jalon_id FROM jalon_atteint WHERE joueur_id = $1",
+        joueur
+    )
+    .fetch_all(tx)
+    .await?
+    .iter()
+    .map(|j| id(j))
+    .collect()
+}
+
+/// Accorde les jalons atteints et pas encore reçus (ADR 0038) : un pli
+/// déterministe (un exemplaire de chaque brique, de l'encre si la réserve est
+/// pleine) et des sabliers, plafonnés à 36 détenus. Renvoie les jalons accordés.
+pub async fn accorder_jalons(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+    commande: Option<Uuid>,
+) -> Result<Vec<IdCatalogue>, ErreurApi> {
+    let decouverts = mots_decouverts(&mut *tx, joueur).await?;
+    let deja = jalons_atteints(&mut *tx, joueur).await?;
+    let maintenant = Utc::now();
+    let mut accordes = Vec::new();
+    for fascicule in &jeu.jalons {
+        let n = fascicule.mots.intersection(&decouverts).count();
+        for jalon in jalon::atteints(n, &fascicule.jalons, &deja) {
+            sqlx::query!(
+                "INSERT INTO jalon_atteint (joueur_id, jalon_id, atteint_le) VALUES ($1, $2, $3)",
+                joueur,
+                jalon.id.as_str(),
+                maintenant,
+            )
+            .execute(&mut *tx)
+            .await?;
+            let equilibrage = jeu.equilibrage(&fascicule.fascicule_id);
+            let mut stock = stock(&mut *tx, joueur).await?;
+            for brique in &jalon.pli {
+                let resultat = pli::resultat(stock.get(brique).copied());
+                let gouttes = match (resultat, equilibrage, jeu.rarete(brique)) {
+                    (Resultat::ReservePleine, Some(e), Some(rarete)) => {
+                        *e.parametres.encre_reserve_pleine.get(&rarete).unwrap_or(&0)
+                    }
+                    _ => 0,
+                };
+                let gouttes =
+                    i32::try_from(gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+                if resultat == Resultat::ReservePleine {
+                    crediter_encre(&mut *tx, joueur, commande, gouttes, "jalon", maintenant)
+                        .await?;
+                } else {
+                    crediter_exemplaire(
+                        &mut *tx,
+                        joueur,
+                        commande,
+                        brique.as_str(),
+                        "jalon",
+                        maintenant,
+                    )
+                    .await?;
+                    *stock.entry(brique.clone()).or_default() += 1;
+                }
+                let effets = EffetsPli {
+                    commande: commande.unwrap_or_default(),
+                    fascicule: &fascicule.fascicule_id,
+                    brique,
+                    resultat,
+                    regle: Regle::Deterministe,
+                    gouttes: 0,
+                    energie: Energie::pleine(),
+                    compteurs: Compteurs::default(),
+                    version_equilibrage: equilibrage.map_or("jalon", |e| e.version.as_str()),
+                    maintenant,
+                };
+                historiser_pli(&mut *tx, joueur, &effets, "jalon", gouttes).await?;
+            }
+            let detenus = lire_sabliers(&mut *tx, joueur).await?;
+            // ponytail: au-delà de 36 détenus, les sabliers du jalon sont perdus (ADR 0038) ; un compteur en attente s'ajoutera si un jalon y arrive.
+            let ajout = jalon
+                .sabliers
+                .min(sablier::PLAFOND_DETENUS.saturating_sub(detenus));
+            let ajout = i32::try_from(ajout).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+            crediter_sabliers(&mut *tx, joueur, commande, ajout, "jalon", maintenant).await?;
+            accordes.push(jalon.id.clone());
+        }
+    }
+    Ok(accordes)
 }
 
 pub async fn mots_decouverts(

@@ -70,9 +70,14 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
         reponse["issue"],
         json!({ "type": "decouverte", "recette_id": RECETTE, "mot_id": MOT })
     );
+    // bio- vient du pli du jalon atteint par cette première découverte.
     assert_eq!(
         reserve(&reponse["etat"]),
-        vec![(GEO.to_owned(), 1), (LOGIE.to_owned(), 0)]
+        vec![
+            (BIO.to_owned(), 1),
+            (GEO.to_owned(), 1),
+            (LOGIE.to_owned(), 0)
+        ]
     );
     assert_eq!(reponse["etat"]["decouvertes"][0]["numero"], 1);
     assert_eq!(reponse["etat"]["version_etat"], 2);
@@ -84,7 +89,11 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     let (_, _, apres) = appeler(&banc.routeur, get_etat(&jeton)).await;
     assert_eq!(
         reserve(&apres),
-        vec![(GEO.to_owned(), 1), (LOGIE.to_owned(), 0)]
+        vec![
+            (BIO.to_owned(), 1),
+            (GEO.to_owned(), 1),
+            (LOGIE.to_owned(), 0)
+        ]
     );
 
     // Une nouvelle commande pour le même mot : connue, rien n'est consommé.

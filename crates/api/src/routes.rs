@@ -7,11 +7,12 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    DemandeFusion, DemandePli, DemandeSession, Erreur, Etat, IssueFusion, OuverturePli,
-    ReponseFusion, ReponsePli, Sante, Session, StatutSante,
+    DemandeFusion, DemandeIndice, DemandePli, DemandeSablier, DemandeSession, Erreur, Etat,
+    IssueFusion, OuverturePli, ReponseFusion, ReponseIndice, ReponsePli, ReponseSablier, Sante,
+    Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
-use etymo_domaine::pli;
+use etymo_domaine::{indice, pli, sablier};
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
@@ -24,6 +25,8 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/etat", get(etat))
         .route("/fusion", post(fusion))
         .route("/pli", post(ouvrir_pli))
+        .route("/sablier", post(utiliser_sabliers))
+        .route("/indice", post(acheter_indice))
 }
 
 /// État du service. Répond même si la base est au repos (Serverless SQL).
@@ -99,7 +102,8 @@ pub async fn session(
 }
 
 /// Synchronise le joueur : accorde les graines des fascicules parus qu'il
-/// n'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.
+/// n'a pas encore reçues (ADR 0030) et les jalons atteints depuis une
+/// parution (ADR 0038), puis renvoie son état confirmé.
 #[utoipa::path(get, path = "/etat", tag = "profil", security(("session" = [])),
     responses(
         (status = 200, description = "État confirmé", body = Etat),
@@ -114,7 +118,9 @@ pub async fn etat(
     let mut tx = app.base.begin().await?;
     progression::verrouiller(&mut tx, joueur).await?;
     if let Some(catalogue) = &catalogue {
-        if progression::semer(&mut tx, joueur, &catalogue.jeu).await? {
+        let seme = progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
+        let jalons = progression::accorder_jalons(&mut tx, joueur, &catalogue.jeu, None).await?;
+        if seme || !jalons.is_empty() {
             progression::incrementer_version(&mut tx, joueur).await?;
         }
         sqlx::query!(
@@ -169,6 +175,7 @@ pub async fn fusion(
 
     let decouverts = progression::mots_decouverts(&mut tx, joueur).await?;
     let jeu = &catalogue.jeu;
+    let mut jalons = Vec::new();
     let issue = match resoudre(
         &demande.briques,
         &jeu.recettes,
@@ -194,6 +201,8 @@ pub async fn fusion(
                     &mot_id,
                 )
                 .await?;
+                jalons = progression::accorder_jalons(&mut tx, joueur, jeu, Some(demande.commande))
+                    .await?;
                 progression::incrementer_version(&mut tx, joueur).await?;
                 IssueFusion::Decouverte { recette_id, mot_id }
             } else {
@@ -210,6 +219,7 @@ pub async fn fusion(
     let reponse = ReponseFusion {
         etat: progression::etat(&mut tx, joueur, app.recharge).await?,
         issue,
+        jalons,
     };
     if matches!(reponse.issue, IssueFusion::Decouverte { .. }) {
         let enregistree =
@@ -420,5 +430,186 @@ pub async fn ouvrir_pli(
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    Ok(Json(reponse))
+}
+
+/// Ouvre la transaction d'une commande idempotente : verrouille le joueur,
+/// rejoue une commande déjà traitée, refuse un état ou un catalogue périmé.
+async fn debuter_commande<T: serde::de::DeserializeOwned>(
+    app: &EtatApp,
+    joueur: uuid::Uuid,
+    commande: uuid::Uuid,
+    version_etat: i64,
+    version_catalogue: &str,
+) -> Result<Result<progression::Tx<'static>, T>, ErreurApi> {
+    if commande.get_version_num() != 4 {
+        return Err(ErreurApi::RequeteInvalide(
+            "commande : UUID v4 attendu".into(),
+        ));
+    }
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let mut tx = app.base.begin().await?;
+    let actuelle = progression::verrouiller(&mut tx, joueur).await?;
+    if let Some(reponse) = commande_rejouee(&mut tx, joueur, commande).await? {
+        return Ok(Err(reponse));
+    }
+    if version_etat != actuelle {
+        return Err(ErreurApi::Conflit("version_etat périmée"));
+    }
+    if version_catalogue != catalogue.version() {
+        return Err(ErreurApi::Conflit("version_catalogue périmée"));
+    }
+    Ok(Ok(tx))
+}
+
+/// Enregistre la réponse d'une commande acceptée et valide la transaction.
+async fn conclure_commande<T: serde::Serialize>(
+    mut tx: progression::Tx<'_>,
+    joueur: uuid::Uuid,
+    commande: uuid::Uuid,
+    genre: &str,
+    reponse: &T,
+) -> Result<(), ErreurApi> {
+    let enregistree =
+        serde_json::to_value(reponse).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    sqlx::query!(
+        "INSERT INTO commande (joueur_id, id, type, statut, reponse) VALUES ($1, $2, $3, 'acceptee', $4)",
+        joueur,
+        commande,
+        genre,
+        enregistree,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Utilise des sabliers (ADR 0018, 0020) : chacun avance la recharge en
+/// cours d'une heure. Les sabliers détenus passent d'abord, puis ceux payés
+/// une goutte chacun. Le temps au-delà de deux charges est perdu.
+#[utoipa::path(post, path = "/sablier", tag = "jeu", security(("session" = [])), request_body = DemandeSablier,
+    responses(
+        (status = 200, description = "Recharge avancée et état confirmé", body = ReponseSablier),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Énergie pleine, plafond quotidien atteint ou encre insuffisante", body = Erreur),
+        (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn utiliser_sabliers(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeSablier>,
+) -> Result<Json<ReponseSablier>, ErreurApi> {
+    if !(1..=sablier::PLAFOND_JOUR).contains(&demande.nombre) {
+        return Err(ErreurApi::RequeteInvalide(format!(
+            "nombre : de 1 à {} attendu",
+            sablier::PLAFOND_JOUR
+        )));
+    }
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let (depuis_detenus, depuis_encre) = progression::utiliser_sabliers(
+        &mut tx,
+        joueur,
+        demande.commande,
+        demande.nombre,
+        app.recharge,
+        Utc::now(),
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseSablier {
+        depuis_detenus,
+        depuis_encre,
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "sablier", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore
+/// à découvrir. Le contenu du niveau se lit dans le catalogue public.
+#[utoipa::path(post, path = "/indice", tag = "jeu", security(("session" = [])), request_body = DemandeIndice,
+    responses(
+        (status = 200, description = "Niveau obtenu et état confirmé", body = ReponseIndice),
+        (status = 400, description = "Requête invalide, recette inconnue ou secrète, niveau hors d'ordre", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Encre insuffisante", body = Erreur),
+        (status = 409, description = "Recette déjà découverte, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn acheter_indice(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeIndice>,
+) -> Result<Json<ReponseIndice>, ErreurApi> {
+    let prix = indice::prix(demande.niveau)
+        .ok_or_else(|| ErreurApi::RequeteInvalide("niveau : de 1 à 5 attendu".into()))?;
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    let recette = jeu
+        .recettes
+        .iter()
+        .find(|r| r.id == demande.recette_id)
+        .filter(|r| {
+            !r.emplacements
+                .iter()
+                .flatten()
+                .any(|b| jeu.legendaires.contains(b))
+        })
+        .ok_or_else(|| ErreurApi::RequeteInvalide("recette : inconnue".into()))?;
+    if progression::mots_decouverts(&mut tx, joueur)
+        .await?
+        .contains(&recette.mot_id)
+    {
+        return Err(ErreurApi::Conflit("recette déjà découverte"));
+    }
+    let suivant = progression::niveau_indice(&mut tx, joueur, &recette.id).await? + 1;
+    if demande.niveau != suivant {
+        return Err(ErreurApi::RequeteInvalide(format!(
+            "niveau : {suivant} attendu"
+        )));
+    }
+    progression::acheter_indice(
+        &mut tx,
+        joueur,
+        demande.commande,
+        &recette.id,
+        demande.niveau,
+        prix,
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseIndice {
+        prix,
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "indice", &reponse).await?;
     Ok(Json(reponse))
 }

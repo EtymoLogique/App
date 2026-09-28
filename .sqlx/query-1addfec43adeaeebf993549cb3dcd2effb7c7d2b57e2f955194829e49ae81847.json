@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sablier (joueur_id, detenus) VALUES ($1, $2)\n             ON CONFLICT (joueur_id) DO UPDATE SET detenus = sablier.detenus + EXCLUDED.detenus",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1addfec43adeaeebf993549cb3dcd2effb7c7d2b57e2f955194829e49ae81847"
+}

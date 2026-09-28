@@ -63,6 +63,88 @@ pub struct Etat {
     pub compteurs_plis: Vec<CompteurPli>,
     /// Derniers plis ouverts, du plus récent au plus ancien.
     pub historique_plis: Vec<OuverturePli>,
+    /// Sabliers détenus et plafonds (ADR 0020). Absents des réponses
+    /// enregistrées avant J4, comme les champs qui suivent.
+    #[serde(default)]
+    pub sabliers: SabliersEtat,
+    /// Niveaux d'indice obtenus, par recette (ADR 0038).
+    #[serde(default)]
+    pub indices: Vec<IndiceObtenu>,
+    /// Jalons atteints (ADR 0038).
+    #[serde(default)]
+    pub jalons_atteints: Vec<IdCatalogue>,
+    /// Prix de chaque niveau d'indice, en gouttes, du premier à la solution.
+    #[serde(default)]
+    pub prix_indices: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SabliersEtat {
+    #[schema(minimum = 0, maximum = 36)]
+    pub detenus: u32,
+    /// Sabliers utilisés sur la fenêtre glissante (24 h en production).
+    pub utilises_24h: u32,
+    pub plafond_jour: u32,
+    pub plafond_detenus: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IndiceObtenu {
+    pub recette_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub niveau: u8,
+}
+
+/// Commande d'utilisation de sabliers (ADR 0020) : ceux détenus d'abord,
+/// puis ceux payés en encre, une goutte chacun.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeSablier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    #[schema(minimum = 1, maximum = 12)]
+    pub nombre: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseSablier {
+    /// Sabliers pris parmi ceux détenus.
+    pub depuis_detenus: u32,
+    /// Sabliers payés en encre.
+    pub depuis_encre: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeIndice {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub recette_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub niveau: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseIndice {
+    /// Gouttes payées.
+    pub prix: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Énergie à l'instant de la réponse.
@@ -168,6 +250,9 @@ pub struct DemandeFusion {
 #[serde(deny_unknown_fields)]
 pub struct ReponseFusion {
     pub issue: IssueFusion,
+    /// Jalons atteints par cette découverte, à annoncer.
+    #[serde(default)]
+    pub jalons: Vec<IdCatalogue>,
     /// État confirmé après la commande.
     pub etat: Etat,
 }

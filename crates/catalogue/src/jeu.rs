@@ -5,8 +5,10 @@ use std::collections::HashSet;
 
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
+use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
 
+use crate::format::Role;
 use crate::{EquilibrageManifeste, FasciculeCharge, Graine};
 
 #[derive(Debug, Clone, Default)]
@@ -19,6 +21,18 @@ pub struct Jeu {
     pub graines: Vec<(IdCatalogue, Vec<Graine>)>,
     /// Pli de chaque fascicule paru.
     pub plis: Vec<PliJeu>,
+    /// Jalons de chaque fascicule paru.
+    pub jalons: Vec<JalonsJeu>,
+    /// Briques légendaires : leurs recettes restent secrètes (ADR 0015).
+    pub legendaires: HashSet<IdCatalogue>,
+}
+
+/// Les jalons d'un fascicule et les mots qui les font avancer.
+#[derive(Debug, Clone)]
+pub struct JalonsJeu {
+    pub fascicule_id: IdCatalogue,
+    pub mots: HashSet<IdCatalogue>,
+    pub jalons: Vec<Jalon>,
 }
 
 /// Le pli d'un fascicule : ses briques tirables et son équilibrage.
@@ -31,6 +45,22 @@ pub struct PliJeu {
 }
 
 impl Jeu {
+    /// Rareté d'une brique tirable, si un pli paru la connaît.
+    #[must_use]
+    pub fn rarete(&self, brique: &IdCatalogue) -> Option<pli::Rarete> {
+        self.plis
+            .iter()
+            .flat_map(|p| &p.briques)
+            .find(|b| &b.id == brique)
+            .map(|b| b.rarete)
+    }
+
+    /// Équilibrage du pli d'un fascicule.
+    #[must_use]
+    pub fn equilibrage(&self, fascicule: &IdCatalogue) -> Option<&EquilibrageManifeste> {
+        self.pli(fascicule).and_then(|p| p.equilibrage.as_ref())
+    }
+
     #[must_use]
     pub fn pli(&self, fascicule: &IdCatalogue) -> Option<&PliJeu> {
         self.plis.iter().find(|p| &p.fascicule_id == fascicule)
@@ -62,6 +92,23 @@ impl Jeu {
                     raison: e.raison.clone(),
                 }));
             let pli = &fascicule.manifeste.pli;
+            jeu.legendaires.extend(
+                pli.briques
+                    .iter()
+                    .filter(|b| b.rarete == pli::Rarete::Legendaire)
+                    .map(|b| b.id.clone()),
+            );
+            jeu.jalons.push(JalonsJeu {
+                fascicule_id: fascicule.manifeste.id.clone(),
+                mots: fascicule
+                    .manifeste
+                    .cartes
+                    .iter()
+                    .filter(|c| c.role == Role::Resultat)
+                    .map(|c| c.id.clone())
+                    .collect(),
+                jalons: fascicule.manifeste.jalons.clone(),
+            });
             jeu.briques.extend(pli.briques.iter().map(|b| b.id.clone()));
             // Un pli ne s'ouvre qu'avec son équilibrage et la nature de chaque
             // brique ; il ne tire jamais un mot (ADR 0035).

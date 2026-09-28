@@ -97,7 +97,7 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
                 "filet_utilite": 5
             }
         },
-        "jalons": [],
+        "jalons": [{ "id": "jal_0000000a", "decouvertes": 1, "pli": [BIO], "sabliers": 3 }],
         "graines": [
             { "brique_id": GEO, "exemplaires": 2 },
             { "brique_id": LOGIE, "exemplaires": 1 }

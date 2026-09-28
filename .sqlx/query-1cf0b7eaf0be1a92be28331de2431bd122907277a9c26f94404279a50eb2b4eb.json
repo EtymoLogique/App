@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sablier SET detenus = detenus + $2 WHERE joueur_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1cf0b7eaf0be1a92be28331de2431bd122907277a9c26f94404279a50eb2b4eb"
+}
