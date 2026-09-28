@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { Codex } from './composants/Codex'
 import { Fiche } from './composants/Fiche'
@@ -42,7 +42,15 @@ export function App({ api, catalogue }: Props) {
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
   const [route, naviguer] = useRoute()
   const onglet = route.onglet
-  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, pli: null, plus: false }), [naviguer])
+  // Changer d'onglet conserve l'état de chaque écran (interfaces, règle 01) : l'atelier du pli choisi reste ouvert.
+  const dernierPli = useRef<string | null>(null)
+  useEffect(() => {
+    if (route.onglet === 'plis') dernierPli.current = route.pli
+  }, [route.onglet, route.pli])
+  const setOnglet = useCallback(
+    (o: Onglet) => naviguer({ onglet: o, carte: null, pli: o === 'plis' ? dernierPli.current : null, plus: false }),
+    [naviguer],
+  )
   const { jeu, etat } = partie
   // Plis prêts : compteur de l'onglet, rafraîchi quand une charge revient.
   const maintenant = useMaintenant()

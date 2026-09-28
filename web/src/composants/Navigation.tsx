@@ -41,7 +41,7 @@ export function Navigation({ actif, compteurs, onChoisir }: Props) {
             <Icone nom={icone} />
             {libelle}
             {n > 0 && (
-              <span className="count" aria-label={`${n} nouveauté${n > 1 ? 's' : ''}`}>
+              <span className="count" aria-label={id === 'plis' ? `${n} pli${n > 1 ? 's' : ''} prêt${n > 1 ? 's' : ''}` : `${n} nouveauté${n > 1 ? 's' : ''}`}>
                 {n}
               </span>
             )}

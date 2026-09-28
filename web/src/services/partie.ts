@@ -221,6 +221,9 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
           fascicule_id: fascicule,
         })
         confirmer(reponse.etat)
+        // Une brique nouvelle entre au codex : sa carte se signale en Corail jusqu'à ce qu'on l'ouvre.
+        const unite = jeu.valeur.briques.get(reponse.ouverture.brique_id)?.uniteId
+        if (reponse.ouverture.resultat === 'nouvelle' && unite) setNouvelles((n) => new Set(n).add(unite))
         return reponse
       } catch (e) {
         if (e instanceof ErreurApi && e.statut === 409) {

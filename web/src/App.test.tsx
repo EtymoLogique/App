@@ -320,6 +320,10 @@ describe('table de fusion', () => {
     expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
     expect(await screen.findByText('+1 exemplaire · ×3', undefined, { timeout: 3000 })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')
+    // Changer d'onglet garde l'atelier du fascicule choisi.
+    fireEvent.click(screen.getByRole('button', { name: /^Table/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
+    await waitFor(() => expect(window.location.hash).toBe('#/plis/fsc_00000000'))
     delete document.documentElement.dataset.mouvement
   })
 })

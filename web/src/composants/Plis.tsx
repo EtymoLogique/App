@@ -39,7 +39,7 @@ function useEnergie(etat: Etat | null) {
   return {
     charges,
     capacite,
-    texte: prochaine === null ? `${capacite} / ${capacite} : deux plis prêts` : `+1 dans ${duree(reste)}`,
+    texte: prochaine === null ? 'Deux plis prêts' : `+1 dans ${duree(reste)}`,
     progression: prochaine === null ? 1 : 1 - reste / (recharge_s * 1000),
   }
 }
@@ -116,7 +116,7 @@ function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Et
             </>
           )
           return ouvrable ? (
-            <button key={f.numero} type="button" className="pk-fasc" aria-label={`${libelleFascicule(f)} : ${connues} briques connues, ${exemplaires} exemplaires. Ouvrir son pli`} onClick={() => onChoisir(f.manifeste.id)}>
+            <button key={f.numero} type="button" className="pk-fasc" aria-label={`${libelleFascicule(f)} : ${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}, ${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}. Ouvrir son pli`} onClick={() => onChoisir(f.manifeste.id)}>
               {contenu}
             </button>
           ) : (
@@ -276,6 +276,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
   }, [pret, ouvrirPli, fascicule, jeu, pause, ecrire, eclater])
 
   const continuer = () => {
+    if (scene.current) scene.current.scrollTop = 0
     setReponse(null)
     setLignes([])
     setClasse('')
@@ -539,7 +540,8 @@ function Tirage({ jeu, ouverture, rarete }: { jeu: CatalogueJeu; ouverture: Ouve
 /** Révélation (I-21) : la brique atterrit, avec son origine et ce qu'elle apporte. */
 function Revelation({ jeu, reponse, onEssayer, onContinuer }: { jeu: CatalogueJeu; reponse: ReponsePli; onEssayer: () => void; onContinuer: () => void }) {
   const continuer = useRef<HTMLButtonElement>(null)
-  useEffect(() => continuer.current?.focus(), [])
+  // Sans défilement : la scène masque son débordement, un défilement la laisserait décalée.
+  useEffect(() => continuer.current?.focus({ preventScroll: true }), [])
   const o = reponse.ouverture
   const brique = jeu.briques.get(o.brique_id)
   const nouvelle = o.resultat === 'nouvelle'
