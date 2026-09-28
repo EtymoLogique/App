@@ -333,3 +333,10 @@ button.pk-fasc:hover .jk-mini { rotate: 2deg; }
 .energy strong.pk-ready { display: flex; margin-bottom: 6px; }
 .energy .pk-waiting .jk-mini.is-xs { width: 26px; }
 .pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }
+
+/* Mobile : l'énergie passe au-dessus du pli, le reste de l'atelier dessous. */
+@media (max-width: 760px) {
+  .pk-layout .pk-side { display: contents; }
+  .pk-layout .pk-energie { order: -2; }
+  .pk-layout .pk-stage { order: -1; }
+}

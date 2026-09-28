@@ -350,7 +350,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
       </div>
       <div className="pk-layout">
         <aside className="pk-side">
-          <div className="pk-card">
+          <div className="pk-card pk-energie">
             <p className="pk-label">Énergie</p>
             <div className="energy">
               <svg viewBox="0 0 60 60" aria-hidden="true">
