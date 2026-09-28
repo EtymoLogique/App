@@ -4,6 +4,11 @@ import { GEO, RECETTE, cartes, etat, ex, jeu, manifeste } from '../test/fixtures
 import { construireCodex } from './codex'
 import { ciblesIndice, contenuIndice, niveauObtenu } from './indices'
 
+const texte = (...a: Parameters<typeof contenuIndice>) =>
+  contenuIndice(...a)
+    .map((p) => (typeof p === 'string' ? p : p.libelle))
+    .join('')
+
 describe('indices', () => {
   const j = jeu()
   j.fascicules[0]!.manifeste = { ...manifeste, cartes: cartes.map((x) => ({ id: x.id, role: x.brique ? 'ingredient' : 'resultat', carte: 'r/x' })) }
@@ -16,11 +21,12 @@ describe('indices', () => {
   })
 
   it('lit chaque niveau dans le catalogue', () => {
-    expect(contenuIndice(j, recette, 1, etat())).toBe('français')
-    expect(contenuIndice(j, recette, 2, etat())).toBe('préfixe + suffixe')
-    expect(contenuIndice(j, recette, 3, etat())).toBe('Aucune transformation')
-    expect(contenuIndice(j, recette, 4, etat({ reserve: [ex(GEO, 1)] }))).toBe('géo- en 1ʳᵉ position')
-    expect(contenuIndice(j, recette, 5, etat())).toBe('géo- + -logie')
+    expect(texte(j, recette, 1, etat())).toBe('français')
+    expect(texte(j, recette, 2, etat())).toBe('préfixe + suffixe')
+    expect(texte(j, recette, 3, etat())).toBe('Aucune transformation')
+    expect(texte(j, recette, 4, etat({ reserve: [ex(GEO, 1)] }))).toBe('géo- en 1ʳᵉ position')
+    expect(texte(j, recette, 4, etat({ reserve: [] }))).toBe('Aucune brique de votre réserve')
+    expect(texte(j, recette, 5, etat())).toBe('géo- + -logie')
   })
 
   it('retient le plus haut niveau obtenu', () => {

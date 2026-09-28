@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { Boutique } from './composants/Boutique'
 import { Codex } from './composants/Codex'
 import { Fiche } from './composants/Fiche'
 import { Indices } from './composants/Indices'
@@ -12,11 +13,12 @@ import { Resultat } from './composants/Resultat'
 import { Table } from './composants/Table'
 import type { ClientApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
-import { completude, construireCodex } from './services/codex'
+import { construireCodex } from './services/codex'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
 import { useRoute } from './services/route'
+import { useEnergieAnimee } from './services/animation'
 import { useMaintenant } from './services/horloge'
 import { energieA } from './services/plis'
 import { useEnLigne } from './services/reseau'
@@ -43,26 +45,30 @@ export function App({ api, catalogue }: Props) {
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
   const [route, naviguer] = useRoute()
   const onglet = route.onglet
-  // Changer d'onglet conserve l'état de chaque écran (interfaces, règle 01) : l'atelier du pli choisi reste ouvert.
-  const dernierPli = useRef<string | null>(null)
-  useEffect(() => {
-    if (route.onglet === 'plis') dernierPli.current = route.pli
-  }, [route.onglet, route.pli])
-  const setOnglet = useCallback(
-    (o: Onglet) => naviguer({ onglet: o, carte: null, pli: o === 'plis' ? dernierPli.current : null, plus: false }),
-    [naviguer],
-  )
+  // Le menu « Plis » ramène toujours au choix du fascicule.
+  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, pli: null, plus: false }), [naviguer])
   const { jeu, etat } = partie
   // Plis prêts : compteur de l'onglet, rafraîchi quand une charge revient.
   const maintenant = useMaintenant()
-  const plisPrets = etat ? energieA(etat.energie, maintenant).charges : 0
+  const { energie: energieAnimee, avance } = useEnergieAnimee(etat?.energie, maintenant)
+  // Pendant le rituel d'ouverture d'un pli, l'encre et les nouveautés du codex restent celles d'avant.
+  const [gel, setGel] = useState<{ encre: number | undefined; nouvelles: number } | null>(null)
+  const encreAffichee = gel ? gel.encre : etat?.encre
+  // Valeurs courantes lues au moment du gel ; `geler` reste stable pendant tout le rituel.
+  const courantes = useRef({ encre: etat?.encre, nouvelles: partie.nouvelles.size })
+  useEffect(() => {
+    courantes.current = { encre: etat?.encre, nouvelles: partie.nouvelles.size }
+  }, [etat?.encre, partie.nouvelles.size])
+  const geler = useCallback((actif: boolean) => setGel(actif ? { ...courantes.current } : null), [])
+  const energieNav = energieAnimee ? energieA(energieAnimee, maintenant) : null
+  const plisPrets = energieNav?.charges ?? 0
+  // Avancée de la recharge en cours, de 0 à 1 ; null quand l'énergie est pleine.
+  const recharge = etat && energieNav?.prochaine != null ? 1 - (energieNav.prochaine - maintenant) / (etat.energie.recharge_s * 1000) : null
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
   const entrees = useMemo(
     () => (catalogueJeu ? construireCodex(catalogueJeu, etat) : []),
     [catalogueJeu, etat],
   )
-  const mots = entrees.filter((e) => e.resultat)
-  const motsTrouves = completude(mots).trouvees
   // Exemplaires disponibles : ceux posés sur la table sont réservés.
   const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
@@ -80,12 +86,12 @@ export function App({ api, catalogue }: Props) {
       : false
 
   const allerAuCodex = useCallback(
-    (motId?: string, plus = false) => {
+    (motId?: string) => {
       partie.fermerFiche()
       // La carte demandée s'ouvre filtres levés, pour être sûre d'y être.
       naviguer(
         motId
-          ? { onglet: 'codex', carte: motId, plus, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
+          ? { onglet: 'codex', carte: motId, plus: false, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
           : { onglet: 'codex', carte: null, plus: false },
       )
     },
@@ -102,7 +108,12 @@ export function App({ api, catalogue }: Props) {
 
   return (
     <div className="coque">
-      <Navigation actif={onglet} compteurs={{ codex: partie.nouvelles.size, plis: plisPrets }} onChoisir={setOnglet} />
+      <Navigation
+        actif={onglet}
+        compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size }}
+        onChoisir={setOnglet}
+        ressources={etat ? { plis: plisPrets, capacite: etat.energie.capacite, gouttes: encreAffichee ?? 0, sabliers: etat.sabliers?.detenus ?? 0, recharge, avance } : undefined}
+      />
 
       <div className="contenu">
         <main className="page">
@@ -142,17 +153,7 @@ export function App({ api, catalogue }: Props) {
           {catalogueJeu && (
             <>
               <section {...ecran('table')}>
-                <EnTete titre="Table" id="titre-table">
-                  <span className="mono">
-                    {motsTrouves} / {mots.length} mots
-                  </span>
-                  <button type="button" className="btn btn-secondary" onClick={() => setIndices(true)} disabled={!etat}>
-                    Indices
-                  </button>
-                  <button type="button" className="btn-icone" aria-label="Ouvrir le codex" onClick={() => allerAuCodex()}>
-                    <Icone nom="codex" />
-                  </button>
-                </EnTete>
+                <EnTete titre="Table" id="titre-table" />
                 {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} onFermer={fermerIndices} />}
 
                 <div className="jeu">
@@ -168,12 +169,13 @@ export function App({ api, catalogue }: Props) {
                         </span>
                         <h3>Aucun mot possible pour l’instant</h3>
                         <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
-                        <div className="rangee rangee-centree rangee-une-ligne">
+                        <div className="rangee rangee-centree">
                           <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
                             Aller aux plis
                           </button>
-                          <button type="button" className="btn btn-secondary" onClick={() => allerAuCodex()}>
-                            Voir le codex
+                          <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                            <Icone nom="indice" />
+                            Indices
                           </button>
                         </div>
                       </div>
@@ -199,8 +201,9 @@ export function App({ api, catalogue }: Props) {
                           >
                             {partie.enAttente ? 'Fusion…' : 'Fusionner'}
                           </button>
-                          <button type="button" className="btn btn-secondary" onClick={partie.vider} disabled={partie.table.length === 0 || partie.enAttente}>
-                            Vider
+                          <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                            <Icone nom="indice" />
+                            Indices
                           </button>
                         </div>
                         <Resultat
@@ -269,9 +272,17 @@ export function App({ api, catalogue }: Props) {
                   onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
                   ouvrirPli={partie.ouvrirPli}
                   utiliserSabliers={partie.utiliserSabliers}
+                  acheterSabliers={partie.acheterSabliers}
                   onEssayer={() => setOnglet('table')}
+                  encre={encreAffichee}
+                  onGeler={geler}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                 />
+              </section>
+
+              <section {...ecran('boutique')}>
+                <EnTete titre="Boutique" id="titre-boutique" />
+                <Boutique etat={etat} acheter={partie.acheterSabliers} />
               </section>
 
               {fiche && (
@@ -284,7 +295,6 @@ export function App({ api, catalogue }: Props) {
                   reserve={etat?.reserve ?? []}
                   onFermer={partie.fermerFiche}
                   onCodex={() => allerAuCodex(fiche.motId)}
-                  onSavoirPlus={() => allerAuCodex(fiche.motId, true)}
                 />
               )}
             </>

@@ -9,6 +9,22 @@
 .ring-track { fill: none; stroke: var(--paper-2); stroke-width: 6; }
 .ring-edge { fill: none; stroke: var(--ink); stroke-width: 1; }
 .ring-fill { fill: none; stroke: var(--c-pli); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 163.36; stroke-dashoffset: 0; }
+/*
+ * Lueur de la jauge pendant que des sabliers l'avancent : une copie floue du
+ * trait Ambre qui pulse, et une tête lumineuse au bout. Pas d'ombre colorée :
+ * ce sont des tracés, visibles seulement pendant l'avance.
+ */
+.ring-halo { fill: none; stroke: var(--c-pli); stroke-width: 10; stroke-linecap: round; opacity: 0; transition: opacity 0.25s var(--ease-out); }
+.ring-tete, .ring-tete-halo { opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity 0.25s var(--ease-out); }
+.ring-tete { fill: var(--c-pli-tint); stroke: var(--c-pli); stroke-width: 1.5; }
+.ring-tete-halo { fill: var(--c-pli); }
+.is-avance .ring-halo { opacity: 0.7; animation: anneau-lueur 0.45s ease-in-out infinite alternate; }
+.is-avance .ring-tete { opacity: 1; animation: anneau-tete 0.45s ease-in-out infinite alternate; }
+.is-avance .ring-tete-halo { opacity: 0.9; animation: anneau-tete 0.45s ease-in-out infinite alternate; }
+@keyframes anneau-lueur { from { opacity: 0.45; } to { opacity: 0.9; } }
+@keyframes anneau-tete { from { scale: 0.85; } to { scale: 1.2; } }
+@media (prefers-reduced-motion: reduce) { .is-avance :is(.ring-halo, .ring-tete, .ring-tete-halo) { animation: none; } }
+:root[data-mouvement="reduit"] .is-avance :is(.ring-halo, .ring-tete, .ring-tete-halo) { animation: none; }
 .energy strong { display: block; font-family: var(--mono); font-size: 18px; }
 .energy small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
 .pk-layout { display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr) minmax(220px, 0.8fr); gap: 20px; align-items: start; }
@@ -172,7 +188,7 @@
 .pk-origin { color: var(--ink-2); font-family: var(--serif); font-size: 18px; font-style: italic; animation: eqFade 0.4s ease-out 0.5s both; }
 @media (max-width: 1100px) {
   .pk-layout { grid-template-columns: 1fr 1fr; }
-  .pk-stage { grid-column: 1 / -1; order: -1; }
+  .pk-centre { grid-column: 1 / -1; order: -1; }
 }
 @media (max-width: 760px) {
   .pk-layout { grid-template-columns: 1fr; }
@@ -345,20 +361,57 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 .pk-attente small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
 .pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }
 
-/* Mobile : l'énergie passe au-dessus du pli, le reste de l'atelier dessous. */
+/* Colonne centrale : le pli, puis les derniers tirages. */
+.pk-centre { display: grid; gap: 20px; min-width: 0; }
+/* Mobile : les plis en chargement au-dessus du pli, le reste de l'atelier dessous. */
 @media (max-width: 760px) {
   .pk-layout .pk-side { display: contents; }
-  .pk-layout .pk-stage { order: -1; }
+  .pk-layout .pk-centre { order: -1; }
+  .pk-layout .pk-energie { order: -2; }
 }
 
 /* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */
 .pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
 .pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 20px; }
 .pk-chooser-head .pk-note { margin-top: 0; }
-.pk-chooser > .pk-energie { margin-bottom: 20px; }
 /* Atelier : l’écart vient de la grille (20 px), pas des marges. */
 .pk-ecran > .pk-current { margin-bottom: 0; }
+/* Raccourci des sabliers sous les plis en chargement : remplir, ou échanger de l’encre (ADR 0039). */
+.pk-energie > .pk-sandbtn { width: 100%; margin-top: 14px; }
+.pk-sandbtn .ic { width: 18px; height: 18px; }
 
-/* Lien d'action dans une phrase (feuille des sabliers) : souligné, cible tactile pleine hauteur. */
-.btn-lien { min-height: 44px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
-.btn-lien:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/*
+ * Boutique (ADR 0018, 0039) : échanges de ressources du jeu, puis achats en
+ * euros, fermés. Palette du pli : l’encre et les sabliers sont en Ambre ; le
+ * Corail reste à l’action principale.
+ */
+.bq { display: grid; gap: 32px; }
+.bq-soldes { display: flex; flex-wrap: wrap; gap: 10px; }
+.bq-solde { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--cream); font-family: var(--mono); font-size: 13px; font-weight: 700; }
+.bq-solde small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+.bq-section { display: grid; gap: 16px; }
+.bq-tete { display: grid; gap: 6px; max-width: 640px; }
+.bq-tete .pk-label { display: flex; align-items: center; gap: 10px; margin: 0; }
+.bq-tete h2 em { color: var(--c-action-deep); }
+:root[data-theme="nocturne"] .bq-tete h2 em { color: var(--c-action); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .bq-tete h2 em { color: var(--c-action); } }
+.bq-tete p { color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.bq-offres { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.bq-offre { display: grid; gap: 12px; align-content: start; }
+.bq-offre h3 { font-family: var(--serif); font-size: 22px; line-height: 1.1; }
+.bq-offre p { color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+.bq-offre .btn { width: 100%; }
+/* Le troc : ce qu’on donne, puis ce qu’on reçoit. */
+.bq-troc { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 10px; background: var(--c-pli-tint); color: var(--fixed-ink); }
+.bq-troc b { font-family: var(--serif); font-size: 28px; line-height: 1; }
+.bq-troc .pk-drop, .bq-troc .pk-glass { flex: none; }
+.bq-troc .bq-fleche { color: var(--fixed-ink); font-size: 20px; }
+.bq-manque { color: var(--ink-3); font-family: var(--mono); font-size: 11px; text-align: center; }
+/* Achats en euros : fermés, en pointillés (interfaces, « plus tard »). */
+.bq-bientot { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border: 1px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+.bq-bientot .ic { width: 12px; height: 12px; }
+.bq-ferme { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 20px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-2); }
+.bq-ferme > .ic { width: 32px; height: 32px; color: var(--ink-3); }
+.bq-ferme p { font-size: 14px; line-height: 1.5; }
+.bq-ferme b { color: var(--ink); }

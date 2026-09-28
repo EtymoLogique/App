@@ -81,12 +81,11 @@ pub struct Etat {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SabliersEtat {
-    #[schema(minimum = 0, maximum = 36)]
+    /// Sabliers détenus, sans plafond (ADR 0039).
+    #[schema(minimum = 0)]
     pub detenus: u32,
-    /// Sabliers utilisés sur la fenêtre glissante (24 h en production).
-    pub utilises_24h: u32,
-    pub plafond_jour: u32,
-    pub plafond_detenus: u32,
+    /// Prix d'un sablier, en gouttes.
+    pub prix_gouttes: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -97,8 +96,7 @@ pub struct IndiceObtenu {
     pub niveau: u8,
 }
 
-/// Commande d'utilisation de sabliers (ADR 0020) : ceux détenus d'abord,
-/// puis ceux payés en encre, une goutte chacun.
+/// Commande d'utilisation de sabliers détenus (ADR 0020, 0039).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DemandeSablier {
@@ -108,17 +106,38 @@ pub struct DemandeSablier {
     pub version_etat: i64,
     #[schema(max_length = 64)]
     pub version_catalogue: String,
-    #[schema(minimum = 1, maximum = 12)]
+    /// Au plus 24 : ceux qui remplissent une énergie vide.
+    #[schema(minimum = 1, maximum = 24)]
     pub nombre: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReponseSablier {
-    /// Sabliers pris parmi ceux détenus.
-    pub depuis_detenus: u32,
-    /// Sabliers payés en encre.
-    pub depuis_encre: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes
+/// chacun, sans plafond.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeAchatSablier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    #[schema(minimum = 1, maximum = 1000)]
+    pub nombre: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseAchatSablier {
+    /// Gouttes payées.
+    pub prix: u32,
     /// État confirmé après la commande.
     pub etat: Etat,
 }

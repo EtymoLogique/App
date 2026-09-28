@@ -100,11 +100,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Utilise des sabliers (ADR 0018, 0020) : chacun avance la recharge en
-         *     cours d'une heure. Les sabliers détenus passent d'abord, puis ceux payés
-         *     une goutte chacun. Le temps au-delà de deux charges est perdu.
+         * Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
+         *     recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
          */
         post: operations["utiliser_sabliers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sablier/achat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,
+         *     sans plafond.
+         */
+        post: operations["acheter_sabliers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -254,6 +273,25 @@ export interface components {
             numero: number;
             recette_id: components["schemas"]["IdCatalogue"];
         };
+        /**
+         * @description Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes
+         *     chacun, sans plafond.
+         */
+        DemandeAchatSablier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: int32 */
+            nombre: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /** @description Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table. */
         DemandeFusion: {
             /** @description Briques posées sur la table, dans l'ordre. */
@@ -305,17 +343,17 @@ export interface components {
              */
             version_etat: number;
         };
-        /**
-         * @description Commande d'utilisation de sabliers (ADR 0020) : ceux détenus d'abord,
-         *     puis ceux payés en encre, une goutte chacun.
-         */
+        /** @description Commande d'utilisation de sabliers détenus (ADR 0020, 0039). */
         DemandeSablier: {
             /**
              * Format: uuid
              * @description Clé d'idempotence générée par le client (UUID v4).
              */
             commande: string;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Au plus 24 : ceux qui remplissent une énergie vide.
+             */
             nombre: number;
             version_catalogue: string;
             /**
@@ -640,6 +678,15 @@ export interface components {
             id: components["schemas"]["IdCatalogue"];
             type_code: string;
         };
+        ReponseAchatSablier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Gouttes payées.
+             */
+            prix: number;
+        };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
@@ -669,16 +716,6 @@ export interface components {
             ouverture: components["schemas"]["OuverturePli"];
         };
         ReponseSablier: {
-            /**
-             * Format: int32
-             * @description Sabliers pris parmi ceux détenus.
-             */
-            depuis_detenus: number;
-            /**
-             * Format: int32
-             * @description Sabliers payés en encre.
-             */
-            depuis_encre: number;
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
         };
@@ -690,17 +727,16 @@ export interface components {
         /** @enum {string} */
         Role: "resultat" | "ingredient";
         SabliersEtat: {
-            /** Format: int32 */
-            detenus: number;
-            /** Format: int32 */
-            plafond_detenus: number;
-            /** Format: int32 */
-            plafond_jour: number;
             /**
              * Format: int32
-             * @description Sabliers utilisés sur la fenêtre glissante (24 h en production).
+             * @description Sabliers détenus, sans plafond (ADR 0039).
              */
-            utilises_24h: number;
+            detenus: number;
+            /**
+             * Format: int32
+             * @description Prix d'un sablier, en gouttes.
+             */
+            prix_gouttes: number;
         };
         Sante: {
             statut: components["schemas"]["StatutSante"];
@@ -1072,7 +1108,85 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Énergie pleine, plafond quotidien atteint ou encre insuffisante */
+            /** @description Énergie pleine ou sabliers insuffisants */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    acheter_sabliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeAchatSablier"];
+            };
+        };
+        responses: {
+            /** @description Sabliers achetés et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseAchatSablier"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Encre insuffisante */
             403: {
                 headers: {
                     [name: string]: unknown;

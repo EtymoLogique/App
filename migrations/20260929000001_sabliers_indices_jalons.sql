@@ -1,10 +1,10 @@
 -- Sabliers, indices et jalons atteints (ADR 0018, 0020, 0038, modèle de
 -- données §7). Une ligne `sablier` absente vaut zéro sablier détenu.
 
--- Sabliers détenus : 36 au plus.
+-- Sabliers détenus, sans plafond (ADR 0039).
 CREATE TABLE sablier (
-    joueur_id uuid     PRIMARY KEY REFERENCES joueur (id) ON DELETE CASCADE,
-    detenus   smallint NOT NULL CHECK (detenus BETWEEN 0 AND 36)
+    joueur_id uuid    PRIMARY KEY REFERENCES joueur (id) ON DELETE CASCADE,
+    detenus   integer NOT NULL CHECK (detenus >= 0)
 );
 
 -- Indices obtenus : un niveau d'une recette n'est payé qu'une fois.

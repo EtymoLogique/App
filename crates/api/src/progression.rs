@@ -123,7 +123,7 @@ pub async fn etat(
         encre,
         compteurs_plis,
         historique_plis,
-        sabliers: sabliers_etat(&mut *tx, joueur, maintenant, recharge).await?,
+        sabliers: sabliers_etat(&mut *tx, joueur).await?,
         indices,
         jalons_atteints,
         prix_indices: indice::PRIX_INDICE.to_vec(),
@@ -148,17 +148,10 @@ async fn lire_indices(tx: &mut PgConnection, joueur: Uuid) -> Result<Vec<IndiceO
     .collect()
 }
 
-async fn sabliers_etat(
-    tx: &mut PgConnection,
-    joueur: Uuid,
-    maintenant: DateTime<Utc>,
-    recharge: TimeDelta,
-) -> Result<SabliersEtat, ErreurApi> {
+async fn sabliers_etat(tx: &mut PgConnection, joueur: Uuid) -> Result<SabliersEtat, ErreurApi> {
     Ok(SabliersEtat {
         detenus: lire_sabliers(&mut *tx, joueur).await?,
-        utilises_24h: sabliers_utilises(&mut *tx, joueur, maintenant, recharge).await?,
-        plafond_jour: sablier::PLAFOND_JOUR,
-        plafond_detenus: sablier::PLAFOND_DETENUS,
+        prix_gouttes: sablier::GOUTTES_PAR_SABLIER,
     })
 }
 
@@ -463,13 +456,12 @@ async fn crediter_sabliers(
     if delta == 0 {
         return Ok(());
     }
-    let delta_court = i16::try_from(delta).map_err(|e| ErreurApi::Interne(e.to_string()))?;
     if delta > 0 {
         sqlx::query!(
             "INSERT INTO sablier (joueur_id, detenus) VALUES ($1, $2)
              ON CONFLICT (joueur_id) DO UPDATE SET detenus = sablier.detenus + EXCLUDED.detenus",
             joueur,
-            delta_court,
+            delta,
         )
         .execute(&mut *tx)
         .await?;
@@ -477,7 +469,7 @@ async fn crediter_sabliers(
         sqlx::query!(
             "UPDATE sablier SET detenus = detenus + $2 WHERE joueur_id = $1",
             joueur,
-            delta_court,
+            delta,
         )
         .execute(&mut *tx)
         .await?;
@@ -505,26 +497,7 @@ pub async fn lire_sabliers(tx: &mut PgConnection, joueur: Uuid) -> Result<u32, E
     )
 }
 
-/// Sabliers utilisés sur la fenêtre glissante du plafond quotidien.
-pub async fn sabliers_utilises(
-    tx: &mut PgConnection,
-    joueur: Uuid,
-    maintenant: DateTime<Utc>,
-    recharge: TimeDelta,
-) -> Result<u32, ErreurApi> {
-    let somme = sqlx::query_scalar!(
-        "SELECT COALESCE(-SUM(delta), 0)::integer FROM mouvement
-         WHERE joueur_id = $1 AND ressource = 'sablier' AND motif = 'sablier' AND delta < 0 AND le > $2",
-        joueur,
-        maintenant - sablier::fenetre(recharge),
-    )
-    .fetch_one(tx)
-    .await?;
-    Ok(somme.map_or(0, positif))
-}
-
-/// Utilise `nombre` sabliers : les détenus d'abord, puis ceux payés en encre.
-/// Renvoie la répartition (détenus, encre).
+/// Utilise `nombre` sabliers détenus : chacun avance la recharge d'une heure.
 pub async fn utiliser_sabliers(
     tx: &mut PgConnection,
     joueur: Uuid,
@@ -532,39 +505,14 @@ pub async fn utiliser_sabliers(
     nombre: u32,
     recharge: TimeDelta,
     maintenant: DateTime<Utc>,
-) -> Result<(u32, u32), ErreurApi> {
+) -> Result<(), ErreurApi> {
     let energie = lire_energie(&mut *tx, joueur).await?;
     let avancee = energie
         .avancer(maintenant, recharge, nombre)
         .ok_or(ErreurApi::Interdit("énergie pleine"))?;
-    let detenus = lire_sabliers(&mut *tx, joueur).await?;
-    let encre = lire_encre(&mut *tx, joueur).await?;
-    let utilises = sabliers_utilises(&mut *tx, joueur, maintenant, recharge).await?;
-    let (depuis_detenus, depuis_encre) = sablier::repartir(nombre, detenus, encre, utilises)
-        .ok_or(ErreurApi::Interdit(
-            "plafond quotidien ou encre insuffisante",
-        ))?;
-    let achetes = i32::try_from(depuis_encre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
-    let prix = i32::try_from(depuis_encre * sablier::GOUTTES_PAR_SABLIER)
-        .map_err(|e| ErreurApi::Interne(e.to_string()))?;
-    crediter_encre(
-        &mut *tx,
-        joueur,
-        Some(commande),
-        -prix,
-        "sablier",
-        maintenant,
-    )
-    .await?;
-    crediter_sabliers(
-        &mut *tx,
-        joueur,
-        Some(commande),
-        achetes,
-        "sablier",
-        maintenant,
-    )
-    .await?;
+    if lire_sabliers(&mut *tx, joueur).await? < nombre {
+        return Err(ErreurApi::Interdit("sabliers insuffisants"));
+    }
     let utilises = i32::try_from(nombre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
     crediter_sabliers(
         &mut *tx,
@@ -575,8 +523,41 @@ pub async fn utiliser_sabliers(
         maintenant,
     )
     .await?;
-    ecrire_energie(&mut *tx, joueur, avancee).await?;
-    Ok((depuis_detenus, depuis_encre))
+    ecrire_energie(&mut *tx, joueur, avancee).await
+}
+
+/// Achète `nombre` sabliers contre de l'encre (ADR 0039). Renvoie le prix payé.
+pub async fn acheter_sabliers(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Uuid,
+    nombre: u32,
+    maintenant: DateTime<Utc>,
+) -> Result<u32, ErreurApi> {
+    let encre = lire_encre(&mut *tx, joueur).await?;
+    let prix =
+        sablier::prix_achat(nombre, encre).ok_or(ErreurApi::Interdit("encre insuffisante"))?;
+    let debit = i32::try_from(prix).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    let achat = i32::try_from(nombre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        -debit,
+        "sablier",
+        maintenant,
+    )
+    .await?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        achat,
+        "sablier",
+        maintenant,
+    )
+    .await?;
+    Ok(prix)
 }
 
 async fn ecrire_energie(
@@ -662,7 +643,7 @@ async fn jalons_atteints(
 
 /// Accorde les jalons atteints et pas encore reçus (ADR 0038) : un pli
 /// déterministe (un exemplaire de chaque brique, de l'encre si la réserve est
-/// pleine) et des sabliers, plafonnés à 36 détenus. Renvoie les jalons accordés.
+/// pleine) et des sabliers. Renvoie les jalons accordés.
 pub async fn accorder_jalons(
     tx: &mut PgConnection,
     joueur: Uuid,
@@ -725,12 +706,8 @@ pub async fn accorder_jalons(
                 };
                 historiser_pli(&mut *tx, joueur, &effets, "jalon", gouttes).await?;
             }
-            let detenus = lire_sabliers(&mut *tx, joueur).await?;
-            // ponytail: au-delà de 36 détenus, les sabliers du jalon sont perdus (ADR 0038) ; un compteur en attente s'ajoutera si un jalon y arrive.
-            let ajout = jalon
-                .sabliers
-                .min(sablier::PLAFOND_DETENUS.saturating_sub(detenus));
-            let ajout = i32::try_from(ajout).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+            let ajout =
+                i32::try_from(jalon.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
             crediter_sabliers(&mut *tx, joueur, commande, ajout, "jalon", maintenant).await?;
             accordes.push(jalon.id.clone());
         }

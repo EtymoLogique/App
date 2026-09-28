@@ -4,7 +4,7 @@
 
 import type { Etat } from '../contrat'
 import type { EntreeCodex } from './codex'
-import { type CatalogueJeu, NATURES, type RecetteJeu } from './jeu'
+import { type BriqueJeu, type CatalogueJeu, NATURES, type RecetteJeu } from './jeu'
 
 export const TITRES_INDICES = ['Langue du résultat', 'Nature des briques', 'Une transformation ?', 'Une brique connue', 'La solution'] as const
 
@@ -25,28 +25,31 @@ export function niveauObtenu(etat: Etat | null, recette: string): number {
   return Math.max(0, ...(etat?.indices ?? []).filter((i) => i.recette_id === recette).map((i) => i.niveau))
 }
 
+/** Morceaux d'un indice : du texte, ou une brique à afficher comme brique, jamais en texte brut. */
+export type PartieIndice = string | BriqueJeu
+
 /** Contenu d'un niveau d'indice, lu dans le catalogue. */
-export function contenuIndice(jeu: CatalogueJeu, recette: RecetteJeu, niveau: number, etat: Etat | null): string {
+export function contenuIndice(jeu: CatalogueJeu, recette: RecetteJeu, niveau: number, etat: Etat | null): PartieIndice[] {
   const carte = jeu.cartes.get(recette.motId)
   const briques = recette.emplacements.map((e) => jeu.briques.get(e[0] ?? ''))
   switch (niveau) {
     case 1:
-      return (carte && jeu.langues.get(carte.langue_id)) ?? 'Langue inconnue'
+      return [(carte && jeu.langues.get(carte.langue_id)) ?? 'Langue inconnue']
     case 2:
-      return briques.map((b) => (b ? NATURES[b.nature] : '?')).join(' + ')
+      return [briques.map((b) => (b ? NATURES[b.nature] : '?')).join(' + ')]
     case 3: {
       const compositions = carte?.compositions ?? []
       const composition = compositions.find((c) => c.preferee) ?? compositions[0]
       const noms = (composition?.transformations ?? []).map((t) => jeu.typesTransformation.get(t.type_code) ?? t.type_code)
-      return noms.length > 0 ? `Oui : ${noms.join(', ')}` : 'Aucune transformation'
+      return [noms.length > 0 ? `Oui : ${noms.join(', ')}` : 'Aucune transformation']
     }
     case 4: {
       const detenues = new Set((etat?.reserve ?? []).map((e) => e.brique_id))
-      const rang = Math.max(0, recette.emplacements.findIndex((e) => e.some((b) => detenues.has(b))))
-      const brique = jeu.briques.get(recette.emplacements[rang]?.find((b) => detenues.has(b)) ?? recette.emplacements[rang]?.[0] ?? '')
-      return brique ? `${brique.libelle} en ${RANGS[rang] ?? `${rang + 1}ᵉ`} position` : 'Aucune brique connue'
+      const rang = recette.emplacements.findIndex((e) => e.some((b) => detenues.has(b)))
+      const brique = jeu.briques.get(recette.emplacements[rang]?.find((b) => detenues.has(b)) ?? '')
+      return brique ? [brique, ` en ${RANGS[rang] ?? `${rang + 1}ᵉ`} position`] : ['Aucune brique de votre réserve']
     }
     default:
-      return briques.map((b) => b?.libelle ?? '?').join(' + ')
+      return briques.flatMap((b, i) => [...(i > 0 ? [' + '] : []), b ?? '?'])
   }
 }

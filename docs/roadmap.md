@@ -12,7 +12,7 @@ Chaque jalon se termine par une démonstration en hors-prod (`develop`, [ADR 002
 | **J1 — Table de fusion et réserve** | Réserve de départ, commande `fusion` transactionnelle et idempotente, prévisualisation, retours succès, déjà connue, presque, échec, fiche de découverte, projection dans IndexedDB | Un joueur réalise les trois premières découvertes du fascicule 0 | Content : graines (réserve de départ) |
 | **J2 — Codex** | Vues et filtres (langue, famille, fonction, récent), cartes et silhouettes, fiches, cartes de langue, compteurs par fascicule, légendaires invisibles | Codex navigable, cohérent avec la réserve | Content : silhouettes |
 | **J3 — Énergie et plis** | Énergie à 2 charges, une toutes les 12 h, à l’horloge du serveur ; `ouvrir_pli` (aléa cryptographique, raretés, poids, garantie au 6ᵉ pli, filet au 5ᵉ) ; doublons et encre ; historique ; écran des plis et chances ; rituel d’ouverture | Boucle fusion ↔ pli jouable sur plusieurs jours | Content : poids et raretés du pli |
-| **J4 — Encre, sabliers, indices, jalons** | Sabliers (1 goutte, 12 par 24 h, 36 détenus au plus), indices (5, 10, 20, 40 puis 80 gouttes, [ADR 0038](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0038-indices-a-prix-croissant-et-format-des-jalons.md)), jalons et plis déterministes | Économie complète du MVP, sans achat | Content : jalons |
+| **J4 — Encre, sabliers, indices, jalons** | Sabliers (10 gouttes, échangés à la boutique sans plafond, détenus sans plafond, [ADR 0039](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0039-plafonner-l-achat-des-sabliers-pas-leur-usage.md)), indices (5, 10, 20, 40 puis 80 gouttes, [ADR 0038](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0038-indices-a-prix-croissant-et-format-des-jalons.md)), jalons et plis déterministes | Économie complète du MVP, sans achat | Content : jalons |
 | **J5 — Première session** | Onboarding guidé, règle d’amorçage, réglages (thème, locale, mouvement réduit), accessibilité clavier et lecteur d’écran | Un nouveau joueur termine le tutoriel sans aide | Validation d’atteignabilité et d’amorçage (étape 5 du pipeline) |
 | **J6 — Hors connexion et évolutions du catalogue** | Stratégie du service worker (une PWA qui n’est plus alignée sur la version déployée se recharge d’elle-même, sans attendre un second chargement), commandes en attente rejouables, `409` puis resynchronisation, migrations de progression à la parution | Un 2ᵉ fascicule paraît sans casser les parties en cours ; jeu hors connexion conforme à l’[ADR 0001](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0001-pwa-responsive.md) | Content : 2ᵉ fascicule |
 | **J7 — Observabilité et vie privée** | Télémétrie pseudonyme (identifiant renouvelé tous les 30 jours), indicateurs minimaux du game-design, agrégats, purges quotidiennes, journaux structurés sans PII | Tableau des indicateurs en hors-prod | Infra : Cockpit, tâches planifiées |
@@ -78,7 +78,7 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Recherche parmi les seules cartes trouvées, par forme ou par sens (I-17), raccourci « / », jamais dans l’adresse | fait |
 | Vues Tout, Récentes, Familles et Objectifs, tenues dans l’adresse (`vue=`) ; familles déduites des recettes : les mots formés sur une brique trouvée | fait |
 | Onglet Objectifs (I-18) : familles à compléter avec leur détail, langues rencontrées | fait ; jalons ajoutés en J4 |
-| « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la fiche (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
+| « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la carte du codex (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
 
 ### Exigence reportée à J6
 
@@ -116,10 +116,10 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Content : `jalons` dans le fascicule, schéma et contrôles, recopiés dans le manifeste ; deux jalons d’essai au fascicule 0 (3 découvertes : pli ; 6 : 2 sabliers) | fait |
 | Domaine : `Energie::avancer`, `sablier` (répartition, plafonds), `indice` (barème), `jalon::atteints` | fait |
 | Base : tables `sablier`, `indice`, `jalon_atteint` | fait |
-| `POST /sablier` : détenus d’abord, puis 1 goutte chacun ; `403` énergie pleine, plafond de 12 sur la fenêtre (24 h en prod, deux recharges) ou encre insuffisante ; idempotent | fait |
+| `POST /sablier/achat` : 10 gouttes le sablier, sans plafond, `403` sans assez d’encre ; `POST /sablier` : sabliers détenus seulement, sans plafond, `403` énergie pleine ou sabliers insuffisants ; idempotents (ADR 0039) | fait |
 | `POST /indice` : niveau suivant seulement (`400`), recette inconnue ou légendaire (`400`), découverte (`409`), encre (`403`) | fait |
-| Jalons accordés dans la découverte et à la synchronisation (`GET /etat`) ; pli de jalon (`ouverture_pli` d’origine `jalon`, règle `deterministe`), encre si réserve pleine ; sabliers plafonnés à 36 | fait |
-| PWA : carte des sabliers et feuille (répartition, temps gagné, perte annoncée, nombre sans perte) ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
+| Jalons accordés dans la découverte et à la synchronisation (`GET /etat`) ; pli de jalon (`ouverture_pli` d’origine `jalon`, règle `deterministe`), encre si réserve pleine ; sabliers sans plafond | fait |
+| PWA : onglet Boutique (`#/boutique`) avec les échanges (encre contre sabliers, lots de 1, 3 et 12, sans plafond) et l’achat de gouttes en euros « Bientôt ouvert », verrouillé ; raccourci sous les plis en chargement (« Faire avancer le temps avec des sabliers », sinon « Échanger contre des gouttes ») ; ressources (plis prêts, gouttes, sabliers) dans la navigation, compteurs animés, gouttes et nouveautés affichées après le rituel du pli ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
 | Recette locale : 3 découvertes → pli de jalon (philo-, -iste) ; 3 sabliers → recharge −3 h ; indices 1 → 5 : 200 → 45 gouttes ; Objectifs 3 / 6 | fait |
 | Déploiement hors-prod et démonstration | à faire |
 

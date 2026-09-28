@@ -6,7 +6,7 @@
 
 import { useCallback, useSyncExternalStore } from 'react'
 
-export type Onglet = 'table' | 'codex' | 'plis' | 'reglages'
+export type Onglet = 'table' | 'codex' | 'plis' | 'boutique' | 'reglages'
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
@@ -28,7 +28,7 @@ export interface Route {
   fascicule: number | null
 }
 
-const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'reglages']
+const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'boutique', 'reglages']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc']
 const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'objectifs']

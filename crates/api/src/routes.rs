@@ -7,9 +7,9 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    DemandeFusion, DemandeIndice, DemandePli, DemandeSablier, DemandeSession, Erreur, Etat,
-    IssueFusion, OuverturePli, ReponseFusion, ReponseIndice, ReponsePli, ReponseSablier, Sante,
-    Session, StatutSante,
+    DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandePli, DemandeSablier, DemandeSession,
+    Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice,
+    ReponsePli, ReponseSablier, Sante, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -26,6 +26,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/fusion", post(fusion))
         .route("/pli", post(ouvrir_pli))
         .route("/sablier", post(utiliser_sabliers))
+        .route("/sablier/achat", post(acheter_sabliers))
         .route("/indice", post(acheter_indice))
 }
 
@@ -485,28 +486,27 @@ async fn conclure_commande<T: serde::Serialize>(
     Ok(())
 }
 
-/// Utilise des sabliers (ADR 0018, 0020) : chacun avance la recharge en
-/// cours d'une heure. Les sabliers détenus passent d'abord, puis ceux payés
-/// une goutte chacun. Le temps au-delà de deux charges est perdu.
-#[utoipa::path(post, path = "/sablier", tag = "jeu", security(("session" = [])), request_body = DemandeSablier,
+/// Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,
+/// sans plafond.
+#[utoipa::path(post, path = "/sablier/achat", tag = "jeu", security(("session" = [])), request_body = DemandeAchatSablier,
     responses(
-        (status = 200, description = "Recharge avancée et état confirmé", body = ReponseSablier),
+        (status = 200, description = "Sabliers achetés et état confirmé", body = ReponseAchatSablier),
         (status = 400, description = "Requête invalide", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
-        (status = 403, description = "Énergie pleine, plafond quotidien atteint ou encre insuffisante", body = Erreur),
+        (status = 403, description = "Encre insuffisante", body = Erreur),
         (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
     ))]
-pub async fn utiliser_sabliers(
+pub async fn acheter_sabliers(
     State(app): State<Arc<EtatApp>>,
     Joueur(joueur): Joueur,
-    JsonStrict(demande): JsonStrict<DemandeSablier>,
-) -> Result<Json<ReponseSablier>, ErreurApi> {
-    if !(1..=sablier::PLAFOND_JOUR).contains(&demande.nombre) {
+    JsonStrict(demande): JsonStrict<DemandeAchatSablier>,
+) -> Result<Json<ReponseAchatSablier>, ErreurApi> {
+    if !(1..=sablier::ECHANGE_MAX).contains(&demande.nombre) {
         return Err(ErreurApi::RequeteInvalide(format!(
             "nombre : de 1 à {} attendu",
-            sablier::PLAFOND_JOUR
+            sablier::ECHANGE_MAX
         )));
     }
     let mut tx = match debuter_commande(
@@ -521,7 +521,59 @@ pub async fn utiliser_sabliers(
         Ok(tx) => tx,
         Err(reponse) => return Ok(Json(reponse)),
     };
-    let (depuis_detenus, depuis_encre) = progression::utiliser_sabliers(
+    let prix = progression::acheter_sabliers(
+        &mut tx,
+        joueur,
+        demande.commande,
+        demande.nombre,
+        Utc::now(),
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseAchatSablier {
+        prix,
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "sablier", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
+/// recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+#[utoipa::path(post, path = "/sablier", tag = "jeu", security(("session" = [])), request_body = DemandeSablier,
+    responses(
+        (status = 200, description = "Recharge avancée et état confirmé", body = ReponseSablier),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Énergie pleine ou sabliers insuffisants", body = Erreur),
+        (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn utiliser_sabliers(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeSablier>,
+) -> Result<Json<ReponseSablier>, ErreurApi> {
+    let maximum = sablier::UTILES_MAX;
+    if !(1..=maximum).contains(&demande.nombre) {
+        return Err(ErreurApi::RequeteInvalide(format!(
+            "nombre : de 1 à {maximum} attendu"
+        )));
+    }
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    progression::utiliser_sabliers(
         &mut tx,
         joueur,
         demande.commande,
@@ -532,8 +584,6 @@ pub async fn utiliser_sabliers(
     .await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseSablier {
-        depuis_detenus,
-        depuis_encre,
         etat: progression::etat(&mut tx, joueur, app.recharge).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "sablier", &reponse).await?;

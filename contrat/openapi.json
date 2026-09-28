@@ -339,7 +339,7 @@
         "tags": [
           "jeu"
         ],
-        "summary": "Utilise des sabliers (ADR 0018, 0020) : chacun avance la recharge en\ncours d'une heure. Les sabliers détenus passent d'abord, puis ceux payés\nune goutte chacun. Le temps au-delà de deux charges est perdu.",
+        "summary": "Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la\nrecharge en cours d'une heure. Le temps au-delà de deux charges est perdu.",
         "operationId": "utiliser_sabliers",
         "requestBody": {
           "content": {
@@ -383,7 +383,103 @@
             }
           },
           "403": {
-            "description": "Énergie pleine, plafond quotidien atteint ou encre insuffisante",
+            "description": "Énergie pleine ou sabliers insuffisants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/sablier/achat": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,\nsans plafond.",
+        "operationId": "acheter_sabliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeAchatSablier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sabliers achetés et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseAchatSablier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Encre insuffisante",
             "content": {
               "application/json": {
                 "schema": {
@@ -929,6 +1025,39 @@
         },
         "additionalProperties": false
       },
+      "DemandeAchatSablier": {
+        "type": "object",
+        "description": "Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes\nchacun, sans plafond.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "nombre"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 1000,
+            "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandeFusion": {
         "type": "object",
         "description": "Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table.",
@@ -1036,7 +1165,7 @@
       },
       "DemandeSablier": {
         "type": "object",
-        "description": "Commande d'utilisation de sabliers (ADR 0020) : ceux détenus d'abord,\npuis ceux payés en encre, une goutte chacun.",
+        "description": "Commande d'utilisation de sabliers détenus (ADR 0020, 0039).",
         "required": [
           "commande",
           "version_etat",
@@ -1052,7 +1181,8 @@
           "nombre": {
             "type": "integer",
             "format": "int32",
-            "maximum": 12,
+            "description": "Au plus 24 : ceux qui remplissent une énergie vide.",
+            "maximum": 24,
             "minimum": 1
           },
           "version_catalogue": {
@@ -2059,6 +2189,26 @@
           }
         }
       },
+      "ReponseAchatSablier": {
+        "type": "object",
+        "required": [
+          "prix",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "prix": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes payées.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "ReponseFusion": {
         "type": "object",
         "required": [
@@ -2136,23 +2286,9 @@
       "ReponseSablier": {
         "type": "object",
         "required": [
-          "depuis_detenus",
-          "depuis_encre",
           "etat"
         ],
         "properties": {
-          "depuis_detenus": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Sabliers pris parmi ceux détenus.",
-            "minimum": 0
-          },
-          "depuis_encre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Sabliers payés en encre.",
-            "minimum": 0
-          },
           "etat": {
             "$ref": "#/components/schemas/Etat",
             "description": "État confirmé après la commande."
@@ -2180,31 +2316,19 @@
         "type": "object",
         "required": [
           "detenus",
-          "utilises_24h",
-          "plafond_jour",
-          "plafond_detenus"
+          "prix_gouttes"
         ],
         "properties": {
           "detenus": {
             "type": "integer",
             "format": "int32",
-            "maximum": 36,
+            "description": "Sabliers détenus, sans plafond (ADR 0039).",
             "minimum": 0
           },
-          "plafond_detenus": {
+          "prix_gouttes": {
             "type": "integer",
             "format": "int32",
-            "minimum": 0
-          },
-          "plafond_jour": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "utilises_24h": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Sabliers utilisés sur la fenêtre glissante (24 h en production).",
+            "description": "Prix d'un sablier, en gouttes.",
             "minimum": 0
           }
         },

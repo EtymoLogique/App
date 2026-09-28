@@ -39,6 +39,21 @@ const TRACES = {
       <path d="M12 11v6M12 7.5h.01" />
     </>
   ),
+  // Goutte d'encre au trait : elle prend la couleur du texte, jamais le jaune du pli sur une couleur vive.
+  goutte: <path d="M12 3.5c3.6 4.3 6 7.6 6 10.6a6 6 0 0 1-12 0c0-3 2.4-6.3 6-10.6z" />,
+  // Ampoule : un indice éclaire une recette.
+  indice: (
+    <>
+      <path d="M9 17.5h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2v1.5h5V16c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" />
+    </>
+  ),
+  boutique: (
+    <>
+      <path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z" />
+      <path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" />
+    </>
+  ),
   verrou: (
     <>
       <rect x="5" y="11" width="14" height="9.5" rx="2" />

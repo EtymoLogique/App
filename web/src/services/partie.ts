@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat, ReponseIndice, ReponsePli, ReponseSablier } from '../contrat'
+import type { Etat, ReponseAchatSablier, ReponseIndice, ReponsePli, ReponseSablier } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -274,6 +274,15 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     [api, commander],
   )
 
+  const acheterSabliers = useCallback(
+    (nombre: number): Promise<ReponseAchatSablier | { erreur: string }> =>
+      commander(
+        (e, version) => api.achatSablier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, nombre }),
+        'Pas assez d’encre pour cet échange.',
+      ),
+    [api, commander],
+  )
+
   const acheterIndice = useCallback(
     (recette: string, niveau: number): Promise<ReponseIndice | { erreur: string }> =>
       commander(
@@ -288,6 +297,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     etat,
     ouvrirPli,
     utiliserSabliers,
+    acheterSabliers,
     acheterIndice,
     erreurEtat,
     table,

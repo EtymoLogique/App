@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
-import type { Etat, ReponseSablier } from '../contrat'
+import type { Etat, ReponseAchatSablier, ReponseSablier } from '../contrat'
 import { useMaintenant } from '../services/horloge'
-import { duree, dureeSablier, energieA, nombreSansPerte, perteSablier, repartirSabliers } from '../services/plis'
+import { avantPlein, dureeLisible, dureeSablier, energieA, nombrePourRemplir, sabliersAchetables } from '../services/plis'
+import { Compteur } from './Compteur'
+import { Icone } from './Icone'
 
 const sabliers = (n: number) => `${n} sablier${n > 1 ? 's' : ''}`
 const gouttes = (n: number) => `${n} goutte${n > 1 ? 's' : ''}`
+const SANS_SABLIERS = { detenus: 0, prix_gouttes: 10 }
 
 /** Icône du sablier (plis.html). */
 export function Sablier() {
@@ -16,45 +19,86 @@ export function Sablier() {
   )
 }
 
-interface Props {
-  etat: Etat | null
-  utiliser: (nombre: number) => Promise<ReponseSablier | { erreur: string }>
-}
+export type Envoi<T> = (nombre: number) => Promise<T | { erreur: string }>
 
-/** Bande des sabliers (I-20) : détenus, bouton « Utiliser » et plafond du jour (ADR 0020). */
-export function CarteSabliers({ etat, utiliser }: Props) {
-  const [ouverte, setOuverte] = useState(false)
+/**
+ * Raccourci là où le temps manque (ADR 0039) : « Avancer » avec des sabliers
+ * s'il en reste, sinon « Échanger » des gouttes, sans passer par la boutique.
+ */
+export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | null; utiliser: Envoi<ReponseSablier>; acheter: Envoi<ReponseAchatSablier> }) {
+  const [feuille, setFeuille] = useState<'utiliser' | 'echanger' | null>(null)
   const maintenant = useMaintenant()
-  const s = etat?.sabliers
-  const plein = etat ? energieA(etat.energie, maintenant).prochaine === null : true
-  const restants = s ? s.plafond_jour - s.utilises_24h : 0
-  const possible = etat && s && !plein && restants > 0 && s.detenus + etat.encre > 0
+  if (!etat || energieA(etat.energie, maintenant).prochaine === null) return null
+  const s = etat.sabliers ?? SANS_SABLIERS
+  const fermer = () => setFeuille(null)
   return (
-    <div className="pk-card" id="sablier">
-      <p className="pk-label">Sabliers</p>
-      <div className="pk-inkbox">
-        <Sablier />
-        <strong>{s?.detenus ?? 0}</strong>
-        <small>sabliers · {s?.plafond_detenus ?? 36} au plus</small>
-      </div>
-      <button type="button" className="btn btn-secondary pk-hintbtn pk-sandbtn" disabled={!possible} onClick={() => setOuverte(true)}>
-        {plein ? 'Énergie pleine : rien à avancer' : restants <= 0 ? 'Plafond du jour atteint' : 'Utiliser des sabliers'}
-      </button>
-      <p className="pk-note">
-        Aujourd’hui&nbsp;: {s?.utilises_24h ?? 0}&nbsp;/&nbsp;{s?.plafond_jour ?? 12}. Un sablier avance la recharge d’une heure&nbsp;; une goutte d’encre en achète un.
-      </p>
-      {ouverte && etat && <FeuilleSabliers etat={etat} utiliser={utiliser} onFermer={() => setOuverte(false)} />}
-    </div>
+    <>
+      {s.detenus > 0 ? (
+        <button type="button" className="btn btn-secondary pk-sandbtn" onClick={() => setFeuille('utiliser')} title="Faire avancer le temps avec des sabliers" aria-label={`Faire avancer le temps avec des sabliers (${sabliers(s.detenus)})`}>
+          <Sablier />
+          Avancer · <Compteur valeur={s.detenus} />
+        </button>
+      ) : (
+        <button type="button" className="btn btn-secondary pk-sandbtn" disabled={sabliersAchetables(s, etat.encre) === 0} onClick={() => setFeuille('echanger')} title={`Un sablier coûte ${gouttes(s.prix_gouttes)}`}>
+          <Icone nom="goutte" />
+          {sabliersAchetables(s, etat.encre) === 0 ? `Il faut ${gouttes(s.prix_gouttes)}` : `Échanger · ${gouttes(s.prix_gouttes)}`}
+        </button>
+      )}
+      {feuille === 'utiliser' && <FeuilleUtiliser etat={etat} envoyer={utiliser} onFermer={fermer} />}
+      {feuille === 'echanger' && <FeuilleEchanger etat={etat} envoyer={acheter} onFermer={fermer} />}
+    </>
   )
 }
 
-/** Feuille des sabliers (I-22) : quantité, répartition, temps gagné, perte annoncée avant de confirmer. */
-function FeuilleSabliers({ etat, utiliser, onFermer }: Props & { etat: Etat; onFermer: () => void }) {
+/** Feuille d'utilisation (I-22) : jamais plus que les sabliers détenus ni que ce qui remplit l'énergie. */
+export function FeuilleUtiliser({ etat, envoyer, onFermer }: { etat: Etat; envoyer: Envoi<ReponseSablier>; onFermer: () => void }) {
   const maintenant = useMaintenant()
-  const s = etat.sabliers ?? { detenus: 0, utilises_24h: 0, plafond_jour: 12, plafond_detenus: 36 }
-  const maximum = Math.max(1, Math.min(s.plafond_jour - s.utilises_24h, s.detenus + etat.encre))
-  const sansPerte = nombreSansPerte(etat.energie, maintenant)
-  const [nombre, setNombre] = useState(() => Math.max(1, Math.min(sansPerte, maximum)))
+  const s = etat.sabliers ?? SANS_SABLIERS
+  const maximum = Math.max(1, Math.min(nombrePourRemplir(etat.energie, maintenant), s.detenus))
+  return (
+    <Feuille titre={<>Faire avancer le temps <em>avec des sabliers</em></>} maximum={maximum} initial={maximum} envoyer={envoyer} onFermer={onFermer} action={(n) => `Utiliser ${sabliers(n)}`}>
+      {(n) => `Recharge avancée de ${dureeLisible(Math.min(n * dureeSablier(etat.energie), avantPlein(etat.energie, maintenant)))}.`}
+    </Feuille>
+  )
+}
+
+/**
+ * Feuille d'échange (I-22, ADR 0039) : 10 gouttes le sablier, sans plafond.
+ * Propose `initial`, sinon ce qui manque pour remplir l'énergie.
+ */
+export function FeuilleEchanger({ etat, envoyer, onFermer, initial }: { etat: Etat; envoyer: Envoi<ReponseAchatSablier>; onFermer: () => void; initial?: number }) {
+  const maintenant = useMaintenant()
+  const s = etat.sabliers ?? SANS_SABLIERS
+  const maximum = Math.max(1, sabliersAchetables(s, etat.encre))
+  const manquants = initial ?? nombrePourRemplir(etat.energie, maintenant) - s.detenus
+  return (
+    <Feuille titre={<>Échanger <em>contre des sabliers</em></>} maximum={maximum} initial={Math.max(1, Math.min(manquants, maximum))} envoyer={envoyer} onFermer={onFermer} action={(n) => `Échanger ${gouttes(n * s.prix_gouttes)}`}>
+      {(n) => `${gouttes(n * s.prix_gouttes)} d’encre · il vous en restera ${etat.encre - n * s.prix_gouttes}.`}
+    </Feuille>
+  )
+}
+
+/** Feuille commune : un nombre de sabliers, son effet, puis la confirmation. */
+function Feuille<T>({
+  titre,
+  maximum,
+  initial,
+  envoyer,
+  onFermer,
+  action,
+  children,
+}: {
+  titre: ReactNode
+  maximum: number
+  initial: number
+  envoyer: Envoi<T>
+  onFermer: () => void
+  action: (n: number) => string
+  children: (n: number) => ReactNode
+}) {
+  const [choisi, setNombre] = useState(initial)
+  // L'horloge peut faire baisser le maximum pendant que la feuille est ouverte.
+  const nombre = Math.min(choisi, maximum)
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const premier = useRef<HTMLButtonElement>(null)
@@ -65,51 +109,34 @@ function FeuilleSabliers({ etat, utiliser, onFermer }: Props & { etat: Etat; onF
     return () => window.removeEventListener('keydown', touche)
   }, [onFermer])
 
-  const repartition = repartirSabliers(nombre, s.detenus, etat.encre, s.utilises_24h, s.plafond_jour)
-  const perte = perteSablier(etat.energie, nombre, maintenant)
   const confirmer = async () => {
     setEnvoi(true)
-    const reponse = await utiliser(nombre)
+    const reponse = await envoyer(nombre)
     setEnvoi(false)
-    if ('erreur' in reponse) setErreur(reponse.erreur)
+    if (typeof reponse === 'object' && reponse !== null && 'erreur' in reponse) setErreur(reponse.erreur)
     else onFermer()
   }
 
   return (
     <div className="scrim" onClick={onFermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section className="dialogue" role="dialog" aria-modal="true" aria-labelledby="sabliers-titre" onClick={(e) => e.stopPropagation()}>
+      <section className="dialogue feuille" role="dialog" aria-modal="true" aria-labelledby="sabliers-titre" onClick={(e) => e.stopPropagation()}>
         <h2 id="sabliers-titre" className="jk-title">
-          Utiliser <em>des sabliers</em>
+          {titre}
         </h2>
         <div className="rangee rangee-centree" role="group" aria-label="Nombre de sabliers">
-          <button ref={premier} type="button" className="btn btn-secondary" aria-label="Un sablier de moins" disabled={nombre <= 1} onClick={() => setNombre((n) => n - 1)}>
+          <button ref={premier} type="button" className="btn btn-secondary" aria-label="Un sablier de moins" disabled={nombre <= 1} onClick={() => setNombre(nombre - 1)}>
             −
           </button>
           <span className="pk-inkbox" aria-live="polite">
             <Sablier />
             <strong>{nombre}</strong>
           </span>
-          <button type="button" className="btn btn-secondary" aria-label="Un sablier de plus" disabled={nombre >= maximum} onClick={() => setNombre((n) => n + 1)}>
+          <button type="button" className="btn btn-secondary" aria-label="Un sablier de plus" disabled={nombre >= maximum} onClick={() => setNombre(nombre + 1)}>
             +
           </button>
         </div>
-        <p className="pk-note">
-          {repartition
-            ? [repartition.detenus > 0 && `${sabliers(repartition.detenus)} détenu${repartition.detenus > 1 ? 's' : ''}`, repartition.encre > 0 && `${gouttes(repartition.encre)} d’encre`].filter(Boolean).join(' + ')
-            : 'Pas assez de sabliers ni d’encre.'}{' '}
-          · recharge avancée de {duree(nombre * dureeSablier(etat.energie))}.
-        </p>
-        {perte > 0 && (
-          <p className="pk-note" role="alert">
-            Vos deux plis seront prêts avant la fin&nbsp;: {duree(perte)} seront perdues.{' '}
-            {sansPerte > 0 && (
-              <button type="button" className="btn-lien" onClick={() => setNombre(Math.min(sansPerte, maximum))}>
-                Utiliser {sabliers(sansPerte)}, sans rien perdre
-              </button>
-            )}
-          </p>
-        )}
+        <p className="pk-note">{children(nombre)}</p>
         {erreur && (
           <p className="pk-note" role="alert">
             {erreur}
@@ -119,8 +146,8 @@ function FeuilleSabliers({ etat, utiliser, onFermer }: Props & { etat: Etat; onF
           <button type="button" className="btn btn-secondary" onClick={onFermer}>
             Annuler
           </button>
-          <button type="button" className="btn btn-primary" disabled={!repartition || envoi} onClick={() => void confirmer()}>
-            {envoi ? 'Un instant…' : `Utiliser ${sabliers(nombre)}`}
+          <button type="button" className="btn btn-primary" disabled={envoi} onClick={() => void confirmer()}>
+            {envoi ? 'Un instant…' : action(nombre)}
           </button>
         </div>
       </section>

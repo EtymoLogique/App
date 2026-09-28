@@ -108,12 +108,12 @@ button { font: inherit; }
 
 /* ---------- Coque et navigation (design système 4.1) ---------- */
 .coque { min-height: 100vh; }
-.contenu { min-width: 0; padding-bottom: 88px; }
+.contenu { min-width: 0; padding-bottom: 120px; }
 .ecran { display: grid; gap: 24px; }
 .ecran[hidden] { display: none; }
 .navigation {
   position: fixed; z-index: 40; right: 0; bottom: 0; left: 0;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   padding: 8px 6px calc(12px + env(safe-area-inset-bottom));
   border-top: 1.5px solid var(--line); background: var(--cream);
 }
@@ -130,6 +130,21 @@ button { font: inherit; }
   display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px;
   border-radius: 999px; background: var(--c-action); color: var(--fixed-ink); font-size: 10px;
 }
+/* Ressources du joueur : une ligne compacte sous les onglets sur mobile, une pile au-dessus des réglages sur le rail. */
+.navigation-ressources {
+  grid-column: 1 / -1; order: 1;
+  display: flex; justify-content: center; gap: 18px;
+  margin: 6px 0 0; padding: 6px 0 0; border-top: 1px solid var(--line); list-style: none;
+  color: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 700;
+}
+.navigation-ressources li { display: inline-flex; align-items: center; gap: 6px; }
+.navigation-ressources .ic { width: 16px; height: 16px; }
+.navigation-ressources .pk-drop { width: 11px; height: 11px; }
+.navigation-ressources .pk-glass { width: 11px; height: 14px; }
+.navigation-plis { display: inline-flex; align-items: center; gap: 5px; }
+.navigation-recharge { width: 14px; height: 14px; overflow: visible; rotate: -90deg; }
+.navigation-recharge .ring-track, .navigation-recharge .ring-fill { stroke-width: 9; }
+.navigation-recharge .ring-track { stroke: var(--line); }
 @media (min-width: 1100px) {
   .coque { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
   .contenu { padding-bottom: 0; }
@@ -143,6 +158,14 @@ button { font: inherit; }
   .navigation button.on { background: var(--ink); color: var(--paper); }
   .navigation button.on::before { display: none; }
   .navigation button:last-child { margin-top: auto; }
+  /* Pile centrée entre deux filets : icônes et nombres alignés en deux colonnes, sans marge perdue. */
+  .navigation-ressources {
+    order: 0; display: grid; grid-template-columns: 16px auto; justify-content: center; align-items: center; gap: 6px 8px;
+    margin: auto 0 0; padding: 10px 0; width: 64px; border-block: 1px solid var(--line);
+  }
+  .navigation-ressources li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
+  .navigation-ressources li > :first-child { justify-self: center; }
+  .navigation-ressources + button:last-child { margin-top: 0; }
   .navigation .count { top: 4px; right: 8px; }
   .entete .wordmark .seal { display: none; }
 }
@@ -379,6 +402,11 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions .btn-primary { flex: 1; }
+/* Indices : Ambre, la couleur de l'encre qui les paie ; le Corail reste à Fusionner. */
+.btn-indice { background: var(--c-pli); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.btn-indice:hover { background: var(--c-pli-tint); box-shadow: 6px 6px 0 var(--pop-shadow); }
+.btn-indice:active { box-shadow: 1px 1px 0 var(--pop-shadow); }
+.btn-indice .ic { width: 18px; height: 18px; }
 /* Cercle d'état + phrase courte : Corail plein = découverte, contour Encre = presque, Gris encre = échec, Encre plein = connu. */
 .feedback {
   display: flex; align-items: center; gap: 10px;
@@ -539,8 +567,9 @@ button.disc { font: inherit; cursor: pointer; }
 .rangee-ecartee { justify-content: space-between; }
 .rangee-fin { justify-content: flex-end; }
 .rangee-centree { justify-content: center; }
-.rangee-une-ligne { flex-wrap: nowrap; }
-.empty:has(.rangee-une-ligne) { max-width: 460px; }
+/* Actions d'un état vide : assez large pour trois boutons, qui passent à la ligne sur mobile. */
+.empty:has(.rangee) { max-width: 560px; }
+.empty .rangee .btn { white-space: nowrap; }
 .btn-s { min-height: 36px; padding: 6px 14px; font-size: 11px; }
 .btn-texte:disabled { opacity: 0.4; cursor: not-allowed; }
 .filet { width: 100%; height: 1px; margin: 4px 0; border: 0; background: var(--line); }
@@ -607,6 +636,9 @@ button.disc { font: inherit; cursor: pointer; }
   }
   .scrim { padding: 0; }
   .dialogue { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; align-content: start; }
+  /* Feuille courte (sabliers, indices) : posée en bas, à la hauteur de son contenu. */
+  .scrim:has(.feuille) { place-items: end stretch; }
+  .dialogue.feuille { height: auto; max-height: 100%; border-top: 1.5px solid var(--fixed-ink); border-radius: 20px 20px 0 0; }
 }
 
 /* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */
@@ -619,4 +651,8 @@ button.disc { font: inherit; cursor: pointer; }
 .indices-niveaux li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 8px 12px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--paper); }
 .indices-niveaux li > span:first-child { display: grid; gap: 2px; }
 .indices-niveaux small { color: var(--ink-2); font-family: var(--mono); font-size: 12px; }
+.indices-niveaux small .bchip { font-size: 14px; }
 .indices-niveaux li.is-obtenu { border-color: var(--fixed-ink); }
+/* Prix en gouttes : la goutte au trait, de la couleur du texte du bouton. */
+.btn-prix { gap: 4px; }
+.btn-prix .ic { width: 16px; height: 16px; stroke-width: 2.25; }

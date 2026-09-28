@@ -48,7 +48,7 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
   return (
     <div className="scrim" onClick={onFermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section className="dialogue indices" role="dialog" aria-modal="true" aria-labelledby="indices-titre" onClick={(e) => e.stopPropagation()}>
+      <section className="dialogue feuille indices" role="dialog" aria-modal="true" aria-labelledby="indices-titre" onClick={(e) => e.stopPropagation()}>
         <div className="rangee rangee-ecartee">
           <h2 id="indices-titre" className="jk-title">
             Indices
@@ -80,13 +80,27 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
                       <b>
                         {niveau} · {titre}
                       </b>
-                      {niveau <= obtenu && <small>{contenuIndice(jeu, cible.recette, niveau, etat)}</small>}
+                      {niveau <= obtenu && (
+                        <small>
+                          {contenuIndice(jeu, cible.recette, niveau, etat).map((p, j) =>
+                            typeof p === 'string' ? (
+                              p
+                            ) : (
+                              <span key={j} className="bchip" data-kind={p.nature}>
+                                {p.libelle}
+                              </span>
+                            ),
+                          )}
+                        </small>
+                      )}
+                      {niveau === obtenu + 1 && cout !== undefined && encre < cout && <small>Il vous manque {cout - encre}&nbsp;goutte{cout - encre > 1 ? 's' : ''}.</small>}
                     </span>
                     {niveau <= obtenu ? (
                       <span aria-label="Obtenu">✓</span>
                     ) : niveau === obtenu + 1 && cout !== undefined ? (
-                      <button type="button" className="btn btn-primary" disabled={envoi || encre < cout} onClick={() => void payer(niveau)}>
-                        {cout}&nbsp;gouttes
+                      <button type="button" className="btn btn-primary btn-prix" aria-label={`${cout} gouttes`} disabled={envoi || encre < cout} onClick={() => void payer(niveau)}>
+                        {cout}
+                        <Icone nom="goutte" />
                       </button>
                     ) : (
                       <Icone nom="verrou" />

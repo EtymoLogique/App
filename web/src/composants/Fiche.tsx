@@ -20,8 +20,6 @@ interface Props {
   onFermer: () => void
   /** Ouvre la carte du mot dans le codex. */
   onCodex: () => void
-  /** Ouvre la carte au codex, section « En savoir plus » dépliée (I-16). */
-  onSavoirPlus: () => void
 }
 
 /**
@@ -29,7 +27,7 @@ interface Props {
  * sa composition, puis les pistes ouvertes. Dialogue centré sur ordinateur,
  * plein écran sur mobile. Échap ou « Continuer » la ferme.
  */
-export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], onFermer, onCodex, onSavoirPlus }: Props) {
+export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], onFermer, onCodex }: Props) {
   const continuer = useRef<HTMLButtonElement>(null)
   const dialogue = useRef<HTMLElement>(null)
   const voile = useRef<HTMLDivElement>(null)
@@ -203,9 +201,6 @@ export function Fiche({ motId, jeu, entree, reserve, consommees, jalons = [], on
         )}
 
         <div className="rangee rangee-fin">
-          <button type="button" className="btn-texte" onClick={onSavoirPlus}>
-            En savoir plus
-          </button>
           <button type="button" className="btn btn-secondary" onClick={onCodex}>
             Voir au codex
           </button>

@@ -24,7 +24,7 @@ export function completerEtat(etat: Etat): Etat {
     encre: etat.encre ?? 0,
     compteurs_plis: etat.compteurs_plis ?? [],
     historique_plis: etat.historique_plis ?? [],
-    sabliers: etat.sabliers ?? { detenus: 0, utilises_24h: 0, plafond_jour: 12, plafond_detenus: 36 },
+    sabliers: etat.sabliers ?? { detenus: 0, prix_gouttes: 10 },
     indices: etat.indices ?? [],
     jalons_atteints: etat.jalons_atteints ?? [],
     prix_indices: etat.prix_indices ?? [],
