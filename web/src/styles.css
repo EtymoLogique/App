@@ -620,9 +620,10 @@ button.disc { font: inherit; cursor: pointer; }
 .fiche .r-word { font-size: clamp(34px, 4vw, 44px); }
 .fiche .r-eq, .fiche .r-lit, .fiche .r-cost { justify-content: flex-start; }
 .fiche .r-cost { margin-top: 0; }
-/* Forme de rareté d'un mot (ADR 0040) : pleine d'Encre, jamais d'Ambre, réservé aux briques et aux plis. */
+/* Forme de rareté d'un mot (ADR 0040) : jamais d'Ambre, réservé aux briques et aux plis. Une teinte du fond :
+   plus foncée sur le fond clair, plus claire sur le fond foncé (l'Encre s'inverse avec le thème). */
 .fiche-rarete { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.fiche-rarete .rar { width: 22px; height: 22px; fill: var(--ink); stroke: none; }
+.fiche-rarete .rar { width: 22px; height: 22px; fill: color-mix(in srgb, var(--cream), var(--ink) 38%); stroke: none; }
 .fiche-encre { margin-left: 4px; color: var(--c-pli-deep); text-transform: none; letter-spacing: 0; }
 .fiche:is([data-rarity="rare"], [data-rarity="legendaire"]) .r-kicker { font-size: 14px; }
 .fiche-langue { display: inline-flex; align-items: center; gap: 6px; color: var(--c-lang-deep); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }

@@ -305,8 +305,8 @@
 .mini .m-rar { width: 12px; height: 12px; margin-right: -4px; fill: var(--rd, var(--c-pli)); stroke: var(--tc); }
 .mini[data-type="prefixe"] { --rd: var(--c-prefix-deep); }
 .mini[data-type="suffixe"] { --rd: var(--c-suffix-deep); }
-/* Rareté d'un mot (ADR 0040) : bandeau Encre, la forme prend sa couleur de texte, jamais l'Ambre. */
-.mini[data-type="mot"] { --rd: var(--tt); }
+/* Rareté d'un mot (ADR 0040) : jamais d'Ambre ; sur le bandeau Encre, toujours foncé, une teinte plus claire d'Encre. */
+.mini[data-type="mot"] { --rd: color-mix(in srgb, var(--fixed-ink), #f3eee3 38%); }
 .mini.is-legend { border-color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .cb-fasc-btn, .cb-fasc-bar i { transition: none; } }
 
