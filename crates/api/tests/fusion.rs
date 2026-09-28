@@ -68,11 +68,18 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     assert_eq!(statut, StatusCode::OK, "{reponse}");
     assert_eq!(
         reponse["issue"],
-        json!({ "type": "decouverte", "recette_id": RECETTE, "mot_id": MOT })
+        json!({ "type": "decouverte", "recette_id": RECETTE, "mot_id": MOT, "gouttes": 3 })
     );
+    // géo- et -logie sont communes : le mot l'est aussi et rapporte 3 gouttes (ADR 0040).
+    assert_eq!(reponse["etat"]["encre"], 3);
+    // bio- vient du pli du jalon atteint par cette première découverte.
     assert_eq!(
         reserve(&reponse["etat"]),
-        vec![(GEO.to_owned(), 1), (LOGIE.to_owned(), 0)]
+        vec![
+            (BIO.to_owned(), 1),
+            (GEO.to_owned(), 1),
+            (LOGIE.to_owned(), 0)
+        ]
     );
     assert_eq!(reponse["etat"]["decouvertes"][0]["numero"], 1);
     assert_eq!(reponse["etat"]["version_etat"], 2);
@@ -84,7 +91,11 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     let (_, _, apres) = appeler(&banc.routeur, get_etat(&jeton)).await;
     assert_eq!(
         reserve(&apres),
-        vec![(GEO.to_owned(), 1), (LOGIE.to_owned(), 0)]
+        vec![
+            (BIO.to_owned(), 1),
+            (GEO.to_owned(), 1),
+            (LOGIE.to_owned(), 0)
+        ]
     );
 
     // Une nouvelle commande pour le même mot : connue, rien n'est consommé.
@@ -96,11 +107,12 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     assert_eq!(connue["issue"]["type"], "connue");
     assert_eq!(connue["etat"], apres);
 
-    let consommes: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM mouvement WHERE motif = 'decouverte'")
-            .fetch_one(&base)
-            .await
-            .unwrap();
+    let consommes: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM mouvement WHERE motif = 'decouverte' AND ressource = 'exemplaire'",
+    )
+    .fetch_one(&base)
+    .await
+    .unwrap();
     assert_eq!(consommes, 2);
     let commandes: i64 = sqlx::query_scalar("SELECT count(*) FROM commande")
         .fetch_one(&base)

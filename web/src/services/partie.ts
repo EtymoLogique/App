@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat, ReponsePli } from '../contrat'
+import type { Etat, ReponseAchatSablier, ReponseIndice, ReponsePli, ReponseSablier } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -12,6 +12,10 @@ type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat:
 export interface FicheOuverte {
   motId: string
   consommees?: string[]
+  /** Jalons atteints par cette découverte, à annoncer (ADR 0038). */
+  jalons?: string[]
+  /** Gouttes d'encre gagnées par cette découverte (ADR 0040). */
+  gouttes?: number
 }
 
 function message(e: unknown): string {
@@ -188,7 +192,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         // Le « −1 » ne s'envole qu'une fois (1,3 s) : il ne doit pas rejouer quand l'écran réapparaît.
         setTimeout(() => setConsommees((c) => (c === proposition ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
         setNouvelles((n) => new Set(n).add(issue.mot_id))
-        setFiche({ motId: issue.mot_id, consommees: proposition })
+        setFiche({ motId: issue.mot_id, consommees: proposition, jalons: reponse.jalons ?? [], gouttes: issue.gouttes ?? 0 })
       } else {
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })
@@ -241,10 +245,62 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     [api, jeu, etat, confirmer, synchroniser],
   )
 
+  /**
+   * Commande d'économie idempotente (sabliers, indices) : un `409` ou un `403`
+   * resynchronise, et l'erreur n'est jamais un succès local.
+   */
+  const commander = useCallback(
+    async <T extends { etat: Etat }>(envoyer: (e: Etat, version: string) => Promise<T>, refus: string): Promise<T | { erreur: string }> => {
+      if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
+      try {
+        const reponse = await envoyer(etat, jeu.valeur.version)
+        confirmer(reponse.etat)
+        return reponse
+      } catch (e) {
+        if (e instanceof ErreurApi && (e.statut === 409 || e.statut === 403)) {
+          await synchroniser()
+          return { erreur: e.statut === 409 ? 'Votre partie a changé entre-temps. Elle est à jour : réessayez.' : refus }
+        }
+        return { erreur: message(e) }
+      }
+    },
+    [jeu, etat, confirmer, synchroniser],
+  )
+
+  const utiliserSabliers = useCallback(
+    (nombre: number): Promise<ReponseSablier | { erreur: string }> =>
+      commander(
+        (e, version) => api.sablier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, nombre }),
+        'Ces sabliers ne peuvent pas servir maintenant.',
+      ),
+    [api, commander],
+  )
+
+  const acheterSabliers = useCallback(
+    (nombre: number): Promise<ReponseAchatSablier | { erreur: string }> =>
+      commander(
+        (e, version) => api.achatSablier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, nombre }),
+        'Pas assez d’encre pour cet échange.',
+      ),
+    [api, commander],
+  )
+
+  const acheterIndice = useCallback(
+    (recette: string, niveau: number): Promise<ReponseIndice | { erreur: string }> =>
+      commander(
+        (e, version) => api.indice({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, recette_id: recette, niveau }),
+        'Pas assez d’encre pour cet indice.',
+      ),
+    [api, commander],
+  )
+
   return {
     jeu,
     etat,
     ouvrirPli,
+    utiliserSabliers,
+    acheterSabliers,
+    acheterIndice,
     erreurEtat,
     table,
     cases,

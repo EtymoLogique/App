@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO commande (joueur_id, id, type, statut, reponse) VALUES ($1, $2, $3, 'acceptee', $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "08faeddf21156e058ffdc661c36344792dd6bfcdb96822ec84a7a49d9ad42cc9"
+}

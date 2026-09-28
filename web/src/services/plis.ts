@@ -2,7 +2,7 @@
 // réponses du serveur. `poids` est le miroir de `etymo_domaine::pli::poids` :
 // changez les deux ensemble, avec leurs tests. Le tirage, lui, reste au serveur.
 
-import type { CompteurPli, EnergieEtat, Etat, Manifeste, Rarete } from '../contrat'
+import type { CompteurPli, EnergieEtat, Etat, Manifeste, Rarete, SabliersEtat } from '../contrat'
 import type { CatalogueJeu, FasciculeParu } from './jeu'
 
 type PliManifeste = NonNullable<Manifeste['pli']>
@@ -78,6 +78,22 @@ export function duree(ms: number): string {
   return `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`
 }
 
+/** Durée en toutes lettres : « 3 h », « 1 h 30 min », « 25 s ». Arrondie à la minute au-delà d'une minute. */
+export function dureeLisible(ms: number): string {
+  const s = ms >= 60_000 ? Math.round(ms / 60_000) * 60 : Math.max(0, Math.round(ms / 1000))
+  const parties = [
+    [Math.floor(s / 3600), 'h'],
+    [Math.floor((s % 3600) / 60), 'min'],
+    [s % 60, 's'],
+  ] as const
+  return (
+    parties
+      .filter(([n]) => n > 0)
+      .map(([n, u]) => `${n}\u00a0${u}`)
+      .join(' ') || '0\u00a0s'
+  )
+}
+
 export function compteur(etat: Etat | null, fascicule: string): CompteurPli {
   return (
     etat?.compteurs_plis.find((c) => c.fascicule_id === fascicule) ?? {
@@ -99,4 +115,26 @@ export function reserveDuFascicule(jeu: CatalogueJeu, etat: Etat | null, f: Fasc
   const ids = new Set(briquesDuPli(f).map((b) => b.id))
   const lignes = (etat?.reserve ?? []).filter((e) => ids.has(e.brique_id) && jeu.briques.has(e.brique_id))
   return { connues: lignes.length, exemplaires: lignes.reduce((n, e) => n + e.exemplaires, 0) }
+}
+
+/** Avance d'un sablier : un douzième de la recharge, 1 h en production (`etymo_domaine::sablier::duree`). */
+export function dureeSablier(energie: EnergieEtat): number {
+  return (energie.recharge_s * 1000) / 12
+}
+
+/** Temps qu'il reste avant que l'énergie soit pleine ; au-delà, un sablier ne sert plus. */
+export function avantPlein(energie: EnergieEtat, maintenant: number): number {
+  const { charges, prochaine } = energieA(energie, maintenant)
+  if (prochaine === null) return 0
+  return prochaine - maintenant + (energie.capacite - charges - 1) * energie.recharge_s * 1000
+}
+
+/** Sabliers qui remplissent l'énergie : au-delà, un sablier ne sert plus. Le dernier peut n'avancer qu'une partie de son heure. */
+export function nombrePourRemplir(energie: EnergieEtat, maintenant: number): number {
+  return Math.ceil(avantPlein(energie, maintenant) / dureeSablier(energie))
+}
+
+/** Sabliers que l'encre achète : 10 gouttes chacun, sans plafond (ADR 0039). */
+export function sabliersAchetables(sabliers: SabliersEtat, encre: number): number {
+  return Math.max(0, Math.floor(encre / sabliers.prix_gouttes))
 }

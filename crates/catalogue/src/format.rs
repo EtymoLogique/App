@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset};
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
 use serde::{Deserialize, Serialize};
 
@@ -61,9 +62,9 @@ pub struct Manifeste {
     /// Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011).
     #[serde(default)]
     pub pli: PliManifeste,
+    /// Jalons du fascicule, récompenses affichées à l'avance (ADR 0038).
     #[serde(default)]
-    #[schema(value_type = Vec<Value>)]
-    pub jalons: serde_json::Value,
+    pub jalons: Vec<Jalon>,
     /// Réserve de départ du fascicule (ADR 0030).
     #[serde(default)]
     pub graines: Vec<Graine>,

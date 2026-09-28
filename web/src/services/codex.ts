@@ -4,7 +4,7 @@
 // légendaire inconnue, et tout mot qui en dépend, n'apparaissent jamais (ADR 0015).
 
 import type { Carte, Confiance, Etat, Forme, Rarete } from '../contrat'
-import { type CatalogueJeu, definition, formeCanonique, libelle } from './jeu'
+import { type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
 import { correspond } from './recherche'
 
 export type TypeCarte = 'mot' | 'prefixe' | 'suffixe' | 'langue'
@@ -176,8 +176,9 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
         definition: definition(carte),
         langueId: carte.langue_id,
         glyphe: null,
-        // La rareté est celle d'une brique élémentaire : une carte de mot n'en porte jamais (codex.html).
-        rarete: affixe ? (carte.brique?.rarete ?? null) : null,
+        // Un affixe porte la rareté de sa brique ; un mot, celle que ses briques lui donnent,
+        // et la plus basse s'il ne naît d'aucune fusion (ADR 0040).
+        rarete: affixe ? (carte.brique?.rarete ?? null) : rareteMot(carte.id, jeu),
         legendaire,
         silhouette: ref.silhouette ?? null,
         confiance: carte.fait?.confiance ?? null,

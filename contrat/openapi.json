@@ -15,7 +15,7 @@
         "tags": [
           "profil"
         ],
-        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.",
+        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030) et les jalons atteints depuis une\nparution (ADR 0038), puis renvoie son état confirmé.",
         "operationId": "etat",
         "responses": {
           "200": {
@@ -142,6 +142,102 @@
         ]
       }
     },
+    "/indice": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore\nà découvrir. Le contenu du niveau se lit dans le catalogue public.",
+        "operationId": "acheter_indice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeIndice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Niveau obtenu et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseIndice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide, recette inconnue ou secrète, niveau hors d'ordre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Encre insuffisante",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Recette déjà découverte, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/pli": {
       "post": {
         "tags": [
@@ -192,6 +288,198 @@
           },
           "403": {
             "description": "Aucune charge d'énergie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/sablier": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la\nrecharge en cours d'une heure. Le temps au-delà de deux charges est perdu.",
+        "operationId": "utiliser_sabliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSablier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Recharge avancée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseSablier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Énergie pleine ou sabliers insuffisants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/sablier/achat": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,\nsans plafond.",
+        "operationId": "acheter_sabliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeAchatSablier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sabliers achetés et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseAchatSablier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Encre insuffisante",
             "content": {
               "application/json": {
                 "schema": {
@@ -737,6 +1025,39 @@
         },
         "additionalProperties": false
       },
+      "DemandeAchatSablier": {
+        "type": "object",
+        "description": "Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes\nchacun, sans plafond.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "nombre"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 1000,
+            "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandeFusion": {
         "type": "object",
         "description": "Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table.",
@@ -774,6 +1095,43 @@
         },
         "additionalProperties": false
       },
+      "DemandeIndice": {
+        "type": "object",
+        "description": "Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "recette_id",
+          "niveau"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 1
+          },
+          "recette_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandePli": {
         "type": "object",
         "description": "Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi.",
@@ -795,6 +1153,40 @@
           "version_catalogue": {
             "type": "string",
             "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeSablier": {
+        "type": "object",
+        "description": "Commande d'utilisation de sabliers détenus (ADR 0020, 0039).",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "nombre"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Au plus 24 : ceux qui remplissent une énergie vide.",
+            "maximum": 24,
+            "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
             "maxLength": 64
           },
           "version_etat": {
@@ -924,6 +1316,25 @@
             "format": "int32",
             "description": "Gouttes rapportées par tout pli (ADR 0020).",
             "minimum": 0
+          },
+          "encre_decouverte": {
+            "type": "object",
+            "description": "Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).\nAbsent d'un manifeste antérieur : une découverte ne rapporte rien.",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
           },
           "encre_doublon": {
             "type": "object",
@@ -1076,12 +1487,39 @@
             },
             "description": "Derniers plis ouverts, du plus récent au plus ancien."
           },
+          "indices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IndiceObtenu"
+            },
+            "description": "Niveaux d'indice obtenus, par recette (ADR 0038)."
+          },
+          "jalons_atteints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Jalons atteints (ADR 0038)."
+          },
+          "prix_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Prix de chaque niveau d'indice, en gouttes, du premier à la solution."
+          },
           "reserve": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Exemplaires"
             },
             "description": "Briques connues et leurs exemplaires, triées par brique. Une brique à 0\nexemplaire est épuisée mais reste connue."
+          },
+          "sabliers": {
+            "$ref": "#/components/schemas/SabliersEtat",
+            "description": "Sabliers détenus et plafonds (ADR 0020). Absents des réponses\nenregistrées avant J4, comme les champs qui suivent."
           },
           "version_catalogue": {
             "type": [
@@ -1256,6 +1694,25 @@
         "example": "brq_2e9chtta",
         "pattern": "^[a-z]{3}_[0-9a-hjkmnp-tv-z]{8}$"
       },
+      "IndiceObtenu": {
+        "type": "object",
+        "required": [
+          "recette_id",
+          "niveau"
+        ],
+        "properties": {
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 1
+          },
+          "recette_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
       "IssueFusion": {
         "oneOf": [
           {
@@ -1267,6 +1724,12 @@
               "type"
             ],
             "properties": {
+              "gouttes": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).",
+                "minimum": 0
+              },
               "mot_id": {
                 "$ref": "#/components/schemas/IdCatalogue"
               },
@@ -1382,6 +1845,36 @@
         ],
         "description": "Issue d'une fusion. Seule une découverte consomme des exemplaires."
       },
+      "Jalon": {
+        "type": "object",
+        "required": [
+          "id",
+          "decouvertes"
+        ],
+        "properties": {
+          "decouvertes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Mots du fascicule découverts qui atteignent le jalon.",
+            "minimum": 0
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "pli": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Briques du pli de jalon : un exemplaire de chacune."
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "LangueManifeste": {
         "type": "object",
         "required": [
@@ -1447,7 +1940,10 @@
           },
           "jalons": {
             "type": "array",
-            "items": {}
+            "items": {
+              "$ref": "#/components/schemas/Jalon"
+            },
+            "description": "Jalons du fascicule, récompenses affichées à l'avance (ADR 0038)."
           },
           "jaquette": {
             "oneOf": [
@@ -1678,7 +2174,8 @@
         "enum": [
           "tirage",
           "garantie",
-          "filet"
+          "filet",
+          "deterministe"
         ]
       },
       "RelationCarte": {
@@ -1717,6 +2214,26 @@
           }
         }
       },
+      "ReponseAchatSablier": {
+        "type": "object",
+        "required": [
+          "prix",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "prix": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes payées.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "ReponseFusion": {
         "type": "object",
         "required": [
@@ -1730,6 +2247,33 @@
           },
           "issue": {
             "$ref": "#/components/schemas/IssueFusion"
+          },
+          "jalons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Jalons atteints par cette découverte, à annoncer."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseIndice": {
+        "type": "object",
+        "required": [
+          "prix",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "prix": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes payées.",
+            "minimum": 0
           }
         },
         "additionalProperties": false
@@ -1764,6 +2308,19 @@
         },
         "additionalProperties": false
       },
+      "ReponseSablier": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          }
+        },
+        "additionalProperties": false
+      },
       "Resultat": {
         "type": "string",
         "description": "Ce que la brique tirée apporte à la réserve.",
@@ -1779,6 +2336,28 @@
           "resultat",
           "ingredient"
         ]
+      },
+      "SabliersEtat": {
+        "type": "object",
+        "required": [
+          "detenus",
+          "prix_gouttes"
+        ],
+        "properties": {
+          "detenus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Sabliers détenus, sans plafond (ADR 0039).",
+            "minimum": 0
+          },
+          "prix_gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Prix d'un sablier, en gouttes.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "Sante": {
         "type": "object",

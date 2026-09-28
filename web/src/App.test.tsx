@@ -42,7 +42,6 @@ describe('table de fusion', () => {
     fireEvent.change(within(r).getByRole('searchbox', { name: 'Chercher une brique ou un sens' }), { target: { value: 'etude' } })
     expect(within(r).queryByText('géo-')).not.toBeInTheDocument()
     expect(within(r).getByText('-logie')).toBeInTheDocument()
-    expect(screen.getByText('0 / 1 mots')).toBeInTheDocument()
   })
 
   it('pose une brique d’un seul clic', async () => {
@@ -94,7 +93,8 @@ describe('table de fusion', () => {
     expect(screen.getByLabelText('1 nouveauté')).toBeInTheDocument()
     fireEvent.click(within(fiche).getByRole('button', { name: 'Continuer' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByText('1 / 1 mots')).toBeInTheDocument()
+    // La réserve confirmée par le serveur : géo- et -logie consommés.
+    expect(await reserve()).toHaveAccessibleName('Réserve · 1 exemplaire')
 
     // Dans le codex, la carte nouvelle s'ouvre ; la nouveauté s'efface une fois vue.
     fireEvent.click(screen.getByRole('button', { name: /^Codex/ }))
@@ -246,7 +246,7 @@ describe('table de fusion', () => {
     expect(screen.getByRole('button', { name: 'Famille de géo- : 0 mots trouvés sur 1' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('ouvre « En savoir plus » depuis la fiche, jusque dans l’adresse', async () => {
+  it('ouvre « En savoir plus » depuis la carte vue au codex, jusque dans l’adresse', async () => {
     const reponse: ReponseFusion = {
       issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
       etat: etat({
@@ -259,9 +259,11 @@ describe('table de fusion', () => {
     await poser('géo-', '-logie')
     await act(async () => fireEvent.click(fusionner()))
     const fiche = await screen.findByRole('dialog', { name: 'géologie' })
-    fireEvent.click(within(fiche).getByRole('button', { name: 'En savoir plus' }))
+    fireEvent.click(within(fiche).getByRole('button', { name: 'Voir au codex' }))
 
     const carte = await screen.findByRole('dialog', { name: 'géologie' })
+    expect(window.location.hash).toBe(`#/codex/${MOT}`)
+    fireEvent.click(within(carte).getByRole('button', { name: 'En savoir plus' }))
     expect(window.location.hash).toBe(`#/codex/${MOT}?plus=1`)
     expect(within(carte).getByRole('region', { name: 'En savoir plus sur géologie' })).toHaveTextContent('version du catalogue v1')
     fireEvent.click(within(carte).getByRole('button', { name: 'Replier la section' }))
@@ -321,10 +323,9 @@ describe('table de fusion', () => {
     expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
     expect(await screen.findByText('+1 exemplaire · ×3', undefined, { timeout: 3000 })).toBeInTheDocument()
     expect(screen.getByText('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')).toHaveAttribute('role', 'status')
-    // Changer d'onglet garde l'atelier du fascicule choisi.
-    fireEvent.click(screen.getByRole('button', { name: /^Table/ }))
+    // Le menu « Plis » ramène au choix du fascicule.
     fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
-    await waitFor(() => expect(window.location.hash).toBe('#/plis/fsc_00000000'))
+    await waitFor(() => expect(window.location.hash).toBe('#/plis'))
     delete document.documentElement.dataset.mouvement
   })
 })

@@ -65,6 +65,30 @@ impl Energie {
             prochaine_charge: Some(energie.prochaine_charge.unwrap_or(maintenant + recharge)),
         })
     }
+
+    /// Avance la recharge de `sabliers` sablier(s), ou `None` si l'énergie est
+    /// pleine (ADR 0020). Le temps qui dépasse la charge en cours passe à la
+    /// suivante ; il n'est perdu que si l'énergie atteint 2.
+    #[must_use]
+    pub fn avancer(
+        self,
+        maintenant: DateTime<Utc>,
+        recharge: TimeDelta,
+        sabliers: u32,
+    ) -> Option<Self> {
+        let energie = self.a(maintenant, recharge);
+        let prochaine = energie
+            .prochaine_charge
+            .filter(|_| energie.charges < CAPACITE)?;
+        let avance = crate::sablier::duree(recharge) * i32::try_from(sabliers).ok()?;
+        Some(
+            Self {
+                charges: energie.charges,
+                prochaine_charge: Some(prochaine - avance),
+            }
+            .a(maintenant, recharge),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -115,5 +139,30 @@ mod tests {
             }
         );
         assert_eq!(e.a(t(100), RECHARGE), Energie::pleine());
+    }
+
+    #[test]
+    fn le_sablier_reporte_le_temps_sur_la_charge_suivante() {
+        let e = Energie {
+            charges: 0,
+            prochaine_charge: Some(t(2)),
+        };
+        assert_eq!(
+            e.avancer(t(0), RECHARGE, 3),
+            Some(Energie {
+                charges: 1,
+                prochaine_charge: Some(t(11))
+            })
+        );
+    }
+
+    #[test]
+    fn le_sablier_perd_le_temps_a_deux_charges() {
+        let e = Energie {
+            charges: 1,
+            prochaine_charge: Some(t(2)),
+        };
+        assert_eq!(e.avancer(t(0), RECHARGE, 5), Some(Energie::pleine()));
+        assert_eq!(Energie::pleine().avancer(t(0), RECHARGE, 1), None);
     }
 }

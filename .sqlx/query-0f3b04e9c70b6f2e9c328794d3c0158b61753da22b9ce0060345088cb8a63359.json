@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT recette_id, niveau FROM indice WHERE joueur_id = $1 ORDER BY recette_id, niveau",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "recette_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "niveau",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "0f3b04e9c70b6f2e9c328794d3c0158b61753da22b9ce0060345088cb8a63359"
+}

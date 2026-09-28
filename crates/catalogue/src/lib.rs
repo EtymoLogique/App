@@ -21,7 +21,7 @@ pub use format::{
     EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, PliManifeste, Recette,
     RecetteManifeste,
 };
-pub use jeu::{Jeu, PliJeu};
+pub use jeu::{JalonsJeu, Jeu, PliJeu};
 pub use lecteur::{Lecteur, LecteurDossier, LecteurHttp};
 
 /// Nom de l'index global, seul fichier modifiable du préfixe `public/`.

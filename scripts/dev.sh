@@ -17,6 +17,7 @@ export ETYMO_CLE_SIGNATURE_SESSION="${ETYMO_CLE_SIGNATURE_SESSION:-developpement
 export ETYMO_ORIGINES_PWA="${ETYMO_ORIGINES_PWA:-http://localhost:5173}"
 # Relecture rapide de l'index : une nouvelle parution locale se voit en 5 s.
 export ETYMO_RELECTURE_CATALOGUE_S="${ETYMO_RELECTURE_CATALOGUE_S:-5}"
+export ETYMO_RELECTURE_CATALOGUE_S=60
 # Requêtes vérifiées contre la base locale : une nouvelle requête compile sans `cargo sqlx prepare`.
 export SQLX_OFFLINE="${SQLX_OFFLINE:-false}"
 export PATH="$HOME/.cargo/bin:$PATH"

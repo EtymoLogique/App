@@ -13,7 +13,8 @@ export interface paths {
         };
         /**
          * Synchronise le joueur : accorde les graines des fascicules parus qu'il
-         *     n'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.
+         *     n'a pas encore reçues (ADR 0030) et les jalons atteints depuis une
+         *     parution (ADR 0038), puis renvoie son état confirmé.
          */
         get: operations["etat"];
         put?: never;
@@ -47,6 +48,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/indice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore
+         *     à découvrir. Le contenu du niveau se lit dans le catalogue public.
+         */
+        post: operations["acheter_indice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pli": {
         parameters: {
             query?: never;
@@ -63,6 +84,46 @@ export interface paths {
          *     crédite l'exemplaire et l'encre, dans une seule transaction idempotente.
          */
         post: operations["ouvrir_pli"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sablier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
+         *     recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+         */
+        post: operations["utiliser_sabliers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sablier/achat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,
+         *     sans plafond.
+         */
+        post: operations["acheter_sabliers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -212,6 +273,25 @@ export interface components {
             numero: number;
             recette_id: components["schemas"]["IdCatalogue"];
         };
+        /**
+         * @description Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes
+         *     chacun, sans plafond.
+         */
+        DemandeAchatSablier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: int32 */
+            nombre: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /** @description Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table. */
         DemandeFusion: {
             /** @description Briques posées sur la table, dans l'ordre. */
@@ -230,6 +310,23 @@ export interface components {
              */
             version_etat: number;
         };
+        /** @description Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant. */
+        DemandeIndice: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: int32 */
+            niveau: number;
+            recette_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /** @description Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi. */
         DemandePli: {
             /**
@@ -239,6 +336,25 @@ export interface components {
             commande: string;
             fascicule_id: components["schemas"]["IdCatalogue"];
             /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande d'utilisation de sabliers détenus (ADR 0020, 0039). */
+        DemandeSablier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /**
+             * Format: int32
+             * @description Au plus 24 : ceux qui remplissent une énergie vide.
+             */
+            nombre: number;
             version_catalogue: string;
             /**
              * Format: int64
@@ -298,6 +414,13 @@ export interface components {
              * @description Gouttes rapportées par tout pli (ADR 0020).
              */
             base_encre: number;
+            /**
+             * @description Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).
+             *     Absent d'un manifeste antérieur : une découverte ne rapporte rien.
+             */
+            encre_decouverte?: {
+                [key: string]: number;
+            };
             /** @description Gouttes en plus pour un doublon sous le plafond (ADR 0019). */
             encre_doublon: {
                 [key: string]: number;
@@ -351,11 +474,22 @@ export interface components {
             energie: components["schemas"]["EnergieEtat"];
             /** @description Derniers plis ouverts, du plus récent au plus ancien. */
             historique_plis: components["schemas"]["OuverturePli"][];
+            /** @description Niveaux d'indice obtenus, par recette (ADR 0038). */
+            indices?: components["schemas"]["IndiceObtenu"][];
+            /** @description Jalons atteints (ADR 0038). */
+            jalons_atteints?: components["schemas"]["IdCatalogue"][];
+            /** @description Prix de chaque niveau d'indice, en gouttes, du premier à la solution. */
+            prix_indices?: number[];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
              */
             reserve: components["schemas"]["Exemplaires"][];
+            /**
+             * @description Sabliers détenus et plafonds (ADR 0020). Absents des réponses
+             *     enregistrées avant J4, comme les champs qui suivent.
+             */
+            sabliers?: components["schemas"]["SabliersEtat"];
             /** @description Version du catalogue active pour ce joueur, `null` avant toute parution. */
             version_catalogue?: string | null;
             /**
@@ -411,8 +545,18 @@ export interface components {
          * @example brq_2e9chtta
          */
         IdCatalogue: string;
+        IndiceObtenu: {
+            /** Format: int32 */
+            niveau: number;
+            recette_id: components["schemas"]["IdCatalogue"];
+        };
         /** @description Issue d'une fusion. Seule une découverte consomme des exemplaires. */
         IssueFusion: {
+            /**
+             * Format: int32
+             * @description Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).
+             */
+            gouttes?: number;
             mot_id: components["schemas"]["IdCatalogue"];
             recette_id: components["schemas"]["IdCatalogue"];
             /** @enum {string} */
@@ -438,6 +582,18 @@ export interface components {
             /** @enum {string} */
             type: "reserve_insuffisante";
         };
+        Jalon: {
+            /**
+             * Format: int32
+             * @description Mots du fascicule découverts qui atteignent le jalon.
+             */
+            decouvertes: number;
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Briques du pli de jalon : un exemplaire de chacune. */
+            pli?: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
         LangueManifeste: {
             id: components["schemas"]["IdCatalogue"];
             silhouette?: components["schemas"]["Chemin"] | null;
@@ -452,7 +608,8 @@ export interface components {
             graines?: components["schemas"]["Graine"][];
             /** @description Identifiant opaque du fascicule : les données du joueur le désignent par lui. */
             id: components["schemas"]["IdCatalogue"];
-            jalons?: unknown[];
+            /** @description Jalons du fascicule, récompenses affichées à l'avance (ADR 0038). */
+            jalons?: components["schemas"]["Jalon"][];
             jaquette?: components["schemas"]["Chemin"] | null;
             langues?: components["schemas"]["LangueManifeste"][];
             /** @description Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens. */
@@ -526,17 +683,37 @@ export interface components {
          * @description Règle qui a décidé de la brique tirée.
          * @enum {string}
          */
-        Regle: "tirage" | "garantie" | "filet";
+        Regle: "tirage" | "garantie" | "filet" | "deterministe";
         RelationCarte: {
             etymon?: components["schemas"]["Etymon"] | null;
             fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
             type_code: string;
         };
+        ReponseAchatSablier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Gouttes payées.
+             */
+            prix: number;
+        };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
             issue: components["schemas"]["IssueFusion"];
+            /** @description Jalons atteints par cette découverte, à annoncer. */
+            jalons?: components["schemas"]["IdCatalogue"][];
+        };
+        ReponseIndice: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Gouttes payées.
+             */
+            prix: number;
         };
         ReponsePli: {
             /** @description Vrai si la brique était épuisée : « De retour ! ». */
@@ -550,6 +727,10 @@ export interface components {
             exemplaires: number;
             ouverture: components["schemas"]["OuverturePli"];
         };
+        ReponseSablier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
         /**
          * @description Ce que la brique tirée apporte à la réserve.
          * @enum {string}
@@ -557,6 +738,18 @@ export interface components {
         Resultat: "nouvelle" | "doublon" | "reserve_pleine";
         /** @enum {string} */
         Role: "resultat" | "ingredient";
+        SabliersEtat: {
+            /**
+             * Format: int32
+             * @description Sabliers détenus, sans plafond (ADR 0039).
+             */
+            detenus: number;
+            /**
+             * Format: int32
+             * @description Prix d'un sablier, en gouttes.
+             */
+            prix_gouttes: number;
+        };
         Sante: {
             statut: components["schemas"]["StatutSante"];
             /** @description Version du code de l'API. */
@@ -731,6 +924,84 @@ export interface operations {
             };
         };
     };
+    acheter_indice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeIndice"];
+            };
+        };
+        responses: {
+            /** @description Niveau obtenu et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseIndice"];
+                };
+            };
+            /** @description Requête invalide, recette inconnue ou secrète, niveau hors d'ordre */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Encre insuffisante */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Recette déjà découverte, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
     ouvrir_pli: {
         parameters: {
             query?: never;
@@ -772,6 +1043,162 @@ export interface operations {
                 };
             };
             /** @description Aucune charge d'énergie */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    utiliser_sabliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeSablier"];
+            };
+        };
+        responses: {
+            /** @description Recharge avancée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseSablier"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Énergie pleine ou sabliers insuffisants */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    acheter_sabliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeAchatSablier"];
+            };
+        };
+        responses: {
+            /** @description Sabliers achetés et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseAchatSablier"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Encre insuffisante */
             403: {
                 headers: {
                     [name: string]: unknown;

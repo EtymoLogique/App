@@ -76,6 +76,10 @@ pub struct Equilibrage {
     pub encre_doublon: BTreeMap<Rarete, u32>,
     /// Gouttes en plus quand la réserve est pleine (ADR 0011).
     pub encre_reserve_pleine: BTreeMap<Rarete, u32>,
+    /// Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).
+    /// Absent d'un manifeste antérieur : une découverte ne rapporte rien.
+    #[serde(default)]
+    pub encre_decouverte: BTreeMap<Rarete, u32>,
     /// Une brique nouvelle au plus tard à ce pli après la dernière nouveauté.
     pub garantie_nouveaute: u32,
     /// Une brique utile au plus tard à ce pli consécutif sans découverte possible.
@@ -92,6 +96,8 @@ pub enum Regle {
     Garantie,
     /// Filet d'utilité : tirage parmi les briques qui rendent une découverte possible.
     Filet,
+    /// Pli de jalon : briques déclarées par le fascicule (ADR 0038).
+    Deterministe,
 }
 
 /// Ce que la brique tirée apporte à la réserve.
@@ -300,6 +306,34 @@ pub fn encre(resultat: Resultat, rarete: Rarete, equilibrage: &Equilibrage) -> u
     equilibrage.base_encre + bonus
 }
 
+/// Rareté d'un mot (ADR 0040) : la plus haute rareté parmi les briques que sa
+/// recette la plus accessible exige. Pour un emplacement à variantes, la moins
+/// rare compte. Une brique sans rareté connue (un mot posé tel quel) compte
+/// comme commune. Miroir de `rareteMot` dans la PWA.
+#[must_use]
+pub fn rarete_mot<'a>(
+    recettes: impl IntoIterator<Item = &'a RecetteJeu>,
+    rarete: impl Fn(&IdCatalogue) -> Option<Rarete>,
+) -> Rarete {
+    recettes
+        .into_iter()
+        .map(|r| {
+            r.emplacements
+                .iter()
+                .map(|acceptees| {
+                    acceptees
+                        .iter()
+                        .map(|b| rarete(b).unwrap_or(Rarete::Commune))
+                        .min()
+                        .unwrap_or(Rarete::Commune)
+                })
+                .max()
+                .unwrap_or(Rarete::Commune)
+        })
+        .min()
+        .unwrap_or(Rarete::Commune)
+}
+
 /// Compteurs après un pli : la nouveauté remet la garantie à zéro ; le filet
 /// compte les plis consécutifs ouverts sans découverte possible, jusqu'à ce
 /// que la réserve en permette une.
@@ -353,6 +387,7 @@ mod tests {
                 (Rarete::Rare, 8),
                 (Rarete::Legendaire, 20),
             ]),
+            encre_decouverte: BTreeMap::new(),
             garantie_nouveaute: 6,
             filet_utilite: 5,
         }
@@ -508,5 +543,34 @@ mod tests {
     fn la_borne_sans_biais_est_un_multiple_de_la_somme() {
         let somme = 7_u64;
         assert_eq!((borne_sans_biais(somme) + 1) % somme, 0);
+    }
+
+    #[test]
+    fn la_rarete_d_un_mot_est_celle_de_sa_brique_la_plus_rare() {
+        let raretes = HashMap::from([
+            (id("brq_0000ge00"), Rarete::Commune),
+            (id("brq_0000b100"), Rarete::PeuCommune),
+            (id("brq_0000000r"), Rarete::Rare),
+        ]);
+        let rarete = |b: &IdCatalogue| raretes.get(b).copied();
+        let recette = |emplacements: Vec<Vec<IdCatalogue>>| RecetteJeu {
+            id: id("rct_00000001"),
+            mot_id: id("unt_00000001"),
+            emplacements,
+        };
+        let geo_rare = recette(vec![vec![id("brq_0000ge00")], vec![id("brq_0000000r")]]);
+        assert_eq!(rarete_mot([&geo_rare], rarete), Rarete::Rare);
+        // Une variante moins rare suffit ; un mot posé tel quel compte comme commun.
+        let variantes = recette(vec![
+            vec![id("brq_0000000r"), id("brq_0000b100")],
+            vec![id("brq_000000m0")],
+        ]);
+        assert_eq!(rarete_mot([&variantes], rarete), Rarete::PeuCommune);
+        // La recette la plus accessible décide.
+        assert_eq!(
+            rarete_mot([&geo_rare, &variantes], rarete),
+            Rarete::PeuCommune
+        );
+        assert_eq!(rarete_mot([], rarete), Rarete::Commune);
     }
 }

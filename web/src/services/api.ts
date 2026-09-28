@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeFusion, DemandePli, Erreur, Etat, ReponseFusion, ReponsePli, Sante, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandePli, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponsePli, ReponseSablier, Sante, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -95,6 +95,33 @@ export class ClientApi {
   /** Ouvre le pli d'un fascicule : le serveur tire la brique. `403` sans charge, `409` si l'état est périmé. */
   pli(demande: DemandePli): Promise<ReponsePli> {
     return this.authentifie('/pli', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Utilise des sabliers détenus : `403` si l'énergie est pleine ou les sabliers insuffisants. */
+  sablier(demande: DemandeSablier): Promise<ReponseSablier> {
+    return this.authentifie('/sablier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Échange de l'encre contre des sabliers, 10 gouttes chacun : `403` sans assez d'encre. */
+  achatSablier(demande: DemandeAchatSablier): Promise<ReponseAchatSablier> {
+    return this.authentifie('/sablier/achat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Achète le niveau suivant d'un indice : `403` sans assez d'encre, `409` si la recette est découverte. */
+  indice(demande: DemandeIndice): Promise<ReponseIndice> {
+    return this.authentifie('/indice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

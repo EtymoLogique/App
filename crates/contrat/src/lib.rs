@@ -63,6 +63,107 @@ pub struct Etat {
     pub compteurs_plis: Vec<CompteurPli>,
     /// Derniers plis ouverts, du plus récent au plus ancien.
     pub historique_plis: Vec<OuverturePli>,
+    /// Sabliers détenus et plafonds (ADR 0020). Absents des réponses
+    /// enregistrées avant J4, comme les champs qui suivent.
+    #[serde(default)]
+    pub sabliers: SabliersEtat,
+    /// Niveaux d'indice obtenus, par recette (ADR 0038).
+    #[serde(default)]
+    pub indices: Vec<IndiceObtenu>,
+    /// Jalons atteints (ADR 0038).
+    #[serde(default)]
+    pub jalons_atteints: Vec<IdCatalogue>,
+    /// Prix de chaque niveau d'indice, en gouttes, du premier à la solution.
+    #[serde(default)]
+    pub prix_indices: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SabliersEtat {
+    /// Sabliers détenus, sans plafond (ADR 0039).
+    #[schema(minimum = 0)]
+    pub detenus: u32,
+    /// Prix d'un sablier, en gouttes.
+    pub prix_gouttes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IndiceObtenu {
+    pub recette_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub niveau: u8,
+}
+
+/// Commande d'utilisation de sabliers détenus (ADR 0020, 0039).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeSablier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    /// Au plus 24 : ceux qui remplissent une énergie vide.
+    #[schema(minimum = 1, maximum = 24)]
+    pub nombre: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseSablier {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes
+/// chacun, sans plafond.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeAchatSablier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    #[schema(minimum = 1, maximum = 1000)]
+    pub nombre: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseAchatSablier {
+    /// Gouttes payées.
+    pub prix: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeIndice {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub recette_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub niveau: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseIndice {
+    /// Gouttes payées.
+    pub prix: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Énergie à l'instant de la réponse.
@@ -168,6 +269,9 @@ pub struct DemandeFusion {
 #[serde(deny_unknown_fields)]
 pub struct ReponseFusion {
     pub issue: IssueFusion,
+    /// Jalons atteints par cette découverte, à annoncer.
+    #[serde(default)]
+    pub jalons: Vec<IdCatalogue>,
     /// État confirmé après la commande.
     pub etat: Etat,
 }
@@ -180,6 +284,9 @@ pub enum IssueFusion {
     Decouverte {
         recette_id: IdCatalogue,
         mot_id: IdCatalogue,
+        /// Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).
+        #[serde(default)]
+        gouttes: u32,
     },
     /// Recette d'un mot déjà découvert : rien n'est consommé.
     Connue {

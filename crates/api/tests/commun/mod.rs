@@ -101,3 +101,33 @@ pub async fn session(routeur: &Router) -> String {
     assert_eq!(statut, StatusCode::OK, "{corps}");
     corps["jeton"].as_str().unwrap().to_owned()
 }
+
+pub fn post(jeton: &str, chemin: &str, corps: &Value) -> Request<Body> {
+    Request::post(chemin)
+        .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(corps.to_string()))
+        .unwrap()
+}
+
+/// Commande idempotente à jour de l'état, complétée par `champs`.
+pub fn commande(etat: &Value, champs: Value) -> Value {
+    let mut corps = json!({
+        "commande": Uuid::new_v4(),
+        "version_etat": etat["version_etat"],
+        "version_catalogue": etat["version_catalogue"],
+    });
+    if let Value::Object(champs) = champs {
+        corps.as_object_mut().unwrap().extend(champs);
+    }
+    corps
+}
+
+/// Solde tenu égal à la somme de ses mouvements.
+pub async fn somme_mouvements(base: &PgPool, ressource: &str) -> i64 {
+    sqlx::query_scalar("SELECT COALESCE(SUM(delta), 0)::bigint FROM mouvement WHERE ressource = $1")
+        .bind(ressource)
+        .fetch_one(base)
+        .await
+        .unwrap()
+}

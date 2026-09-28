@@ -21,7 +21,9 @@ import { type FasciculeParu, NATURES, libelleFascicule } from '../services/jeu'
 import type { Route, TriCodex, VueCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
 import { chargerSilhouette } from '../services/silhouettes'
+import { PetiteBrique } from './Brique'
 import { FormeRarete } from './Rarete'
+import { Sablier } from './Sabliers'
 
 type Tri = TriCodex
 const TRIS: [Tri, string][] = [
@@ -48,14 +50,16 @@ const VUES: [VueCodex, string][] = [
 
 /** Bandeau : couleur du type de ressource ; Encre pour un mot (identité, « une couleur, un seul sens »). */
 function bandeau(type: TypeCarte): React.CSSProperties {
-  const couleurs: Record<TypeCarte, [string, string]> = {
-    mot: ['var(--fixed-ink)', '#f3eee3'],
-    prefixe: ['var(--c-prefix)', 'var(--fixed-ink)'],
-    suffixe: ['var(--c-suffix)', 'var(--fixed-ink)'],
-    langue: ['var(--c-lang)', 'var(--fixed-ink)'],
+  // Bandeau, texte, et teinte de la forme de rareté posée dessus : plus foncée
+  // qu'un bandeau clair, plus claire que le bandeau Encre d'un mot (ADR 0040).
+  const couleurs: Record<TypeCarte, [string, string, string]> = {
+    mot: ['var(--fixed-ink)', '#f3eee3', 'color-mix(in srgb, var(--fixed-ink), #f3eee3 38%)'],
+    prefixe: ['var(--c-prefix)', 'var(--fixed-ink)', 'var(--c-prefix-deep)'],
+    suffixe: ['var(--c-suffix)', 'var(--fixed-ink)', 'var(--c-suffix-deep)'],
+    langue: ['var(--c-lang)', 'var(--fixed-ink)', 'var(--c-lang-deep)'],
   }
-  const [tc, tt] = couleurs[type]
-  return { '--tc': tc, '--tt': tt } as React.CSSProperties
+  const [tc, tt, rd] = couleurs[type]
+  return { '--tc': tc, '--tt': tt, '--rd': rd } as React.CSSProperties
 }
 
 /** Lecture d'un média haché du catalogue, en texte. */
@@ -150,17 +154,10 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
                 {trouvees} / {nbFormes} formes
               </span>
             ) : (
-              <>
-                <span className="m-lang">
-                  <i />
-                  {langue}
-                </span>
-                <span className="m-dots">
-                  {entree.formes.map((f, i) => (
-                    <i key={i} className={f.trouvee ? 'on' : undefined} />
-                  ))}
-                </span>
-              </>
+              <span className="m-lang">
+                <i />
+                {langue}
+              </span>
             )}
           </span>
         </>
@@ -255,7 +252,10 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const haut = (
     <div className="bf-top">
       <span>{numero(entree.n)}</span>
-      <span className="bf-type">{type.libelle}</span>
+      <span className="bf-side">
+        <span className="bf-type">{type.libelle}</span>
+        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
+      </span>
     </div>
   )
 
@@ -649,6 +649,58 @@ interface Props {
   urlMedia: (chemin: string) => string
   /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
   lireMedia: LireMedia
+  /** Jalons atteints, confirmés par le serveur (ADR 0038). */
+  jalonsAtteints?: string[]
+}
+
+/**
+ * Jalons des fascicules parus (I-18) : atteints, ou progression vers le
+ * prochain. La récompense s'affiche d'avance : jamais un tirage (ADR 0038).
+ */
+function Jalons({ jeu, entrees, atteints }: { jeu: CatalogueJeu; entrees: EntreeCodex[]; atteints: Set<string> }) {
+  const lignes = jeu.fascicules.flatMap((f) => {
+    const trouves = entrees.filter((e) => e.fascicule === f.numero && e.resultat && e.trouvee).length
+    return (f.manifeste.jalons ?? []).map((j) => ({ f, j, trouves }))
+  })
+  if (lignes.length === 0) return <p className="cb-note">Aucun jalon pour l’instant.</p>
+  return (
+    <>
+      {lignes.map(({ f, j, trouves }) => {
+        const fait = atteints.has(j.id)
+        const n = Math.min(trouves, j.decouvertes)
+        return (
+          <div key={j.id} className="fam">
+            <span className="fam-head">
+              <span className="fam-name">
+                <b className="fam-word">
+                  {j.decouvertes} découverte{j.decouvertes > 1 ? 's' : ''}
+                </b>{' '}
+                <small>{f.manifeste.nom ?? `Fascicule ${f.numero}`}</small>
+              </span>
+              <span className="fam-count">{fait ? '✓ atteint' : `${n} / ${j.decouvertes}`}</span>
+            </span>
+            <span className="fam-bar is-jalon" aria-hidden="true">
+              <i style={{ width: `${fait ? 100 : (n / j.decouvertes) * 100}%` }} />
+            </span>
+            <span className="rangee" aria-label="Récompense">
+              {(j.pli ?? []).map((id) => {
+                const b = jeu.briques.get(id)
+                return b ? <PetiteBrique key={id} brique={b} /> : null
+              })}
+              {(j.sabliers ?? 0) > 0 && (
+                <span className="pk-inkbox">
+                  <Sablier />
+                  <small>
+                    {j.sabliers} sablier{(j.sabliers ?? 0) > 1 ? 's' : ''}
+                  </small>
+                </span>
+              )}
+            </span>
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 /**
@@ -656,7 +708,7 @@ interface Props {
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
  */
-export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
+export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia, jalonsAtteints = [] }: Props) {
   const filtre = vue.filtre
   const ordre = vue.tri
   const fascicule = vue.fascicule ?? 'tous'
@@ -930,7 +982,8 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
               </span>
             </div>
             <p className="more-k">Jalons</p>
-            <p className="cb-note">Les jalons arrivent avec les plis. Leur récompense sera toujours annoncée d’avance, jamais tirée au hasard.</p>
+            <Jalons jeu={jeu} entrees={entrees} atteints={new Set(jalonsAtteints)} />
+            <p className="cb-note">Chaque récompense est annoncée d’avance, jamais tirée au hasard.</p>
           </div>
           {detail && (
             <section ref={detailFamille} className="obj-detail" aria-label={`Famille de ${detail.brique.libelle}`}>

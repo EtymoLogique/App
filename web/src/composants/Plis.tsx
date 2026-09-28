@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat, OuverturePli, Rarete, ReponsePli } from '../contrat'
+import type { Etat, OuverturePli, Rarete, ReponseAchatSablier, ReponsePli, ReponseSablier } from '../contrat'
+import { mouvementReduit, useEnergieAnimee } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
 import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule } from '../services/jeu'
 import {
@@ -17,6 +18,9 @@ import {
 } from '../services/plis'
 import { Brique, PetiteBrique } from './Brique'
 import { FormeRarete } from './Rarete'
+import { Anneau } from './Anneau'
+import { Compteur } from './Compteur'
+import { RaccourciSabliers } from './Sabliers'
 
 /** Glyphes inventés que la plume essaie avant d'écrire la brique (plis.html). */
 const INVENT = Array.from('ꜳꝏƺȣǂꞷʘƨƾȹꭥꝭꜧƕξψϡϟϠѦ')
@@ -25,16 +29,14 @@ const bruit = (n: number) => Array.from({ length: n }, () => au_hasard(INVENT)).
 const gouttes = (n: number) => `${n} goutte${n > 1 ? 's' : ''}`
 const PLAFOND = 5
 
-function mouvementReduit(): boolean {
-  return document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-}
-
 /** « 1 / 2 » et le temps restant ; arrêté à 2 / 2 (ADR 0020). */
 function useEnergie(etat: Etat | null) {
   const maintenant = useMaintenant()
-  if (!etat) return { charges: 0, capacite: 2, texte: 'Plis en attente du serveur', progression: 0, restant: undefined }
-  const { capacite, recharge_s } = etat.energie
-  const { charges, prochaine } = energieA(etat.energie, maintenant)
+  // Des sabliers utilisés font défiler le temps restant au lieu de le faire sauter.
+  const { energie: energieEtat, avance } = useEnergieAnimee(etat?.energie, maintenant)
+  if (!energieEtat) return { charges: 0, capacite: 2, texte: 'Plis en attente du serveur', progression: 0, restant: undefined, avance: false }
+  const { capacite, recharge_s } = energieEtat
+  const { charges, prochaine } = energieA(energieEtat, maintenant)
   const reste = prochaine === null ? 0 : prochaine - maintenant
   return {
     charges,
@@ -42,6 +44,7 @@ function useEnergie(etat: Etat | null) {
     texte: prochaine === null ? 'Deux plis prêts à être ouverts' : `+1 dans ${duree(reste)}`,
     progression: prochaine === null ? 1 : 1 - reste / (recharge_s * 1000),
     restant: prochaine === null ? undefined : duree(reste),
+    avance,
   }
 }
 
@@ -57,6 +60,7 @@ function PlisEnAttente({
   progression,
   grand = false,
   restant,
+  avance = false,
 }: {
   charges: number
   capacite: number
@@ -67,6 +71,8 @@ function PlisEnAttente({
   grand?: boolean
   /** Temps restant avant le prochain pli, écrit sous l'anneau (grand format seulement). */
   restant?: string
+  /** Des sabliers font avancer la recharge : la jauge s'entoure d'un halo. */
+  avance?: boolean
 }) {
   return (
     <span className={grand ? 'pk-waiting is-grand' : 'pk-waiting'} role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
@@ -83,10 +89,7 @@ function PlisEnAttente({
           <span key={i} className="jk-mini is-xs is-empty">
             {i === charges && (
               <span className="pk-recharge">
-                <svg viewBox="0 0 60 60">
-                  <circle className="ring-track" cx="30" cy="30" r="24" />
-                  <circle className="ring-fill" cx="30" cy="30" r="24" style={{ strokeDasharray: 150.8, strokeDashoffset: 150.8 * (1 - progression) }} />
-                </svg>
+                <Anneau progression={progression} avance={avance} />
                 {grand && restant && <span className="pk-restant">{restant}</span>}
               </span>
             )}
@@ -97,11 +100,22 @@ function PlisEnAttente({
   )
 }
 
-/** Carte « Plis en attente » (I-20), identique sur le choix du fascicule et dans l'atelier. */
-function CartePlisEnAttente({ energie, jaquette, urlMedia }: { energie: ReturnType<typeof useEnergie>; jaquette: string | null | undefined; urlMedia: (c: string) => string }) {
+/** Carte « Plis en chargement » (I-20), dans l'atelier du pli. */
+function CartePlisEnAttente({
+  energie,
+  jaquette,
+  urlMedia,
+  children,
+}: {
+  energie: ReturnType<typeof useEnergie>
+  jaquette: string | null | undefined
+  urlMedia: (c: string) => string
+  /** Raccourci des sabliers, quand le temps manque. */
+  children?: ReactNode
+}) {
   return (
     <div className="pk-card pk-energie">
-      <p className="pk-label">Plis en attente</p>
+      <p className="pk-label">Plis en chargement</p>
       <div className="pk-attente" role="status">
         <PlisEnAttente
           charges={energie.charges}
@@ -110,12 +124,14 @@ function CartePlisEnAttente({ energie, jaquette, urlMedia }: { energie: ReturnTy
           urlMedia={urlMedia}
           progression={energie.progression}
           restant={energie.restant}
+          avance={energie.avance}
           grand
         />
         {/* Le compte à rebours vit dans le pli en pointillés ; plein, le temps s'arrête. */}
         <small className={energie.charges < energie.capacite ? 'sr-only' : undefined}>{energie.texte}</small>
       </div>
       <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. Les plis ne limitent jamais les fusions.</p>
+      {children}
     </div>
   )
 }
@@ -139,25 +155,54 @@ interface Props {
   fascicule: string | null
   onChoisir: (fascicule: string | null) => void
   ouvrirPli: (fascicule: string) => Promise<ReponsePli | { erreur: string }>
+  utiliserSabliers: (nombre: number) => Promise<ReponseSablier | { erreur: string }>
+  acheterSabliers: (nombre: number) => Promise<ReponseAchatSablier | { erreur: string }>
   onEssayer: () => void
   urlMedia: (chemin: string) => string
+  /** Encre affichée : celle d'avant le pli tant que son rituel n'est pas fini. */
+  encre: number | undefined
+  /** Gèle l'encre et les nouveautés affichées pendant le rituel d'ouverture : elles n'arrivent qu'à la révélation. */
+  onGeler: (gel: boolean) => void
 }
 
 /** Écran des plis (I-19 à I-21) : choisir un fascicule, puis ouvrir son pli. */
-export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, onEssayer, urlMedia }: Props) {
+export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabliers, acheterSabliers, onEssayer, urlMedia, encre, onGeler }: Props) {
   const choisi = jeu.fascicules.find((f) => f.manifeste.id === fascicule)
+  const raccourci = <RaccourciSabliers etat={etat} utiliser={utiliserSabliers} acheter={acheterSabliers} />
   if (!choisi) return <Choix jeu={jeu} etat={etat} onChoisir={onChoisir} urlMedia={urlMedia} />
-  return <Atelier key={choisi.manifeste.id} jeu={jeu} etat={etat} fascicule={choisi} onRetour={() => onChoisir(null)} ouvrirPli={ouvrirPli} onEssayer={onEssayer} urlMedia={urlMedia} />
+  return (
+    <Atelier
+      key={choisi.manifeste.id}
+      jeu={jeu}
+      etat={etat}
+      fascicule={choisi}
+      onRetour={() => onChoisir(null)}
+      ouvrirPli={ouvrirPli}
+      raccourci={raccourci}
+      onEssayer={onEssayer}
+      encre={encre}
+      onGeler={onGeler}
+      urlMedia={urlMedia}
+    />
+  )
 }
 
 /** Choix du fascicule (I-19) : jaquette, briques connues et exemplaires, pour choisir en connaissance de cause. */
-function Choix({ jeu, etat, onChoisir, urlMedia }: { jeu: CatalogueJeu; etat: Etat | null; onChoisir: (f: string) => void; urlMedia: (c: string) => string }) {
-  const energie = useEnergie(etat)
+function Choix({
+  jeu,
+  etat,
+  onChoisir,
+  urlMedia,
+}: {
+  jeu: CatalogueJeu
+  etat: Etat | null
+  onChoisir: (f: string) => void
+  urlMedia: (c: string) => string
+}) {
   if (jeu.fascicules.length === 0) return <p className="pk-empty">Aucun fascicule n’est encore paru.</p>
   const parus = [...jeu.fascicules].sort((a, b) => b.numero - a.numero)
   return (
     <div className="pk-chooser">
-      <CartePlisEnAttente energie={energie} jaquette={parus[0]?.manifeste.jaquette} urlMedia={urlMedia} />
       <div className="pk-chooser-head">
         <div>
           <h2 className="jk-title">
@@ -223,12 +268,15 @@ interface AtelierProps {
   fascicule: FasciculeParu
   onRetour: () => void
   ouvrirPli: Props['ouvrirPli']
+  raccourci: ReactNode
   onEssayer: () => void
   urlMedia: (c: string) => string
+  encre: Props['encre']
+  onGeler: Props['onGeler']
 }
 
 /** Atelier du pli (I-20) et rituel d'ouverture (I-21). */
-function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedia }: AtelierProps) {
+function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssayer, urlMedia, encre, onGeler }: AtelierProps) {
   const energie = useEnergie(etat)
   const briques = briquesDuPli(fascicule)
   const equilibrage = fascicule.manifeste.pli?.equilibrage
@@ -298,11 +346,13 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
     setLignes([])
     setEtape('opening')
     setStatut('Touchez pour passer')
+    onGeler(true)
     // La requête part tout de suite ; rien n'est annoncé avant sa réponse.
     const demande = ouvrirPli(fascicule.manifeste.id)
     setClasse('pk-charging')
     const [resultat] = await Promise.all([demande, pause(260)])
     if ('erreur' in resultat) {
+      onGeler(false)
       setClasse('')
       setEtape('ready')
       setStatut(resultat.erreur)
@@ -332,6 +382,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
     setReponse(resultat)
     setClasse('pk-revealed')
     setEtape('revealed')
+    // Les gouttes et la nouveauté du pli arrivent avec la révélation, pas avant.
+    onGeler(false)
     const o = resultat.ouverture
     setStatut(
       o.resultat === 'nouvelle'
@@ -341,7 +393,9 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
           : `+1 exemplaire : ×${resultat.exemplaires} dans votre réserve · +${gouttes(o.encre)} d’encre`,
     )
     occupe.current = false
-  }, [pret, ouvrirPli, fascicule, jeu, pause, ecrire, eclater])
+  }, [pret, ouvrirPli, fascicule, jeu, pause, ecrire, eclater, onGeler])
+  // Quitter l'atelier pendant le rituel ne laisse rien de gelé.
+  useEffect(() => () => onGeler(false), [onGeler])
 
   const continuer = () => {
     if (scene.current) scene.current.scrollTop = 0
@@ -384,7 +438,6 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
 
   return (
     <div className="pk-ecran">
-      <CartePlisEnAttente energie={energie} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia} />
       <div className="pk-current">
         <p>
           <span className="pk-label">Pli du fascicule</span> <b>{nom}</b>
@@ -395,6 +448,118 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
       </div>
       <div className="pk-layout">
         <aside className="pk-side">
+          <CartePlisEnAttente energie={energie} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia}>
+            {raccourci}
+          </CartePlisEnAttente>
+          <div className="pk-card">
+            <p className="pk-label">Encre</p>
+            <div className="pk-inkbox">
+              <span className="pk-drop" aria-hidden="true" />
+              <strong>
+                <Compteur valeur={encre} />
+              </strong>
+              <small>gouttes</small>
+            </div>
+            <p className="pk-note">
+              Chaque pli rapporte {gouttes(equilibrage?.base_encre ?? 2)}. Un doublon en ajoute selon sa rareté, le double si la réserve est pleine. Échangez-les contre des indices depuis la table, ou contre des sabliers à la boutique.
+            </p>
+          </div>
+        </aside>
+
+        <div className="pk-centre">
+          <div
+            ref={scene}
+            className={['pk-stage', classe].filter(Boolean).join(' ')}
+            data-state={etapeAffichee}
+            data-rarity={rareteTiree}
+            onClick={() => {
+              if (etape === 'opening') passer.current = true
+            }}
+          >
+            <div className="pk-rays" aria-hidden="true" />
+            <div className="pk-flash" aria-hidden="true" />
+            {etape !== 'revealed' && (
+              <button type="button" className="pk-pack" aria-label={`Ouvrir le pli du fascicule ${nom}`} disabled={!pret || etape !== 'ready'} onClick={() => void ouvrir()}>
+                {(['top', 'bottom'] as const).map((moitie) => (
+                  <span key={moitie} className={`pk-half ${moitie}`}>
+                    <span className="pk-face">
+                      <span className="pk-art" aria-hidden="true">
+                        {fascicule.manifeste.jaquette && <img src={urlMedia(fascicule.manifeste.jaquette)} alt="" decoding="async" />}
+                      </span>
+                      <span className="pk-top">
+                        <span className="pk-brand" aria-hidden="true">
+                          ÉL
+                        </span>
+                        ÉtymoLogique · <b>{nom}</b>
+                      </span>
+                      <span className="pk-bottom">Une racine inédite</span>
+                    </span>
+                  </span>
+                ))}
+                <span className="pk-seal" aria-hidden="true">
+                  ÉL
+                </span>
+                <span className="pk-scribe" aria-hidden="true">
+                  {lignes.map((l) => (
+                    <span
+                      key={l.cle}
+                      className={['sc-line', l.finale ? 'final' : '', l.nature ? 'sc-brick' : '', l.barree ? 'struck' : '', l.ancienne ? 'old' : '', l.encree ? 'inked' : ''].filter(Boolean).join(' ')}
+                      data-kind={l.nature}
+                    >
+                      {l.texte}
+                      {l.saisie && <span className="sc-caret" />}
+                    </span>
+                  ))}
+                </span>
+              </button>
+            )}
+            {eclats.map((e) => (
+              <span key={e.cle} className="pk-glyph" style={e.style} aria-hidden="true">
+                {e.glyphe}
+              </span>
+            ))}
+            {reponse && <Revelation jeu={jeu} reponse={reponse} onEssayer={onEssayer} onContinuer={continuer} />}
+            <p className="pk-tagline" aria-hidden="true">
+              {etapeAffichee === 'recharging' ? 'l’encre sèche…' : 'une racine attend d’être écrite…'}
+            </p>
+            <p className="pk-status" role="status" aria-live="polite">
+              {statut || (etapeAffichee === 'recharging' ? (ouvrable ? `Pli en recharge · ${energie.texte}` : 'Ce pli n’est pas encore disponible') : 'Touchez le pli pour l’ouvrir')}
+            </p>
+            {etape !== 'revealed' && (
+              <div className="pk-actions">
+                <button type="button" className="btn btn-primary" disabled={!pret || etape !== 'ready'} onClick={() => void ouvrir()}>
+                  {etape === 'opening' ? 'Ouverture…' : pret ? 'Ouvrir le pli' : 'Recharge en cours…'}
+                </button>
+              </div>
+            )}
+          </div>
+          <details className="pk-card" open>
+            <summary className="pk-label">Derniers tirages</summary>
+            <div className="pk-history">
+              {historique.length === 0 ? <span className="pk-empty">Aucun pli ouvert pour l’instant.</span> : historique.map((h, i) => <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} />)}
+            </div>
+          </details>
+        </div>
+
+        <aside className="pk-side">
+          <div className="pk-card">
+            <p className="pk-label">Garantie</p>
+            <div className="pk-pity">
+              <i style={{ width: `${inconnues.length === 0 ? 100 : (compteurs.plis_sans_nouveaute / garantie) * 100}%` }} />
+            </div>
+            <p className="pk-note">
+              {inconnues.length === 0
+                ? 'Toutes les briques de ce fascicule sont connues : chaque pli donne un exemplaire ou de l’encre.'
+                : restantAvantGarantie === 1
+                  ? 'Brique nouvelle garantie au prochain pli.'
+                  : `Brique nouvelle garantie dans ${restantAvantGarantie} plis au plus.`}
+            </p>
+            {bloque && (
+              <p className="pk-note">
+                Aucun mot possible avec votre réserve : filet d’utilité {Math.min(compteurs.plis_sans_utilite, filet)}&nbsp;/&nbsp;{filet}. Une brique utile arrive au plus tard au {filet}ᵉ pli.
+              </p>
+            )}
+          </div>
           {lesChances && (
             <div className="pk-card">
               <p className="pk-label">Chances par rareté</p>
@@ -423,117 +588,6 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
               </div>
             </div>
           )}
-          <div className="pk-card">
-            <p className="pk-label">Garantie</p>
-            <div className="pk-pity">
-              <i style={{ width: `${inconnues.length === 0 ? 100 : (compteurs.plis_sans_nouveaute / garantie) * 100}%` }} />
-            </div>
-            <p className="pk-note">
-              {inconnues.length === 0
-                ? 'Toutes les briques de ce fascicule sont connues : chaque pli donne un exemplaire ou de l’encre.'
-                : restantAvantGarantie === 1
-                  ? 'Brique nouvelle garantie au prochain pli.'
-                  : `Brique nouvelle garantie dans ${restantAvantGarantie} plis au plus.`}
-            </p>
-            {bloque && (
-              <p className="pk-note">
-                Aucun mot possible avec votre réserve : filet d’utilité {Math.min(compteurs.plis_sans_utilite, filet)}&nbsp;/&nbsp;{filet}. Une brique utile arrive au plus tard au {filet}ᵉ pli.
-              </p>
-            )}
-          </div>
-          <details className="pk-card">
-            <summary className="pk-label">Règles du pli</summary>
-            <ul className="pk-rules">
-              <li>Gratuit, et seule source d’exemplaires après les briques de départ.</li>
-              <li>Doublons possibles : chacun ajoute un exemplaire, 5 au plus par brique. Chaque pli rapporte de l’encre, davantage pour un doublon.</li>
-              <li>Chances affichées pour chaque rareté, chaque type et chaque brique. Les légendaires inconnues forment une seule ligne : leur nombre reste secret.</li>
-              <li>Une brique nouvelle garantie au moins tous les {garantie} plis.</li>
-              <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli.</li>
-              <li>Deux plis au plus en attente, un toutes les 12&nbsp;h.</li>
-              <li>La garantie de nouveauté et le filet se comptent par fascicule.</li>
-            </ul>
-          </details>
-        </aside>
-
-        <div
-          ref={scene}
-          className={['pk-stage', classe].filter(Boolean).join(' ')}
-          data-state={etapeAffichee}
-          data-rarity={rareteTiree}
-          onClick={() => {
-            if (etape === 'opening') passer.current = true
-          }}
-        >
-          <div className="pk-rays" aria-hidden="true" />
-          <div className="pk-flash" aria-hidden="true" />
-          {etape !== 'revealed' && (
-            <button type="button" className="pk-pack" aria-label={`Ouvrir le pli du fascicule ${nom}`} disabled={!pret || etape !== 'ready'} onClick={() => void ouvrir()}>
-              {(['top', 'bottom'] as const).map((moitie) => (
-                <span key={moitie} className={`pk-half ${moitie}`}>
-                  <span className="pk-face">
-                    <span className="pk-art" aria-hidden="true">
-                      {fascicule.manifeste.jaquette && <img src={urlMedia(fascicule.manifeste.jaquette)} alt="" decoding="async" />}
-                    </span>
-                    <span className="pk-top">
-                      <span className="pk-brand" aria-hidden="true">
-                        ÉL
-                      </span>
-                      ÉtymoLogique · <b>{nom}</b>
-                    </span>
-                    <span className="pk-bottom">Une racine inédite</span>
-                  </span>
-                </span>
-              ))}
-              <span className="pk-seal" aria-hidden="true">
-                ÉL
-              </span>
-              <span className="pk-scribe" aria-hidden="true">
-                {lignes.map((l) => (
-                  <span
-                    key={l.cle}
-                    className={['sc-line', l.finale ? 'final' : '', l.nature ? 'sc-brick' : '', l.barree ? 'struck' : '', l.ancienne ? 'old' : '', l.encree ? 'inked' : ''].filter(Boolean).join(' ')}
-                    data-kind={l.nature}
-                  >
-                    {l.texte}
-                    {l.saisie && <span className="sc-caret" />}
-                  </span>
-                ))}
-              </span>
-            </button>
-          )}
-          {eclats.map((e) => (
-            <span key={e.cle} className="pk-glyph" style={e.style} aria-hidden="true">
-              {e.glyphe}
-            </span>
-          ))}
-          {reponse && <Revelation jeu={jeu} reponse={reponse} onEssayer={onEssayer} onContinuer={continuer} />}
-          <p className="pk-tagline" aria-hidden="true">
-            {etapeAffichee === 'recharging' ? 'l’encre sèche…' : 'une racine attend d’être écrite…'}
-          </p>
-          <p className="pk-status" role="status" aria-live="polite">
-            {statut || (etapeAffichee === 'recharging' ? (ouvrable ? `Pli en recharge · ${energie.texte}` : 'Ce pli n’est pas encore disponible') : 'Touchez le pli pour l’ouvrir')}
-          </p>
-          {etape !== 'revealed' && (
-            <div className="pk-actions">
-              <button type="button" className="btn btn-primary" disabled={!pret || etape !== 'ready'} onClick={() => void ouvrir()}>
-                {etape === 'opening' ? 'Ouverture…' : pret ? 'Ouvrir le pli' : 'Recharge en cours…'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <aside className="pk-side">
-          <div className="pk-card">
-            <p className="pk-label">Encre</p>
-            <div className="pk-inkbox">
-              <span className="pk-drop" aria-hidden="true" />
-              <strong>{etat?.encre ?? 0}</strong>
-              <small>gouttes</small>
-            </div>
-            <p className="pk-note">
-              Chaque pli rapporte {gouttes(equilibrage?.base_encre ?? 2)}. Un doublon en ajoute selon sa rareté, le double si la réserve est pleine. Sabliers et indices arrivent bientôt.
-            </p>
-          </div>
           {lesChances && (
             <details className="pk-card" open>
               <summary className="pk-label">
@@ -572,14 +626,21 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, onEssayer, urlMedi
               </div>
             </details>
           )}
-          <details className="pk-card" open>
-            <summary className="pk-label">Derniers tirages</summary>
-            <div className="pk-history">
-              {historique.length === 0 ? <span className="pk-empty">Aucun pli ouvert pour l’instant.</span> : historique.map((h, i) => <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} />)}
-            </div>
-          </details>
         </aside>
       </div>
+      <details className="pk-card">
+        <summary className="pk-label">Règles du pli</summary>
+        <ul className="pk-rules">
+          <li>Gratuit, et seule source d’exemplaires après les briques de départ.</li>
+          <li>Doublons possibles : chacun ajoute un exemplaire, 5 au plus par brique. Chaque pli rapporte de l’encre, davantage pour un doublon.</li>
+          <li>Chances affichées pour chaque rareté, chaque type et chaque brique. Les légendaires inconnues forment une seule ligne : leur nombre reste secret.</li>
+          <li>Une brique nouvelle garantie au moins tous les {garantie} plis.</li>
+          <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli.</li>
+          <li>Deux plis au plus en attente, un toutes les 12&nbsp;h.</li>
+          <li>Un sablier avance la recharge d’une heure. L’encre en achète sans limite, à la boutique.</li>
+          <li>La garantie de nouveauté et le filet se comptent par fascicule.</li>
+        </ul>
+      </details>
     </div>
   )
 }

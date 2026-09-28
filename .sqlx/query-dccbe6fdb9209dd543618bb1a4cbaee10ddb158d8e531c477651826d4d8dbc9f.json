@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO exemplaire (joueur_id, brique_id, nombre, connue_le) VALUES ($1, $2, 1, $3)\n         ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = exemplaire.nombre + 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dccbe6fdb9209dd543618bb1a4cbaee10ddb158d8e531c477651826d4d8dbc9f"
+}

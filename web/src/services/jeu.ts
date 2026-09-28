@@ -215,6 +215,28 @@ function couvre(proposition: string[], recette: RecetteJeu): boolean {
   return proposition.length <= recette.emplacements.length && apparier(0)
 }
 
+const RANGS: Record<Rarete, number> = { commune: 0, peu_commune: 1, rare: 2, legendaire: 3 }
+const plusRare = (a: Rarete, b: Rarete): Rarete => (RANGS[a] >= RANGS[b] ? a : b)
+const moinsRare = (a: Rarete, b: Rarete): Rarete => (RANGS[a] <= RANGS[b] ? a : b)
+
+/**
+ * Rareté d'un mot (ADR 0040), miroir de `etymo_domaine::pli::rarete_mot` : la
+ * plus haute rareté des briques qu'exige sa recette la plus accessible. Pour
+ * un emplacement à variantes, la moins rare compte. Seuls les affixes ont une
+ * rareté publiée au pli ; un mot posé tel quel compte comme commun.
+ */
+export function rareteMot(motId: string, jeu: Pick<CatalogueJeu, 'recettes' | 'briques'>): Rarete {
+  const de = (id: string): Rarete => {
+    const brique = jeu.briques.get(id)
+    return brique && brique.nature !== 'mot' ? brique.rarete : 'commune'
+  }
+  const recettes = jeu.recettes.filter((r) => r.motId === motId)
+  if (recettes.length === 0) return 'commune'
+  return recettes
+    .map((r) => r.emplacements.map((e) => (e.length === 0 ? 'commune' : e.map(de).reduce(moinsRare))).reduce(plusRare, 'commune'))
+    .reduce(moinsRare)
+}
+
 /** Miroir de `etymo_domaine::fusion::resoudre` : mêmes règles, même ordre. */
 export function prevoir(proposition: string[], jeu: CatalogueJeu, decouverts: Set<string>): Prevision {
   const recette = jeu.recettes.find((r) => exacte(proposition, r))
