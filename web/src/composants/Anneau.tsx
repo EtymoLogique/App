@@ -7,8 +7,10 @@ const CIRCONFERENCE = 150.8
  * (`avance`), un halo flou pulse sous le trait et une tête lumineuse en
  * marque le bout.
  */
-export function Anneau({ progression, avance = false, className }: { progression: number; avance?: boolean; className?: string }) {
+export function Anneau({ progression: brute, avance = false, className }: { progression: number; avance?: boolean; className?: string }) {
   const flou = useId()
+  // Hors de [0, 1] (prochaine charge au-delà d'une recharge), le motif de pointillés se répète et l'anneau clignote.
+  const progression = Math.min(1, Math.max(0, brute))
   const trait = { strokeDasharray: CIRCONFERENCE, strokeDashoffset: CIRCONFERENCE * (1 - progression) }
   // L'anneau est tourné de −90° : l'angle part de la droite, comme le trait.
   const angle = progression * 2 * Math.PI
