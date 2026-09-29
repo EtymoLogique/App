@@ -38,6 +38,8 @@ pub struct EtatApp {
     pub limiteurs: Limiteurs,
     /// Durée d'une recharge de pli.
     pub recharge: chrono::TimeDelta,
+    /// Route de réinitialisation du joueur : hors production seulement.
+    pub reinitialisation: bool,
 }
 
 pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
@@ -47,7 +49,11 @@ pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
         .max_age(std::time::Duration::from_secs(600));
 
-    routes::routes()
+    let mut routes = routes::routes();
+    if etat.reinitialisation {
+        routes = routes.merge(routes::routes_hors_prod());
+    }
+    routes
         .with_state(etat)
         .layer(RequestBodyLimitLayer::new(CORPS_MAX))
         .layer(cors)

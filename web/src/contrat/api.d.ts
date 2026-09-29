@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/dev/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remet le joueur à zéro, pour la recette hors production : codex vide,
+         *     réserve de départ, 10 000 gouttes. Route absente (`404`) en production.
+         */
+        post: operations["reinitialiser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/etat": {
         parameters: {
             query?: never;
@@ -751,6 +771,8 @@ export interface components {
             prix_gouttes: number;
         };
         Sante: {
+            /** @description `true` hors production : la PWA affiche alors le bouton « Réinitialiser ». */
+            reinitialisation: boolean;
             statut: components["schemas"]["StatutSante"];
             /** @description Version du code de l'API. */
             version_api: string;
@@ -817,6 +839,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    reinitialiser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joueur remis à zéro, état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Etat"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Production : route absente */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     etat: {
         parameters: {
             query?: never;

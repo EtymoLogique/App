@@ -856,6 +856,61 @@ pub async fn decouvrir(
     Ok(())
 }
 
+/// Efface la progression du joueur et lui rend 10 000 gouttes. Le profil
+/// (identifiant, secret, réglages) reste ; `version_etat` est incrémentée par l'appelant.
+pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
+    // Une requête par table : à tenir avec les migrations (un oubli laisserait de la progression).
+    sqlx::query!("DELETE FROM exemplaire WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM decouverte WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM mouvement WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM graine_accordee WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM energie WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM encre WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM compteur_pli WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM ouverture_pli WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM sablier WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM indice WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM jalon_atteint WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM commande WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!(
+        "INSERT INTO encre (joueur_id, gouttes) VALUES ($1, 10000)",
+        joueur
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        "INSERT INTO mouvement (joueur_id, ressource, delta, motif) VALUES ($1, 'encre', 10000, 'depart')",
+        joueur
+    )
+    .execute(&mut *tx)
+    .await?;
+    Ok(())
+}
+
 pub async fn incrementer_version(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
     sqlx::query!(
         "UPDATE joueur SET version_etat = version_etat + 1, derniere_activite = now() WHERE id = $1",

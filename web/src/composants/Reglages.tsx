@@ -1,8 +1,12 @@
+import { useState } from 'react'
+
 import type { Mouvement, Reglages as R, Theme } from '../services/reglages'
 
 interface Props {
   reglages: R
   onChanger: (modif: Partial<R>) => void
+  /** Défini hors production seulement : le bouton n'apparaît pas sans lui. */
+  onReinitialiser?: () => Promise<string | null>
 }
 
 function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
@@ -27,8 +31,45 @@ function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
   )
 }
 
+/** Hors production : remet le joueur à zéro, après confirmation (irréversible). */
+function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<string | null> }) {
+  const [confirmer, setConfirmer] = useState(false)
+  const [envoi, setEnvoi] = useState(false)
+  const [retour, setRetour] = useState<string | null>(null)
+  const valider = async () => {
+    setEnvoi(true)
+    const erreur = await onReinitialiser()
+    setEnvoi(false)
+    setConfirmer(false)
+    setRetour(erreur ?? 'Partie réinitialisée : codex vide, 10 000 gouttes.')
+  }
+  return (
+    <section className="reglage">
+      <h3>Hors production</h3>
+      <p className="panel-tip">Efface le codex, la réserve et la progression, et rend 10 000 gouttes. Irréversible.</p>
+      {confirmer ? (
+        <div className="segments">
+          <button type="button" className="btn btn-primary" disabled={envoi} onClick={() => void valider()}>
+            Confirmer la réinitialisation
+          </button>
+          <button type="button" className="btn btn-secondary" disabled={envoi} onClick={() => setConfirmer(false)}>
+            Annuler
+          </button>
+        </div>
+      ) : (
+        <div className="segments">
+          <button type="button" className="btn btn-secondary" onClick={() => { setRetour(null); setConfirmer(true) }}>
+            Réinitialiser
+          </button>
+        </div>
+      )}
+      {retour && <p className="panel-tip" role="status">{retour}</p>}
+    </section>
+  )
+}
+
 /** Réglages (I-24), contenu du MVP en cours : apparence, mouvement, profil, licences. */
-export function Reglages({ reglages, onChanger }: Props) {
+export function Reglages({ reglages, onChanger, onReinitialiser }: Props) {
   return (
     <div className="reglages">
       <Choix<Theme>
@@ -58,6 +99,7 @@ export function Reglages({ reglages, onChanger }: Props) {
           Votre progression est liée à cet appareil. Aucun nom ni adresse électronique n’est demandé.
         </p>
       </section>
+      {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
       <section className="reglage">
         <h3>Licences</h3>
         <p className="panel-tip">

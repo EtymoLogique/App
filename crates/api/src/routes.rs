@@ -30,6 +30,42 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/indice", post(acheter_indice))
 }
 
+/// Routes réservées au hors-production, absentes du routeur en production.
+pub fn routes_hors_prod() -> Router<Arc<EtatApp>> {
+    Router::new().route("/dev/reset", post(reinitialiser))
+}
+
+/// Remet le joueur à zéro, pour la recette hors production : codex vide,
+/// réserve de départ, 10 000 gouttes. Route absente (`404`) en production.
+#[utoipa::path(post, path = "/dev/reset", tag = "hors-production", security(("session" = [])),
+    responses(
+        (status = 200, description = "Joueur remis à zéro, état confirmé", body = Etat),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 404, description = "Production : route absente"),
+    ))]
+pub async fn reinitialiser(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+) -> Result<Json<Etat>, ErreurApi> {
+    let mut tx = app.base.begin().await?;
+    progression::verrouiller(&mut tx, joueur).await?;
+    progression::reinitialiser(&mut tx, joueur).await?;
+    if let Some(catalogue) = app.catalogue.courant() {
+        progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
+        sqlx::query!(
+            "UPDATE joueur SET version_catalogue = $2 WHERE id = $1",
+            joueur,
+            catalogue.version(),
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let etat = progression::etat(&mut tx, joueur, app.recharge).await?;
+    tx.commit().await?;
+    Ok(Json(etat))
+}
+
 /// État du service. Répond même si la base est au repos (Serverless SQL).
 #[utoipa::path(get, path = "/sante", tag = "service",
     responses((status = 200, description = "Service disponible", body = Sante)))]
@@ -43,6 +79,7 @@ pub async fn sante(State(app): State<Arc<EtatApp>>) -> Json<Sante> {
         },
         version_catalogue,
         version_api: env!("CARGO_PKG_VERSION").to_owned(),
+        reinitialisation: app.reinitialisation,
     })
 }
 

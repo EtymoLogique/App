@@ -11,6 +11,7 @@ import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtur
 function client(fusion?: ClientApi['fusion']): ClientApi {
   const api = new ClientApi('https://api.exemple.test')
   vi.spyOn(api, 'etat').mockResolvedValue(etat())
+  vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', reinitialisation: false })
   if (fusion) vi.spyOn(api, 'fusion').mockImplementation(fusion)
   return api
 }
@@ -327,5 +328,27 @@ describe('table de fusion', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
     await waitFor(() => expect(window.location.hash).toBe('#/plis'))
     delete document.documentElement.dataset.mouvement
+  })
+
+  it('n’offre pas la réinitialisation en production', async () => {
+    history.replaceState(null, '', '#/reglages')
+    render(<App api={client()} catalogue={lecteur} />)
+    await waitFor(() => expect(screen.getByText('Profil invité')).toBeVisible())
+    expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument()
+  })
+
+  it('réinitialise hors production, après confirmation', async () => {
+    const api = client()
+    vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', reinitialisation: true })
+    const reset = vi.spyOn(api, 'reinitialiser').mockResolvedValue(etat({ version_etat: 5, encre: 10_000 }))
+    history.replaceState(null, '', '#/reglages')
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Réinitialiser' }))
+    expect(reset).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Réinitialiser' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer la réinitialisation' }))
+    expect(await screen.findByText('Partie réinitialisée : codex vide, 10 000 gouttes.')).toBeInTheDocument()
+    expect(reset).toHaveBeenCalledTimes(1)
   })
 })

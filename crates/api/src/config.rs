@@ -67,6 +67,11 @@ pub struct ConfigServeur {
     /// Durée d'une recharge de pli, en secondes : 12 h en production, moins hors production.
     #[arg(long, env = "ETYMO_RECHARGE_S", default_value_t = 43_200)]
     pub recharge_s: u32,
+
+    /// Hors production seulement : ouvre `POST /dev/reset`, qui remet le joueur à zéro.
+    /// Fermée par défaut ; ne jamais l'activer en production.
+    #[arg(long, env = "ETYMO_REINITIALISATION", default_value_t = false, action = clap::ArgAction::Set)]
+    pub reinitialisation: bool,
 }
 
 #[derive(Debug, Clone, Args)]

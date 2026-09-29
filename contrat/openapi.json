@@ -10,6 +10,45 @@
     "version": "1"
   },
   "paths": {
+    "/dev/reset": {
+      "post": {
+        "tags": [
+          "hors-production"
+        ],
+        "summary": "Remet le joueur à zéro, pour la recette hors production : codex vide,\nréserve de départ, 10 000 gouttes. Route absente (`404`) en production.",
+        "operationId": "reinitialiser",
+        "responses": {
+          "200": {
+            "description": "Joueur remis à zéro, état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Etat"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Production : route absente"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/etat": {
       "get": {
         "tags": [
@@ -2363,9 +2402,14 @@
         "type": "object",
         "required": [
           "statut",
-          "version_api"
+          "version_api",
+          "reinitialisation"
         ],
         "properties": {
+          "reinitialisation": {
+            "type": "boolean",
+            "description": "`true` hors production : la PWA affiche alors le bouton « Réinitialiser »."
+          },
           "statut": {
             "$ref": "#/components/schemas/StatutSante"
           },
@@ -2559,6 +2603,10 @@
     {
       "name": "jeu",
       "description": "Commandes de jeu : le serveur fait foi"
+    },
+    {
+      "name": "hors-production",
+      "description": "Routes absentes en production"
     }
   ]
 }

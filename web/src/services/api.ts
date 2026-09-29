@@ -78,6 +78,11 @@ export class ClientApi {
     }
   }
 
+  /** Hors production : remet le joueur à zéro (codex vide, 10 000 gouttes). Route absente (`404`) en production. */
+  reinitialiser(): Promise<Etat> {
+    return this.authentifie('/dev/reset', { method: 'POST' })
+  }
+
   /** Synchronise le joueur : graines des fascicules parus, puis état confirmé. */
   etat(): Promise<Etat> {
     return this.authentifie('/etat')
