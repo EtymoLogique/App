@@ -19,7 +19,6 @@ import {
 import { Brique, PetiteBrique } from './Brique'
 import { FormeRarete } from './Rarete'
 import { Anneau } from './Anneau'
-import { Compteur } from './Compteur'
 import { RaccourciSabliers } from './Sabliers'
 
 /** Glyphes inventés que la plume essaie avant d'écrire la brique (plis.html). */
@@ -159,14 +158,12 @@ interface Props {
   acheterSabliers: (nombre: number) => Promise<ReponseAchatSablier | { erreur: string }>
   onEssayer: () => void
   urlMedia: (chemin: string) => string
-  /** Encre affichée : celle d'avant le pli tant que son rituel n'est pas fini. */
-  encre: number | undefined
   /** Gèle l'encre et les nouveautés affichées pendant le rituel d'ouverture : elles n'arrivent qu'à la révélation. */
   onGeler: (gel: boolean) => void
 }
 
 /** Écran des plis (I-19 à I-21) : choisir un fascicule, puis ouvrir son pli. */
-export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabliers, acheterSabliers, onEssayer, urlMedia, encre, onGeler }: Props) {
+export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabliers, acheterSabliers, onEssayer, urlMedia, onGeler }: Props) {
   const choisi = jeu.fascicules.find((f) => f.manifeste.id === fascicule)
   const raccourci = <RaccourciSabliers etat={etat} utiliser={utiliserSabliers} acheter={acheterSabliers} />
   if (!choisi) return <Choix jeu={jeu} etat={etat} onChoisir={onChoisir} urlMedia={urlMedia} />
@@ -180,7 +177,6 @@ export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabli
       ouvrirPli={ouvrirPli}
       raccourci={raccourci}
       onEssayer={onEssayer}
-      encre={encre}
       onGeler={onGeler}
       urlMedia={urlMedia}
     />
@@ -271,12 +267,11 @@ interface AtelierProps {
   raccourci: ReactNode
   onEssayer: () => void
   urlMedia: (c: string) => string
-  encre: Props['encre']
   onGeler: Props['onGeler']
 }
 
 /** Atelier du pli (I-20) et rituel d'ouverture (I-21). */
-function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssayer, urlMedia, encre, onGeler }: AtelierProps) {
+function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssayer, urlMedia, onGeler }: AtelierProps) {
   const energie = useEnergie(etat)
   const briques = briquesDuPli(fascicule)
   const equilibrage = fascicule.manifeste.pli?.equilibrage
@@ -451,19 +446,12 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
           <CartePlisEnAttente energie={energie} jaquette={fascicule.manifeste.jaquette} urlMedia={urlMedia}>
             {raccourci}
           </CartePlisEnAttente>
-          <div className="pk-card">
-            <p className="pk-label">Encre</p>
-            <div className="pk-inkbox">
-              <span className="pk-drop" aria-hidden="true" />
-              <strong>
-                <Compteur valeur={encre} />
-              </strong>
-              <small>gouttes</small>
+          <details className="pk-card" open>
+            <summary className="pk-label">Derniers tirages</summary>
+            <div className="pk-history">
+              {historique.length === 0 ? <span className="pk-empty">Aucun pli ouvert pour l’instant.</span> : historique.map((h, i) => <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} />)}
             </div>
-            <p className="pk-note">
-              Chaque pli rapporte {gouttes(equilibrage?.base_encre ?? 2)}. Un doublon en ajoute selon sa rareté, le double si la réserve est pleine. Échangez-les contre des indices depuis la table, ou contre des sabliers à la boutique.
-            </p>
-          </div>
+          </details>
         </aside>
 
         <div className="pk-centre">
@@ -533,12 +521,6 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
               </div>
             )}
           </div>
-          <details className="pk-card" open>
-            <summary className="pk-label">Derniers tirages</summary>
-            <div className="pk-history">
-              {historique.length === 0 ? <span className="pk-empty">Aucun pli ouvert pour l’instant.</span> : historique.map((h, i) => <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} />)}
-            </div>
-          </details>
         </div>
 
         <aside className="pk-side">
@@ -589,7 +571,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
             </div>
           )}
           {lesChances && (
-            <details className="pk-card" open>
+            <details className="pk-card">
               <summary className="pk-label">
                 <span>Toutes les briques du fascicule</span>
                 {/* Les légendaires inconnues ne comptent jamais (ADR 0015). */}

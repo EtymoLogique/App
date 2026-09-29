@@ -274,7 +274,6 @@ export function App({ api, catalogue }: Props) {
                   utiliserSabliers={partie.utiliserSabliers}
                   acheterSabliers={partie.acheterSabliers}
                   onEssayer={() => setOnglet('table')}
-                  encre={encreAffichee}
                   onGeler={geler}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                 />
