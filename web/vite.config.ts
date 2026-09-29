@@ -24,6 +24,8 @@ function csp(env: Record<string, string | undefined>): Plugin {
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
+    // Attributs `style` des silhouettes SVG du catalogue (svgSur les filtre) ; les feuilles restent en 'self'.
+    "style-src-attr 'unsafe-inline'",
     `img-src 'self' ${catalogue}`,
     `connect-src 'self' ${api} ${catalogue}`,
     "manifest-src 'self'",
