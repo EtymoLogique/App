@@ -127,7 +127,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 
 Écarts assumés : l’annonce du jalon passe par la fiche de découverte, pas par le rituel du pli ; la feuille des indices est un dialogue sur ordinateur comme sur mobile, pas un panneau latéral ; sur un environnement à recharge courte, un sablier vaut un douzième de la recharge (1 h en production).
 
-## J6 — Hors connexion et évolutions du catalogue (en cours)
+## J6 — Hors connexion et évolutions du catalogue (fait en local, à déployer en hors-prod)
 
 | Tâche | État |
 |---|---|
@@ -135,8 +135,8 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | PWA : bannière « consultation seulement » ; pose, déplacement, retrait, fusion, plis, sabliers, boutique et indices inertes hors ligne (garde dans `usePartie`, boutons désactivés) ; codex, fiches et réglages inchangés | fait |
 | Test d’intégration : une parution rend `409` une commande neuve, la commande rejouée renvoie la même réponse, `GET /etat` accorde les graines du nouveau fascicule une seule fois et garde réserve, codex, encre | fait |
 | Aucune migration de progression (commentaire de `parution.rs` renvoyé à l’ADR 0041) | fait |
-| Content : fascicule Bêta 2 (`fsc_3vztseeb`, `test: true`, n° 1, parution 15 octobre 2026) : 15 mots (10 croisés avec les briques existantes, 5 de fermeture), 16 exclusions `rare`, 4 graines ; faits en brouillon | fait |
-| Recette locale : republication du catalogue avec `--simuler-le`, `409` puis resynchronisation, table en cours gardée, réseau coupé | à faire |
+| Content : fascicule Bêta 2 (`fsc_3vztseeb`, `test: true`, n° 1, parution 15 octobre 2026) : 35 mots dont 20 recettes existantes que les briques de Bêta 0 rendaient jouables (fermeture entre fascicules), 33 exclusions `rare`, jaquette, 4 graines ; faits en brouillon | fait |
+| Recette locale (Chrome) : Bêta 2 et sa jaquette au choix des plis, graines reçues, hors ligne simulé (pose et boutique inertes, bannière), fusion *périmètre* en ligne | fait |
 
 ## Outillage hors-prod
 
