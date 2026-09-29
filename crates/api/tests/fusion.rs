@@ -72,11 +72,12 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     );
     // géo- et -logie sont communes : le mot l'est aussi et rapporte 3 gouttes (ADR 0040).
     assert_eq!(reponse["etat"]["encre"], 3);
-    // bio- vient du pli du jalon atteint par cette première découverte.
+    // bio- : un du pli du jalon atteint par cette première découverte, un du mot lui-même
+    // (le banc déclare le mot posable comme brique bio-).
     assert_eq!(
         reserve(&reponse["etat"]),
         vec![
-            (BIO.to_owned(), 1),
+            (BIO.to_owned(), 2),
             (GEO.to_owned(), 1),
             (LOGIE.to_owned(), 0)
         ]
@@ -92,7 +93,7 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     assert_eq!(
         reserve(&apres),
         vec![
-            (BIO.to_owned(), 1),
+            (BIO.to_owned(), 2),
             (GEO.to_owned(), 1),
             (LOGIE.to_owned(), 0)
         ]
@@ -113,7 +114,7 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     .fetch_one(&base)
     .await
     .unwrap();
-    assert_eq!(consommes, 2);
+    assert_eq!(consommes, 3, "deux consommés, un exemplaire du mot offert");
     let commandes: i64 = sqlx::query_scalar("SELECT count(*) FROM commande")
         .fetch_one(&base)
         .await
@@ -214,4 +215,25 @@ async fn refuse_les_propositions_mal_formees(base: PgPool) {
     )
     .await;
     assert_eq!(statut, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn une_brique_de_mot_perdue_est_rendue_a_la_synchronisation(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&etat, &[GEO, LOGIE])),
+    )
+    .await;
+    // Mot découvert, brique du mot épuisée (état d'avant le correctif).
+    sqlx::query("UPDATE exemplaire SET nombre = 0 WHERE brique_id = $1")
+        .bind(BIO)
+        .execute(&base)
+        .await
+        .unwrap();
+
+    let (_, _, sync) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert!(reserve(&sync).contains(&(BIO.to_owned(), 1)));
 }

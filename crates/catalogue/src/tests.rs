@@ -42,6 +42,10 @@ async fn charge_l_index_et_ses_manifestes() {
     assert_eq!(jeu.exclusions.len(), 1);
     assert!(jeu.briques.contains(&essai::GEO.parse().unwrap()));
     assert_eq!(jeu.graines[0].0.as_str(), "fsc_00000000");
+    assert_eq!(
+        jeu.briques_de_mot.get(&essai::MOT.parse().unwrap()),
+        Some(&essai::BIO.parse().unwrap())
+    );
 }
 
 #[tokio::test]

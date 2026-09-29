@@ -32,7 +32,8 @@ async fn la_decouverte_qui_atteint_le_jalon_l_accorde_une_fois(base: PgPool) {
         .iter()
         .find(|e| e["brique_id"] == BIO)
         .unwrap();
-    assert_eq!(bio["exemplaires"], 1);
+    // Un du pli du jalon, un du mot lui-même (le banc le déclare posable comme brique bio-).
+    assert_eq!(bio["exemplaires"], 2);
     assert_eq!(etat["historique_plis"][0]["regle"], "deterministe");
 
     let (_, _, rejouee) = appeler(&banc.routeur, post_fusion(&jeton, &demande)).await;

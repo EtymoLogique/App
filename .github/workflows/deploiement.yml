@@ -108,7 +108,7 @@ jobs:
       - name: Redeploy the API container
         if: github.ref_type == 'branch' && env.CONTENEUR != ''
         run: |
-          api="https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/$CONTENEUR"
+          api="https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/${CONTENEUR##*/}"
           curl -sSf -X POST "$api/deploy" -H "X-Auth-Token: $SCW_SECRET_KEY" \
             -H "Content-Type: application/json" -d '{}' > /dev/null
           for _ in $(seq 60); do
@@ -128,6 +128,7 @@ jobs:
       # :latest…) : l'image en service ne part donc jamais. Un échec de
       # nettoyage n'empêche pas le déploiement.
       - name: Prune old image tags
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           GARDER: "20"

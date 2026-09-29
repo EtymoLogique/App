@@ -197,11 +197,13 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })
         setTable(casesVides())
-        setConsommees(proposition)
+        // Une brique-mot ne se consomme jamais : pas de « −1 ».
+        const usees = proposition.filter((id) => catalogue.briques.get(id)?.nature !== 'mot')
+        setConsommees(usees)
         // Le « −1 » ne s'envole qu'une fois (1,3 s) : il ne doit pas rejouer quand l'écran réapparaît.
-        setTimeout(() => setConsommees((c) => (c === proposition ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
+        setTimeout(() => setConsommees((c) => (c === usees ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
         setNouvelles((n) => new Set(n).add(issue.mot_id))
-        setFiche({ motId: issue.mot_id, consommees: proposition, jalons: reponse.jalons ?? [], gouttes: issue.gouttes ?? 0 })
+        setFiche({ motId: issue.mot_id, consommees: usees, jalons: reponse.jalons ?? [], gouttes: issue.gouttes ?? 0 })
       } else {
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })

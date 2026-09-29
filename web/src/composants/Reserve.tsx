@@ -153,9 +153,11 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
                   onClick={() => (indisponible === null ? onAjouter(brique_id) : onIndisponible(indisponible))}
                 >
                   <ContenuBrique brique={brique} />
-                  <span className={epuisee ? 'b-count zero' : 'b-count'} aria-hidden="true">
-                    {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
-                  </span>
+                  {brique.nature !== 'mot' && (
+                    <span className={epuisee ? 'b-count zero' : 'b-count'} aria-hidden="true">
+                      {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
+                    </span>
+                  )}
                   {consommees.includes(brique_id) && (
                     <span className="b-minus" aria-hidden="true">
                       −1

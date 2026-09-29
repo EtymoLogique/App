@@ -81,6 +81,7 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "langues": [],
         "recettes": [{ "id": RECETTE, "chemin": recette }],
         "compteurs": { "mots": 1 },
+        "mots_briques": [{ "mot_id": MOT, "brique_id": BIO }],
         "pli": {
             "briques": [
                 { "id": GEO, "nature": "prefixe", "rarete": "commune", "unite_id": "unt_0000000g" },

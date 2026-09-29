@@ -1,7 +1,7 @@
 //! Règles du jeu tirées des fascicules parus : recettes, exclusions, briques
 //! connues du catalogue et graines. Construit une fois par version d'index.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
@@ -25,6 +25,8 @@ pub struct Jeu {
     pub jalons: Vec<JalonsJeu>,
     /// Briques légendaires : leurs recettes restent secrètes (ADR 0015).
     pub legendaires: HashSet<IdCatalogue>,
+    /// Brique-mot par mot (unité) : la découverte d'un mot ingrédient en offre un exemplaire.
+    pub briques_de_mot: HashMap<IdCatalogue, IdCatalogue>,
 }
 
 /// Les jalons d'un fascicule et les mots qui les font avancer.
@@ -131,6 +133,20 @@ impl Jeu {
                 jalons: fascicule.manifeste.jalons.clone(),
             });
             jeu.briques.extend(pli.briques.iter().map(|b| b.id.clone()));
+            jeu.briques_de_mot.extend(
+                fascicule
+                    .manifeste
+                    .mots_briques
+                    .iter()
+                    .map(|m| (m.mot_id.clone(), m.brique_id.clone())),
+            );
+            jeu.briques.extend(
+                fascicule
+                    .manifeste
+                    .mots_briques
+                    .iter()
+                    .map(|m| m.brique_id.clone()),
+            );
             // Un pli ne s'ouvre qu'avec son équilibrage et la nature de chaque
             // brique ; il ne tire jamais un mot (ADR 0035).
             let briques: Option<Vec<BriquePli>> = pli

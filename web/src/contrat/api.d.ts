@@ -632,6 +632,8 @@ export interface components {
             jalons?: components["schemas"]["Jalon"][];
             jaquette?: components["schemas"]["Chemin"] | null;
             langues?: components["schemas"]["LangueManifeste"][];
+            /** @description Mots posables comme briques : leur découverte en offre un exemplaire. */
+            mots_briques?: components["schemas"]["MotBrique"][];
             /** @description Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens. */
             nom?: string | null;
             /** Format: int32 */
@@ -642,6 +644,10 @@ export interface components {
             pli?: components["schemas"]["PliManifeste"];
             recettes?: components["schemas"]["RecetteManifeste"][];
             test?: boolean;
+        };
+        MotBrique: {
+            brique_id: components["schemas"]["IdCatalogue"];
+            mot_id: components["schemas"]["IdCatalogue"];
         };
         /** @enum {string} */
         MotifPresque: "ordre" | "incomplet";

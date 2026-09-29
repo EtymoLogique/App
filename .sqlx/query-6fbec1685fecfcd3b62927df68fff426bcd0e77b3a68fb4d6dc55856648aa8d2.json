@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE exemplaire SET nombre = 1 WHERE joueur_id = $1 AND brique_id = $2 AND nombre = 0\n                 RETURNING nombre",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nombre",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6fbec1685fecfcd3b62927df68fff426bcd0e77b3a68fb4d6dc55856648aa8d2"
+}

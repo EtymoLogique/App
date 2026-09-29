@@ -2000,6 +2000,13 @@
               "$ref": "#/components/schemas/LangueManifeste"
             }
           },
+          "mots_briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MotBrique"
+            },
+            "description": "Mots posables comme briques : leur découverte en offre un exemplaire."
+          },
           "nom": {
             "type": [
               "string",
@@ -2028,6 +2035,21 @@
           },
           "test": {
             "type": "boolean"
+          }
+        }
+      },
+      "MotBrique": {
+        "type": "object",
+        "required": [
+          "mot_id",
+          "brique_id"
+        ],
+        "properties": {
+          "brique_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "mot_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
           }
         }
       },

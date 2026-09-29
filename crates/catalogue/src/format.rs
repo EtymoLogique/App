@@ -68,6 +68,15 @@ pub struct Manifeste {
     /// Réserve de départ du fascicule (ADR 0030).
     #[serde(default)]
     pub graines: Vec<Graine>,
+    /// Mots posables comme briques : leur découverte en offre un exemplaire.
+    #[serde(default)]
+    pub mots_briques: Vec<MotBrique>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MotBrique {
+    pub mot_id: IdCatalogue,
+    pub brique_id: IdCatalogue,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

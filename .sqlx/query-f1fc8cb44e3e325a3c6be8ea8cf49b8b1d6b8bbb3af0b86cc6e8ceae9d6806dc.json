@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mouvement (joueur_id, commande_id, ressource, brique_id, delta, motif)\n             VALUES ($1, $2, 'exemplaire', $3, 1, 'decouverte')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f1fc8cb44e3e325a3c6be8ea8cf49b8b1d6b8bbb3af0b86cc6e8ceae9d6806dc"
+}

@@ -158,7 +158,9 @@ pub async fn etat(
     if let Some(catalogue) = &catalogue {
         let seme = progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
         let jalons = progression::accorder_jalons(&mut tx, joueur, &catalogue.jeu, None).await?;
-        if seme || !jalons.is_empty() {
+        let restaurees =
+            progression::restaurer_briques_de_mots(&mut tx, joueur, &catalogue.jeu).await?;
+        if seme || restaurees || !jalons.is_empty() {
             progression::incrementer_version(&mut tx, joueur).await?;
         }
         sqlx::query!(
@@ -231,16 +233,26 @@ pub async fn fusion(
             let manquantes = progression::manquantes(&mut tx, joueur, &besoins).await?;
             if manquantes.is_empty() {
                 let gouttes = jeu.encre_decouverte(&mot_id);
+                // Une brique-mot se possède sans s'user : posée, elle ne se consomme pas.
+                let consommes: Vec<_> = besoins
+                    .iter()
+                    .filter(|(b, _)| !jeu.briques_de_mot.values().any(|m| m == *b))
+                    .copied()
+                    .collect();
                 progression::decouvrir(
                     &mut tx,
                     joueur,
                     demande.commande,
-                    &besoins,
+                    &consommes,
                     &recette_id,
                     &mot_id,
                     gouttes,
                 )
                 .await?;
+                if let Some(brique) = jeu.briques_de_mot.get(&mot_id) {
+                    progression::offrir_brique_du_mot(&mut tx, joueur, demande.commande, brique)
+                        .await?;
+                }
                 jalons = progression::accorder_jalons(&mut tx, joueur, jeu, Some(demande.commande))
                     .await?;
                 progression::incrementer_version(&mut tx, joueur).await?;

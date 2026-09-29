@@ -856,6 +856,80 @@ pub async fn decouvrir(
     Ok(())
 }
 
+/// Un mot ingrédient (*biologie*) ne sort d'aucun pli : sa découverte en offre un
+/// exemplaire de brique, dans la limite du plafond.
+pub async fn offrir_brique_du_mot(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Uuid,
+    brique: &IdCatalogue,
+) -> Result<(), ErreurApi> {
+    sqlx::query!(
+            "INSERT INTO exemplaire (joueur_id, brique_id, nombre) VALUES ($1, $2, 1)
+             ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = LEAST(exemplaire.nombre + 1, 5)",
+            joueur,
+            brique.as_str(),
+        )
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!(
+        "INSERT INTO mouvement (joueur_id, commande_id, ressource, brique_id, delta, motif)
+             VALUES ($1, $2, 'exemplaire', $3, 1, 'decouverte')",
+        joueur,
+        commande,
+        brique.as_str(),
+    )
+    .execute(&mut *tx)
+    .await?;
+    Ok(())
+}
+
+/// Rend leur brique aux mots qui n'en ont plus : elle ne s'use jamais. Un mot
+/// découvert la récupère même s'il n'en a jamais eu ; un mot ingrédient
+/// (*mener*), seulement s'il l'a déjà reçue. Renvoie vrai si la réserve a changé.
+pub async fn restaurer_briques_de_mots(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+) -> Result<bool, ErreurApi> {
+    let decouverts = mots_decouverts(tx, joueur).await?;
+    let mut change = false;
+    for (mot, brique) in &jeu.briques_de_mot {
+        let rendue = if decouverts.contains(mot) {
+            sqlx::query_scalar!(
+                "INSERT INTO exemplaire (joueur_id, brique_id, nombre) VALUES ($1, $2, 1)
+                 ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = 1 WHERE exemplaire.nombre = 0
+                 RETURNING nombre",
+                joueur,
+                brique.as_str(),
+            )
+            .fetch_optional(&mut *tx)
+            .await?
+        } else {
+            sqlx::query_scalar!(
+                "UPDATE exemplaire SET nombre = 1 WHERE joueur_id = $1 AND brique_id = $2 AND nombre = 0
+                 RETURNING nombre",
+                joueur,
+                brique.as_str(),
+            )
+            .fetch_optional(&mut *tx)
+            .await?
+        };
+        if rendue.is_some() {
+            sqlx::query!(
+                "INSERT INTO mouvement (joueur_id, ressource, brique_id, delta, motif)
+                 VALUES ($1, 'exemplaire', $2, 1, 'decouverte')",
+                joueur,
+                brique.as_str(),
+            )
+            .execute(&mut *tx)
+            .await?;
+            change = true;
+        }
+    }
+    Ok(change)
+}
+
 /// Efface la progression du joueur et lui rend 10 000 gouttes. Le profil
 /// (identifiant, secret, réglages) reste ; `version_etat` est incrémentée par l'appelant.
 pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
