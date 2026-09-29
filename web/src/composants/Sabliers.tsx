@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import type { Etat, ReponseAchatSablier, ReponseSablier } from '../contrat'
 import { useMaintenant } from '../services/horloge'
+import { useEnLigne } from '../services/reseau'
 import { avantPlein, dureeLisible, dureeSablier, energieA, nombrePourRemplir, sabliersAchetables } from '../services/plis'
 import { Compteur } from './Compteur'
 import { Icone } from './Icone'
@@ -26,6 +27,7 @@ export type Envoi<T> = (nombre: number) => Promise<T | { erreur: string }>
  * s'il en reste, sinon « Échanger » des gouttes, sans passer par la boutique.
  */
 export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | null; utiliser: Envoi<ReponseSablier>; acheter: Envoi<ReponseAchatSablier> }) {
+  const enLigne = useEnLigne()
   const [feuille, setFeuille] = useState<'utiliser' | 'echanger' | null>(null)
   const maintenant = useMaintenant()
   if (!etat || energieA(etat.energie, maintenant).prochaine === null) return null
@@ -34,12 +36,12 @@ export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | nu
   return (
     <>
       {s.detenus > 0 ? (
-        <button type="button" className="btn btn-secondary pk-sandbtn" onClick={() => setFeuille('utiliser')} title="Faire avancer le temps avec des sabliers" aria-label={`Faire avancer le temps avec des sabliers (${sabliers(s.detenus)})`}>
+        <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne} onClick={() => setFeuille('utiliser')} title="Faire avancer le temps avec des sabliers" aria-label={`Faire avancer le temps avec des sabliers (${sabliers(s.detenus)})`}>
           <Sablier />
           Avancer · <Compteur valeur={s.detenus} />
         </button>
       ) : (
-        <button type="button" className="btn btn-secondary pk-sandbtn" disabled={sabliersAchetables(s, etat.encre) === 0} onClick={() => setFeuille('echanger')} title={`Un sablier coûte ${gouttes(s.prix_gouttes)}`}>
+        <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne || sabliersAchetables(s, etat.encre) === 0} onClick={() => setFeuille('echanger')} title={`Un sablier coûte ${gouttes(s.prix_gouttes)}`}>
           <Icone nom="goutte" />
           {sabliersAchetables(s, etat.encre) === 0 ? `Il faut ${gouttes(s.prix_gouttes)}` : `Échanger · ${gouttes(s.prix_gouttes)}`}
         </button>

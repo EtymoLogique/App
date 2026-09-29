@@ -4,6 +4,7 @@ import type { Etat, ReponseIndice } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
 import { TITRES_INDICES, ciblesIndice, contenuIndice, niveauObtenu } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
+import { useEnLigne } from '../services/reseau'
 import { Icone } from './Icone'
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
  * du plus vague à la solution, achetés dans l'ordre contre de l'encre.
  */
 export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
+  const enLigne = useEnLigne()
   const cibles = ciblesIndice(jeu, entrees)
   const [choisie, setChoisie] = useState(cibles[0]?.recette.id ?? null)
   const [envoi, setEnvoi] = useState(false)
@@ -98,7 +100,7 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
                     {niveau <= obtenu ? (
                       <span aria-label="Obtenu">✓</span>
                     ) : niveau === obtenu + 1 && cout !== undefined ? (
-                      <button type="button" className="btn btn-primary btn-prix" aria-label={`${cout} gouttes`} disabled={envoi || encre < cout} onClick={() => void payer(niveau)}>
+                      <button type="button" className="btn btn-primary btn-prix" aria-label={`${cout} gouttes`} disabled={!enLigne || envoi || encre < cout} onClick={() => void payer(niveau)}>
                         {cout}
                         <Icone nom="goutte" />
                       </button>

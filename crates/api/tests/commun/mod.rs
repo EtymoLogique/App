@@ -21,7 +21,8 @@ pub const ORIGINE: &str = "https://pwa.exemple.test";
 
 pub struct Banc {
     pub routeur: Router,
-    _dossier: tempfile::TempDir,
+    pub app: Arc<EtatApp>,
+    pub dossier: tempfile::TempDir,
 }
 
 pub async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
@@ -48,8 +49,9 @@ pub async fn banc_avec(base: PgPool, limiteurs: Limiteurs, reinitialisation: boo
         reinitialisation,
     });
     Banc {
-        routeur: routeur(etat, &[HeaderValue::from_static(ORIGINE)]),
-        _dossier: dossier,
+        routeur: routeur(etat.clone(), &[HeaderValue::from_static(ORIGINE)]),
+        app: etat,
+        dossier,
     }
 }
 

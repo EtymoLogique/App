@@ -122,8 +122,8 @@ pub async fn publier_fascicules(
         .await?;
         rapport.index_ecrit = true;
     }
-    // Les migrations de progression s'ajouteront ici, avant l'écriture de
-    // l'index, quand la progression existera (jalon 6).
+    // Aucune migration de progression : ADR 0041, la resynchronisation par
+    // `409` suffit.
     Ok(rapport)
 }
 

@@ -50,8 +50,10 @@ function tableValide(cases: Cases, etat: Etat): Cases {
   })
 }
 
+const HORS_LIGNE = 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
+
 /** État d'une partie : catalogue, état confirmé, table et retours de fusion. */
-export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
+export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = true) {
   const [jeu, setJeu] = useState<Chargement<CatalogueJeu | null>>({ etat: 'attente' })
   const [etat, setEtat] = useState<Etat | null>(null)
   const [erreurEtat, setErreurEtat] = useState<string | null>(null)
@@ -123,6 +125,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
 
   /** Pose une brique dans la première case libre ; table pleine, rien ne change. */
   const ajouter = useCallback((brique: string) => {
+    if (!enLigne) return
     setTable((t) => {
       const libre = t.indexOf(null)
       if (libre < 0) return t
@@ -132,10 +135,11 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     })
     setRetour(null)
     setFiche(null)
-  }, [])
+  }, [enLigne])
 
   /** Pose une brique dans la case `rang` : elle remplace celle qui s'y trouvait. */
   const poser = useCallback((brique: string, rang: number) => {
+    if (!enLigne) return
     setTable((t) => {
       if (rang < 0 || rang >= t.length) return t
       const suite = [...t]
@@ -144,10 +148,11 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     })
     setRetour(null)
     setFiche(null)
-  }, [])
+  }, [enLigne])
 
   /** Échange deux cases, pleines ou vides. */
   const deplacer = useCallback((depuis: number, vers: number) => {
+    if (!enLigne) return
     setTable((t) => {
       if (vers < 0 || vers >= t.length || depuis === vers) return t
       const suite = [...t]
@@ -156,13 +161,14 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
       return suite
     })
     setRetour(null)
-  }, [])
+  }, [enLigne])
 
   /** Vide une case : l'autre brique garde sa place. */
   const retirer = useCallback((rang: number) => {
+    if (!enLigne) return
     setTable((t) => t.map((b, i) => (i === rang ? null : b)))
     setRetour(null)
-  }, [])
+  }, [enLigne])
 
   const vider = useCallback(() => {
     setSecousse(null)
@@ -171,7 +177,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   }, [])
 
   const fusionner = useCallback(async () => {
-    if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return
+    if (!enLigne || jeu.etat !== 'pret' || !jeu.valeur || !etat) return
     // On ne fusionne que deux cases pleines.
     if (cases.some((b) => b === null)) return
     const catalogue = jeu.valeur
@@ -220,7 +226,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     } finally {
       setEnAttente(false)
     }
-  }, [api, jeu, etat, cases, confirmer, synchroniser])
+  }, [api, enLigne, jeu, etat, cases, confirmer, synchroniser])
 
   /**
    * Ouvre le pli d'un fascicule (ADR 0011) : le serveur tire la brique. Rien
@@ -228,6 +234,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
    */
   const ouvrirPli = useCallback(
     async (fascicule: string): Promise<ReponsePli | { erreur: string }> => {
+      if (!enLigne) return { erreur: HORS_LIGNE }
       if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
       try {
         const reponse = await api.pli({
@@ -253,7 +260,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         return { erreur: message(e) }
       }
     },
-    [api, jeu, etat, confirmer, synchroniser],
+    [api, enLigne, jeu, etat, confirmer, synchroniser],
   )
 
   /**
@@ -262,6 +269,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
    */
   const commander = useCallback(
     async <T extends { etat: Etat }>(envoyer: (e: Etat, version: string) => Promise<T>, refus: string): Promise<T | { erreur: string }> => {
+      if (!enLigne) return { erreur: HORS_LIGNE }
       if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
       try {
         const reponse = await envoyer(etat, jeu.valeur.version)
@@ -275,7 +283,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
         return { erreur: message(e) }
       }
     },
-    [jeu, etat, confirmer, synchroniser],
+    [enLigne, jeu, etat, confirmer, synchroniser],
   )
 
   const utiliserSabliers = useCallback(

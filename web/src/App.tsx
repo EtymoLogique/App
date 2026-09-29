@@ -39,8 +39,8 @@ function EnTete({ titre, id, children }: { titre: string; id: string; children?:
 }
 
 export function App({ api, catalogue }: Props) {
-  const partie = usePartie(api, catalogue)
   const enLigne = useEnLigne()
+  const partie = usePartie(api, catalogue, enLigne)
   const { reglages, changer } = useReglages()
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
   const [route, naviguer] = useRoute()
@@ -73,7 +73,7 @@ export function App({ api, catalogue }: Props) {
   const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
   const bloquee = !enLigne
-    ? 'Hors ligne : la fusion attendra le retour du réseau.'
+    ? 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
     : !etat
       ? 'Votre réserve n’est pas encore chargée.'
       : null
@@ -120,7 +120,7 @@ export function App({ api, catalogue }: Props) {
           {!enLigne && (
             <p className="banniere" role="status">
               <Icone nom="horsLigne" />
-              <span>Hors ligne. Votre codex, votre réserve et la table restent disponibles ; la fusion attendra le retour du réseau.</span>
+              <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
             </p>
           )}
           {partie.erreurEtat && (

@@ -158,12 +158,13 @@ describe('table de fusion', () => {
     expect(api.etat).toHaveBeenCalledTimes(2)
   })
 
-  it('attend le réseau pour fusionner', async () => {
+  it('hors ligne, consulte seulement : rien ne se pose', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     render(<App api={client()} catalogue={lecteur} />)
-    await poser('géo-', '-logie')
+    await poser('géo-')
+    expect(screen.queryByRole('button', { name: /^Emplacement 1 : géo-/ })).not.toBeInTheDocument()
+    expect(screen.getAllByText(/consultation seulement/).length).toBeGreaterThanOrEqual(1)
     expect(fusionner()).toBeDisabled()
-    expect(screen.getAllByText(/la fusion attendra le retour du réseau/).length).toBeGreaterThanOrEqual(1)
   })
 
   it('vide une case qu’on touche sans déplacer l’autre, et réordonne au clavier', async () => {

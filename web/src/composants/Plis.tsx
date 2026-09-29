@@ -3,6 +3,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import type { Etat, OuverturePli, Rarete, ReponseAchatSablier, ReponsePli, ReponseSablier } from '../contrat'
 import { mouvementReduit, useEnergieAnimee } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
+import { useEnLigne } from '../services/reseau'
 import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule } from '../services/jeu'
 import {
   LIBELLES_RARETES,
@@ -272,6 +273,7 @@ interface AtelierProps {
 
 /** Atelier du pli (I-20) et rituel d'ouverture (I-21). */
 function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssayer, urlMedia, onGeler }: AtelierProps) {
+  const enLigne = useEnLigne()
   const energie = useEnergie(etat)
   const briques = briquesDuPli(fascicule)
   const equilibrage = fascicule.manifeste.pli?.equilibrage
@@ -467,7 +469,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
             <div className="pk-rays" aria-hidden="true" />
             <div className="pk-flash" aria-hidden="true" />
             {etape !== 'revealed' && (
-              <button type="button" className="pk-pack" aria-label={`Ouvrir le pli du fascicule ${nom}`} disabled={!pret || etape !== 'ready'} onClick={() => void ouvrir()}>
+              <button type="button" className="pk-pack" aria-label={`Ouvrir le pli du fascicule ${nom}`} disabled={!enLigne || !pret || etape !== 'ready'} onClick={() => void ouvrir()}>
                 {(['top', 'bottom'] as const).map((moitie) => (
                   <span key={moitie} className={`pk-half ${moitie}`}>
                     <span className="pk-face">
@@ -515,7 +517,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
             </p>
             {etape !== 'revealed' && (
               <div className="pk-actions">
-                <button type="button" className="btn btn-primary" disabled={!pret || etape !== 'ready'} onClick={() => void ouvrir()}>
+                <button type="button" className="btn btn-primary" disabled={!enLigne || !pret || etape !== 'ready'} onClick={() => void ouvrir()}>
                   {etape === 'opening' ? 'Ouverture…' : pret ? 'Ouvrir le pli' : 'Recharge en cours…'}
                 </button>
               </div>

@@ -14,7 +14,7 @@ Chaque jalon se termine par une démonstration en hors-prod (`develop`, [ADR 002
 | **J3 — Énergie et plis** | Énergie à 2 charges, une toutes les 12 h, à l’horloge du serveur ; `ouvrir_pli` (aléa cryptographique, raretés, poids, garantie au 6ᵉ pli, filet au 5ᵉ) ; doublons et encre ; historique ; écran des plis et chances ; rituel d’ouverture | Boucle fusion ↔ pli jouable sur plusieurs jours | Content : poids et raretés du pli |
 | **J4 — Encre, sabliers, indices, jalons** | Sabliers (10 gouttes, échangés à la boutique sans plafond, détenus sans plafond, [ADR 0039](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0039-plafonner-l-achat-des-sabliers-pas-leur-usage.md)), indices (5, 10, 20, 40 puis 80 gouttes, [ADR 0038](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0038-indices-a-prix-croissant-et-format-des-jalons.md)), jalons et plis déterministes | Économie complète du MVP, sans achat | Content : jalons |
 | **J5 — Première session** | Onboarding guidé, règle d’amorçage, réglages (thème, locale, mouvement réduit), accessibilité clavier et lecteur d’écran | Un nouveau joueur termine le tutoriel sans aide | Validation d’atteignabilité et d’amorçage (étape 5 du pipeline) |
-| **J6 — Hors connexion et évolutions du catalogue** | Stratégie du service worker (une PWA qui n’est plus alignée sur la version déployée se recharge d’elle-même, sans attendre un second chargement), commandes en attente rejouables, `409` puis resynchronisation, migrations de progression à la parution | Un 2ᵉ fascicule paraît sans casser les parties en cours ; jeu hors connexion conforme à l’[ADR 0001](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0001-pwa-responsive.md) | Content : 2ᵉ fascicule |
+| **J6 — Hors connexion et évolutions du catalogue** | Stratégie du service worker (une PWA qui n’est plus alignée sur la version déployée se recharge d’elle-même, sans attendre un second chargement), consultation seule hors connexion ([ADR 0041](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0041-hors-connexion-consultation-seule.md)), `409` puis resynchronisation, migrations de progression à la parution | Un 2ᵉ fascicule paraît sans casser les parties en cours ; hors connexion, consultation seule (ADR 0041) | Content : fascicule Bêta 2 |
 | **J7 — Observabilité et vie privée** | Télémétrie pseudonyme (identifiant renouvelé tous les 30 jours), indicateurs minimaux du game-design, agrégats, purges quotidiennes, journaux structurés sans PII | Tableau des indicateurs en hors-prod | Infra : Cockpit, tâches planifiées |
 | **J8 — Durcissement et lancement** | CSP et en-têtes par le CDN, limites de débit, audits, démarrage à froid sous 1 s au p95, domaine, tests utilisateurs, `v1.0.0` | MVP en prod | Infra : CDN, domaine ; Content : fascicule 1 relu (`--publication`) |
 
@@ -63,7 +63,7 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 | Fond de l’application tramé (`jeu.html`) sur tous les écrans | fait |
 | Démonstration : les trois premières découvertes du fascicule 0 (géologie, biologie, amener) avec ses graines | faite en local |
 
-Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir un indice », I-12) (J4), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
+Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), indices (« Voir un indice », I-12) (J4), écran des plis (J3), indices payants (J4), sons et vibrations (J5).
 
 ## J2 — Codex (validé le 27 septembre 2026)
 
@@ -105,7 +105,7 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 
 ### Décisions ouvertes de J3
 
-- **Mot ingrédient** : un mot qui sert d’ingrédient (*biologie*, *mener*) ne sort plus d’un pli (ADR 0035). Il ne vient que des graines : décider comment une découverte donne des exemplaires de son mot.
+- ~~**Mot ingrédient**~~ : un mot qui sert d’ingrédient (*biologie*, *mener*) ne sort pas d’un pli (ADR 0035). Sa découverte offre sa brique, qui ne se consomme jamais (rendue à la synchronisation si elle manque), déclaré par `mots_briques` dans le manifeste ; le catalogue doit être republié, et les mots déjà découverts n’en rétroagissent pas.
 - ~~**Légendaires à 0 %**~~ : tranché par l’[ADR 0036](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0036-chances-des-legendaires-toujours-affichees.md) : la loi impose d’afficher toutes les probabilités, la ligne reste même à 0 % ; le secret porte sur le nombre et la nature des légendaires.
 
 ## J4 — Encre, sabliers, indices, jalons (fait)
@@ -126,6 +126,17 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 | Démonstration en hors-prod (API) : 3 découvertes → jalon `jal_nde6rzt4` et pli de jalon (philo-, -iste) ; indice niveau 1 : 6 → 1 goutte ; refus `403` (encre, sabliers insuffisants), `409` (état périmé) | fait |
 
 Écarts assumés : l’annonce du jalon passe par la fiche de découverte, pas par le rituel du pli ; la feuille des indices est un dialogue sur ordinateur comme sur mobile, pas un panneau latéral ; sur un environnement à recharge courte, un sablier vaut un douzième de la recharge (1 h en production).
+
+## J6 — Hors connexion et évolutions du catalogue (en cours)
+
+| Tâche | État |
+|---|---|
+| ADR 0041 : hors connexion, consultation seule, aucune file ni rejeu ; ADR 0001, 0007 et 0024 marqués partiellement remplacés (Design) | fait |
+| PWA : bannière « consultation seulement » ; pose, déplacement, retrait, fusion, plis, sabliers, boutique et indices inertes hors ligne (garde dans `usePartie`, boutons désactivés) ; codex, fiches et réglages inchangés | fait |
+| Test d’intégration : une parution rend `409` une commande neuve, la commande rejouée renvoie la même réponse, `GET /etat` accorde les graines du nouveau fascicule une seule fois et garde réserve, codex, encre | fait |
+| Aucune migration de progression (commentaire de `parution.rs` renvoyé à l’ADR 0041) | fait |
+| Content : fascicule Bêta 2 (`fsc_3vztseeb`, `test: true`, n° 1, parution 15 octobre 2026) : 15 mots (10 croisés avec les briques existantes, 5 de fermeture), 16 exclusions `rare`, 4 graines ; faits en brouillon | fait |
+| Recette locale : republication du catalogue avec `--simuler-le`, `409` puis resynchronisation, table en cours gardée, réseau coupé | à faire |
 
 ## Outillage hors-prod
 

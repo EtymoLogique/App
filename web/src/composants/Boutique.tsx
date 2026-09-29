@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import { useEnLigne } from '../services/reseau'
+
 import type { Etat, ReponseAchatSablier } from '../contrat'
 import { Compteur } from './Compteur'
 import { Icone } from './Icone'
@@ -23,6 +25,7 @@ interface Props {
  * ne l'accepte.
  */
 export function Boutique({ etat, acheter }: Props) {
+  const enLigne = useEnLigne()
   const [lot, setLot] = useState<number | null>(null)
   const encre = etat?.encre ?? 0
   const prix = etat?.sabliers?.prix_gouttes ?? 10
@@ -64,7 +67,7 @@ export function Boutique({ etat, acheter }: Props) {
                 </div>
                 <h3>{titre}</h3>
                 <p>{texte}</p>
-                <button type="button" className="btn btn-secondary" disabled={!etat || encre < cout} onClick={() => setLot(nombre)}>
+                <button type="button" className="btn btn-secondary" disabled={!enLigne || !etat || encre < cout} onClick={() => setLot(nombre)}>
                   Échanger
                 </button>
                 {etat && encre < cout && (

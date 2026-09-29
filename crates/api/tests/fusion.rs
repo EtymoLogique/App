@@ -218,6 +218,57 @@ async fn refuse_les_propositions_mal_formees(base: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn une_parution_resynchronise_sans_rien_perdre(base: PgPool) {
+    let banc = banc(base, Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    let demande = fusion(&etat, &[GEO, LOGIE]);
+    let (_, _, jouee) = appeler(&banc.routeur, post_fusion(&jeton, &demande)).await;
+    let apres = jouee["etat"].clone();
+
+    // Un 2ᵉ fascicule paraît : le catalogue change.
+    let racine = banc.dossier.path();
+    let m0 = etymo_catalogue::essai::fascicule(racine, 0, "2026-10-01T08:00:00+02:00");
+    let m1 = etymo_catalogue::essai::fascicule(racine, 1, "2026-10-15T08:00:00+02:00");
+    etymo_catalogue::essai::calendrier(
+        racine,
+        etymo_catalogue::INDEX,
+        "v-essai-2",
+        &[
+            (0, "2026-10-01T08:00:00+02:00", &m0),
+            (1, "2026-10-15T08:00:00+02:00", &m1),
+        ],
+    );
+    assert!(banc.app.catalogue.rafraichir().await.unwrap());
+
+    // La commande rejouée passe avant les contrôles de version : même réponse.
+    let (statut, _, rejouee) = appeler(&banc.routeur, post_fusion(&jeton, &demande)).await;
+    assert_eq!(statut, StatusCode::OK);
+    assert_eq!(rejouee, jouee);
+
+    // Une commande neuve avec l'ancienne version de catalogue : 409.
+    let neuve = commun::commande(&apres, json!({ "fascicule_id": "fsc_00000000" }));
+    let (statut, _, _) = appeler(&banc.routeur, commun::post_pli(&jeton, &neuve)).await;
+    assert_eq!(statut, StatusCode::CONFLICT);
+
+    // La resynchronisation accorde les graines du 2ᵉ fascicule, une seule fois.
+    let (_, _, sync) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(sync["version_catalogue"], "v-essai-2");
+    assert_eq!(
+        reserve(&sync),
+        vec![
+            (BIO.to_owned(), 2),
+            (GEO.to_owned(), 3),
+            (LOGIE.to_owned(), 1)
+        ]
+    );
+    assert_eq!(sync["encre"], apres["encre"]);
+    assert_eq!(sync["decouvertes"], apres["decouvertes"]);
+    let (_, _, encore) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(encore["reserve"], sync["reserve"]);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn une_brique_de_mot_perdue_est_rendue_a_la_synchronisation(base: PgPool) {
     let banc = banc(base.clone(), Limiteurs::default()).await;
     let jeton = session(&banc.routeur).await;
