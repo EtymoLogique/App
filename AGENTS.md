@@ -28,7 +28,7 @@ Si le code s’écarte d’un ADR, ou si deux sources se contredisent, signalez 
 - **Identité visuelle** : `web/src/styles.css` reprend les jetons et les composants du design système (`docs/assets/etymo.css` du dossier de conception). Pas de couleur en dur hors palette, pas de blanc pur, ombres dures en Encre ; une brique affiche son trait d’union (« géo- », « -logie »), jamais en texte brut. Contrôlez avec `python3 ../design/.agents/skills/visual-identity-check/check_identity.py web/src/styles.css` et la checklist du skill `visual-identity-check`.
 - **Animations** : toute modification d'une animation ou d'une transition se vérifie image par image avec le skill `animation-check` (`.agents/skills/animation-check/`).
 - **Vocabulaire du jeu** : « pli » (jamais « pack »), « codex », « exemplaire », « réserve », « brique », « fascicule ». Typographie française dans les libellés : « », ’, espaces insécables.
-- **Branches** (ADR 0028) : `develop` déploie en hors-prod, un tag `v*.*.*` en prod.
+- **Branches** (ADR 0028) : `develop` déploie en hors-prod, un tag `v*.*.*` en prod. Étiquettes de l’image de l’API : `develop` → `:develop`, `master` → `:nightly`, tag `vX.Y.Z` → `:latest` et `:vX.Y.Z`. Infra suit `:develop` en hors-prod et `:nightly` en prod ; après un push sur `develop` ou `master`, le workflow redéploie le conteneur de l’API (sans `tofu apply`).
 
 ## Développer
 
