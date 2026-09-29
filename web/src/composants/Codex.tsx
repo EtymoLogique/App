@@ -1,4 +1,4 @@
-import { Fragment, cloneElement, createContext, useContext, useEffect, useRef, useState } from 'react'
+import { Fragment, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   CERTITUDES,
@@ -20,6 +20,7 @@ import type { CatalogueJeu } from '../services/jeu'
 import { type FasciculeParu, NATURES, libelleFascicule } from '../services/jeu'
 import type { Route, TriCodex, VueCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
+import { mouvementReduit } from '../services/animation'
 import { chargerSilhouette } from '../services/silhouettes'
 import { PetiteBrique } from './Brique'
 import { FormeRarete } from './Rarete'
@@ -128,7 +129,7 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
     .filter(Boolean)
     .join(' ')
   return (
-    <button type="button" className={classes} data-type={entree.type} style={bandeau(entree.type)} aria-label={label} onClick={onOuvrir}>
+    <button type="button" className={classes} data-type={entree.type} style={bandeau(entree.type)} aria-label={label} data-carte={entree.id} onClick={onOuvrir}>
       <span className="m-top">
         <span>
           {numero(entree.n)}
@@ -171,6 +172,37 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
   )
 }
 
+const DUREE_ZOOM_MS = 380
+
+/**
+ * Zoom FLIP (transform seul) entre la carte agrandie et sa miniature dans la
+ * grille : « vers » = ouverture (miniature → place ouverte), sinon fermeture.
+ * Renvoie l'animation, ou null s'il n'y a rien à animer (mouvement réduit,
+ * miniature absente de la grille ou hors écran).
+ */
+function zoomer(carte: HTMLElement, id: string, vers: 'ouverte' | 'miniature'): Animation | null {
+  const mini = document.querySelector<HTMLElement>(`.mini[data-carte="${CSS.escape(id)}"]`)
+  if (!mini || mouvementReduit() || typeof carte.animate !== 'function') return null
+  // Mesure la carte à sa place : sans animation en cours (StrictMode rejoue l'effet).
+  carte.getAnimations().forEach((x) => x.cancel())
+  const a = mini.getBoundingClientRect()
+  const b = carte.getBoundingClientRect()
+  if (a.width === 0 || b.width === 0 || a.bottom < 0 || a.top > window.innerHeight) return null
+  // Origine 0 0 (.big-wrap) : la carte réduite est centrée sur la miniature.
+  const s = a.width / b.width
+  const depart = `translate(${a.left + a.width / 2 - b.left - (s * b.width) / 2}px, ${a.top + a.height / 2 - b.top - (s * b.height) / 2}px) scale(${s})`
+  // La miniature n'a pas le ratio de la carte : la carte se fond dans la miniature au bout du trajet.
+  const ouverture = vers === 'ouverte'
+  const image: Keyframe[] = ouverture
+    ? [{ transform: depart, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: 'none', opacity: 1 }]
+    : [{ transform: 'none', opacity: 1 }, { opacity: 1, offset: 0.55 }, { transform: depart, opacity: 0 }]
+  return carte.animate(image, {
+    duration: ouverture ? DUREE_ZOOM_MS : DUREE_ZOOM_MS * 0.7,
+    easing: ouverture ? 'cubic-bezier(0.16, 1, 0.3, 1)' : 'cubic-bezier(0.4, 0, 0.6, 1)',
+    fill: 'both',
+  })
+}
+
 interface VisionneuseProps {
   /** Cartes visibles dans la grille : précédente et suivante. */
   entrees: EntreeCodex[]
@@ -184,15 +216,41 @@ interface VisionneuseProps {
   onSuivreLien: (id: string) => void
   onRemonter: (rang: number) => void
   onFermer: () => void
+  /** Ouverte par un clic sur sa miniature : elle en grossit. */
+  zoom: boolean
+  onZoome: () => void
   /** Section « En savoir plus » dépliée (I-16), tenue dans l'adresse. */
   plus: boolean
   onPlus: (plus: boolean) => void
 }
 
 /** Carte agrandie (I-15) : recto, puis verso retourné, précédente et suivante au clavier. */
-function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer, plus, onPlus }: VisionneuseProps) {
+function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, onZoome, plus, onPlus }: VisionneuseProps) {
   const [retournee, setRetournee] = useState(false)
   const fermer = useRef<HTMLButtonElement>(null)
+  const enveloppe = useRef<HTMLDivElement>(null)
+  const fond = useRef<HTMLDivElement>(null)
+  const sortie = useRef(false)
+
+  useLayoutEffect(() => {
+    if (!zoom) return
+    onZoome()
+    if (enveloppe.current && zoomer(enveloppe.current, entree.id, 'ouverte')) {
+      fond.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: DUREE_ZOOM_MS, easing: 'ease-out' })
+    }
+    // Une seule fois, au montage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** Fermeture : la carte retourne vers sa miniature, puis se démonte. */
+  const onFermer = () => {
+    if (sortie.current) return
+    const anim = enveloppe.current && zoomer(enveloppe.current, entree.id, 'miniature')
+    if (!anim) return onFermerSec()
+    sortie.current = true
+    fond.current?.animate?.([{ opacity: 1 }, { opacity: 0 }], { duration: DUREE_ZOOM_MS * 0.7, easing: 'ease-out', fill: 'both' })
+    anim.onfinish = onFermerSec
+  }
   const index = entrees.findIndex((e) => e.id === entree.id)
   const voisine = (pas: number) => {
     if (entrees.length === 0) return
@@ -261,7 +319,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
 
   return (
     <div className={plusOuvert ? 'viewer with-more' : 'viewer'} role="dialog" aria-modal="true" aria-label={entree.trouvee ? entree.libelle : `Carte ${entree.n}`}>
-      <div className="viewer-backdrop" onClick={onFermer} />
+      <div ref={fond} className="viewer-backdrop" onClick={onFermer} />
       <button ref={fermer} className="viewer-close" type="button" onClick={onFermer} aria-label="Fermer la carte">
         ×
       </button>
@@ -290,7 +348,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           </>
         )}
       </nav>
-      <div className="big-wrap">
+      <div ref={enveloppe} className="big-wrap">
         <div className={retournee ? 'big-card flipped' : 'big-card'} style={bandeau(entree.type)}>
           <div className="big-face big-front" aria-hidden={retournee}>
             <Texture entree={entree} />
@@ -764,6 +822,8 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
           ? (detail?.mots ?? [])
           : visibles.filter((e) => !replie(e))
 
+  /** Carte ouverte par un clic sur sa miniature : elle seule grossit depuis la grille. */
+  const [zoom, setZoom] = useState<string | null>(null)
   const ouvrir = (id: string) => setOuverte(id)
   const naviguer = (id: string) => {
     setFil([])
@@ -805,7 +865,10 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
   }, [ouverte])
 
   const mini = (e: EntreeCodex) => (
-    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => naviguer(e.id)} />
+    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
+      setZoom(e.id)
+      naviguer(e.id)
+    }} />
   )
 
   return (
@@ -1126,6 +1189,8 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
           onSuivreLien={suivreLien}
           onRemonter={remonter}
           onFermer={fermer}
+          zoom={zoom === carteOuverte.id}
+          onZoome={() => setZoom(null)}
           plus={vue.plus}
           onPlus={(plus) => onChangerVue({ plus }, { remplacer: true })}
         />
