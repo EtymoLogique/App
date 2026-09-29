@@ -122,6 +122,35 @@ jobs:
           echo "::error::API toujours « $statut » après 5 minutes."
           exit 1
 
+      # Chaque publication ajoute une étiquette :<sha>. On ne garde que les
+      # plus récentes. Sans « force », Scaleway refuse de supprimer une
+      # étiquette dont l'empreinte est aussi portée par une autre (:nightly,
+      # :latest…) : l'image en service ne part donc jamais. Un échec de
+      # nettoyage n'empêche pas le déploiement.
+      - name: Prune old image tags
+        continue-on-error: true
+        env:
+          GARDER: "20"
+        run: |
+          api="https://api.scaleway.com/registry/v1/regions/$REGION"
+          curl_scw() { curl -sSf -H "X-Auth-Token: $SCW_SECRET_KEY" "$@"; }
+          espace="$(curl_scw "$api/namespaces?name=${REGISTRE#*/}" | jq -r '.namespaces[0].id // empty')"
+          image="$(curl_scw "$api/images?namespace_id=$espace&name=api" | jq -r '.images[0].id // empty')"
+          if [ -z "$espace" ] || [ -z "$image" ]; then
+            echo "::warning::Espace de noms ou image introuvable, rien à nettoyer."
+            exit 0
+          fi
+          supprimees=0
+          for id in $(curl_scw "$api/images/$image/tags?order_by=created_at_desc&page_size=100" \
+            | jq -r --argjson n "$GARDER" '[.tags[] | select(.name | test("^[0-9a-f]{12}$"))] | .[$n:][].id'); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "X-Auth-Token: $SCW_SECRET_KEY" "$api/tags/$id")"
+            case "$code" in
+              2*) supprimees=$((supprimees + 1)) ;;
+              *) echo "::warning::Étiquette $id conservée (HTTP $code)." ;;
+            esac
+          done
+          echo "Registre : $supprimees anciennes étiquettes supprimées ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
+
   pwa:
     name: Publish the PWA
     if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')
