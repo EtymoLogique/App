@@ -21,6 +21,8 @@ export ETYMO_RELECTURE_CATALOGUE_S=60
 # Requêtes vérifiées contre la base locale : une nouvelle requête compile sans `cargo sqlx prepare`.
 export SQLX_OFFLINE="${SQLX_OFFLINE:-false}"
 export PATH="$HOME/.cargo/bin:$PATH"
+# Hors production : ouvre POST /dev/reset et le bouton « Réinitialiser » des Réglages.
+export ETYMO_REINITIALISATION="${ETYMO_REINITIALISATION:-true}"
 export RUST_LOG="${RUST_LOG:-info}"
 
 for outil in docker cargo npm watchexec sqlx; do

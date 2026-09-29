@@ -25,6 +25,10 @@ pub struct Banc {
 }
 
 pub async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
+    banc_avec(base, limiteurs, false).await
+}
+
+pub async fn banc_avec(base: PgPool, limiteurs: Limiteurs, reinitialisation: bool) -> Banc {
     let dossier = tempfile::tempdir().unwrap();
     let manifeste = essai::fascicule(dossier.path(), 0, "2026-10-01T08:00:00+02:00");
     essai::calendrier(
@@ -41,6 +45,7 @@ pub async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
         signataire: Signataire::nouveau(&[3; 32]).unwrap(),
         limiteurs,
         recharge: etymo_domaine::energie::RECHARGE,
+        reinitialisation,
     });
     Banc {
         routeur: routeur(etat, &[HeaderValue::from_static(ORIGINE)]),

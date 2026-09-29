@@ -69,6 +69,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
   const [consommees, setConsommees] = useState<string[]>([])
   /** Découvertes de la session pas encore vues dans le codex : compteur Corail de la navigation. */
   const [nouvelles, setNouvelles] = useState<Set<string>>(new Set())
+  /** Vrai hors production seulement : le serveur ouvre alors la réinitialisation. */
+  const [reinitialisable, setReinitialisable] = useState(false)
   const actif = useRef(true)
   const restauree = useRef(false)
 
@@ -107,6 +109,13 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
       actif.current = false
     }
   }, [synchroniser])
+
+  useEffect(() => {
+    api.sante().then(
+      (s) => actif.current && setReinitialisable(s.reinitialisation),
+      () => undefined,
+    )
+  }, [api])
 
   useEffect(() => {
     if (restauree.current) void memoriserTable(cases)
@@ -294,9 +303,24 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue) {
     [api, commander],
   )
 
+  /** Hors production : repart d'un joueur neuf. Le serveur fait foi, l'état renvoyé remplace tout. */
+  const reinitialiser = useCallback(async (): Promise<string | null> => {
+    try {
+      confirmer(await api.reinitialiser())
+      setNouvelles(new Set())
+      setFiche(null)
+      setRetour(null)
+      return null
+    } catch (e) {
+      return message(e)
+    }
+  }, [api, confirmer])
+
   return {
     jeu,
     etat,
+    reinitialisable,
+    reinitialiser,
     ouvrirPli,
     utiliserSabliers,
     acheterSabliers,

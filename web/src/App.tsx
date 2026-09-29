@@ -303,7 +303,7 @@ export function App({ api, catalogue }: Props) {
 
           <section {...ecran('reglages')}>
             <EnTete titre="Réglages" id="titre-reglages" />
-            <Reglages reglages={reglages} onChanger={changer} />
+            <Reglages reglages={reglages} onChanger={changer} onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined} />
           </section>
         </main>
       </div>

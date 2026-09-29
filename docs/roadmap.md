@@ -127,6 +127,12 @@ Reportés : file d’attente des fusions hors connexion (J6), indices (« Voir u
 
 Écarts assumés : l’annonce du jalon passe par la fiche de découverte, pas par le rituel du pli ; la feuille des indices est un dialogue sur ordinateur comme sur mobile, pas un panneau latéral ; sur un environnement à recharge courte, un sablier vaut un douzième de la recharge (1 h en production).
 
+## Outillage hors-prod
+
+| Tâche | État |
+|---|---|
+| Réinitialisation du joueur (issue #6) : `POST /dev/reset` (route absente, `404`, sauf si `ETYMO_REINITIALISATION=true`) et bouton « Réinitialiser » des Réglages, avec confirmation ; codex vide, réserve de départ, 10 000 gouttes ; la PWA lit `reinitialisation` dans `/sante` | fait ; à activer dans Infra (horsprod seulement) |
+
 ## Décisions à formaliser
 
 - **Contrat et outillage** : [ADR 0031](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0031-contrat-genere-et-outillage-de-la-pwa.md), proposé.

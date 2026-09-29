@@ -311,6 +311,8 @@ pub struct Sante {
     pub version_catalogue: Option<String>,
     /// Version du code de l'API.
     pub version_api: String,
+    /// `true` hors production : la PWA affiche alors le bouton « Réinitialiser ».
+    pub reinitialisation: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

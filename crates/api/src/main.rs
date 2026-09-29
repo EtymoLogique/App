@@ -83,6 +83,7 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
         signataire,
         limiteurs: Limiteurs::default(),
         recharge: chrono::TimeDelta::seconds(i64::from(config.recharge_s.max(1))),
+        reinitialisation: config.reinitialisation,
     });
 
     let relecture = Arc::clone(&etat);
