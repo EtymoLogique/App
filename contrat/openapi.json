@@ -2432,6 +2432,10 @@
             "type": "boolean",
             "description": "`true` hors production : la PWA affiche alors le bouton « Réinitialiser »."
           },
+          "revision_api": {
+            "type": "string",
+            "description": "Commit à l'origine de l'image de l'API, vide hors déploiement. Sert à\nvérifier qu'un déploiement a bien pris (issue #7)."
+          },
           "statut": {
             "$ref": "#/components/schemas/StatutSante"
           },

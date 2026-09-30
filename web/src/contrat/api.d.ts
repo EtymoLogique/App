@@ -779,6 +779,11 @@ export interface components {
         Sante: {
             /** @description `true` hors production : la PWA affiche alors le bouton « Réinitialiser ». */
             reinitialisation: boolean;
+            /**
+             * @description Commit à l'origine de l'image de l'API, vide hors déploiement. Sert à
+             *     vérifier qu'un déploiement a bien pris (issue #7).
+             */
+            revision_api?: string;
             statut: components["schemas"]["StatutSante"];
             /** @description Version du code de l'API. */
             version_api: string;

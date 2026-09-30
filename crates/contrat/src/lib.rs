@@ -311,6 +311,10 @@ pub struct Sante {
     pub version_catalogue: Option<String>,
     /// Version du code de l'API.
     pub version_api: String,
+    /// Commit à l'origine de l'image de l'API, vide hors déploiement. Sert à
+    /// vérifier qu'un déploiement a bien pris (issue #7).
+    #[serde(default)]
+    pub revision_api: String,
     /// `true` hors production : la PWA affiche alors le bouton « Réinitialiser ».
     pub reinitialisation: bool,
 }

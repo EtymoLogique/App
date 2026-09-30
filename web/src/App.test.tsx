@@ -11,7 +11,7 @@ import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtur
 function client(fusion?: ClientApi['fusion']): ClientApi {
   const api = new ClientApi('https://api.exemple.test')
   vi.spyOn(api, 'etat').mockResolvedValue(etat())
-  vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', reinitialisation: false })
+  vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', revision_api: '', reinitialisation: false })
   if (fusion) vi.spyOn(api, 'fusion').mockImplementation(fusion)
   return api
 }
@@ -340,7 +340,7 @@ describe('table de fusion', () => {
 
   it('réinitialise hors production, après confirmation', async () => {
     const api = client()
-    vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', reinitialisation: true })
+    vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', revision_api: '', reinitialisation: true })
     const reset = vi.spyOn(api, 'reinitialiser').mockResolvedValue(etat({ version_etat: 5, encre: 10_000 }))
     history.replaceState(null, '', '#/reglages')
     render(<App api={api} catalogue={lecteur} />)

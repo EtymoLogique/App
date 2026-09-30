@@ -79,6 +79,7 @@ pub async fn sante(State(app): State<Arc<EtatApp>>) -> Json<Sante> {
         },
         version_catalogue,
         version_api: env!("CARGO_PKG_VERSION").to_owned(),
+        revision_api: std::env::var("ETYMO_REVISION").unwrap_or_default(),
         reinitialisation: app.reinitialisation,
     })
 }
