@@ -6,12 +6,14 @@ name: Deploy
 #
 # Étiquettes de l'image de l'API :
 #   develop → :develop (registre horsprod)
-#   master  → :nightly (registre prod)
-#   vX.Y.Z  → :latest et :vX.Y.Z (registre prod)
-# Infra suit :develop en horsprod et :nightly en prod, sans rien appliquer :
-# après un push sur develop ou master, ce workflow redéploie le conteneur de
-# l'API, qui tire alors la nouvelle étiquette. La PWA ne se publie que sur
-# develop et sur un tag.
+#   master  → :nightly (registre prod), sans redéploiement
+#   vX.Y.Z  → l'image :<sha12> déjà construite sur master, ré-étiquetée
+#             :latest et :vX.Y.Z (registre prod), puis redéployée
+# Infra suit :develop en horsprod et :latest en prod, sans rien appliquer :
+# après un push sur develop ou un tag, ce workflow redéploie le conteneur de
+# l'API, qui tire alors la nouvelle étiquette, puis vérifie via /sante que la
+# révision en ligne est la bonne. La PWA ne se publie qu'ensuite, sur develop
+# et sur un tag : API et PWA restent donc du même commit (issue #7).
 on:
   push:
     branches:
@@ -44,6 +46,7 @@ jobs:
       SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
       CONTENEUR: ${{ vars.ETYMO_CONTENEUR_API }}
       REGION: ${{ vars.SCW_DEFAULT_REGION }}
+      URL_API: ${{ vars.ETYMO_URL_API }}
     steps:
       - name: Check the configuration
         run: |
@@ -79,6 +82,8 @@ jobs:
           esac
           echo "liste=$etiquettes" >> "$GITHUB_OUTPUT"
 
+      # Un tag ne reconstruit rien : il ré-étiquette l'image du même commit,
+      # construite sur master. Sans elle, le tag n'a rien à publier.
       - name: Build and push
         id: publication
         env:
@@ -86,8 +91,16 @@ jobs:
         run: |
           echo "$SCW_SECRET_KEY" | docker login "${REGISTRE%%/*}" --username nologin --password-stdin
           etiquette="$REGISTRE/api:${GITHUB_SHA::12}"
-          docker build --tag "$etiquette" --label "org.opencontainers.image.revision=$GITHUB_SHA" .
-          docker push "$etiquette"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            docker pull "$etiquette" || {
+              echo "::error::Image :${GITHUB_SHA::12} absente : le commit du tag doit d’abord passer par master."
+              exit 1
+            }
+          else
+            docker build --build-arg "REVISION=$GITHUB_SHA" --tag "$etiquette" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" .
+            docker push "$etiquette"
+          fi
           for nom in $ETIQUETTES; do
             docker tag "$etiquette" "$REGISTRE/api:$nom"
             docker push "$REGISTRE/api:$nom"
@@ -104,9 +117,10 @@ jobs:
 
       # L'étiquette a bougé, pas la configuration : Infra ne verrait rien. On
       # demande donc à Scaleway de redéployer le conteneur, qui tire l'image.
-      # Un tag vX.Y.Z ne redéploie rien : la prod suit :nightly.
+      # Un push sur master ne redéploie rien : la prod suit :latest, posée
+      # par un tag.
       - name: Redeploy the API container
-        if: github.ref_type == 'branch' && env.CONTENEUR != ''
+        if: github.ref != 'refs/heads/master' && env.CONTENEUR != ''
         run: |
           api="https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/${CONTENEUR##*/}"
           curl -sSf -X POST "$api/deploy" -H "X-Auth-Token: $SCW_SECRET_KEY" \
@@ -120,6 +134,23 @@ jobs:
             sleep 5
           done
           echo "::error::API toujours « $statut » après 5 minutes."
+          exit 1
+
+      # /sante répond avec le commit de l'image en service. Le premier appel
+      # peut réveiller le conteneur (scale à zéro) : on réessaie. Un
+      # désalignement échoue ici, donc le job pwa ne part pas.
+      - name: Check the deployed revision
+        if: github.ref != 'refs/heads/master' && env.CONTENEUR != ''
+        run: |
+          for _ in $(seq 12); do
+            revision="$(curl -sS --max-time 20 "$URL_API/sante" | jq -r '.revision_api // empty' || true)"
+            if [ "$revision" = "$GITHUB_SHA" ]; then
+              echo "Révision en ligne : \`${GITHUB_SHA::12}\` ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::/sante annonce « ${revision:-rien} », attendu $GITHUB_SHA."
           exit 1
 
       # Chaque publication ajoute une étiquette :<sha>. On ne garde que les
