@@ -54,6 +54,7 @@ const TRACES = {
       <path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" />
     </>
   ),
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   verrou: (
     <>
       <rect x="5" y="11" width="14" height="9.5" rx="2" />
