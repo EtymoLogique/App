@@ -1,18 +1,12 @@
 import { useState } from 'react'
 
+import { LOTS } from '../services/plis'
 import { useEnLigne } from '../services/reseau'
 
 import type { Etat, ReponseAchatSablier } from '../contrat'
 import { Compteur } from './Compteur'
 import { Icone } from './Icone'
 import { type Envoi, FeuilleEchanger, Sablier } from './Sabliers'
-
-/** Lots proposés d'emblée ; la feuille permet d'en choisir d'autres. */
-const LOTS = [
-  { nombre: 1, titre: 'Un sablier', texte: 'Avance la recharge des plis d’une heure.' },
-  { nombre: 3, titre: 'Trois sabliers', texte: 'Trois heures de moins avant le prochain pli.' },
-  { nombre: 12, titre: 'Douze sabliers', texte: 'Une recharge entière : un pli de plus.' },
-]
 
 interface Props {
   etat: Etat | null

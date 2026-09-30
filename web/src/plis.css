@@ -415,6 +415,12 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
 .bq-troc b { font-family: var(--serif); font-size: 28px; line-height: 1; }
 .bq-troc .pk-drop, .bq-troc .pk-glass { flex: none; }
 .bq-troc .bq-fleche { color: var(--fixed-ink); font-size: 20px; }
+/* Feuille d'achat des sabliers : un lot par ligne, choisi d'un clic. */
+.pk-lots { display: grid; gap: 10px; margin: 8px 0 0; list-style: none; padding: 0; }
+.btn.pk-lot { width: 100%; justify-content: space-between; gap: 12px; padding: 8px 14px; text-align: left; }
+.pk-lot .bq-troc { padding: 8px 12px; }
+.pk-lot .bq-troc b { font-size: 22px; }
+.pk-lot-texte { min-width: 0; text-align: right; }
 .bq-manque { color: var(--ink-3); font-family: var(--mono); font-size: 11px; text-align: center; }
 /* Achats en euros : fermés, en pointillés (interfaces, « plus tard »). */
 .bq-bientot { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border: 1px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
