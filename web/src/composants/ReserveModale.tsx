@@ -49,12 +49,12 @@ export function ReserveModale({ reserve, briques, table, consommees, exemplaires
             Fermer
           </button>
         </div>
-        <Reserve reserve={reserve} briques={briques} table={table} consommees={consommees} onAjouter={choisir} onIndisponible={setMessage} />
         {message && (
           <p className="pk-note" role="status">
             {message}
           </p>
         )}
+        <Reserve reserve={reserve} briques={briques} table={table} consommees={consommees} onAjouter={choisir} onIndisponible={setMessage} />
       </section>
     </div>
   )

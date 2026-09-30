@@ -664,6 +664,10 @@ button.disc { font: inherit; cursor: pointer; }
 .slot:not(.filled):hover { border-style: solid; background: var(--c-action-tint); }
 /* Réserve en modale (App#9) : plus large que les autres feuilles, plateau défilant. */
 .dialogue.reserve-modale { width: min(720px, 100%); }
+/* Cibles tactiles de 44 px ; titre et « Fermer » restent sur une ligne. */
+.reserve-modale .rangee-ecartee { flex-wrap: nowrap; }
+.reserve-modale .rangee-ecartee .btn { flex: none; padding: 8px 16px; }
+.reserve-modale .btn, .reserve-modale .cb-chip { min-height: 44px; }
 
 /* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */
 .fasc-titre { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
