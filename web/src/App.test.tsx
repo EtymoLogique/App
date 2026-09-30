@@ -265,12 +265,18 @@ describe('table de fusion', () => {
 
     const carte = await screen.findByRole('dialog', { name: 'géologie' })
     expect(window.location.hash).toBe(`#/codex/${MOT}`)
-    fireEvent.click(within(carte).getByRole('button', { name: 'En savoir plus' }))
+    const plus = within(carte).getByRole('button', { name: 'En savoir plus' })
+    expect(within(carte).getByRole('button', { name: 'Voir les formes' }).className).toBe(plus.className)
+    fireEvent.click(plus)
     expect(window.location.hash).toBe(`#/codex/${MOT}?plus=1`)
-    expect(within(carte).getByRole('region', { name: 'En savoir plus sur géologie' })).toHaveTextContent('version du catalogue v1')
-    fireEvent.click(within(carte).getByRole('button', { name: 'Replier la section' }))
-    expect(within(carte).queryByRole('region', { name: /^En savoir plus/ })).not.toBeInTheDocument()
+    expect(within(carte).getByRole('tab', { name: 'En savoir plus' })).toHaveAttribute('aria-selected', 'true')
+    expect(within(carte).getByRole('tabpanel', { name: 'En savoir plus' })).toHaveTextContent('version du catalogue v1')
+    expect(within(carte).getByText('Verso : en savoir plus')).toBeInTheDocument()
+    fireEvent.click(within(carte).getByRole('tab', { name: 'Formes' }))
     expect(window.location.hash).toBe(`#/codex/${MOT}`)
+    fireEvent.click(within(carte).getByRole('button', { name: 'Retourner' }))
+    expect(within(carte).getByText('Recto')).toBeInTheDocument()
+    expect(plus).toHaveFocus()
   })
 
   it('replie un groupe de cartes dans le tri par fascicule', async () => {

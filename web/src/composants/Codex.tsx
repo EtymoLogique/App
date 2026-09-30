@@ -203,6 +203,18 @@ function zoomer(carte: HTMLElement, id: string, vers: 'ouverte' | 'miniature'): 
   })
 }
 
+type Dos = 'formes' | 'savoir'
+
+/** Bouton de retournement de la carte agrandie : même composant pour « Voir les formes », « En savoir plus » et « Retourner ». */
+function BoutonRetournement({ libelle, onClick, ref }: { libelle: string; onClick: (bouton: HTMLButtonElement) => void; ref?: React.Ref<HTMLButtonElement> }) {
+  return (
+    <button ref={ref} className="flip-btn" type="button" onClick={(e) => onClick(e.currentTarget)}>
+      <span>{libelle}</span>
+      <em aria-hidden="true">↻</em>
+    </button>
+  )
+}
+
 interface VisionneuseProps {
   /** Cartes visibles dans la grille : précédente et suivante. */
   entrees: EntreeCodex[]
@@ -226,7 +238,11 @@ interface VisionneuseProps {
 
 /** Carte agrandie (I-15) : recto, puis verso retourné, précédente et suivante au clavier. */
 function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, onZoome, plus, onPlus }: VisionneuseProps) {
-  const [retournee, setRetournee] = useState(false)
+  // Face montrée : null = recto, sinon le contenu du verso. `plus` (adresse) ouvre le verso sur « En savoir plus ».
+  const [dos, setDos] = useState<Dos | null>(plus && savoirPlus(entree, jeu) ? 'savoir' : null)
+  const ouvreur = useRef<HTMLButtonElement | null>(null)
+  const onglets = useRef<Record<Dos, HTMLButtonElement | null>>({ formes: null, savoir: null })
+  const retour = useRef<HTMLButtonElement>(null)
   const fermer = useRef<HTMLButtonElement>(null)
   const enveloppe = useRef<HTMLDivElement>(null)
   const fond = useRef<HTMLDivElement>(null)
@@ -304,7 +320,25 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const parties = [...(composition?.parties ?? [])].sort((a, b) => a.rang - b.rang)
   const segments = parties.filter((p) => p.segment_debut != null && p.segment_fin != null && jeu.cartes.has(p.unite_id))
   const savoir = savoirPlus(entree, jeu)
-  const plusOuvert = plus && savoir !== null
+  const face: Dos | null = dos === 'savoir' && !savoir ? 'formes' : dos
+  const retournee = face !== null
+  const retourner = (vers: Dos | null, bouton?: HTMLButtonElement | null) => {
+    if (bouton) ouvreur.current = bouton
+    setDos(vers)
+    if (plus !== (vers === 'savoir')) onPlus(vers === 'savoir')
+  }
+  // Focus : sur l'onglet actif (ou « Retourner ») au retournement, sur le bouton ouvreur au retour.
+  const premier = useRef(true)
+  useEffect(() => {
+    if (premier.current) {
+      premier.current = false
+      if (face === null) return
+    }
+    if (face) (savoir ? onglets.current[face] : retour.current)?.focus()
+    else ouvreur.current?.focus()
+    // Seul un changement de face déplace le focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [face])
   const essai = jeu.fascicules.find((f) => f.numero === entree.fascicule)?.manifeste.test === true
 
   const haut = (
@@ -317,8 +351,117 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
     </div>
   )
 
+  /** Contenu de « En savoir plus » (I-16), au dos de la carte. */
+  const contenuSavoir = savoir && (
+    <>
+            {(savoir.chemin.length > 0 || savoir.relations.length > 0) && (
+              <>
+                <p className="more-k">Relation historique</p>
+                {savoir.chemin.length > 0 && (
+                  <p className="more-path" aria-label={`Chemin des langues : ${savoir.chemin.map((c) => c.nom).join(', puis ')}`}>
+                    {savoir.chemin.map((c, i) => (
+                      <Fragment key={c.id}>
+                        {i > 0 && (
+                          <span className="more-arrow" aria-hidden="true">
+                            →
+                          </span>
+                        )}
+                        <span className="bf-lang">
+                          <i />
+                          {c.nom}
+                        </span>
+                      </Fragment>
+                    ))}
+                  </p>
+                )}
+                {savoir.relations.length > 0 && (
+                  <ul className="more-list">
+                    {savoir.relations.map((r, i) => (
+                      <li key={i}>
+                        {r.de &&
+                          lier(
+                            <span className="bchip" data-kind={NATURES[r.de.nature]}>
+                              {r.de.libelle}
+                            </span>,
+                            r.de.id,
+                            r.de.libelle,
+                          )}
+                        <span>
+                          {r.type} {r.langue ? deLangue(r.langue) : 'de'} <span className="more-etymon">{r.texte}</span>
+                          {r.translitteration && (
+                            <>
+                              {' '}
+                              (<i>{r.translitteration}</i>)
+                            </>
+                          )}
+                          {r.glose && <> «&nbsp;{r.glose}&nbsp;»</>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+            {savoir.transformations.length > 0 && (
+              <>
+                <p className="more-k">{savoir.transformations.length > 1 ? 'Transformations' : 'Transformation'}</p>
+                <ul className="more-list">
+                  {savoir.transformations.map((t, i) => (
+                    <li key={i}>
+                      <span className="more-tag">{t.type}</span>
+                      <span>{t.texte}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {savoir.confiance && (
+              <>
+                <p className="more-k">Certitude</p>
+                <p className="more-row">
+                  <span className={savoir.confiance === 'probable' ? 'conf p2' : savoir.confiance === 'etablie' ? 'conf' : 'conf p1'}>
+                    <i />
+                    <i />
+                    <i />
+                    <b>{CONFIANCES[savoir.confiance]}</b>
+                  </span>
+                  <span className="more-p">{CERTITUDES[savoir.confiance]}</span>
+                </p>
+              </>
+            )}
+            {savoir.sources.length > 0 && (
+              <>
+                <p className="more-k">Sources</p>
+                <ul className="more-sources">
+                  {savoir.sources.map((src) => (
+                    <li key={src.id}>
+                      {src.url ? (
+                        <a href={src.url} target="_blank" rel="noopener noreferrer">
+                          <b>{src.reference}</b>
+                          <small>{src.detail}</small>
+                          <span className="more-chev" aria-hidden="true">
+                            ›
+                          </span>
+                        </a>
+                      ) : (
+                        <span>
+                          <b>{src.reference}</b>
+                          <small>{src.detail}</small>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <p className="more-mono">
+              {essai ? 'Fascicule d’essai : contenu à vérifier avant publication · ' : ''}version du catalogue {jeu.version}
+            </p>
+    </>
+  )
+
   return (
-    <div className={plusOuvert ? 'viewer with-more' : 'viewer'} role="dialog" aria-modal="true" aria-label={entree.trouvee ? entree.libelle : `Carte ${entree.n}`}>
+    <div className="viewer" role="dialog" aria-modal="true" aria-label={entree.trouvee ? entree.libelle : `Carte ${entree.n}`}>
       <div ref={fond} className="viewer-backdrop" onClick={onFermer} />
       <button ref={fermer} className="viewer-close" type="button" onClick={onFermer} aria-label="Fermer la carte">
         ×
@@ -348,9 +491,12 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           </>
         )}
       </nav>
+      <p className="sr-only" aria-live="polite">
+        {face === null ? 'Recto' : face === 'formes' ? 'Verso : formes' : 'Verso : en savoir plus'}
+      </p>
       <div ref={enveloppe} className="big-wrap">
         <div className={retournee ? 'big-card flipped' : 'big-card'} style={bandeau(entree.type)}>
-          <div className="big-face big-front" aria-hidden={retournee}>
+          <div className="big-face big-front" aria-hidden={retournee} inert={retournee}>
             <Texture entree={entree} />
             {haut}
             <div className="bf-body">
@@ -419,11 +565,6 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                   )}
                   {!affixe && entree.sens && <p className="bf-lit">«&nbsp;{entree.sens}&nbsp;»</p>}
                   {note && <p className="bf-note">{note}</p>}
-                  {savoir && (
-                    <button type="button" className="bf-more" aria-expanded={plusOuvert} aria-controls="savoir-plus" onClick={() => onPlus(!plusOuvert)}>
-                      {plusOuvert ? 'Replier' : 'En savoir plus'}
-                    </button>
-                  )}
                 </>
               ) : (
                 <>
@@ -446,16 +587,42 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                   <b>{entree.trouvee ? '' : 'Inconnue'}</b>
                 )}
               </span>
-              <button className="flip-btn" type="button" onClick={() => setRetournee(true)}>
-                <span>Voir les formes</span>
-                <em aria-hidden="true">↻</em>
-              </button>
+              <span className="bf-actions">
+                <BoutonRetournement libelle="Voir les formes" onClick={(b) => retourner('formes', b)} />
+                {savoir && <BoutonRetournement libelle="En savoir plus" onClick={(b) => retourner('savoir', b)} />}
+              </span>
             </div>
           </div>
 
-          <div className="big-face big-back" aria-hidden={!retournee}>
+          <div className="big-face big-back" aria-hidden={!retournee} inert={!retournee}>
             {haut}
             <div className="bf-body bb-body">
+              {savoir && (
+                <div className="bb-tabs" role="tablist" aria-label="Contenu du verso">
+                  {(['formes', 'savoir'] as const).map((d) => (
+                    <button
+                      key={d}
+                      ref={(el) => {
+                        onglets.current[d] = el
+                      }}
+                      type="button"
+                      role="tab"
+                      id={`onglet-${d}`}
+                      aria-selected={face === d}
+                      aria-controls={`panneau-${d}`}
+                      tabIndex={face === d ? 0 : -1}
+                      onClick={() => retourner(d)}
+                      onKeyDown={(ev) => (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && retourner(d === 'formes' ? 'savoir' : 'formes')}
+                    >
+                      {d === 'formes' ? 'Formes' : 'En savoir plus'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div id="panneau-savoir" className="bb-panel bb-savoir" role="tabpanel" aria-labelledby="onglet-savoir" hidden={face !== 'savoir'}>
+                {contenuSavoir}
+              </div>
+              <div id="panneau-formes" className="bb-panel" role={savoir ? 'tabpanel' : undefined} aria-labelledby={savoir ? 'onglet-formes' : undefined} hidden={face === 'savoir'}>
               <p className="bb-title">{entree.type === 'langue' ? `Formes en ${entree.libelle.toLowerCase()}` : 'Formes trouvées'}</p>
               {entree.formes.length === 0 || !entree.trouvee ? (
                 <p className="bf-note">Découvrez cette carte pour révéler ses formes dans chaque langue.</p>
@@ -520,130 +687,15 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                   </div>
                 </>
               )}
+              </div>
             </div>
             <div className="bf-foot">
               <span />
-              <button className="flip-btn" type="button" onClick={() => setRetournee(false)}>
-                <span>Retourner</span>
-                <em aria-hidden="true">↻</em>
-              </button>
+              <BoutonRetournement ref={retour} libelle="Retourner" onClick={() => retourner(null)} />
             </div>
           </div>
         </div>
       </div>
-      {plusOuvert && savoir && (
-        <section id="savoir-plus" className="more" aria-label={`En savoir plus sur ${entree.libelle}`}>
-          <div className="more-head">
-            <h3 className="more-title">En savoir plus</h3>
-            <button type="button" className="more-close" aria-label="Replier la section" onClick={() => onPlus(false)}>
-              ×
-            </button>
-          </div>
-          {(savoir.chemin.length > 0 || savoir.relations.length > 0) && (
-            <>
-              <p className="more-k">Relation historique</p>
-              {savoir.chemin.length > 0 && (
-                <p className="more-path" aria-label={`Chemin des langues : ${savoir.chemin.map((c) => c.nom).join(', puis ')}`}>
-                  {savoir.chemin.map((c, i) => (
-                    <Fragment key={c.id}>
-                      {i > 0 && (
-                        <span className="more-arrow" aria-hidden="true">
-                          →
-                        </span>
-                      )}
-                      <span className="bf-lang">
-                        <i />
-                        {c.nom}
-                      </span>
-                    </Fragment>
-                  ))}
-                </p>
-              )}
-              {savoir.relations.length > 0 && (
-                <ul className="more-list">
-                  {savoir.relations.map((r, i) => (
-                    <li key={i}>
-                      {r.de &&
-                        lier(
-                          <span className="bchip" data-kind={NATURES[r.de.nature]}>
-                            {r.de.libelle}
-                          </span>,
-                          r.de.id,
-                          r.de.libelle,
-                        )}
-                      <span>
-                        {r.type} {r.langue ? deLangue(r.langue) : 'de'} <span className="more-etymon">{r.texte}</span>
-                        {r.translitteration && (
-                          <>
-                            {' '}
-                            (<i>{r.translitteration}</i>)
-                          </>
-                        )}
-                        {r.glose && <> «&nbsp;{r.glose}&nbsp;»</>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-          {savoir.transformations.length > 0 && (
-            <>
-              <p className="more-k">{savoir.transformations.length > 1 ? 'Transformations' : 'Transformation'}</p>
-              <ul className="more-list">
-                {savoir.transformations.map((t, i) => (
-                  <li key={i}>
-                    <span className="more-tag">{t.type}</span>
-                    <span>{t.texte}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {savoir.confiance && (
-            <>
-              <p className="more-k">Certitude</p>
-              <p className="more-row">
-                <span className={savoir.confiance === 'probable' ? 'conf p2' : savoir.confiance === 'etablie' ? 'conf' : 'conf p1'}>
-                  <i />
-                  <i />
-                  <i />
-                  <b>{CONFIANCES[savoir.confiance]}</b>
-                </span>
-                <span className="more-p">{CERTITUDES[savoir.confiance]}</span>
-              </p>
-            </>
-          )}
-          {savoir.sources.length > 0 && (
-            <>
-              <p className="more-k">Sources</p>
-              <ul className="more-sources">
-                {savoir.sources.map((src) => (
-                  <li key={src.id}>
-                    {src.url ? (
-                      <a href={src.url} target="_blank" rel="noopener noreferrer">
-                        <b>{src.reference}</b>
-                        <small>{src.detail}</small>
-                        <span className="more-chev" aria-hidden="true">
-                          ›
-                        </span>
-                      </a>
-                    ) : (
-                      <span>
-                        <b>{src.reference}</b>
-                        <small>{src.detail}</small>
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          <p className="more-mono">
-            {essai ? 'Fascicule d’essai : contenu à vérifier avant publication · ' : ''}version du catalogue {jeu.version}
-          </p>
-        </section>
-      )}
       <button className="viewer-nav next" type="button" onClick={() => voisine(1)} aria-label="Carte suivante">
         →
       </button>

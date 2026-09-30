@@ -33,8 +33,8 @@
 }
 .cb-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .cb-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 8px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px;
   background: transparent; cursor: pointer;
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   transition: transform 0.25s var(--ease-spring), background-color 0.25s, color 0.25s;
@@ -205,10 +205,11 @@
 .bf-lit { align-self: flex-start; padding: 6px 12px; border-radius: 10px; background: var(--paper-2); font-family: var(--mono); font-size: 12px; line-height: 1.5; }
 .bf-note { color: var(--ink-3); font-size: 13px; line-height: 1.45; }
 .bf-q { color: var(--ink-3); font-family: var(--serif); font-size: 120px; font-style: italic; line-height: 0.9; }
-.bf-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; }
+.bf-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.bf-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; }
 .flip-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border: 1.5px solid #0f1f19; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 8px 14px; border: 1.5px solid #0f1f19; border-radius: 10px;
   background: var(--c-action); color: #0f1f19;
   box-shadow: 3px 3px 0 #0f1f19; cursor: pointer;
   font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
@@ -319,8 +320,9 @@
  */
 .big-face { transition: visibility 0s linear 0.11s; }
 .big-card:not(.flipped) .big-back, .big-card.flipped .big-front { visibility: hidden; }
-@media (prefers-reduced-motion: reduce) { .big-face { transition: none; } }
-:root[data-mouvement="reduit"] .big-face { transition: none; }
+@media (prefers-reduced-motion: reduce) { .big-face, .big-card { transition: none; } .big-card.flipped { transform: none; } .big-back { transform: none; } }
+:root[data-mouvement="reduit"] .big-face, :root[data-mouvement="reduit"] .big-card { transition: none; }
+:root[data-mouvement="reduit"] .big-card.flipped, :root[data-mouvement="reduit"] .big-back { transform: none; }
 
 /* Jaquette du fascicule dans son filtre (même miniature que le choix du fascicule des plis, etymo.css .jk-mini) : droite au repos, elle se soulève et s'incline au survol, comme une petite carte (.mini). */
 .cb-fasc-btn { grid-template-columns: 64px 1fr; align-items: center; gap: 14px; }
@@ -449,32 +451,15 @@
 }
 @media (prefers-reduced-motion: reduce) { .fam-btn { transition: none; } }
 
-/* ---------- Carte agrandie : « En savoir plus » (I-16) ---------- */
-.bf-more {
-  align-self: flex-start; min-height: 32px; padding: 0; border: 0; background: none;
-  color: var(--c-action-deep); cursor: pointer;
-  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+/* ---------- Carte agrandie : « En savoir plus » (I-16), au dos de la carte ---------- */
+.bb-tabs { display: flex; gap: 6px; }
+.bb-tabs [role="tab"] {
+  min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: transparent; color: var(--ink);
+  cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
 }
-.bf-more::after { content: " ↓"; }
-.bf-more[aria-expanded="true"]::after { content: " ↑"; }
-.bf-more:hover { text-decoration: underline; text-underline-offset: 3px; }
-.viewer.with-more { grid-template-areas: "trail trail trail trail" "prev card more next" "hint hint hint hint"; }
-.viewer > .more { position: relative; z-index: 1; }
-.more {
-  grid-area: more; align-self: stretch;
-  display: flex; flex-direction: column; gap: 10px;
-  width: min(380px, 34vw); max-height: min(574px, calc(100svh - 200px)); overflow-y: auto;
-  padding: 20px 22px; border: 2px solid #0f1f19; border-radius: 22px;
-  background: var(--cream); color: var(--ink);
-}
-.more-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.more-title { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
-.more-close {
-  display: grid; place-items: center; width: 36px; height: 36px; flex: none;
-  border: 1.5px solid var(--line-strong); border-radius: 50%; background: transparent; color: var(--ink);
-  cursor: pointer; font-size: 20px; line-height: 1;
-}
-.more-close:hover { background: var(--paper-2); }
+.bb-tabs [role="tab"][aria-selected="true"] { border-color: #0f1f19; background: var(--paper-2); box-shadow: 2px 2px 0 #0f1f19; }
+.bb-panel[hidden] { display: none; }
+.bb-savoir { display: flex; flex-direction: column; gap: 10px; }
 .more-k { margin: 6px 0 0; color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .more-path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; }
 .more-arrow { color: var(--ink-3); }
@@ -496,15 +481,6 @@
 .more-chev { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--ink-3); font-size: 18px; }
 .more-sources a:hover b { text-decoration: underline; text-underline-offset: 3px; }
 .more-mono { margin: auto 0 0; padding-top: 8px; color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
-@media (max-width: 1100px) {
-  .viewer.with-more { overflow-y: auto; place-content: start center; grid-template-areas: "trail trail trail" "prev card next" "more more more" "hint hint hint"; }
-  /* Sous la carte, la section prend sa hauteur : c'est la carte agrandie qui défile. */
-  .more { width: min(410px, 88vw); max-height: none; overflow: visible; justify-self: center; }
-  .viewer.with-more .viewer-backdrop { position: fixed; }
-}
-@media (max-width: 760px) {
-  .viewer.with-more { grid-template-areas: "trail trail" "card card" "more more" "prev next" "hint hint"; }
-}
 /* Dans le filtre sélectionné (fond Encre), le numéro suit la couleur du texte. */
 .cb-fasc-btn[aria-pressed="true"] .fasc-num { color: inherit; opacity: 0.7; }
 .cb-fasc-head { align-items: baseline; }
