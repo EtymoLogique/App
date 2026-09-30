@@ -156,7 +156,7 @@ interface Props {
   onChoisir: (fascicule: string | null) => void
   ouvrirPli: (fascicule: string) => Promise<ReponsePli | { erreur: string }>
   utiliserSabliers: (nombre: number) => Promise<ReponseSablier | { erreur: string }>
-  acheterSabliers: (nombre: number) => Promise<ReponseAchatSablier | { erreur: string }>
+  acheterEtAvancer: (nombre: number) => Promise<ReponseSablier | ReponseAchatSablier | { erreur: string }>
   onEssayer: () => void
   urlMedia: (chemin: string) => string
   /** Gèle l'encre et les nouveautés affichées pendant le rituel d'ouverture : elles n'arrivent qu'à la révélation. */
@@ -164,9 +164,9 @@ interface Props {
 }
 
 /** Écran des plis (I-19 à I-21) : choisir un fascicule, puis ouvrir son pli. */
-export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabliers, acheterSabliers, onEssayer, urlMedia, onGeler }: Props) {
+export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, utiliserSabliers, acheterEtAvancer, onEssayer, urlMedia, onGeler }: Props) {
   const choisi = jeu.fascicules.find((f) => f.manifeste.id === fascicule)
-  const raccourci = <RaccourciSabliers etat={etat} utiliser={utiliserSabliers} acheter={acheterSabliers} />
+  const raccourci = <RaccourciSabliers etat={etat} utiliser={utiliserSabliers} acheter={acheterEtAvancer} />
   if (!choisi) return <Choix jeu={jeu} etat={etat} onChoisir={onChoisir} urlMedia={urlMedia} />
   return (
     <Atelier

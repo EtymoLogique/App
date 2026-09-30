@@ -6,6 +6,7 @@ import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
 import { type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir } from './jeu'
 import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
+import { nombrePourRemplir } from './plis'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
 
@@ -298,6 +299,29 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander],
   )
 
+  /**
+   * Échange des gouttes contre `nombre` sabliers, puis les emploie aussitôt (un clic, deux
+   * commandes). Le second envoi part de l'état renvoyé par l'achat, pas de celui du rendu.
+   * Il n'emploie que ce qui remplit l'énergie : le reste reste détenu.
+   */
+  const acheterEtAvancer = useCallback(
+    async (nombre: number): Promise<ReponseSablier | ReponseAchatSablier | { erreur: string }> => {
+      const achat = await acheterSabliers(nombre)
+      if ('erreur' in achat || jeu.etat !== 'pret' || !jeu.valeur) return achat
+      const utilisables = Math.min(achat.etat.sabliers?.detenus ?? 0, nombrePourRemplir(achat.etat.energie, Date.now()))
+      if (utilisables < 1) return achat
+      try {
+        const reponse = await api.sablier({ commande: crypto.randomUUID(), version_etat: achat.etat.version_etat, version_catalogue: jeu.valeur.version, nombre: utilisables })
+        confirmer(reponse.etat)
+        return reponse
+      } catch (e) {
+        if (e instanceof ErreurApi && (e.statut === 409 || e.statut === 403)) await synchroniser()
+        return { erreur: 'Les sabliers sont échangés, mais le temps n’a pas avancé : utilisez-les avec « Avancer ».' }
+      }
+    },
+    [api, jeu, acheterSabliers, confirmer, synchroniser],
+  )
+
   const acheterIndice = useCallback(
     (recette: string, niveau: number): Promise<ReponseIndice | { erreur: string }> =>
       commander(
@@ -352,6 +376,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     ouvrirPli,
     utiliserSabliers,
     acheterSabliers,
+    acheterEtAvancer,
     acheterIndice,
     recupererJalon,
     erreurEtat,

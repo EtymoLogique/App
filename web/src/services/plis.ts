@@ -138,3 +138,10 @@ export function nombrePourRemplir(energie: EnergieEtat, maintenant: number): num
 export function sabliersAchetables(sabliers: SabliersEtat, encre: number): number {
   return Math.max(0, Math.floor(encre / sabliers.prix_gouttes))
 }
+
+/** Lots proposés d'emblée à la boutique et depuis les plis ; la feuille d'échange en permet d'autres. */
+export const LOTS = [
+  { nombre: 1, titre: 'Un sablier', texte: 'Avance la recharge des plis d’une heure.' },
+  { nombre: 3, titre: 'Trois sabliers', texte: 'Trois heures de moins avant le prochain pli.' },
+  { nombre: 12, titre: 'Douze sabliers', texte: 'Une recharge entière : un pli de plus.' },
+]

@@ -600,6 +600,9 @@ button.disc { font: inherit; cursor: pointer; }
 .rangee-ecartee { justify-content: space-between; }
 .rangee-fin { justify-content: flex-end; }
 .rangee-centree { justify-content: center; }
+/* Actions d'une feuille : sur une seule ligne, « Annuler » puis l'action, à droite. Le libellé long passe à la ligne plutôt que de déborder. */
+.rangee-actions { flex-wrap: nowrap; }
+.rangee-actions .btn { flex: 0 1 auto; min-height: 44px; padding: 8px 16px; }
 /* Actions d'un état vide : assez large pour trois boutons, qui passent à la ligne sur mobile. */
 .empty:has(.rangee) { max-width: 560px; }
 .empty .rangee .btn { white-space: nowrap; }

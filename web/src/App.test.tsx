@@ -419,6 +419,41 @@ describe('table de fusion', () => {
     delete document.documentElement.dataset.mouvement
   })
 
+  it('achète des sabliers depuis les plis et les emploie aussitôt, sur l’état renvoyé par l’achat', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    const energie = { charges: 0, capacite: 2, prochaine_charge: new Date(Date.now() + 3_600_000).toISOString(), recharge_s: 43_200 }
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ encre: 100, energie, sabliers: { detenus: 0, prix_gouttes: 10 } }))
+    const achat = vi.spyOn(api, 'achatSablier').mockResolvedValue({ prix: 30, etat: etat({ version_etat: 2, encre: 70, energie, sabliers: { detenus: 3, prix_gouttes: 10 } }) })
+    const emploi = vi.spyOn(api, 'sablier').mockResolvedValue({ etat: etat({ version_etat: 3, encre: 70, energie, sabliers: { detenus: 0, prix_gouttes: 10 } }) })
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Acheter des sabliers' }))
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Trois sabliers contre 30 gouttes' })))
+    expect(achat).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, nombre: 3 }))
+    // Le second envoi part de la version renvoyée par l'achat, sinon le serveur répondrait 409.
+    await waitFor(() => expect(emploi).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 2, nombre: 3 })))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    delete document.documentElement.dataset.mouvement
+  })
+
+  it('n’emploie que les sabliers qui remplissent l’énergie, le reste est gardé', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    const energie = { charges: 1, capacite: 2, prochaine_charge: new Date(Date.now() + 3_600_000).toISOString(), recharge_s: 43_200 }
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ encre: 200, energie, sabliers: { detenus: 0, prix_gouttes: 10 } }))
+    vi.spyOn(api, 'achatSablier').mockResolvedValue({ prix: 120, etat: etat({ version_etat: 2, encre: 80, energie, sabliers: { detenus: 12, prix_gouttes: 10 } }) })
+    const emploi = vi.spyOn(api, 'sablier').mockResolvedValue({ etat: etat({ version_etat: 3, encre: 80, sabliers: { detenus: 11, prix_gouttes: 10 } }) })
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Acheter des sabliers' }))
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Douze sabliers contre 120 gouttes' })))
+    await waitFor(() => expect(emploi).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 2, nombre: 1 })))
+    delete document.documentElement.dataset.mouvement
+  })
+
   it('n’offre pas la réinitialisation en production', async () => {
     history.replaceState(null, '', '#/reglages')
     render(<App api={client()} catalogue={lecteur} />)

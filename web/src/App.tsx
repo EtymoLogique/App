@@ -282,7 +282,7 @@ export function App({ api, catalogue }: Props) {
                   onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
                   ouvrirPli={partie.ouvrirPli}
                   utiliserSabliers={partie.utiliserSabliers}
-                  acheterSabliers={partie.acheterSabliers}
+                  acheterEtAvancer={partie.acheterEtAvancer}
                   onEssayer={() => setOnglet('table')}
                   onGeler={geler}
                   urlMedia={(chemin) => catalogue.url(chemin)}
