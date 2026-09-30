@@ -1018,6 +1018,7 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
     sqlx::query!("DELETE FROM indice WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
+    // Jalons atteints et récompenses récupérées : les quêtes se recettent de nouveau (ADR 0042).
     sqlx::query!("DELETE FROM jalon_atteint WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
