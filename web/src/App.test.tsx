@@ -83,7 +83,8 @@ describe('table de fusion', () => {
     const declencheur = await screen.findByRole('button', { name: /^Réserve/ })
     declencheur.focus()
     const r = await reserve()
-    expect(within(r).getByRole('searchbox')).toHaveFocus()
+    // Le clavier mobile ne s’ouvre pas tout seul : le focus initial est sur « Fermer », pas sur la recherche.
+    expect(within(r).getByRole('button', { name: 'Fermer' })).toHaveFocus()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
     expect(declencheur).toHaveFocus()
