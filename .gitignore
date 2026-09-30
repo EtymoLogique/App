@@ -11,3 +11,6 @@
 
 # Systèmes
 .DS_Store
+
+# Instances de dev.sh (PID)
+/running_instances/
