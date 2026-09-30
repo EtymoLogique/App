@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
@@ -23,13 +23,21 @@ const reserve = async () => {
   if (!screen.queryByRole('dialog', { name: /^Réserve/ })) fireEvent.click(await screen.findByRole('button', { name: /^Réserve/ }))
   return screen.findByRole('dialog', { name: /^Réserve/ })
 }
-const brique = async (libelle: string) => within(await reserve()).getByText(libelle).closest('button') as HTMLElement
+const plateau = async () => within(await reserve()).getByRole('list', { name: 'Briques de la réserve' })
+const brique = async (libelle: string) => within(await plateau()).getByText(libelle).closest('button') as HTMLElement
+const modaleReserve = () => screen.queryByRole('dialog', { name: /^Réserve/ })
+const caseLibre = () => document.querySelector('.rm-case:not(.filled)') !== null
 /** Le bouton Fusionner de l'ordinateur (le premier) ; celui du mobile a le même rôle. */
 const fusionner = () => screen.getAllByRole('button', { name: 'Fusionner' })[0] as HTMLElement
 
-/** Pose des briques d'un seul clic, comme dans jeu.html. */
+/** Pose des briques d'un seul clic, comme dans jeu.html. La table complétée, la modale se ferme d'elle-même. */
 async function poser(...libelles: string[]) {
-  for (const libelle of libelles) fireEvent.click(await brique(libelle))
+  for (const libelle of libelles) {
+    const b = await brique(libelle)
+    const libre = caseLibre()
+    fireEvent.click(b)
+    if (libre && !caseLibre()) await waitForElementToBeRemoved(modaleReserve)
+  }
 }
 
 describe('table de fusion', () => {
@@ -57,25 +65,46 @@ describe('table de fusion', () => {
     expect(screen.getByText('Posez une deuxième brique.')).toBeInTheDocument()
   })
 
-  it('ferme la modale après la pose, sur la case touchée', async () => {
+  it('pose sur la case touchée, reste ouverte pour l’autre, puis se ferme sur « Fusionner »', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Emplacement 2 vide. Choisir une brique' }))
     const r = await reserve()
-    fireEvent.click(within(r).getByText('géo-').closest('button') as HTMLElement)
-    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Case 2 vide, à remplir' })).toHaveAttribute('aria-current', 'step')
+    fireEvent.click(await brique('géo-'))
     expect(screen.getByRole('button', { name: 'Emplacement 2 : géo-. Retirer' })).toBeInTheDocument()
+    // La modale reste ouverte et vise la case restante.
+    expect(modaleReserve()).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Case 2 : géo-. Retirer' })).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Case 1 vide, à remplir' })).toBeInTheDocument()
+    expect(within(r).getByText('Choisissez la 1ʳᵉ brique')).toBeInTheDocument()
+    expect(within(r).getByText('géo- posée en case 2. Choisissez la 1ʳᵉ brique.')).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Retour à la table' })).toBeInTheDocument()
+    fireEvent.click(await brique('-logie'))
+    await waitForElementToBeRemoved(modaleReserve)
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
+    expect(fusionner()).toHaveFocus()
+  })
+
+  it('retire une brique depuis la table de la réserve, et pose la suivante à sa place', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('géo-')
+    const r = await reserve()
+    fireEvent.click(within(r).getByRole('button', { name: 'Case 1 : géo-. Retirer' }))
     expect(screen.getByRole('button', { name: 'Emplacement 1 vide. Choisir une brique' })).toBeInTheDocument()
+    expect(within(r).getByText('géo- retirée de la case 1. Choisissez la 1ʳᵉ brique.')).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Fermer' })).toBeInTheDocument()
+    await poser('-logie')
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
+    expect(modaleReserve()).toBeInTheDocument()
   })
 
   it('pose la brique choisie au bouton dans la case vide la plus à gauche', async () => {
     render(<App api={client()} catalogue={lecteur} />)
-    await poser('géo-')
+    await poser('géo-', '-logie')
     fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' }))
-    await poser('-logie')
-    fireEvent.click(await screen.findByRole('button', { name: 'Emplacement 1 : -logie. Retirer' }))
     await poser('géo-')
     expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+    expect(modaleReserve()).not.toBeInTheDocument()
   })
 
   it('ferme la modale à Échap ou au clic sur le fond, et rend le focus au déclencheur', async () => {

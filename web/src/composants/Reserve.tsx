@@ -22,6 +22,8 @@ interface Props {
   onIndisponible: (message: string) => void
   /** Briques qui viennent d'être consommées : un « −1 » s'envole au-dessus. */
   consommees?: string[]
+  /** Dernière brique posée ou retirée : sa pastille rebondit, à chaque nouvelle `cle`. */
+  touchee?: { brique: string; cle: number } | null
 }
 
 /** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
@@ -38,7 +40,7 @@ function exemplaires(n: number): string {
  * par briques récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [] }: Props) {
+export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
   const [recherche, setRecherche] = useState('')
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
@@ -162,7 +164,11 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
                 >
                   <ContenuBrique brique={brique} />
                   {brique.nature !== 'mot' && (
-                    <span className={epuisee ? 'b-count zero' : 'b-count'} aria-hidden="true">
+                    <span
+                      key={touchee?.brique === brique_id ? touchee.cle : 0}
+                      className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? 'rebond' : ''].filter(Boolean).join(' ')}
+                      aria-hidden="true"
+                    >
                       {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
                     </span>
                   )}

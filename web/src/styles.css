@@ -510,6 +510,10 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .brick { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out), opacity 0.2s; }
   /* Chute à la pose seulement (Table.tsx, .arrive) : pas au retour sur la table. */
   :root:not([data-mouvement="reduit"]) .slot.filled.arrive .brick { animation: land 0.45s var(--ease-spring); }
+  :root:not([data-mouvement="reduit"]) .rm-case.filled.arrive .brick { animation: land 0.45s var(--ease-spring); }
+  /* Pastille d'une brique posée ou retirée depuis la réserve : elle rebondit sur son nouveau compte. */
+  :root:not([data-mouvement="reduit"]) .b-count.rebond { animation: rebond 0.4s var(--ease-spring); }
+  :root:not([data-mouvement="reduit"]) .rm-case:not(.filled) { transition: background-color 0.2s, border-color 0.2s; }
   :root:not([data-mouvement="reduit"]) .slot { transition: transform 0.55s var(--ease-out), background-color 0.2s, border-color 0.2s; }
   :root:not([data-mouvement="reduit"]) .xref { transition: transform 0.2s, box-shadow 0.2s; }
   :root:not([data-mouvement="reduit"]) .result { animation: pop 0.7s var(--ease-spring); }
@@ -546,6 +550,7 @@ button.disc { font: inherit; cursor: pointer; }
 @keyframes monte { from { transform: translateY(100%); } }
 @keyframes voile { from { opacity: 0; } }
 @keyframes land { from { transform: translateY(-18px) scale(0.9); } }
+@keyframes rebond { from { transform: scale(1.45); } }
 @keyframes pop { from { opacity: 0; transform: scale(0.75) rotate(-3deg); } }
 @keyframes bump { from { transform: translateY(6px); opacity: 0.3; } }
 @keyframes readyPulse {
@@ -665,6 +670,35 @@ button.disc { font: inherit; cursor: pointer; }
 :is(.reserve-modale, .indices) > .rangee-ecartee { flex-wrap: nowrap; }
 :is(.reserve-modale, .indices) > .rangee-ecartee .btn { flex: none; min-height: 44px; padding: 8px 16px; }
 .reserve-modale .btn, .reserve-modale .cb-chip { min-height: 44px; }
+/* Table en petit dans la réserve : où va la brique, et ce qui est déjà posé. Elle reste en haut quand le plateau défile. */
+.rm-table {
+  position: sticky; top: -24px; z-index: 2;
+  display: grid; justify-items: center; gap: 8px;
+  margin: 0 -24px; padding: 12px 24px 14px;
+  border-bottom: 1px solid var(--line); background: var(--cream);
+}
+.rm-titre { display: grid; }
+.rm-compte { color: var(--ink-2); font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
+.rm-consigne { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; }
+.rm-aide { margin: 0; color: var(--ink-2); font-size: 13px; }
+.rm-rail { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.rm-rail .op { font-size: 24px; }
+.rm-case {
+  display: grid; place-items: center;
+  min-width: 96px; min-height: 56px; padding: 0 4px;
+  border: 2px dashed var(--line-strong); border-radius: 10px;
+  background: transparent; color: var(--ink-3);
+  cursor: pointer;
+}
+/* Case à remplir : trait plein et teinte Corail, comme une cible de dépôt sur la table. */
+.rm-case.visee { border-style: solid; background: var(--c-action-tint); color: var(--fixed-ink); }
+.rm-case.filled { border-color: transparent; }
+.rm-case.filled .brick { cursor: pointer; }
+/* En petit, la brique garde son libellé et son trait d'union ; nature et sens sont dans la réserve, juste dessous. */
+.rm-case .brick.s { min-width: 88px; min-height: 52px; align-items: center; justify-content: center; }
+.rm-case .b-meta { display: none; }
+.rm-case:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.rm-num { font-family: var(--serif); font-size: 26px; font-style: italic; opacity: 0.6; }
 
 /* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */
 .fasc-titre { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }

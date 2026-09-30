@@ -18,6 +18,8 @@ interface Props {
   /** Toucher une case vide : ouvre la réserve pour cette case. */
   onCaseVide: (rang: number) => void
   secousse?: { force: 'legere' | 'forte'; cle: number } | null
+  /** Table cachée sous la réserve : les briques posées attendent qu'elle se ferme pour tomber. */
+  retenue?: boolean
   /** Fusion réussie en cours : les deux briques se rejoignent, deux ondes et des confettis (mouvement.html). */
   fusion?: number | null
 }
@@ -48,7 +50,7 @@ function Confettis() {
  * par « + », car l'ordre compte. On y glisse une brique ; toucher une case vide ouvre
  * la réserve, toucher une case pleine la vide ; glisser une brique posée sur une autre case les échange.
  */
-export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, onCaseVide, secousse, fusion }: Props) {
+export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, onCaseVide, secousse, fusion, retenue = false }: Props) {
   const [survol, setSurvol] = useState<number | null>(null)
   // Secousse déjà jouée : sans cela, elle rejouerait à chaque retour sur la table (display: none relance l'animation).
   const [secouee, setSecouee] = useState<number | null>(null)
@@ -79,7 +81,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
       {Array.from({ length: TABLE_MAX }, (_, rang) => {
         const id = table[rang]
         const brique = id ? briques.get(id) : undefined
-        const classes = ['slot', brique ? 'filled' : '', brique && tombees[rang] !== id ? 'arrive' : '', survol === rang ? 'over' : ''].filter(Boolean).join(' ')
+        const classes = ['slot', brique ? 'filled' : '', brique && !retenue && tombees[rang] !== id ? 'arrive' : '', survol === rang ? 'over' : ''].filter(Boolean).join(' ')
         return (
           <Fragment key={rang}>
             {rang > 0 && (

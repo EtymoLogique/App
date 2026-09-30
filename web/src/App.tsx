@@ -109,6 +109,17 @@ export function App({ api, catalogue }: Props) {
   // Réserve en modale : `rang` est la case touchée, `null` pour la case vide la plus à gauche.
   const [reserveOuverte, setReserveOuverte] = useState<{ rang: number | null } | null>(null)
   const fermerReserve = useCallback(() => setReserveOuverte(null), [])
+  // Table complétée depuis la réserve : à sa fermeture, le focus va à « Fusionner », la seule suite.
+  const boutonFusion = useRef<HTMLButtonElement>(null)
+  const focusFusion = useRef(false)
+  const versFusion = useCallback(() => {
+    focusFusion.current = true
+  }, [])
+  useEffect(() => {
+    if (reserveOuverte || !focusFusion.current) return
+    focusFusion.current = false
+    boutonFusion.current?.focus({ preventScroll: true })
+  }, [reserveOuverte])
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
@@ -163,13 +174,13 @@ export function App({ api, catalogue }: Props) {
                   <ReserveModale
                     reserve={etat.reserve}
                     briques={catalogueJeu.briques}
-                    table={partie.table}
+                    cases={partie.cases}
                     consommees={partie.consommees}
                     exemplaires={exemplaires}
                     rang={reserveOuverte.rang}
-                    tableComplete={!partie.cases.includes(null)}
                     onPoser={partie.poser}
-                    onAjouter={partie.ajouter}
+                    onRetirer={partie.retirer}
+                    onComplete={versFusion}
                     onFermer={fermerReserve}
                   />
                 )}
@@ -210,9 +221,11 @@ export function App({ api, catalogue }: Props) {
                           onDeplacer={partie.deplacer}
                           onRetirer={partie.retirer}
                           onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
+                          retenue={reserveOuverte !== null}
                         />
                         <div className="actions">
                           <button
+                            ref={boutonFusion}
                             type="button"
                             className="btn btn-primary"
                             onClick={() => void partie.fusionner()}
