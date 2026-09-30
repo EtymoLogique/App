@@ -45,7 +45,7 @@ export function ReserveModale({ reserve, briques, table, consommees, exemplaires
           <h2 id="reserve-titre" className="jk-title">
             Réserve · {exemplaires} exemplaire{exemplaires > 1 ? 's' : ''}
           </h2>
-          <button type="button" className="btn btn-secondary" onClick={fermer}>
+          <button type="button" data-focus-initial className="btn btn-secondary" onClick={fermer}>
             Fermer
           </button>
         </div>
