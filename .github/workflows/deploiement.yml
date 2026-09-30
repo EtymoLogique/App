@@ -154,6 +154,9 @@ jobs:
 
   pwa:
     name: Publish the PWA
+    # L'API d'abord : la PWA ne part qu'une fois le conteneur redéployé et
+    # « ready », et pas du tout si le job image échoue (issue #7).
+    needs: image
     if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
