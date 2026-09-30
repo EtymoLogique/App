@@ -11,13 +11,13 @@ const rendu = (props: Partial<Parameters<typeof Navigation>[0]> = {}) => {
 const burger = () => screen.getByRole('button', { name: /^Menu/ })
 
 describe('menu burger mobile', () => {
-  it('range Boutique et Réglages dans le burger', () => {
+  it('range Quêtes, Boutique et Réglages dans le burger', () => {
     rendu()
     expect(burger().getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(burger())
     expect(burger().getAttribute('aria-expanded')).toBe('true')
     const panneau = document.getElementById(burger().getAttribute('aria-controls') as string) as HTMLElement
-    expect(within(panneau).getAllByRole('button').map((b) => b.textContent)).toEqual(['Boutique', 'Réglages'])
+    expect(within(panneau).getAllByRole('button').map((b) => b.textContent)).toEqual(['Quêtes', 'Boutique', 'Réglages'])
   })
 
   it('Escape ferme et rend le focus', () => {
@@ -47,6 +47,13 @@ describe('menu burger mobile', () => {
     rendu({ actif: 'boutique', compteurs: { boutique: 1, reglages: 2 } })
     expect(burger().className).toContain('on')
     expect(within(burger()).getByLabelText('3 nouveautés')).toBeTruthy()
+  })
+
+  it('annonce les récompenses de quêtes à récupérer', () => {
+    rendu({ compteurs: { quetes: 2 } })
+    fireEvent.click(burger())
+    const panneau = document.getElementById(burger().getAttribute('aria-controls') as string) as HTMLElement
+    expect(within(panneau).getByLabelText('2 récompenses à récupérer')).toBeTruthy()
   })
 
   it('pas de burger avec 4 entrées ou moins', () => {

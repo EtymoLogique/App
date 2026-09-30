@@ -27,6 +27,8 @@ export function completerEtat(etat: Etat): Etat {
     sabliers: etat.sabliers ?? { detenus: 0, prix_gouttes: 10 },
     indices: etat.indices ?? [],
     jalons_atteints: etat.jalons_atteints ?? [],
+    // Avant l'ADR 0042, un jalon atteint était accordé d'office : il est récupéré.
+    jalons_recuperes: etat.jalons_recuperes ?? etat.jalons_atteints ?? [],
     prix_indices: etat.prix_indices ?? [],
   }
 }

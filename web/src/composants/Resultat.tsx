@@ -12,7 +12,7 @@ const RAISONS: Record<string, string> = {
 
 export type Retour =
   | { etat: 'prevision'; prevision: Prevision }
-  | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte (ADR 0038). */ jalons?: string[] }
+  | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */ jalons?: string[] }
   | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' }
 
 type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
@@ -27,6 +27,8 @@ interface Props {
   /** Raison pour laquelle la fusion est impossible maintenant, sinon `null`. */
   bloquee: string | null
   onInverser: () => void
+  /** Mène aux quêtes, où attend la récompense d'un jalon atteint. */
+  onQuetes: () => void
 }
 
 function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
@@ -43,7 +45,7 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
  * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
  * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, posees, bloquee, onInverser }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser, onQuetes }: Props) {
   let contenu: React.ReactNode
   if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
@@ -57,11 +59,22 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser }: Props) {
         const gouttes = issue.gouttes ?? 0
         const jalon = (retour.jalons ?? []).length > 0
         contenu = (
-          <Ligne ton="win">
-            Nouvelle découverte : {texteDuMot(jeu.cartes.get(issue.mot_id))}&nbsp;!
-            {gouttes > 0 && ` +${gouttes}\u00a0goutte${gouttes > 1 ? 's' : ''} d’encre.`}
-            {jalon && ' Jalon atteint : pli de jalon reçu.'}
-          </Ligne>
+          <div className="retour">
+            <Ligne ton="win">
+              Nouvelle découverte : {texteDuMot(jeu.cartes.get(issue.mot_id))}&nbsp;!
+              {gouttes > 0 && ` +${gouttes}\u00a0goutte${gouttes > 1 ? 's' : ''} d’encre.`}
+            </Ligne>
+            {jalon && (
+              <>
+                <p className="panel-tip">Jalon atteint&nbsp;! Sa récompense vous attend dans les quêtes.</p>
+                <div className="rangee">
+                  <button type="button" className="btn btn-primary btn-s" onClick={onQuetes}>
+                    Récupérer la récompense
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )
         break
       }

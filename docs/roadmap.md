@@ -139,6 +139,20 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Content : fascicule Bêta 2 (`fsc_3vztseeb`, `test: true`, n° 1, parution 15 octobre 2026) : 35 mots dont 20 recettes existantes que les briques de Bêta 0 rendaient jouables (fermeture entre fascicules), 33 exclusions `rare`, jaquette, 4 graines ; faits en brouillon | fait |
 | Recette locale (Chrome) : Bêta 2 et sa jaquette au choix des plis, graines reçues, hors ligne simulé (pose et boutique inertes, bannière), fusion *périmètre* en ligne | fait |
 
+## Quêtes et récompenses à récupérer
+
+| Tâche | État |
+|---|---|
+| ADR 0042 : page Quêtes, récompenses de jalon à récupérer d’un geste ; ADR 0038 marqué partiellement remplacé (Design) | proposé |
+| Base : `jalon_atteint.recupere_le` (les jalons déjà accordés sont marqués récupérés), commande `jalon` | fait |
+| API : la découverte et `GET /etat` marquent les jalons atteints sans rien accorder ; `POST /jalon` récupère la récompense (pli de jalon déterministe, encre si réserve pleine, sabliers), idempotente, `403` pas encore atteint, `409` déjà récupérée, `400` inconnu ; `jalons_recuperes` dans l’état | fait |
+| PWA : destination Quêtes (`#/quetes`), onglets Journalières (bientôt disponibles) et Fascicules (`#/quetes/fascicules?fascicule=0`) ; sélecteur de fascicule partagé avec le codex, compteur Corail des récompenses qui attendent (navigation, onglet, fascicule) ; jalons retirés de la vue Objectifs du codex, qui renvoie aux quêtes ; « Récupérer la récompense » sous la découverte qui atteint un jalon | fait |
+| Recette locale (Chromium) : 3 découvertes → jalon atteint, réserve et sabliers inchangés ; « Récupérer » → philo- et -iste, historique `deterministe` | fait |
+| Hors production : « Réinitialiser » (Réglages) efface aussi les jalons atteints et récupérés ; une fois le jalon de nouveau atteint, sa récompense est à récupérer (test `la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer`) | fait |
+| Quêtes journalières | à concevoir (ADR à venir) |
+
+Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
+
 ## Outillage hors-prod
 
 | Tâche | État |
