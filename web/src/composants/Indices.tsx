@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import type { Etat, ReponseIndice } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
@@ -6,6 +6,7 @@ import { TITRES_INDICES, ciblesIndice, contenuIndice, niveauObtenu } from '../se
 import type { CatalogueJeu } from '../services/jeu'
 import { useEnLigne } from '../services/reseau'
 import { Icone } from './Icone'
+import { useDialogue } from './useDialogue'
 
 interface Props {
   jeu: CatalogueJeu
@@ -25,13 +26,7 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
   const [choisie, setChoisie] = useState(cibles[0]?.recette.id ?? null)
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const fermer = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    fermer.current?.focus({ preventScroll: true })
-    const touche = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
-    window.addEventListener('keydown', touche)
-    return () => window.removeEventListener('keydown', touche)
-  }, [onFermer])
+  const boite = useDialogue<HTMLElement>(onFermer)
 
   const cible = cibles.find((c) => c.recette.id === choisie) ?? cibles[0]
   const obtenu = cible ? niveauObtenu(etat, cible.recette.id) : 0
@@ -50,7 +45,7 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
   return (
     <div className="scrim" onClick={onFermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section className="dialogue feuille indices" role="dialog" aria-modal="true" aria-labelledby="indices-titre" onClick={(e) => e.stopPropagation()}>
+      <section ref={boite} className="dialogue feuille indices" role="dialog" aria-modal="true" aria-labelledby="indices-titre" onClick={(e) => e.stopPropagation()}>
         <div className="rangee rangee-ecartee">
           <h2 id="indices-titre" className="jk-title">
             Indices
@@ -120,7 +115,7 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
           </>
         )}
         <div className="rangee rangee-fin">
-          <button ref={fermer} type="button" className="btn btn-secondary" onClick={onFermer}>
+          <button data-focus-initial type="button" className="btn btn-secondary" onClick={onFermer}>
             Fermer
           </button>
         </div>

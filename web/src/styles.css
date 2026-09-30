@@ -304,9 +304,7 @@ button { font: inherit; }
 .panel-link:hover { text-decoration: underline; }
 
 /* ---------- Panneaux de jeu ---------- */
-.jeu { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 1.25fr); gap: 18px; align-items: start; }
-.jeu > .table-panel { order: 2; }
-.jeu > .reserve-panel { order: 1; }
+.jeu { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
 .panel {
   position: relative; padding: 20px;
   border: 1.5px solid var(--line-strong); border-radius: var(--radius);
@@ -557,9 +555,6 @@ button.disc { font: inherit; cursor: pointer; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 760px) {
-  .jeu { grid-template-columns: minmax(0, 1fr); }
-  .jeu > .table-panel { order: 1; }
-  .jeu > .reserve-panel { order: 2; }
   .disc-grid { grid-template-columns: repeat(2, 1fr); }
 }
 /* Petits écrans (etymo.css, max-width 520 px) : deux emplacements tiennent sur une ligne. */
@@ -665,6 +660,10 @@ button.disc { font: inherit; cursor: pointer; }
   .scrim:has(.feuille) { place-items: end stretch; }
   .dialogue.feuille { height: auto; max-height: 100%; border-top: 1.5px solid var(--fixed-ink); border-radius: 20px 20px 0 0; }
 }
+
+.slot:not(.filled):hover { border-style: solid; background: var(--c-action-tint); }
+/* Réserve en modale (App#9) : plus large que les autres feuilles, plateau défilant. */
+.dialogue.reserve-modale { width: min(720px, 100%); }
 
 /* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */
 .fasc-titre { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }

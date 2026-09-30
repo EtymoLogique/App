@@ -48,6 +48,15 @@ const TRACES = {
       <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2v1.5h5V16c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" />
     </>
   ),
+  // Plateau de briques : la réserve.
+  reserve: (
+    <>
+      <rect x="3" y="4" width="7.5" height="7" rx="2" />
+      <rect x="13.5" y="4" width="7.5" height="7" rx="2" />
+      <rect x="3" y="13.5" width="7.5" height="7" rx="2" />
+      <rect x="13.5" y="13.5" width="7.5" height="7" rx="2" />
+    </>
+  ),
   boutique: (
     <>
       <path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z" />

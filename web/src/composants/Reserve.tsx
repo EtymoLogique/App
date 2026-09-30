@@ -83,6 +83,7 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
         <span className="sr-only">Chercher une brique ou un sens</span>
         <input
           ref={champ}
+          data-focus-initial
           type="search"
           placeholder="Chercher une brique ou un sens"
           value={recherche}

@@ -8,7 +8,7 @@ import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
 import { Plis } from './composants/Plis'
 import { Reglages } from './composants/Reglages'
-import { Reserve } from './composants/Reserve'
+import { ReserveModale } from './composants/ReserveModale'
 import { Resultat } from './composants/Resultat'
 import { Table } from './composants/Table'
 import type { ClientApi } from './services/api'
@@ -104,6 +104,9 @@ export function App({ api, catalogue }: Props) {
   const fiche = partie.fiche
   const [indices, setIndices] = useState(false)
   const fermerIndices = useCallback(() => setIndices(false), [])
+  // Réserve en modale : `rang` est la case touchée, `null` pour la case vide la plus à gauche.
+  const [reserveOuverte, setReserveOuverte] = useState<{ rang: number | null } | null>(null)
+  const fermerReserve = useCallback(() => setReserveOuverte(null), [])
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
@@ -154,6 +157,20 @@ export function App({ api, catalogue }: Props) {
             <>
               <section {...ecran('table')}>
                 <EnTete titre="Table" id="titre-table" />
+                {reserveOuverte && etat && (
+                  <ReserveModale
+                    reserve={etat.reserve}
+                    briques={catalogueJeu.briques}
+                    table={partie.table}
+                    consommees={partie.consommees}
+                    exemplaires={exemplaires}
+                    rang={reserveOuverte.rang}
+                    tableComplete={!partie.cases.includes(null)}
+                    onPoser={partie.poser}
+                    onAjouter={partie.ajouter}
+                    onFermer={fermerReserve}
+                  />
+                )}
                 {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} onFermer={fermerIndices} />}
 
                 <div className="jeu">
@@ -190,6 +207,7 @@ export function App({ api, catalogue }: Props) {
                           onPoser={partie.poser}
                           onDeplacer={partie.deplacer}
                           onRetirer={partie.retirer}
+                          onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
                         />
                         <div className="actions">
                           <button
@@ -200,6 +218,10 @@ export function App({ api, catalogue }: Props) {
                             title={raisonFusion ?? undefined}
                           >
                             {partie.enAttente ? 'Fusion…' : 'Fusionner'}
+                          </button>
+                          <button type="button" className="btn btn-secondary" onClick={() => setReserveOuverte({ rang: null })} disabled={bloquee !== null}>
+                            <Icone nom="reserve" />
+                            Réserve · {exemplaires}
                           </button>
                           <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
                             <Icone nom="indice" />
@@ -218,30 +240,6 @@ export function App({ api, catalogue }: Props) {
                         />
                       </>
                     )}
-                  </section>
-
-                  <section className="panel reserve-panel" aria-labelledby="titre-reserve">
-                    <div className="rangee rangee-ecartee">
-                      <h2 id="titre-reserve" className="panel-k">
-                        Réserve · {exemplaires} exemplaire{exemplaires > 1 ? 's' : ''}
-                      </h2>
-                      <span className="mono">Tri : récentes</span>
-                    </div>
-                    {etat ? (
-                      <Reserve
-                        reserve={etat.reserve}
-                        briques={catalogueJeu.briques}
-                        table={partie.table}
-                        consommees={partie.consommees}
-                        onAjouter={partie.ajouter}
-                        onIndisponible={(texte) => partie.signaler(texte, 'hint')}
-                      />
-                    ) : (
-                      <p className="panel-tip" aria-live="polite">
-                        Chargement de votre réserve…
-                      </p>
-                    )}
-                    <p className="panel-tip">Glissez une brique sur la table, ou touchez-la pour la poser. Le chiffre indique les exemplaires disponibles.</p>
                   </section>
                 </div>
 

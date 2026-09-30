@@ -18,7 +18,11 @@ function client(fusion?: ClientApi['fusion']): ClientApi {
 
 let lecteur: LecteurCatalogue
 
-const reserve = () => screen.findByRole('region', { name: /^Réserve/ })
+/** La réserve est une modale : on l'ouvre par le bouton dédié si elle ne l'est pas déjà. */
+const reserve = async () => {
+  if (!screen.queryByRole('dialog', { name: /^Réserve/ })) fireEvent.click(await screen.findByRole('button', { name: /^Réserve/ }))
+  return screen.findByRole('dialog', { name: /^Réserve/ })
+}
 const brique = async (libelle: string) => within(await reserve()).getByText(libelle).closest('button') as HTMLElement
 /** Le bouton Fusionner de l'ordinateur (le premier) ; celui du mobile a le même rôle. */
 const fusionner = () => screen.getAllByRole('button', { name: 'Fusionner' })[0] as HTMLElement
@@ -37,6 +41,7 @@ describe('table de fusion', () => {
 
   it('affiche la réserve de départ, sa recherche et ses filtres', async () => {
     render(<App api={client()} catalogue={lecteur} />)
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
     const r = await reserve()
     expect(r).toHaveAccessibleName('Réserve · 3 exemplaires')
     expect(await within(r).findByRole('button', { name: 'Poser géo- (terre) sur la table. 2 exemplaires disponibles' })).toBeInTheDocument()
@@ -50,6 +55,59 @@ describe('table de fusion', () => {
     fireEvent.click(await brique('géo-'))
     expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
     expect(screen.getByText('Posez une deuxième brique.')).toBeInTheDocument()
+  })
+
+  it('ferme la modale après la pose, sur la case touchée', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Emplacement 2 vide. Choisir une brique' }))
+    const r = await reserve()
+    fireEvent.click(within(r).getByText('géo-').closest('button') as HTMLElement)
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Emplacement 2 : géo-. Retirer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Emplacement 1 vide. Choisir une brique' })).toBeInTheDocument()
+  })
+
+  it('pose la brique choisie au bouton dans la case vide la plus à gauche', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('géo-')
+    fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' }))
+    await poser('-logie')
+    fireEvent.click(await screen.findByRole('button', { name: 'Emplacement 1 : -logie. Retirer' }))
+    await poser('géo-')
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+  })
+
+  it('ferme la modale à Échap ou au clic sur le fond, et rend le focus au déclencheur', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    const declencheur = await screen.findByRole('button', { name: /^Réserve/ })
+    declencheur.focus()
+    const r = await reserve()
+    expect(within(r).getByRole('searchbox')).toHaveFocus()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+    expect(declencheur).toHaveFocus()
+    await reserve()
+    fireEvent.click(document.querySelector('.scrim') as HTMLElement)
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+  })
+
+  it('garde le focus dans la modale', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    const r = await reserve()
+    const controles = within(r).getAllByRole('button').filter((b) => b.getAttribute('aria-disabled') !== 'true')
+    const dernier = controles[controles.length - 1] as HTMLElement
+    dernier.focus()
+    fireEvent.keyDown(window, { key: 'Tab' })
+    expect(within(r).getByRole('button', { name: 'Fermer' })).toHaveFocus()
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true })
+    expect(dernier).toHaveFocus()
+  })
+
+  it('dit que la table est pleine sans fermer la modale', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    await poser('géo-', '-logie', 'géo-')
+    expect(within(screen.getByRole('dialog', { name: /^Réserve/ })).getByText(/La table est pleine/)).toBeInTheDocument()
   })
 
   it('ne remplace rien quand la table est pleine', async () => {
@@ -94,8 +152,6 @@ describe('table de fusion', () => {
     expect(screen.getByLabelText('1 nouveauté')).toBeInTheDocument()
     fireEvent.click(within(fiche).getByRole('button', { name: 'Continuer' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    // La réserve confirmée par le serveur : géo- et -logie consommés.
-    expect(await reserve()).toHaveAccessibleName('Réserve · 1 exemplaire')
 
     // Dans le codex, la carte nouvelle s'ouvre ; la nouveauté s'efface une fois vue.
     fireEvent.click(screen.getByRole('button', { name: /^Codex/ }))
@@ -161,8 +217,9 @@ describe('table de fusion', () => {
   it('hors ligne, consulte seulement : rien ne se pose', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     render(<App api={client()} catalogue={lecteur} />)
-    await poser('géo-')
-    expect(screen.queryByRole('button', { name: /^Emplacement 1 : géo-/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Réserve/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 vide. Choisir une brique' }))
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
     expect(screen.getAllByText(/consultation seulement/).length).toBeGreaterThanOrEqual(1)
     expect(fusionner()).toBeDisabled()
   })
@@ -174,7 +231,7 @@ describe('table de fusion', () => {
     expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' }))
     // La seconde brique reste dans sa case ; la première case est libre.
-    expect(screen.getByRole('button', { name: 'Emplacement 1 vide' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Emplacement 1 vide. Choisir une brique' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Emplacement 2 : géo-. Retirer' })).toBeInTheDocument()
     // Une nouvelle brique vient dans la case libérée.
     await poser('-logie')

@@ -15,6 +15,8 @@ interface Props {
   onPoser: (brique: string, rang: number) => void
   onDeplacer: (depuis: number, vers: number) => void
   onRetirer: (rang: number) => void
+  /** Toucher une case vide : ouvre la réserve pour cette case. */
+  onCaseVide: (rang: number) => void
   secousse?: { force: 'legere' | 'forte'; cle: number } | null
   /** Fusion réussie en cours : les deux briques se rejoignent, deux ondes et des confettis (mouvement.html). */
   fusion?: number | null
@@ -43,10 +45,10 @@ function Confettis() {
 
 /**
  * Rail de la table de fusion (maquette I-09) : deux cases, reliées
- * par « + », car l'ordre compte. On y glisse une brique ; toucher une case la
- * vide ; glisser une brique posée sur une autre case les échange.
+ * par « + », car l'ordre compte. On y glisse une brique ; toucher une case vide ouvre
+ * la réserve, toucher une case pleine la vide ; glisser une brique posée sur une autre case les échange.
  */
-export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, secousse, fusion }: Props) {
+export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, onCaseVide, secousse, fusion }: Props) {
   const [survol, setSurvol] = useState<number | null>(null)
 
   const deposer = (e: React.DragEvent, rang: number) => {
@@ -83,7 +85,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
               type="button"
               className={classes}
               data-slot={rang}
-              aria-label={brique ? `Emplacement ${rang + 1} : ${brique.libelle}. Retirer` : `Emplacement ${rang + 1} vide`}
+              aria-label={brique ? `Emplacement ${rang + 1} : ${brique.libelle}. Retirer` : `Emplacement ${rang + 1} vide. Choisir une brique`}
               draggable={brique !== undefined}
               onDragStart={(e) => {
                 e.dataTransfer.setData(TYPE_DEPLACE, String(rang))
@@ -95,7 +97,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
               }}
               onDragLeave={() => setSurvol(null)}
               onDrop={(e) => deposer(e, rang)}
-              onClick={() => brique && !enAttente && onRetirer(rang)}
+              onClick={() => !enAttente && (brique ? onRetirer(rang) : onCaseVide(rang))}
               onKeyDown={(e) => {
                 if ((e.key === 'Delete' || e.key === 'Backspace') && brique && !enAttente) onRetirer(rang)
                 if (e.key === 'ArrowLeft' && brique && rang > 0) onDeplacer(rang, rang - 1)
