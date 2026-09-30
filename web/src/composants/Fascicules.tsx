@@ -53,7 +53,7 @@ export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, 
             type="button"
             className="cb-fasc-btn"
             aria-pressed={choisi}
-            aria-label={`${libelleFascicule(f)} : ${c.trouvees} cartes découvertes sur ${c.total}${recompenses > 0 ? `, ${recompenses} récompense${recompenses > 1 ? 's' : ''} à récupérer` : ''}. ${choisi ? 'Afficher tous les fascicules' : 'Afficher ce fascicule seulement'}`}
+            aria-label={`${libelleFascicule(f)}\u00a0: ${c.trouvees} cartes découvertes sur ${c.total}${recompenses > 0 ? `, ${recompenses} récompense${recompenses > 1 ? 's' : ''} à récupérer` : ''}. ${choisi ? 'Afficher tous les fascicules' : 'Afficher ce fascicule seulement'}`}
             onClick={() => onChoisir(choisi ? 'tous' : f.numero)}
           >
             <Jaquette chemin={f.manifeste.jaquette} urlMedia={urlMedia} />

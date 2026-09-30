@@ -60,7 +60,7 @@ function CarteJalon({ quete, jeu, inactif, recuperer }: CarteProps) {
     setEnCours(true)
     const reponse = await recuperer(jalon.id)
     setEnCours(false)
-    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Récompense ajoutée : ${texteRecompense(quete, jeu)}.`, ton: 'win' })
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Récompense ajoutée\u00a0: ${texteRecompense(quete, jeu)}.`, ton: 'win' })
   }
   return (
     <li className="quete" data-etat={etat}>
@@ -73,7 +73,7 @@ function CarteJalon({ quete, jeu, inactif, recuperer }: CarteProps) {
       <span
         className="fam-bar is-jalon"
         role="progressbar"
-        aria-label={`Mots du fascicule découverts pour ce jalon`}
+        aria-label="Mots du fascicule découverts pour ce jalon"
         aria-valuemin={0}
         aria-valuemax={jalon.decouvertes}
         aria-valuenow={avancee}
@@ -149,7 +149,7 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
             <Icone nom="quete" />
           </span>
           <p className="cb-empty-k">Bientôt disponibles</p>
-          <p>Les quêtes journalières arrivent bientôt : chaque jour, de petits défis à relever avec les briques de votre réserve.</p>
+          <p>Les quêtes journalières arrivent bientôt&nbsp;: chaque jour, de petits défis à relever avec les briques de votre réserve.</p>
           {aRecuperer.length > 0 && (
             <button type="button" className="btn btn-primary" onClick={() => onChangerVue({ quete: 'fascicules' }, { remplacer: true })}>
               {aRecuperer.length > 1 ? `Récupérer vos ${aRecuperer.length} récompenses de fascicule` : 'Récupérer votre récompense de fascicule'}
