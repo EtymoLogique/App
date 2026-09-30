@@ -334,8 +334,11 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       premier.current = false
       if (face === null) return
     }
-    if (face) (savoir ? onglets.current[face] : retour.current)?.focus()
-    else ouvreur.current?.focus()
+    const cible = () => (face ? (savoir ? onglets.current[face] : retour.current) : ouvreur.current)?.focus()
+    // La face d'arrivée reste visibility: hidden 0,11 s (voir codex.css) : un focus() immédiat échouerait.
+    if (mouvementReduit()) return cible()
+    const t = setTimeout(cible, 150)
+    return () => clearTimeout(t)
     // Seul un changement de face déplace le focus.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [face])

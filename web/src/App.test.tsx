@@ -276,7 +276,7 @@ describe('table de fusion', () => {
     expect(window.location.hash).toBe(`#/codex/${MOT}`)
     fireEvent.click(within(carte).getByRole('button', { name: 'Retourner' }))
     expect(within(carte).getByText('Recto')).toBeInTheDocument()
-    expect(plus).toHaveFocus()
+    await waitFor(() => expect(plus).toHaveFocus())
   })
 
   it('replie un groupe de cartes dans le tri par fascicule', async () => {
