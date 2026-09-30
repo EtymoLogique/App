@@ -172,7 +172,7 @@ button { font: inherit; }
   .navigation button.on { background: var(--ink); color: var(--paper); }
   .navigation button.on::before { display: none; }
   .navigation button.en-burger { display: grid; }
-  .navigation-burger, .navigation-panneau { display: none; }
+  .navigation .navigation-burger, .navigation .navigation-panneau { display: none; }
   .navigation button[data-onglet="reglages"] { margin-top: auto; }
   /* Pile centrée entre deux filets : icônes et nombres alignés en deux colonnes, sans marge perdue. */
   .navigation-ressources {
