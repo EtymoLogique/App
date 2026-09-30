@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import type { BriqueJeu } from '../services/jeu'
-import { NATURES } from '../services/jeu'
+import { NATURES, entrelacer } from '../services/jeu'
 import { correspond } from '../services/recherche'
 import { ContenuBrique } from './Brique'
 
@@ -22,6 +22,11 @@ interface Props {
   onIndisponible: (message: string) => void
   /** Briques qui viennent d'être consommées : un « −1 » s'envole au-dessus. */
   consommees?: string[]
+}
+
+/** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
+function encombrement(b: BriqueJeu): number {
+  return Math.max(b.libelle.length * 1.6, `${NATURES[b.nature]} · « ${b.glose ?? ''} »`.length)
 }
 
 function exemplaires(n: number): string {
@@ -66,10 +71,13 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
     return true
   }
-  const visibles = connues.filter((e) => {
-    const b = briques.get(e.brique_id) as BriqueJeu
-    return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
-  })
+  const visibles = entrelacer(
+    connues.filter((e) => {
+      const b = briques.get(e.brique_id) as BriqueJeu
+      return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
+    }),
+    (e) => encombrement(briques.get(e.brique_id) as BriqueJeu),
+  )
 
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
 

@@ -128,7 +128,7 @@ describe('table de fusion', () => {
     expect(fusionner()).toBeDisabled()
   })
 
-  it('confirme une découverte et ouvre sa fiche', async () => {
+  it('confirme une découverte et ouvre sa carte, la même qu’au codex', async () => {
     const reponse: ReponseFusion = {
       issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
       etat: etat({
@@ -143,14 +143,13 @@ describe('table de fusion', () => {
     await act(async () => fireEvent.click(fusionner()))
 
     expect(fusion).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, version_catalogue: 'v1', briques: [GEO, LOGIE] }))
-    const fiche = await screen.findByRole('dialog', { name: 'géologie' })
-    expect(within(fiche).getByText(/^Nouvelle découverte · N°/)).toBeInTheDocument()
-    expect(within(fiche).getByText('Science de la Terre.')).toBeInTheDocument()
-    expect(within(fiche).getByText(/étude de la terre/)).toBeInTheDocument()
-    expect(within(fiche).getByLabelText('préfixe géo- : −1, reste 1')).toBeInTheDocument()
-    expect(within(fiche).getByLabelText('suffixe -logie : −1, épuisée')).toBeInTheDocument()
+    const carte = await screen.findByRole('dialog', { name: 'géologie' })
+    expect(carte).toHaveClass('viewer')
+    expect(within(carte).getByText('Science de la Terre.')).toBeInTheDocument()
+    expect(within(carte).queryByRole('button', { name: 'Carte suivante' })).not.toBeInTheDocument()
+    expect(window.location.hash).not.toMatch(/codex/)
     expect(screen.getByLabelText('1 nouveauté')).toBeInTheDocument()
-    fireEvent.click(within(fiche).getByRole('button', { name: 'Continuer' }))
+    fireEvent.click(within(carte).getByRole('button', { name: 'Fermer la carte' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     // Dans le codex, la carte nouvelle s'ouvre ; la nouveauté s'efface une fois vue.
@@ -196,13 +195,15 @@ describe('table de fusion', () => {
     expect(document.querySelector('.slots.shake')).not.toBeNull()
   })
 
-  it('rappelle la fiche d’un mot déjà découvert', async () => {
-    const fusion = vi.fn<ClientApi['fusion']>().mockResolvedValue({ issue: { type: 'connue', recette_id: RECETTE, mot_id: MOT }, etat: etat() })
+  it('ouvre la carte d’un mot déjà découvert et vide la table', async () => {
+    const connu = etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] })
+    const fusion = vi.fn<ClientApi['fusion']>().mockResolvedValue({ issue: { type: 'connue', recette_id: RECETTE, mot_id: MOT }, etat: connu })
     render(<App api={client(fusion)} catalogue={lecteur} />)
     await poser('géo-', '-logie')
     await act(async () => fireEvent.click(fusionner()))
-    expect(await screen.findByText(/Rien n’est consommé/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Voir la carte' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'géologie' })).toHaveClass('viewer')
+    expect(screen.queryByRole('button', { name: 'Voir la carte' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Emplacement 1 : / })).not.toBeInTheDocument()
   })
 
   it('se resynchronise après un conflit', async () => {
@@ -306,24 +307,18 @@ describe('table de fusion', () => {
   })
 
   it('ouvre « En savoir plus » depuis la carte vue au codex, jusque dans l’adresse', async () => {
-    const reponse: ReponseFusion = {
-      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
-      etat: etat({
-        version_etat: 2,
-        reserve: [ex(GEO, 1), ex(LOGIE, 0)],
-        decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }],
-      }),
-    }
-    render(<App api={client(vi.fn<ClientApi['fusion']>().mockResolvedValue(reponse))} catalogue={lecteur} />)
-    await poser('géo-', '-logie')
-    await act(async () => fireEvent.click(fusionner()))
-    const fiche = await screen.findByRole('dialog', { name: 'géologie' })
-    fireEvent.click(within(fiche).getByRole('button', { name: 'Voir au codex' }))
+    const api = new ClientApi('https://api.exemple.test')
+    vi.spyOn(api, 'etat').mockResolvedValue(
+      etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
+    )
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^géologie, mot/ }))
 
     const carte = await screen.findByRole('dialog', { name: 'géologie' })
     expect(window.location.hash).toBe(`#/codex/${MOT}`)
     const plus = within(carte).getByRole('button', { name: 'En savoir plus' })
-    expect(within(carte).getByRole('button', { name: 'Voir les formes' }).className).toBe(plus.className)
+    expect(within(carte).queryByRole('button', { name: 'Voir les formes' })).not.toBeInTheDocument()
     fireEvent.click(plus)
     expect(window.location.hash).toBe(`#/codex/${MOT}?plus=1`)
     expect(within(carte).getByRole('tab', { name: 'En savoir plus' })).toHaveAttribute('aria-selected', 'true')

@@ -176,12 +176,11 @@ const DUREE_ZOOM_MS = 380
 
 /**
  * Zoom FLIP (transform seul) entre la carte agrandie et sa miniature dans la
- * grille : « vers » = ouverture (miniature → place ouverte), sinon fermeture.
+ * grille (ou la table de fusion) : « vers » = ouverture (miniature → place ouverte), sinon fermeture.
  * Renvoie l'animation, ou null s'il n'y a rien à animer (mouvement réduit,
- * miniature absente de la grille ou hors écran).
+ * miniature absente ou hors écran).
  */
-function zoomer(carte: HTMLElement, id: string, vers: 'ouverte' | 'miniature'): Animation | null {
-  const mini = document.querySelector<HTMLElement>(`.mini[data-carte="${CSS.escape(id)}"]`)
+function zoomer(carte: HTMLElement, mini: HTMLElement | null, vers: 'ouverte' | 'miniature'): Animation | null {
   if (!mini || mouvementReduit() || typeof carte.animate !== 'function') return null
   // Mesure la carte à sa place : sans animation en cours (StrictMode rejoue l'effet).
   carte.getAnimations().forEach((x) => x.cancel())
@@ -189,7 +188,8 @@ function zoomer(carte: HTMLElement, id: string, vers: 'ouverte' | 'miniature'): 
   const b = carte.getBoundingClientRect()
   if (a.width === 0 || b.width === 0 || a.bottom < 0 || a.top > window.innerHeight) return null
   // Origine 0 0 (.big-wrap) : la carte réduite est centrée sur la miniature.
-  const s = a.width / b.width
+  // Échelle qui tient dans la source : la table de fusion est plus large que haute.
+  const s = Math.min(a.width / b.width, a.height / b.height)
   const depart = `translate(${a.left + a.width / 2 - b.left - (s * b.width) / 2}px, ${a.top + a.height / 2 - b.top - (s * b.height) / 2}px) scale(${s})`
   // La miniature n'a pas le ratio de la carte : la carte se fond dans la miniature au bout du trajet.
   const ouverture = vers === 'ouverte'
@@ -205,7 +205,7 @@ function zoomer(carte: HTMLElement, id: string, vers: 'ouverte' | 'miniature'): 
 
 type Dos = 'formes' | 'savoir'
 
-/** Bouton de retournement de la carte agrandie : même composant pour « Voir les formes », « En savoir plus » et « Retourner ». */
+/** Bouton de retournement de la carte agrandie : même composant pour « En savoir plus » et « Retourner ». */
 function BoutonRetournement({ libelle, onClick, ref }: { libelle: string; onClick: (bouton: HTMLButtonElement) => void; ref?: React.Ref<HTMLButtonElement> }) {
   return (
     <button ref={ref} className="flip-btn" type="button" onClick={(e) => onClick(e.currentTarget)}>
@@ -230,14 +230,37 @@ interface VisionneuseProps {
   onFermer: () => void
   /** Ouverte par un clic sur sa miniature : elle en grossit. */
   zoom: boolean
+  /** Élément d'où la carte grossit et où elle revient ; par défaut, sa miniature dans la grille. */
+  origine?: string
   onZoome: () => void
   /** Section « En savoir plus » dépliée (I-16), tenue dans l'adresse. */
   plus: boolean
   onPlus: (plus: boolean) => void
 }
 
+/** Carte agrandie seule, hors du codex : celle qu'une fusion réussie vient de former sur la table, d'où elle grossit. */
+export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien }: {
+  entree: EntreeCodex
+  /** Toutes les cartes, pour suivre un lien. */
+  entrees: EntreeCodex[]
+  jeu: CatalogueJeu
+  lireMedia: LireMedia
+  onFermer: () => void
+  /** Un lien vers une autre carte mène au codex. */
+  onSuivreLien: (id: string) => void
+}) {
+  const [plus, setPlus] = useState(false)
+  const rien = () => undefined
+  return (
+    <LectureMedia.Provider value={lireMedia}>
+      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine=".slots" onZoome={rien} plus={plus} onPlus={setPlus} />
+    </LectureMedia.Provider>
+  )
+}
+
 /** Carte agrandie (I-15) : recto, puis verso retourné, précédente et suivante au clavier. */
-function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, onZoome, plus, onPlus }: VisionneuseProps) {
+function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, origine, onZoome, plus, onPlus }: VisionneuseProps) {
+  const source = () => document.querySelector<HTMLElement>(origine ?? `.mini[data-carte="${CSS.escape(entree.id)}"]`)
   // Face montrée : null = recto, sinon le contenu du verso. `plus` (adresse) ouvre le verso sur « En savoir plus ».
   const [dos, setDos] = useState<Dos | null>(plus && savoirPlus(entree, jeu) ? 'savoir' : null)
   const ouvreur = useRef<HTMLButtonElement | null>(null)
@@ -251,7 +274,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   useLayoutEffect(() => {
     if (!zoom) return
     onZoome()
-    if (enveloppe.current && zoomer(enveloppe.current, entree.id, 'ouverte')) {
+    if (enveloppe.current && zoomer(enveloppe.current, source(), 'ouverte')) {
       fond.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: DUREE_ZOOM_MS, easing: 'ease-out' })
     }
     // Une seule fois, au montage.
@@ -261,15 +284,17 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   /** Fermeture : la carte retourne vers sa miniature, puis se démonte. */
   const onFermer = () => {
     if (sortie.current) return
-    const anim = enveloppe.current && zoomer(enveloppe.current, entree.id, 'miniature')
+    const anim = enveloppe.current && zoomer(enveloppe.current, source(), 'miniature')
     if (!anim) return onFermerSec()
     sortie.current = true
     fond.current?.animate?.([{ opacity: 1 }, { opacity: 0 }], { duration: DUREE_ZOOM_MS * 0.7, easing: 'ease-out', fill: 'both' })
     anim.onfinish = onFermerSec
   }
   const index = entrees.findIndex((e) => e.id === entree.id)
+  // Carte sans voisine (ouverte depuis la table) : ni flèches, ni précédente et suivante au clavier.
+  const seule = entrees.length < 2
   const voisine = (pas: number) => {
-    if (entrees.length === 0) return
+    if (seule) return
     const i = index < 0 ? 0 : (index + pas + entrees.length) % entrees.length
     const e = entrees[i]
     if (e) onNaviguer(e.id)
@@ -343,6 +368,17 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [face])
   const essai = jeu.fascicules.find((f) => f.numero === entree.fascicule)?.manifeste.test === true
+
+  const progression = (
+    <div className="bb-progress">
+      <span className="bb-bar">
+        <i style={{ width: `${(trouvees / Math.max(1, entree.formes.length)) * 100}%` }} />
+      </span>
+      <span>
+        {trouvees} / {entree.formes.length} forme{entree.formes.length > 1 ? 's' : ''}
+      </span>
+    </div>
+  )
 
   const haut = (
     <div className="bf-top">
@@ -469,9 +505,11 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       <button ref={fermer} className="viewer-close" type="button" onClick={onFermer} aria-label="Fermer la carte">
         ×
       </button>
-      <button className="viewer-nav prev" type="button" onClick={() => voisine(-1)} aria-label="Carte précédente">
-        ←
-      </button>
+      {seule || (
+        <button className="viewer-nav prev" type="button" onClick={() => voisine(-1)} aria-label="Carte précédente">
+          ←
+        </button>
+      )}
       <nav className="viewer-trail" aria-label="Parcours entre les cartes" data-empty={fil.length === 0 ? '' : undefined}>
         {fil.length > 0 && (
           <>
@@ -539,6 +577,8 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                     </p>
                   )}
                   {entree.definition && <p className="bf-def">{entree.definition}</p>}
+                  {/* Carte langue : sa progression se lit au recto. */}
+                  {entree.type === 'langue' && entree.formes.length > 0 && progression}
                   {parties.length > 0 && (
                     <div className="r-eq">
                       {parties.map((p, i) => {
@@ -590,10 +630,8 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                   <b>{entree.trouvee ? '' : 'Inconnue'}</b>
                 )}
               </span>
-              <span className="bf-actions">
-                <BoutonRetournement libelle="Voir les formes" onClick={(b) => retourner('formes', b)} />
-                {savoir && <BoutonRetournement libelle="En savoir plus" onClick={(b) => retourner('savoir', b)} />}
-              </span>
+              {/* Un seul bouton : le verso s'ouvre sur « En savoir plus », les formes sont à un onglet. */}
+              <BoutonRetournement libelle="En savoir plus" onClick={(b) => retourner(savoir ? 'savoir' : 'formes', b)} />
             </div>
           </div>
 
@@ -631,14 +669,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                 <p className="bf-note">Découvrez cette carte pour révéler ses formes dans chaque langue.</p>
               ) : (
                 <>
-                  <div className="bb-progress">
-                    <span className="bb-bar">
-                      <i style={{ width: `${(trouvees / entree.formes.length) * 100}%` }} />
-                    </span>
-                    <span>
-                      {trouvees} / {entree.formes.length}
-                    </span>
-                  </div>
+                  {entree.type !== 'langue' && progression}
                   <ul className="bb-forms">
                     {entree.formes.map((f, i) => (
                       <li key={i} className={f.trouvee ? undefined : 'missing'}>
@@ -699,10 +730,12 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           </div>
         </div>
       </div>
-      <button className="viewer-nav next" type="button" onClick={() => voisine(1)} aria-label="Carte suivante">
-        →
-      </button>
-      <p className="viewer-hint">← → pour changer de carte · Échap pour fermer</p>
+      {seule || (
+        <button className="viewer-nav next" type="button" onClick={() => voisine(1)} aria-label="Carte suivante">
+          →
+        </button>
+      )}
+      <p className="viewer-hint">{seule ? 'Échap pour fermer' : '← → pour changer de carte · Échap pour fermer'}</p>
     </div>
   )
 }

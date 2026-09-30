@@ -50,6 +50,11 @@ function Confettis() {
  */
 export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, onCaseVide, secousse, fusion }: Props) {
   const [survol, setSurvol] = useState<number | null>(null)
+  // Secousse déjà jouée : sans cela, elle rejouerait à chaque retour sur la table (display: none relance l'animation).
+  const [secouee, setSecouee] = useState<number | null>(null)
+  const secoue = secousse && secousse.cle !== secouee && !fusion
+  // Briques déjà tombées, par case : leur chute ne rejoue pas quand la table réapparaît.
+  const [tombees, setTombees] = useState<(string | null)[]>([])
 
   const deposer = (e: React.DragEvent, rang: number) => {
     e.preventDefault()
@@ -66,14 +71,15 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
   return (
     <div
       key={`${secousse?.cle ?? 0}-${fusion ?? 0}`}
-      className={['slots', secousse && !fusion ? 'shake' : '', fusion ? 'fusing' : ''].filter(Boolean).join(' ')}
+      className={['slots', secoue ? 'shake' : '', fusion ? 'fusing' : ''].filter(Boolean).join(' ')}
+      onAnimationEnd={(e) => e.animationName === 'shake' && setSecouee(secousse?.cle ?? null)}
       role="group"
       aria-label="Briques posées, dans l’ordre"
     >
       {Array.from({ length: TABLE_MAX }, (_, rang) => {
         const id = table[rang]
         const brique = id ? briques.get(id) : undefined
-        const classes = ['slot', brique ? 'filled' : '', survol === rang ? 'over' : ''].filter(Boolean).join(' ')
+        const classes = ['slot', brique ? 'filled' : '', brique && tombees[rang] !== id ? 'arrive' : '', survol === rang ? 'over' : ''].filter(Boolean).join(' ')
         return (
           <Fragment key={rang}>
             {rang > 0 && (
@@ -96,6 +102,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
                 setSurvol(rang)
               }}
               onDragLeave={() => setSurvol(null)}
+              onAnimationEnd={(e) => e.animationName === 'land' && setTombees((t) => Object.assign([...t], { [rang]: id ?? null }))}
               onDrop={(e) => deposer(e, rang)}
               onClick={() => !enAttente && (brique ? onRetirer(rang) : onCaseVide(rang))}
               onKeyDown={(e) => {

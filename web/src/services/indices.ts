@@ -4,7 +4,7 @@
 
 import type { Etat } from '../contrat'
 import type { EntreeCodex } from './codex'
-import { type BriqueJeu, type CatalogueJeu, NATURES, type RecetteJeu } from './jeu'
+import { type BriqueJeu, type CatalogueJeu, NATURES, type RecetteJeu, realisable } from './jeu'
 
 export const TITRES_INDICES = ['Langue du résultat', 'Nature des briques', 'Une transformation ?', 'Une brique connue', 'La solution'] as const
 
@@ -18,6 +18,16 @@ export function ciblesIndice(jeu: CatalogueJeu, entrees: EntreeCodex[]): { entre
       const recette = jeu.recettes.find((r) => r.motId === entree.id)
       return recette ? [{ entree, recette }] : []
     })
+}
+
+/**
+ * Seul indice proposé : la silhouette déjà entamée (au moins un niveau acheté) de plus petit n°,
+ * sinon la plus petite que la réserve permet de former. Une silhouette entamée reste proposée
+ * même quand de nouvelles briques ouvrent un n° plus petit.
+ */
+export function indiceCourant(jeu: CatalogueJeu, entrees: EntreeCodex[], etat: Etat | null): { entree: EntreeCodex; recette: RecetteJeu } | null {
+  const cibles = ciblesIndice(jeu, entrees).sort((a, b) => a.entree.n - b.entree.n)
+  return cibles.find((c) => niveauObtenu(etat, c.recette.id) > 0) ?? cibles.find((c) => realisable(c.recette, etat?.reserve ?? [])) ?? null
 }
 
 /** Niveau déjà obtenu pour une recette, 0 si aucun. */

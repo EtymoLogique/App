@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import type { Etat, ReponseIndice } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
-import { TITRES_INDICES, ciblesIndice, contenuIndice, niveauObtenu } from '../services/indices'
+import { TITRES_INDICES, contenuIndice, indiceCourant, niveauObtenu } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
 import { useEnLigne } from '../services/reseau'
 import { Icone } from './Icone'
@@ -17,18 +17,17 @@ interface Props {
 }
 
 /**
- * Indices (I-12, ADR 0038) : une silhouette à trouver, puis ses cinq niveaux,
+ * Indices (I-12, ADR 0038) : une seule silhouette à trouver (indiceCourant), puis ses cinq niveaux,
  * du plus vague à la solution, achetés dans l'ordre contre de l'encre.
  */
 export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
   const enLigne = useEnLigne()
-  const cibles = ciblesIndice(jeu, entrees)
-  const [choisie, setChoisie] = useState(cibles[0]?.recette.id ?? null)
+  // Choisie à l'ouverture : acheter un niveau ne la remplace pas sous les yeux du joueur.
+  const [cible] = useState(() => indiceCourant(jeu, entrees, etat))
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const boite = useDialogue<HTMLElement>(onFermer)
+  const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
 
-  const cible = cibles.find((c) => c.recette.id === choisie) ?? cibles[0]
   const obtenu = cible ? niveauObtenu(etat, cible.recette.id) : 0
   const encre = etat?.encre ?? 0
   const prix = etat?.prix_indices ?? []
@@ -43,29 +42,28 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
   }
 
   return (
-    <div className="scrim" onClick={onFermer}>
+    <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
       <section ref={boite} className="dialogue feuille indices" role="dialog" aria-modal="true" aria-labelledby="indices-titre" onClick={(e) => e.stopPropagation()}>
         <div className="rangee rangee-ecartee">
           <h2 id="indices-titre" className="jk-title">
-            Indices
+            Indice
           </h2>
-          <span className="pk-inkbox" aria-label={`${encre} gouttes d’encre`}>
-            <span className="pk-drop" aria-hidden="true" />
-            <strong>{encre}</strong>
+          <span className="rangee">
+            <span className="pk-inkbox" aria-label={`${encre} gouttes d’encre`}>
+              <span className="pk-drop" aria-hidden="true" />
+              <strong>{encre}</strong>
+            </span>
+            <button data-focus-initial type="button" className="btn btn-secondary" onClick={fermer}>
+              Fermer
+            </button>
           </span>
         </div>
         {!cible ? (
-          <p className="pk-note">Aucune silhouette à trouver pour l’instant.</p>
+          <p className="pk-note">Aucun mot à former avec vos briques pour l’instant. Ouvrez un pli pour en obtenir d’autres.</p>
         ) : (
           <>
-            <div className="rangee" role="group" aria-label="Silhouette visée">
-              {cibles.map((c) => (
-                <button key={c.recette.id} type="button" className="cb-chip" aria-pressed={c.recette.id === cible.recette.id} onClick={() => setChoisie(c.recette.id)}>
-                  <span>N°&nbsp;{String(c.entree.n).padStart(3, '0')}</span>
-                </button>
-              ))}
-            </div>
+            <p className="panel-k">Silhouette N°&nbsp;{String(cible.entree.n).padStart(3, '0')}</p>
             {cible.entree.sens && <p className="pk-note">«&nbsp;{cible.entree.sens}&nbsp;»</p>}
             <ol className="indices-niveaux">
               {TITRES_INDICES.map((titre, i) => {
@@ -114,11 +112,6 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
             <p className="pk-note">Un niveau à la fois, du plus vague à la solution. Chacun ne se paie qu’une fois.</p>
           </>
         )}
-        <div className="rangee rangee-fin">
-          <button data-focus-initial type="button" className="btn btn-secondary" onClick={onFermer}>
-            Fermer
-          </button>
-        </div>
       </section>
     </div>
   )

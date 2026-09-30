@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Boutique } from './composants/Boutique'
-import { Codex } from './composants/Codex'
-import { Fiche } from './composants/Fiche'
+import { CarteSeule, Codex } from './composants/Codex'
 import { Indices } from './composants/Indices'
 import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
@@ -101,7 +100,8 @@ export function App({ api, catalogue }: Props) {
     partie.fermerFiche()
     setOnglet('plis')
   }
-  const fiche = partie.fiche
+  const ficheEntree = partie.fiche ? entrees.find((e) => e.id === partie.fiche?.motId) : undefined
+  const lireMedia = useCallback(async (chemin: string) => new TextDecoder().decode(await catalogue.fichierHache(chemin)), [catalogue])
   const [indices, setIndices] = useState(false)
   const fermerIndices = useCallback(() => setIndices(false), [])
   // Réserve en modale : `rang` est la case touchée, `null` pour la case vide la plus à gauche.
@@ -192,7 +192,7 @@ export function App({ api, catalogue }: Props) {
                           </button>
                           <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
                             <Icone nom="indice" />
-                            Indices
+                            Indice
                           </button>
                         </div>
                       </div>
@@ -225,18 +225,15 @@ export function App({ api, catalogue }: Props) {
                           </button>
                           <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
                             <Icone nom="indice" />
-                            Indices
+                            Indice
                           </button>
                         </div>
                         <Resultat
                           retour={partie.retour}
                           jeu={catalogueJeu}
-                          entrees={entrees}
                           posees={partie.table.length}
                           bloquee={bloquee}
                           onInverser={partie.inverser}
-                          onVoirCarte={(id) => allerAuCodex(id)}
-                          onVider={partie.vider}
                         />
                       </>
                     )}
@@ -256,7 +253,7 @@ export function App({ api, catalogue }: Props) {
                   vue={route}
                   onChangerVue={naviguer}
                   urlMedia={(chemin) => catalogue.url(chemin)}
-                  lireMedia={async (chemin) => new TextDecoder().decode(await catalogue.fichierHache(chemin))}
+                  lireMedia={lireMedia}
                   jalonsAtteints={etat?.jalons_atteints}
                 />
               </section>
@@ -282,17 +279,16 @@ export function App({ api, catalogue }: Props) {
                 <Boutique etat={etat} acheter={partie.acheterSabliers} />
               </section>
 
-              {fiche && (
-                <Fiche
-                  motId={fiche.motId}
-                  consommees={fiche.consommees}
-                  jalons={fiche.jalons}
-                  gouttes={fiche.gouttes}
-                  entree={entrees.find((e) => e.id === fiche.motId)}
+              {/* Fusion réussie, nouvelle ou déjà connue : la carte s'ouvre, la même qu'au codex. */}
+              {ficheEntree && (
+                <CarteSeule
+                  key={ficheEntree.id}
+                  entree={ficheEntree}
+                  entrees={entrees}
                   jeu={catalogueJeu}
-                  reserve={etat?.reserve ?? []}
+                  lireMedia={lireMedia}
                   onFermer={partie.fermerFiche}
-                  onCodex={() => allerAuCodex(fiche.motId)}
+                  onSuivreLien={allerAuCodex}
                 />
               )}
             </>

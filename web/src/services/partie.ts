@@ -9,13 +9,9 @@ import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCour
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
 
+/** Carte ouverte sur la table après une fusion réussie, nouvelle ou déjà connue. */
 export interface FicheOuverte {
   motId: string
-  consommees?: string[]
-  /** Jalons atteints par cette découverte, à annoncer (ADR 0038). */
-  jalons?: string[]
-  /** Gouttes d'encre gagnées par cette découverte (ADR 0040). */
-  gouttes?: number
 }
 
 function message(e: unknown): string {
@@ -170,12 +166,6 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     setRetour(null)
   }, [enLigne])
 
-  const vider = useCallback(() => {
-    setSecousse(null)
-    setTable(casesVides())
-    setRetour(null)
-  }, [])
-
   const fusionner = useCallback(async () => {
     if (!enLigne || jeu.etat !== 'pret' || !jeu.valeur || !etat) return
     // On ne fusionne que deux cases pleines.
@@ -201,7 +191,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         await new Promise((fin) => setTimeout(fin, mouvementReduit() ? 0 : DUREE_FUSION_MS))
         setFusion(null)
         confirmer(reponse.etat)
-        setRetour({ etat: 'confirme', issue })
+        setRetour({ etat: 'confirme', issue, jalons: reponse.jalons ?? [] })
         setTable(casesVides())
         // Une brique-mot ne se consomme jamais : pas de « −1 ».
         const usees = proposition.filter((id) => catalogue.briques.get(id)?.nature !== 'mot')
@@ -209,12 +199,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         // Le « −1 » ne s'envole qu'une fois (1,3 s) : il ne doit pas rejouer quand l'écran réapparaît.
         setTimeout(() => setConsommees((c) => (c === usees ? [] : c)), mouvementReduit() ? 0 : DUREE_MOINS_UN_MS)
         setNouvelles((n) => new Set(n).add(issue.mot_id))
-        setFiche({ motId: issue.mot_id, consommees: usees, jalons: reponse.jalons ?? [], gouttes: issue.gouttes ?? 0 })
+        setFiche({ motId: issue.mot_id })
       } else {
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })
-        // Refus doux : une secousse brève, aucune perte (mouvement.html). Un mot déjà connu n'est pas refusé.
-        if (issue.type !== 'connue') setSecousse((s) => ({ force: 'forte', cle: (s?.cle ?? 0) + 1 }))
+        // Refus doux : une secousse brève, aucune perte (mouvement.html). Un mot déjà connu n'est pas refusé : sa carte s'ouvre.
+        // La table se vide comme après une découverte : rien n'a été consommé.
+        if (issue.type === 'connue') {
+          setTable(casesVides())
+          setFiche({ motId: issue.mot_id })
+        } else setSecousse((s) => ({ force: 'forte', cle: (s?.cle ?? 0) + 1 }))
       }
     } catch (e) {
       if (e instanceof ErreurApi && e.statut === 409) {
@@ -359,7 +353,6 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     poser,
     deplacer,
     retirer,
-    vider,
     fusionner,
     signaler: useCallback((texte: string, ton?: 'hint' | 'fail') => setRetour({ etat: 'message', texte, ton }), []),
     /** Inverse l'ordre des briques posées : le geste proposé par un « presque ». */

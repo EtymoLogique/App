@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, jeu } from '../test/fixtures'
-import { prevoir, rareteMot } from './jeu'
+import { entrelacer, prevoir, rareteMot } from './jeu'
 
 describe('prévisualisation d’une fusion', () => {
   it('suit les mêmes règles que le serveur', () => {
@@ -35,5 +35,12 @@ describe('rareté d’un mot', () => {
     // La recette la plus accessible décide.
     catalogue.recettes.push({ id: 'rct_0000000s', motId: 'unt_0000000r', emplacements: [[GEO], [LOGIE]] })
     expect(rareteMot('unt_0000000r', catalogue)).toBe('commune')
+  })
+})
+
+describe('entrelacer', () => {
+  it('alterne la plus longue et la plus courte restantes', () => {
+    expect(entrelacer([3, 9, 1, 7, 5], (n) => n)).toEqual([9, 1, 7, 3, 5])
+    expect(entrelacer([], (n: number) => n)).toEqual([])
   })
 })

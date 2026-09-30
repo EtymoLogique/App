@@ -13,7 +13,8 @@
 .conf.p2 i:nth-child(3), .conf.p1 i:nth-child(n + 2) { background: transparent; }
 .rar { flex: none; width: 1.15em; height: 1.15em; fill: var(--c-pli); stroke: var(--fixed-ink); stroke-width: 1.4; stroke-linejoin: round; overflow: visible; vertical-align: -0.2em; }
 .m-brick { align-self: flex-start; font-size: clamp(14px, 11cqi, 19px); }
-.bf-brick { align-self: flex-start; padding: 14px 20px; cursor: default; box-shadow: 5px 5px 0 var(--pop-shadow); rotate: -2deg; }
+/* Brique penchée, ombre de 5 px : la langue en dessous garde de l'air. */
+.bf-brick { align-self: flex-start; margin-bottom: 10px; padding: 14px 20px; cursor: default; box-shadow: 5px 5px 0 var(--pop-shadow); rotate: -2deg; }
 .bf-brick .b-label { font-size: clamp(34px, 5vw, 48px); line-height: 1; }
 .bf-brick .b-meta { font-size: 11px; }
 /* ---------- Codex : vue globale ---------- */
@@ -205,8 +206,7 @@
 .bf-lit { align-self: flex-start; padding: 6px 12px; border-radius: 10px; background: var(--paper-2); font-family: var(--mono); font-size: 12px; line-height: 1.5; }
 .bf-note { color: var(--ink-3); font-size: 13px; line-height: 1.45; }
 .bf-q { color: var(--ink-3); font-family: var(--serif); font-size: 120px; font-style: italic; line-height: 0.9; }
-.bf-actions { display: grid; flex: 1 1 100%; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.bf-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; }
+.bf-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; padding: 12px 22px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; }
 .flip-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 44px; padding: 8px 14px; border: 1.5px solid #0f1f19; border-radius: 10px;
@@ -338,12 +338,13 @@
 .jk-mini.is-xs { width: 22px; border-width: 1.5px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px #fffbf3, inset 0 0 0 2px #0f1f19; }
 .jk-mini.is-xs .jk-art { inset: 2.5px; border-radius: 2px; }
 .jk-mini.is-empty { border-style: dashed; border-color: var(--line-strong); background: transparent; box-shadow: none; }
-/* Sceau ÉL au centre (même rendu que .pk-seal sur la grande carte, sans halo), à l'échelle de la miniature. Pseudo-élément : il ne dépend pas du chargement de l'image. */
+/* Sceau ÉL au centre (même rendu que .pk-seal sur la grande carte, halo compris), à l'échelle de la miniature. Pseudo-élément : il ne dépend pas du chargement de l'image. */
 .jk-mini { container-type: inline-size; }
 .jk-mini:not(.is-empty)::after {
   content: "ÉL"; position: absolute; top: 50%; left: 50%; translate: -50% -50%;
   display: grid; place-items: center; width: 40%; aspect-ratio: 1;
-  border: max(1px, 3cqw) solid var(--fixed-ink); border-radius: 50%; background: var(--c-pli); color: var(--fixed-ink);
+  border: 1px solid var(--fixed-ink); border-radius: 50%; background: var(--c-pli); color: var(--fixed-ink);
+  box-shadow: 0 0 0 max(1px, 4cqw) rgba(244, 183, 64, 0.18), 0 0 max(4px, 17cqw) rgba(244, 183, 64, 0.5); /* identite: ok — halo Ambre de .pk-seal, à l'échelle de la miniature */
   font-family: var(--serif); font-size: max(5px, 13cqw); font-weight: 700; line-height: 1;
   pointer-events: none;
 }
@@ -452,12 +453,14 @@
 @media (prefers-reduced-motion: reduce) { .fam-btn { transition: none; } }
 
 /* ---------- Carte agrandie : « En savoir plus » (I-16), au dos de la carte ---------- */
-.bb-tabs { display: flex; gap: 6px; }
+.bb-tabs { display: flex; flex: none; gap: 2px; padding: 3px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
 .bb-tabs [role="tab"] {
-  min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: transparent; color: var(--ink);
+  flex: 1 1 auto; min-height: 30px; padding: 0 10px; border: 0; white-space: nowrap; border-radius: 8px; background: transparent; color: var(--ink-2);
   cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  transition: background-color 0.25s, color 0.25s;
 }
-.bb-tabs [role="tab"][aria-selected="true"] { border-color: #0f1f19; background: var(--paper-2); box-shadow: 2px 2px 0 #0f1f19; }
+.bb-tabs [role="tab"][aria-selected="false"]:hover { color: var(--ink); }
+.bb-tabs [role="tab"][aria-selected="true"] { background: var(--ink); color: var(--paper); }
 .bb-panel[hidden] { display: none; }
 .bb-savoir { display: flex; flex-direction: column; gap: 10px; }
 .more-k { margin: 6px 0 0; color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }

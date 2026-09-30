@@ -23,7 +23,7 @@ interface Props {
 
 /** Réserve en modale (App#9) : on y choisit une brique, elle se pose et la modale se ferme. */
 export function ReserveModale({ reserve, briques, table, consommees, exemplaires, rang, tableComplete, onPoser, onAjouter, onFermer }: Props) {
-  const boite = useDialogue<HTMLElement>(onFermer)
+  const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
   // Le message reste dans la modale : un message de la table s'afficherait derrière le voile.
   const [message, setMessage] = useState<string | null>(null)
 
@@ -34,18 +34,18 @@ export function ReserveModale({ reserve, briques, table, consommees, exemplaires
     }
     if (rang === null) onAjouter(brique)
     else onPoser(brique, rang)
-    onFermer()
+    fermer()
   }
 
   return (
-    <div className="scrim" onClick={onFermer}>
+    <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
       <section ref={boite} className="dialogue feuille reserve-modale" role="dialog" aria-modal="true" aria-labelledby="reserve-titre" onClick={(e) => e.stopPropagation()}>
         <div className="rangee rangee-ecartee">
           <h2 id="reserve-titre" className="jk-title">
             Réserve · {exemplaires} exemplaire{exemplaires > 1 ? 's' : ''}
           </h2>
-          <button type="button" className="btn btn-secondary" onClick={onFermer}>
+          <button type="button" className="btn btn-secondary" onClick={fermer}>
             Fermer
           </button>
         </div>

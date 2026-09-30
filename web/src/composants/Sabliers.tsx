@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Etat, ReponseAchatSablier, ReponseSablier } from '../contrat'
 import { useMaintenant } from '../services/horloge'
@@ -6,6 +6,7 @@ import { useEnLigne } from '../services/reseau'
 import { avantPlein, dureeLisible, dureeSablier, energieA, nombrePourRemplir, sabliersAchetables } from '../services/plis'
 import { Compteur } from './Compteur'
 import { Icone } from './Icone'
+import { fermerVersLeBas } from './useDialogue'
 
 const sabliers = (n: number) => `${n} sablier${n > 1 ? 's' : ''}`
 const gouttes = (n: number) => `${n} goutte${n > 1 ? 's' : ''}`
@@ -104,25 +105,27 @@ function Feuille<T>({
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const premier = useRef<HTMLButtonElement>(null)
+  const boite = useRef<HTMLElement>(null)
+  const fermer = useCallback(() => fermerVersLeBas(boite.current, onFermer), [onFermer])
   useEffect(() => {
     premier.current?.focus({ preventScroll: true })
-    const touche = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
+    const touche = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
     window.addEventListener('keydown', touche)
     return () => window.removeEventListener('keydown', touche)
-  }, [onFermer])
+  }, [fermer])
 
   const confirmer = async () => {
     setEnvoi(true)
     const reponse = await envoyer(nombre)
     setEnvoi(false)
     if (typeof reponse === 'object' && reponse !== null && 'erreur' in reponse) setErreur(reponse.erreur)
-    else onFermer()
+    else fermer()
   }
 
   return (
-    <div className="scrim" onClick={onFermer}>
+    <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section className="dialogue feuille" role="dialog" aria-modal="true" aria-labelledby="sabliers-titre" onClick={(e) => e.stopPropagation()}>
+      <section ref={boite} className="dialogue feuille" role="dialog" aria-modal="true" aria-labelledby="sabliers-titre" onClick={(e) => e.stopPropagation()}>
         <h2 id="sabliers-titre" className="jk-title">
           {titre}
         </h2>
@@ -145,7 +148,7 @@ function Feuille<T>({
           </p>
         )}
         <div className="rangee rangee-ecartee">
-          <button type="button" className="btn btn-secondary" onClick={onFermer}>
+          <button type="button" className="btn btn-secondary" onClick={fermer}>
             Annuler
           </button>
           <button type="button" className="btn btn-primary" disabled={envoi} onClick={() => void confirmer()}>

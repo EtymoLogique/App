@@ -1,9 +1,7 @@
 import type { IssueFusion } from '../contrat'
-import type { EntreeCodex } from '../services/codex'
 import type { CatalogueJeu, Prevision } from '../services/jeu'
 import { texteDuMot } from '../services/jeu'
 import { PetiteBrique } from './Brique'
-import { MotSegmente } from './MotSegmente'
 
 const RAISONS: Record<string, string> = {
   archaique: 'le mot est archaïque',
@@ -14,7 +12,7 @@ const RAISONS: Record<string, string> = {
 
 export type Retour =
   | { etat: 'prevision'; prevision: Prevision }
-  | { etat: 'confirme'; issue: IssueFusion }
+  | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte (ADR 0038). */ jalons?: string[] }
   | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' }
 
 type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
@@ -24,14 +22,11 @@ const NOMBRES = ['', 'Une', 'Deux', 'Trois']
 interface Props {
   retour: Retour | null
   jeu: CatalogueJeu
-  entrees: EntreeCodex[]
   /** Briques posées : le message d'attente en dépend. */
   posees: number
   /** Raison pour laquelle la fusion est impossible maintenant, sinon `null`. */
   bloquee: string | null
   onInverser: () => void
-  onVoirCarte: (motId: string) => void
-  onVider: () => void
 }
 
 function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
@@ -45,9 +40,10 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
 /**
  * Retours d'une tentative (maquette I-10) : en ligne, à l'endroit de l'action,
  * aucun ne consomme d'exemplaire. Échec neutre, jamais de secousse punitive ;
- * « presque » propose un geste ; « déjà découvert » rappelle la fiche.
+ * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
+ * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, onVoirCarte, onVider }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser }: Props) {
   let contenu: React.ReactNode
   if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
@@ -57,9 +53,18 @@ export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, on
   } else if (retour?.etat === 'confirme') {
     const issue = retour.issue
     switch (issue.type) {
-      case 'decouverte':
-        contenu = <Ligne ton="win">Nouvelle découverte : {texteDuMot(jeu.cartes.get(issue.mot_id))}&nbsp;!</Ligne>
+      case 'decouverte': {
+        const gouttes = issue.gouttes ?? 0
+        const jalon = (retour.jalons ?? []).length > 0
+        contenu = (
+          <Ligne ton="win">
+            Nouvelle découverte : {texteDuMot(jeu.cartes.get(issue.mot_id))}&nbsp;!
+            {gouttes > 0 && ` +${gouttes}\u00a0goutte${gouttes > 1 ? 's' : ''} d’encre.`}
+            {jalon && ' Jalon atteint : pli de jalon reçu.'}
+          </Ligne>
+        )
         break
+      }
       case 'presque':
         contenu = (
           <div className="retour">
@@ -81,42 +86,13 @@ export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, on
           </div>
         )
         break
-      case 'connue': {
-        const entree = entrees.find((e) => e.id === issue.mot_id)
-        const carte = jeu.cartes.get(issue.mot_id)
-        const composition = carte?.compositions?.find((c) => c.preferee) ?? carte?.compositions?.[0]
-        const morceaux = [...(composition?.parties ?? [])]
-          .sort((a, b) => a.rang - b.rang)
-          .flatMap((p) => {
-            const nature = jeu.cartes.get(p.unite_id)?.nature
-            return p.segment_debut != null && p.segment_fin != null && nature ? [{ debut: p.segment_debut, fin: p.segment_fin, nature }] : []
-          })
+      case 'connue':
         contenu = (
-          <>
-            <Ligne ton="known">
-              <b>Déjà découvert.</b> Rien n’est consommé.
-            </Ligne>
-            <div className="retour">
-              <div className="rangee rangee-ecartee">
-                <span className="retour-mot">
-                  <MotSegmente mot={texteDuMot(carte)} morceaux={morceaux} />
-                </span>
-                {entree && <span className="mono">N°&nbsp;{String(entree.n).padStart(3, '0')}</span>}
-              </div>
-              {entree?.definition && <p className="panel-tip">{entree.definition}</p>}
-              <div className="rangee">
-                <button type="button" className="btn btn-secondary btn-s" onClick={() => onVoirCarte(issue.mot_id)}>
-                  Voir la carte
-                </button>
-                <button type="button" className="btn-texte" onClick={onVider}>
-                  Vider la table
-                </button>
-              </div>
-            </div>
-          </>
+          <Ligne ton="known">
+            <b>Déjà découvert.</b> Rien n’est consommé.
+          </Ligne>
         )
         break
-      }
       case 'exclue':
         contenu = (
           <Ligne ton="fail">

@@ -97,7 +97,7 @@
 .pk-seal {
   position: absolute; top: 50%; left: 50%; translate: -50% -50%;
   display: grid; place-items: center;
-  width: 78px; height: 78px; border: 2px solid #0f1f19; border-radius: 50%;
+  width: 78px; height: 78px; border: 1.5px solid #0f1f19; border-radius: 50%;
   background: var(--c-pli); color: #0f1f19;
   box-shadow: 0 0 0 8px rgba(244, 183, 64, 0.18), 0 0 34px rgba(244, 183, 64, 0.5); /* identite: ok — halo Ambre du rituel, repris de plis.html */
   font-family: var(--serif); font-size: 28px; font-weight: 700;
@@ -368,6 +368,14 @@ button.pk-fasc:hover { transform: translate(-2px, -3px); box-shadow: 5px 5px 0 v
   .pk-layout .pk-side { display: contents; }
   .pk-layout .pk-centre { order: -1; }
   .pk-layout .pk-energie { order: -2; }
+  /* Plis en chargement : les plis gardent leur taille, à gauche ; les textes passent à droite, la carte est moins haute. */
+  .pk-energie { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "label label" "plis texte" "plis note" "btn btn"; align-items: start; column-gap: 16px; }
+  .pk-energie > .pk-label { grid-area: label; }
+  .pk-energie .pk-attente { display: contents; }
+  .pk-energie .pk-waiting { grid-area: plis; }
+  .pk-energie .pk-attente small { grid-area: texte; }
+  .pk-energie > .pk-note { grid-area: note; margin-top: 6px; font-size: 12px; line-height: 1.4; }
+  .pk-energie > .pk-sandbtn { grid-area: btn; }
 }
 
 /* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */

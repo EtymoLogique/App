@@ -133,12 +133,14 @@ button { font: inherit; }
 /* Burger mobile : les entrées d'indice ≥ 3 vivent dans le panneau, jamais dans la barre. */
 .navigation button.en-burger { display: none; }
 .navigation-panneau {
-  position: absolute; right: 6px; bottom: 100%; min-width: 200px; margin-bottom: 8px; padding: 6px;
-  border: 1.5px solid var(--line); border-radius: 12px; background: var(--cream); box-shadow: 3px 3px 0 var(--ink);
+  position: absolute; right: 12px; bottom: 100%; min-width: 200px; margin-bottom: 10px; padding: 6px;
+  border: 1.5px solid var(--ink); border-radius: 10px; background: var(--cream); box-shadow: 4px 4px 0 var(--pop-shadow);
 }
 .navigation-panneau[hidden] { display: none; }
-.navigation-panneau button { grid-auto-flow: column; justify-content: start; gap: 10px; width: 100%; padding: 0 12px; font-size: 14px; }
-.navigation-panneau button[aria-current="page"] { color: var(--ink); }
+.navigation-burger[aria-expanded="true"] { color: var(--ink); }
+.navigation-panneau button { grid-auto-flow: column; align-items: center; justify-content: start; gap: 12px; width: 100%; padding: 0 12px; border-radius: 8px; color: var(--ink); font-size: 14px; }
+.navigation-panneau button:hover { background: var(--paper-2); }
+.navigation-panneau button .count { position: static; }
 .navigation-panneau button[aria-current="page"]::before { position: static; width: auto; height: auto; content: "✓"; order: 2; margin-left: auto; }
 @media (prefers-reduced-motion: no-preference) {
   .navigation-panneau { animation: panneau-burger 120ms ease-out; }
@@ -318,6 +320,11 @@ button { font: inherit; }
 .panel-head h2 { font: inherit; letter-spacing: inherit; }
 .count { padding: 3px 9px; border-radius: 999px; background: var(--ink); color: var(--paper); }
 .tray { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 14px; padding: 8px 8px 0 0; list-style: none; }
+/* Plateau justifié (Reserve.tsx entrelace grandes et petites briques) : chaque ligne remplit la largeur.
+   Le dernier élément, invisible, absorbe la place libre de la dernière ligne pour qu'elle ne s'étire pas. */
+.tray li { display: flex; flex: 1 1 auto; }
+.tray li > .brick { flex: 1; }
+.tray::after { flex: 999 1 0; content: ""; }
 .panel-tip { margin-top: 16px; color: var(--ink-3); font-size: 12px; }
 
 /* ---------- Brique (design système 3.1) ---------- */
@@ -414,8 +421,13 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
   width: 9px; height: 13px; border: 1px solid var(--fixed-ink); border-radius: 2px;
   background: var(--c); pointer-events: none;
 }
-.actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.actions .btn-primary { flex: 1; }
+/* Fusionner prend la place ; Réserve et Indices se partagent la ligne suivante sur petit écran. */
+.actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
+@media (max-width: 760px) {
+  .actions { grid-template-columns: 1fr 1fr; }
+  .actions .btn { padding-inline: 12px; white-space: nowrap; }
+  .actions .btn-primary { grid-column: 1 / -1; }
+}
 /* Indices : Ambre, la couleur de l'encre qui les paie ; le Corail reste à Fusionner. */
 .btn-indice { background: var(--c-pli); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
 .btn-indice:hover { background: var(--c-pli-tint); box-shadow: 6px 6px 0 var(--pop-shadow); }
@@ -445,23 +457,11 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .table-panel.showing .slots,
 .table-panel.showing .actions,
 .table-panel.showing .feedback { display: none; }
-.r-kicker { color: var(--c-action-deep); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-:root[data-theme="nocturne"] .r-kicker { color: var(--c-action); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .r-kicker { color: var(--c-action); } }
-.r-word { font-family: var(--serif); font-size: clamp(36px, 4.4vw, 56px); font-weight: 600; letter-spacing: -0.04em; line-height: 1; }
 /* Mot surligné par morceaux, aux couleurs des briques, séparés d'un filet de 3 px. */
 .seg { padding: 0 0.02em; background: linear-gradient(var(--c), var(--c)) no-repeat 0 88% / calc(100% - 3px) 32%; }
-.r-def { max-width: 36ch; font-family: var(--serif); font-size: clamp(17px, 1.5vw, 20px); line-height: 1.4; }
 .r-eq { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; margin: 4px 0; }
 .r-op { font-family: var(--serif); font-size: 28px; line-height: 1; }
-.r-lit { display: inline-flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px; font-family: var(--serif); font-size: 18px; font-style: italic; }
-.r-lit span { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-style: normal; letter-spacing: 0.1em; text-transform: uppercase; }
-.r-note { max-width: 44ch; color: var(--ink-3); font-size: 13px; }
 .r-tr { max-width: 42ch; padding: 6px 12px; border-radius: 999px; background: var(--paper-2); font-size: 12px; }
-.r-cost { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; margin-top: 12px; color: var(--ink-2); font-size: 13px; list-style: none; padding: 0; }
-.r-cost-titre { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
-.r-cost li { display: inline-flex; align-items: center; gap: 6px; }
-.r-cost small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; }
 .result .btn { margin-top: 8px; min-height: 40px; }
 .r-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 
@@ -508,7 +508,8 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .btn:hover { transform: translate(-2px, -2px); }
   :root:not([data-mouvement="reduit"]) .btn:active { transform: translate(2px, 2px); }
   :root:not([data-mouvement="reduit"]) .brick { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out), opacity 0.2s; }
-  :root:not([data-mouvement="reduit"]) .slot.filled .brick { animation: land 0.45s var(--ease-spring); }
+  /* Chute à la pose seulement (Table.tsx, .arrive) : pas au retour sur la table. */
+  :root:not([data-mouvement="reduit"]) .slot.filled.arrive .brick { animation: land 0.45s var(--ease-spring); }
   :root:not([data-mouvement="reduit"]) .slot { transition: transform 0.55s var(--ease-out), background-color 0.2s, border-color 0.2s; }
   :root:not([data-mouvement="reduit"]) .xref { transition: transform 0.2s, box-shadow 0.2s; }
   :root:not([data-mouvement="reduit"]) .result { animation: pop 0.7s var(--ease-spring); }
@@ -522,18 +523,28 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="0"] { transform: translateX(72px) scale(0.6) rotate(-10deg); opacity: 0; }
   :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="1"] { transform: translateX(-72px) scale(0.6) rotate(10deg); opacity: 0; }
   :root:not([data-mouvement="reduit"]) .fusing .op { opacity: 0; transform: scale(2.4) rotate(90deg); }
+  /* Mobile : cases empilées, elles se rejoignent à la verticale. */
+  @media (max-width: 760px) {
+    :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="0"] { transform: translateY(48px) scale(0.6) rotate(-10deg); }
+    :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="1"] { transform: translateY(-48px) scale(0.6) rotate(10deg); }
+  }
   :root:not([data-mouvement="reduit"]) .fusing .burst::before { animation: ring 0.8s var(--ease-out) 0.25s; }
   :root:not([data-mouvement="reduit"]) .fusing .burst::after { animation: ring 0.8s var(--ease-out) 0.38s; }
   :root:not([data-mouvement="reduit"]) .confetti { display: block; animation: fly 1s var(--ease-out) 0.32s both; }
   :root:not([data-mouvement="reduit"]) .b-minus { animation: minusUp 1.3s var(--ease-out) forwards; }
-  /* Révélation en trois temps (I-11) : le mot, sa composition, puis les pistes. */
   :root:not([data-mouvement="reduit"]) .dialogue { animation: pop 0.48s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .fiche-temps-2 { animation: eqIn 0.6s var(--ease-spring) 0.35s both; }
-  :root:not([data-mouvement="reduit"]) .fiche-temps-3 { animation: eqFade 0.5s ease-out 0.75s both; }
-  /* Rareté du mot (ADR 0040) : le geste de la révélation d'un pli rare, sans son halo Ambre. */
-  :root:not([data-mouvement="reduit"]) .fiche:is([data-rarity="rare"], [data-rarity="legendaire"]) .fiche-rarete .rar { animation: rarMot 1.6s var(--ease-out) 0.3s both; }
+  /* Réserve : elle monte sans pivoter. */
+  :root:not([data-mouvement="reduit"]) .dialogue.reserve-modale { animation: bump 0.25s var(--ease-out); }
+  /* Indice : elle s'affiche sans animation. */
+  :root:not([data-mouvement="reduit"]) .dialogue.indices { animation: none; }
+  /* Mobile : toute modale monte depuis le bas, le voile se lève ; elle redescend à la fermeture (useDialogue.ts). */
+  @media (max-width: 760px) {
+    :root:not([data-mouvement="reduit"]) .scrim:not(.mise-a-jour) .dialogue { animation: monte 0.32s var(--ease-out); }
+    :root:not([data-mouvement="reduit"]) .scrim:not(.mise-a-jour) .scrim-fond { animation: voile 0.32s ease-out; }
+  }
 }
-@keyframes rarMot { 0% { transform: scale(0) rotate(-40deg); } 55% { transform: scale(1.35) rotate(8deg); } 100% { transform: none; } }
+@keyframes monte { from { transform: translateY(100%); } }
+@keyframes voile { from { opacity: 0; } }
 @keyframes land { from { transform: translateY(-18px) scale(0.9); } }
 @keyframes pop { from { opacity: 0; transform: scale(0.75) rotate(-3deg); } }
 @keyframes bump { from { transform: translateY(6px); opacity: 0.3; } }
@@ -557,14 +568,17 @@ button.disc { font: inherit; cursor: pointer; }
 @media (max-width: 760px) {
   .disc-grid { grid-template-columns: repeat(2, 1fr); }
 }
-/* Petits écrans (etymo.css, max-width 520 px) : deux emplacements tiennent sur une ligne. */
+/* Mobile : les deux cases toujours l'une au-dessus de l'autre, le « + » serré entre elles,
+   pour que la table ne change pas de forme selon la longueur des briques. */
+@media (max-width: 760px) {
+  .slots { flex-direction: column; gap: 0; min-height: 0; padding: 8px 0; }
+  .slot, .slot:not(.filled) { flex: none; width: auto; height: 72px; min-width: 160px; }
+  .op { font-size: 24px; line-height: 1.1; }
+}
+/* Petits écrans (etymo.css, max-width 520 px). */
 @media (max-width: 520px) {
-  .slots { flex-wrap: nowrap; gap: 6px; padding: 16px 8px; }
-  .slot { height: 88px; }
-  .slot:not(.filled) { flex: 0 1 110px; min-width: 40px; }
   .brick { min-width: 94px; padding: 9px 11px; }
   .b-label { font-size: 18px; }
-  .op { font-size: 30px; }
   .result { padding: 16px 14px; gap: 8px; }
   .r-eq { flex-wrap: nowrap; gap: 6px; }
 }
@@ -608,39 +622,22 @@ button.disc { font: inherit; cursor: pointer; }
 .retours .feedback { min-height: 32px; }
 .feedback b { color: var(--ink); }
 .retour { display: grid; gap: 8px; padding: 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); text-align: left; }
-.retour-mot { font-family: var(--serif); font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
 
 
 /* Fiche de découverte (I-11) : dialogue au-dessus de la table, plein écran sur mobile. */
+/* Modale ouverte : la page derrière ne défile plus. */
+:root:has(.scrim) { overflow: hidden; }
 .scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
 .scrim-fond { position: absolute; inset: 0; background: rgba(15, 31, 25, 0.5); }
 .scrim .dialogue { position: relative; }
 /* Nouvelle version déployée : plein écran opaque, au-dessus de tout, jeu inaccessible. */
 .scrim.mise-a-jour { z-index: 100; background: var(--paper); }
 /* Pendant le vol vers le codex, la navigation passe devant le voile pour recevoir la carte. */
-.scrim.en-vol { pointer-events: none; }
-.coque:has(.scrim.en-vol) .navigation { z-index: 70; }
 .dialogue {
   display: grid; gap: 14px; width: min(540px, 100%); max-height: calc(100vh - 40px); overflow-y: auto;
   padding: 24px; border: 1.5px solid var(--fixed-ink); border-radius: 20px; background: var(--cream);
   box-shadow: 8px 8px 0 var(--pop-shadow);
 }
-.fiche { text-align: left; }
-.fiche-temps { display: grid; gap: 8px; }
-.fiche-etape { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
-.fiche .r-word { font-size: clamp(34px, 4vw, 44px); }
-.fiche .r-eq, .fiche .r-lit, .fiche .r-cost { justify-content: flex-start; }
-.fiche .r-cost { margin-top: 0; }
-/* Forme de rareté d'un mot (ADR 0040) : jamais d'Ambre, réservé aux briques et aux plis. Une teinte du fond :
-   plus foncée sur le fond clair, plus claire sur le fond foncé (l'Encre s'inverse avec le thème). */
-.fiche-rarete { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.fiche-rarete .rar { width: 22px; height: 22px; fill: color-mix(in srgb, var(--cream), var(--ink) 38%); stroke: none; }
-.fiche-encre { margin-left: 4px; color: var(--c-pli-deep); text-transform: none; letter-spacing: 0; }
-.fiche:is([data-rarity="rare"], [data-rarity="legendaire"]) .r-kicker { font-size: 14px; }
-.fiche-langue { display: inline-flex; align-items: center; gap: 6px; color: var(--c-lang-deep); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.fiche-langue i { width: 9px; height: 9px; border: 1px solid var(--fixed-ink); border-radius: 50%; background: var(--c-lang); }
-.recompense { padding: 5px 12px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--paper); font-size: 13px; }
-.moins { display: inline-grid; place-items: center; padding: 0 6px; border: 1.5px solid var(--fixed-ink); border-radius: 999px; background: var(--cream); color: var(--fixed-ink); font-family: var(--mono); font-size: 11px; font-weight: 700; }
 
 /* Mobile et ordinateur : les actions changent de place, pas de nature. */
 .seulement-mobile { display: none; }
@@ -665,8 +662,8 @@ button.disc { font: inherit; cursor: pointer; }
 /* Réserve en modale (App#9) : plus large que les autres feuilles, plateau défilant. */
 .dialogue.reserve-modale { width: min(720px, 100%); }
 /* Cibles tactiles de 44 px ; titre et « Fermer » restent sur une ligne. */
-.reserve-modale .rangee-ecartee { flex-wrap: nowrap; }
-.reserve-modale .rangee-ecartee .btn { flex: none; padding: 8px 16px; }
+:is(.reserve-modale, .indices) > .rangee-ecartee { flex-wrap: nowrap; }
+:is(.reserve-modale, .indices) > .rangee-ecartee .btn { flex: none; min-height: 44px; padding: 8px 16px; }
 .reserve-modale .btn, .reserve-modale .cb-chip { min-height: 44px; }
 
 /* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */

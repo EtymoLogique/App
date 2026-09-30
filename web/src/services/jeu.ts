@@ -278,15 +278,27 @@ export function nomAccessible(brique: BriqueJeu): string {
  * « Réserve sans découverte possible »).
  */
 export function decouvertePossible(jeu: CatalogueJeu, reserve: { brique_id: string; exemplaires: number }[], decouverts: Set<string>): boolean {
-  const stock = new Map(reserve.map((e) => [e.brique_id, e.exemplaires]))
-  return jeu.recettes.some((recette) => {
-    if (decouverts.has(recette.motId)) return false
-    const restants = new Map(stock)
-    return recette.emplacements.every((acceptees) => {
-      const brique = acceptees.find((b) => (restants.get(b) ?? 0) > 0)
-      if (!brique) return false
-      restants.set(brique, (restants.get(brique) ?? 0) - 1)
-      return true
-    })
+  return jeu.recettes.some((recette) => !decouverts.has(recette.motId) && realisable(recette, reserve))
+}
+
+/** Vrai si la réserve a de quoi remplir chaque emplacement de la recette, un exemplaire par emplacement. */
+export function realisable(recette: RecetteJeu, reserve: { brique_id: string; exemplaires: number }[]): boolean {
+  const restants = new Map(reserve.map((e) => [e.brique_id, e.exemplaires]))
+  return recette.emplacements.every((acceptees) => {
+    const brique = acceptees.find((b) => (restants.get(b) ?? 0) > 0)
+    if (!brique) return false
+    restants.set(brique, (restants.get(brique) ?? 0) - 1)
+    return true
   })
+}
+
+/** Longue, courte, longue, courte… : chaque ligne du plateau marie une grande brique et une petite. */
+export function entrelacer<T>(elements: T[], taille: (e: T) => number): T[] {
+  const tries = [...elements].sort((a, b) => taille(b) - taille(a))
+  const suite: T[] = []
+  for (let i = 0, j = tries.length - 1; i <= j; i++, j--) {
+    suite.push(tries[i] as T)
+    if (i !== j) suite.push(tries[j] as T)
+  }
+  return suite
 }
