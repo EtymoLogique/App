@@ -7,9 +7,9 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandePli, DemandeSablier, DemandeSession,
-    Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice,
-    ReponsePli, ReponseSablier, Sante, Session, StatutSante,
+    DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeSablier,
+    DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion,
+    ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier, Sante, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -28,6 +28,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/sablier", post(utiliser_sabliers))
         .route("/sablier/achat", post(acheter_sabliers))
         .route("/indice", post(acheter_indice))
+        .route("/jalon", post(recuperer_jalon))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -141,8 +142,9 @@ pub async fn session(
 }
 
 /// Synchronise le joueur : accorde les graines des fascicules parus qu'il
-/// n'a pas encore reçues (ADR 0030) et les jalons atteints depuis une
-/// parution (ADR 0038), puis renvoie son état confirmé.
+/// n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
+/// parution (ADR 0038), dont la récompense attend d'être récupérée
+/// (ADR 0042), puis renvoie son état confirmé.
 #[utoipa::path(get, path = "/etat", tag = "profil", security(("session" = [])),
     responses(
         (status = 200, description = "État confirmé", body = Etat),
@@ -158,7 +160,7 @@ pub async fn etat(
     progression::verrouiller(&mut tx, joueur).await?;
     if let Some(catalogue) = &catalogue {
         let seme = progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
-        let jalons = progression::accorder_jalons(&mut tx, joueur, &catalogue.jeu, None).await?;
+        let jalons = progression::atteindre_jalons(&mut tx, joueur, &catalogue.jeu).await?;
         let restaurees =
             progression::restaurer_briques_de_mots(&mut tx, joueur, &catalogue.jeu).await?;
         if seme || restaurees || !jalons.is_empty() {
@@ -254,8 +256,7 @@ pub async fn fusion(
                     progression::offrir_brique_du_mot(&mut tx, joueur, demande.commande, brique)
                         .await?;
                 }
-                jalons = progression::accorder_jalons(&mut tx, joueur, jeu, Some(demande.commande))
-                    .await?;
+                jalons = progression::atteindre_jalons(&mut tx, joueur, jeu).await?;
                 progression::incrementer_version(&mut tx, joueur).await?;
                 IssueFusion::Decouverte {
                     recette_id,
@@ -717,5 +718,48 @@ pub async fn acheter_indice(
         etat: progression::etat(&mut tx, joueur, app.recharge).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "indice", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Récupère la récompense d'un jalon atteint (ADR 0038, 0042) : le pli de
+/// jalon, déterministe, et ses sabliers. Rien n'est accordé tant que le joueur
+/// ne vient pas la chercher.
+#[utoipa::path(post, path = "/jalon", tag = "jeu", security(("session" = [])), request_body = DemandeJalon,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseJalon),
+        (status = 400, description = "Requête invalide ou jalon inconnu", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Jalon pas encore atteint", body = Erreur),
+        (status = 409, description = "Récompense déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_jalon(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeJalon>,
+) -> Result<Json<ReponseJalon>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    // Un jalon publié depuis la dernière synchronisation peut être déjà atteint.
+    progression::atteindre_jalons(&mut tx, joueur, jeu).await?;
+    progression::recuperer_jalon(&mut tx, joueur, jeu, demande.commande, &demande.jalon_id).await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseJalon {
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "jalon", &reponse).await?;
     Ok(Json(reponse))
 }

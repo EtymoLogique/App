@@ -6,11 +6,13 @@
 
 import { useCallback, useSyncExternalStore } from 'react'
 
-export type Onglet = 'table' | 'codex' | 'plis' | 'boutique' | 'reglages'
+export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'reglages'
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
 export type VueCodex = 'tout' | 'recentes' | 'familles' | 'objectifs'
+/** Onglets des quêtes (ADR 0042) : journalières, puis récompenses de fascicule. */
+export type OngletQuetes = 'journalieres' | 'fascicules'
 
 export interface Route {
   onglet: Onglet
@@ -18,6 +20,8 @@ export interface Route {
   carte: string | null
   /** Fascicule dont l'atelier des plis est ouvert (#/plis/fsc_…). */
   pli: string | null
+  /** Onglet des quêtes (#/quetes/fascicules) ; `null` : choisi selon les récompenses qui attendent. */
+  quete: OngletQuetes | null
   /** Section « En savoir plus » dépliée sous la carte agrandie (I-16). */
   plus: boolean
   vue: VueCodex
@@ -25,17 +29,19 @@ export interface Route {
   tri: TriCodex
   /** Tri dans l'ordre inverse. */
   inverse: boolean
+  /** Fascicule filtré, dans le codex comme dans les quêtes. */
   fascicule: number | null
 }
 
-const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'boutique', 'reglages']
+const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'reglages']
+const QUETES: OngletQuetes[] = ['journalieres', 'fascicules']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc']
 const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'objectifs']
 const IDENTIFIANT = /^(unt|lng)_[0-9a-hjkmnp-tv-z]{8}$/
 const FASCICULE = /^fsc_[0-9a-hjkmnp-tv-z]{8}$/
 
-export const ROUTE_PAR_DEFAUT: Route = { onglet: 'table', carte: null, pli: null, plus: false, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
+export const ROUTE_PAR_DEFAUT: Route = { onglet: 'table', carte: null, pli: null, quete: null, plus: false, vue: 'tout', filtre: 'tout', tri: 'n', inverse: false, fascicule: null }
 
 /** Lit une route ; toute valeur inconnue retombe sur sa valeur par défaut. */
 export function lireRoute(fragment: string): Route {
@@ -47,6 +53,7 @@ export function lireRoute(fragment: string): Route {
     onglet: ONGLETS.includes(onglet as Onglet) ? (onglet as Onglet) : 'table',
     carte: null,
     pli: null,
+    quete: null,
     plus: false,
     vue: VUES.includes(params.get('vue') as VueCodex) ? (params.get('vue') as VueCodex) : 'tout',
     filtre: FILTRES.includes(params.get('type') as FiltreCodex) ? (params.get('type') as FiltreCodex) : 'tout',
@@ -55,6 +62,7 @@ export function lireRoute(fragment: string): Route {
     fascicule: params.has('fascicule') && Number.isInteger(fascicule) && fascicule >= 0 ? fascicule : null,
   }
   if (route.onglet === 'plis' && carte && FASCICULE.test(carte)) route.pli = carte
+  if (route.onglet === 'quetes' && QUETES.includes(carte as OngletQuetes)) route.quete = carte as OngletQuetes
   if (route.onglet === 'codex' && carte && IDENTIFIANT.test(carte)) {
     route.carte = carte
     route.plus = params.get('plus') === '1'
@@ -64,6 +72,10 @@ export function lireRoute(fragment: string): Route {
 
 export function ecrireRoute(route: Route): string {
   if (route.onglet === 'plis') return `#/plis${route.pli ? `/${route.pli}` : ''}`
+  if (route.onglet === 'quetes') {
+    const fascicule = route.quete === 'fascicules' && route.fascicule !== null ? `?fascicule=${route.fascicule}` : ''
+    return `#/quetes${route.quete ? `/${route.quete}` : ''}${fascicule}`
+  }
   if (route.onglet !== 'codex') return `#/${route.onglet}`
   const params = new URLSearchParams()
   if (route.vue !== 'tout') params.set('vue', route.vue)

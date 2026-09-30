@@ -72,12 +72,12 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     );
     // géo- et -logie sont communes : le mot l'est aussi et rapporte 3 gouttes (ADR 0040).
     assert_eq!(reponse["etat"]["encre"], 3);
-    // bio- : un du pli du jalon atteint par cette première découverte, un du mot lui-même
-    // (le banc déclare le mot posable comme brique bio-).
+    // bio- : un du mot lui-même (le banc déclare le mot posable comme brique bio-) ;
+    // le pli du jalon atteint attend d'être récupéré (ADR 0042).
     assert_eq!(
         reserve(&reponse["etat"]),
         vec![
-            (BIO.to_owned(), 2),
+            (BIO.to_owned(), 1),
             (GEO.to_owned(), 1),
             (LOGIE.to_owned(), 0)
         ]
@@ -93,7 +93,7 @@ async fn une_decouverte_consomme_une_fois_et_se_rejoue(base: PgPool) {
     assert_eq!(
         reserve(&apres),
         vec![
-            (BIO.to_owned(), 2),
+            (BIO.to_owned(), 1),
             (GEO.to_owned(), 1),
             (LOGIE.to_owned(), 0)
         ]
@@ -257,7 +257,7 @@ async fn une_parution_resynchronise_sans_rien_perdre(base: PgPool) {
     assert_eq!(
         reserve(&sync),
         vec![
-            (BIO.to_owned(), 2),
+            (BIO.to_owned(), 1),
             (GEO.to_owned(), 3),
             (LOGIE.to_owned(), 1)
         ]

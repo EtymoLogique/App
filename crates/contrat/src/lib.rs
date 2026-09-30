@@ -70,9 +70,13 @@ pub struct Etat {
     /// Niveaux d'indice obtenus, par recette (ADR 0038).
     #[serde(default)]
     pub indices: Vec<IndiceObtenu>,
-    /// Jalons atteints (ADR 0038).
+    /// Jalons atteints (ADR 0038), récompense récupérée ou non.
     #[serde(default)]
     pub jalons_atteints: Vec<IdCatalogue>,
+    /// Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint
+    /// absent de cette liste attend le joueur dans les quêtes.
+    #[serde(default)]
+    pub jalons_recuperes: Vec<IdCatalogue>,
     /// Prix de chaque niveau d'indice, en gouttes, du premier à la solution.
     #[serde(default)]
     pub prix_indices: Vec<u32>,
@@ -162,6 +166,26 @@ pub struct DemandeIndice {
 pub struct ReponseIndice {
     /// Gouttes payées.
     pub prix: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande de récupération de la récompense d'un jalon atteint (ADR 0042).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeJalon {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub jalon_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseJalon {
     /// État confirmé après la commande.
     pub etat: Etat,
 }

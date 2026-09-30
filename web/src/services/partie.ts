@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat, ReponseAchatSablier, ReponseIndice, ReponsePli, ReponseSablier } from '../contrat'
+import type { Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -307,6 +307,30 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander],
   )
 
+  /**
+   * Récupère la récompense d'un jalon atteint (ADR 0042). Les briques
+   * qu'elle fait entrer dans la réserve se signalent en Corail au codex.
+   */
+  const recupererJalon = useCallback(
+    async (jalon: string): Promise<ReponseJalon | { erreur: string }> => {
+      const connues = new Set(etat?.reserve.map((e) => e.brique_id))
+      const reponse = await commander(
+        (e, version) => api.jalon({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, jalon_id: jalon }),
+        'Cette récompense n’est pas encore disponible.',
+      )
+      if (!('erreur' in reponse) && jeu.etat === 'pret' && jeu.valeur) {
+        const briques = jeu.valeur.briques
+        const unites = reponse.etat.reserve.flatMap((e) => {
+          const unite = briques.get(e.brique_id)?.uniteId
+          return !connues.has(e.brique_id) && unite ? [unite] : []
+        })
+        if (unites.length > 0) setNouvelles((n) => new Set([...n, ...unites]))
+      }
+      return reponse
+    },
+    [api, commander, etat, jeu],
+  )
+
   /** Hors production : repart d'un joueur neuf. Le serveur fait foi, l'état renvoyé remplace tout. */
   const reinitialiser = useCallback(async (): Promise<string | null> => {
     try {
@@ -329,6 +353,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     utiliserSabliers,
     acheterSabliers,
     acheterIndice,
+    recupererJalon,
     erreurEtat,
     table,
     cases,

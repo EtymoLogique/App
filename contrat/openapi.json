@@ -54,7 +54,7 @@
         "tags": [
           "profil"
         ],
-        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030) et les jalons atteints depuis une\nparution (ADR 0038), puis renvoie son état confirmé.",
+        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une\nparution (ADR 0038), dont la récompense attend d'être récupérée\n(ADR 0042), puis renvoie son état confirmé.",
         "operationId": "etat",
         "responses": {
           "200": {
@@ -241,6 +241,102 @@
           },
           "409": {
             "description": "Recette déjà découverte, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/jalon": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'un jalon atteint (ADR 0038, 0042) : le pli de\njalon, déterministe, et ses sabliers. Rien n'est accordé tant que le joueur\nne vient pas la chercher.",
+        "operationId": "recuperer_jalon",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeJalon"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseJalon"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou jalon inconnu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Jalon pas encore atteint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Récompense déjà récupérée, état ou catalogue périmé : resynchroniser",
             "content": {
               "application/json": {
                 "schema": {
@@ -1171,6 +1267,36 @@
         },
         "additionalProperties": false
       },
+      "DemandeJalon": {
+        "type": "object",
+        "description": "Commande de récupération de la récompense d'un jalon atteint (ADR 0042).",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "jalon_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "jalon_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandePli": {
         "type": "object",
         "description": "Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi.",
@@ -1538,7 +1664,14 @@
             "items": {
               "$ref": "#/components/schemas/IdCatalogue"
             },
-            "description": "Jalons atteints (ADR 0038)."
+            "description": "Jalons atteints (ADR 0038), récompense récupérée ou non."
+          },
+          "jalons_recuperes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint\nabsent de cette liste attend le joueur dans les quêtes."
           },
           "prix_indices": {
             "type": "array",
@@ -2335,6 +2468,19 @@
             "format": "int32",
             "description": "Gouttes payées.",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseJalon": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
           }
         },
         "additionalProperties": false

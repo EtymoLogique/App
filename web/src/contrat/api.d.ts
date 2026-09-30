@@ -33,8 +33,9 @@ export interface paths {
         };
         /**
          * Synchronise le joueur : accorde les graines des fascicules parus qu'il
-         *     n'a pas encore reçues (ADR 0030) et les jalons atteints depuis une
-         *     parution (ADR 0038), puis renvoie son état confirmé.
+         *     n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
+         *     parution (ADR 0038), dont la récompense attend d'être récupérée
+         *     (ADR 0042), puis renvoie son état confirmé.
          */
         get: operations["etat"];
         put?: never;
@@ -82,6 +83,27 @@ export interface paths {
          *     à découvrir. Le contenu du niveau se lit dans le catalogue public.
          */
         post: operations["acheter_indice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jalon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'un jalon atteint (ADR 0038, 0042) : le pli de
+         *     jalon, déterministe, et ses sabliers. Rien n'est accordé tant que le joueur
+         *     ne vient pas la chercher.
+         */
+        post: operations["recuperer_jalon"];
         delete?: never;
         options?: never;
         head?: never;
@@ -347,6 +369,21 @@ export interface components {
              */
             version_etat: number;
         };
+        /** @description Commande de récupération de la récompense d'un jalon atteint (ADR 0042). */
+        DemandeJalon: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            jalon_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /** @description Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi. */
         DemandePli: {
             /**
@@ -496,8 +533,13 @@ export interface components {
             historique_plis: components["schemas"]["OuverturePli"][];
             /** @description Niveaux d'indice obtenus, par recette (ADR 0038). */
             indices?: components["schemas"]["IndiceObtenu"][];
-            /** @description Jalons atteints (ADR 0038). */
+            /** @description Jalons atteints (ADR 0038), récompense récupérée ou non. */
             jalons_atteints?: components["schemas"]["IdCatalogue"][];
+            /**
+             * @description Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint
+             *     absent de cette liste attend le joueur dans les quêtes.
+             */
+            jalons_recuperes?: components["schemas"]["IdCatalogue"][];
             /** @description Prix de chaque niveau d'indice, en gouttes, du premier à la solution. */
             prix_indices?: number[];
             /**
@@ -740,6 +782,10 @@ export interface components {
              * @description Gouttes payées.
              */
             prix: number;
+        };
+        ReponseJalon: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
         };
         ReponsePli: {
             /** @description Vrai si la brique était épuisée : « De retour ! ». */
@@ -1043,6 +1089,84 @@ export interface operations {
                 };
             };
             /** @description Recette déjà découverte, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_jalon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeJalon"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseJalon"];
+                };
+            };
+            /** @description Requête invalide ou jalon inconnu */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Jalon pas encore atteint */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Récompense déjà récupérée, état ou catalogue périmé : resynchroniser */
             409: {
                 headers: {
                     [name: string]: unknown;

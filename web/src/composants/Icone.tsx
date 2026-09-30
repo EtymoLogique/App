@@ -63,6 +63,13 @@ const TRACES = {
       <path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" />
     </>
   ),
+  // Fanion planté : un jalon, une quête à mener.
+  quete: (
+    <>
+      <path d="M6 21V3.5" />
+      <path d="M6 4.5h11.5l-2.8 4.25 2.8 4.25H6" />
+    </>
+  ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   verrou: (
     <>

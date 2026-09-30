@@ -14,6 +14,7 @@ const ONGLETS: Entree[] = [
   { id: 'table', libelle: 'Table', icone: 'table' },
   { id: 'plis', libelle: 'Plis', icone: 'pli' },
   { id: 'codex', libelle: 'Codex', icone: 'codex' },
+  { id: 'quetes', libelle: 'Quêtes', icone: 'quete' },
   { id: 'boutique', libelle: 'Boutique', icone: 'boutique' },
   { id: 'reglages', libelle: 'Réglages', icone: 'reglages' },
 ]
@@ -58,7 +59,7 @@ function Ressources({ plis, capacite, gouttes, sabliers, recharge, avance }: Non
 }
 
 /**
- * Navigation principale (design système 4.1) : cinq destinations, dans cet
+ * Navigation principale (design système 4.1) : six destinations, dans cet
  * ordre. Barre d'onglets en bas sur mobile, rail vertical au-delà de 1 100 px.
  */
 export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, ressources }: Props) {
@@ -88,9 +89,9 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
     }
   }, [ouvert])
 
-  const nouveautes = (n: number) =>
+  const nouveautes = (n: number, id?: Onglet) =>
     n > 0 && (
-      <span className="count" aria-label={`${n} nouveauté${n > 1 ? 's' : ''}`}>
+      <span className="count" aria-label={id === 'quetes' ? `${n} récompense${n > 1 ? 's' : ''} à récupérer` : `${n} nouveauté${n > 1 ? 's' : ''}`}>
         {n}
       </span>
     )
@@ -113,7 +114,7 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
           >
             <Icone nom={icone} />
             {libelle}
-            {nouveautes(n)}
+            {nouveautes(n, id)}
           </button>
         )
         // Les ressources se lisent juste au-dessus des réglages.
@@ -147,7 +148,7 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
               >
                 <Icone nom={icone} />
                 {libelle}
-                {nouveautes(compteurs[id] ?? 0)}
+                {nouveautes(compteurs[id] ?? 0, id)}
               </button>
             ))}
           </div>

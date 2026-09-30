@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandePli, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponsePli, ReponseSablier, Sante, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier, Sante, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -127,6 +127,15 @@ export class ClientApi {
   /** Achète le niveau suivant d'un indice : `403` sans assez d'encre, `409` si la recette est découverte. */
   indice(demande: DemandeIndice): Promise<ReponseIndice> {
     return this.authentifie('/indice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Récupère la récompense d'un jalon atteint : `403` s'il n'est pas atteint, `409` s'il est déjà récupéré. */
+  jalon(demande: DemandeJalon): Promise<ReponseJalon> {
+    return this.authentifie('/jalon', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

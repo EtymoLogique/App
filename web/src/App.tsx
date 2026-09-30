@@ -6,6 +6,7 @@ import { Indices } from './composants/Indices'
 import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
 import { Plis } from './composants/Plis'
+import { Quetes } from './composants/Quetes'
 import { Reglages } from './composants/Reglages'
 import { ReserveModale } from './composants/ReserveModale'
 import { Resultat } from './composants/Resultat'
@@ -20,6 +21,7 @@ import { useRoute } from './services/route'
 import { useEnergieAnimee } from './services/animation'
 import { useMaintenant } from './services/horloge'
 import { energieA } from './services/plis'
+import { recompensesARecuperer } from './services/quetes'
 import { useEnLigne } from './services/reseau'
 
 interface Props {
@@ -45,7 +47,7 @@ export function App({ api, catalogue }: Props) {
   const [route, naviguer] = useRoute()
   const onglet = route.onglet
   // Le menu « Plis » ramène toujours au choix du fascicule.
-  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, pli: null, plus: false }), [naviguer])
+  const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, pli: null, quete: null, plus: false }), [naviguer])
   const { jeu, etat } = partie
   // Plis prêts : compteur de l'onglet, rafraîchi quand une charge revient.
   const maintenant = useMaintenant()
@@ -113,7 +115,7 @@ export function App({ api, catalogue }: Props) {
     <div className="coque">
       <Navigation
         actif={onglet}
-        compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size }}
+        compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size, quetes: recompensesARecuperer(catalogueJeu, etat) }}
         onChoisir={setOnglet}
         ressources={etat ? { plis: plisPrets, capacite: etat.energie.capacite, gouttes: encreAffichee ?? 0, sabliers: etat.sabliers?.detenus ?? 0, recharge, avance } : undefined}
       />
@@ -234,6 +236,7 @@ export function App({ api, catalogue }: Props) {
                           posees={partie.table.length}
                           bloquee={bloquee}
                           onInverser={partie.inverser}
+                          onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
                         />
                       </>
                     )}
@@ -254,7 +257,6 @@ export function App({ api, catalogue }: Props) {
                   onChangerVue={naviguer}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   lireMedia={lireMedia}
-                  jalonsAtteints={etat?.jalons_atteints}
                 />
               </section>
 
@@ -271,6 +273,20 @@ export function App({ api, catalogue }: Props) {
                   onEssayer={() => setOnglet('table')}
                   onGeler={geler}
                   urlMedia={(chemin) => catalogue.url(chemin)}
+                />
+              </section>
+
+              <section {...ecran('quetes')}>
+                <EnTete titre="Quêtes" id="titre-quetes" />
+                <Quetes
+                  jeu={catalogueJeu}
+                  etat={etat}
+                  entrees={entrees}
+                  vue={route}
+                  onChangerVue={naviguer}
+                  urlMedia={(chemin) => catalogue.url(chemin)}
+                  recuperer={partie.recupererJalon}
+                  inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
                 />
               </section>
 

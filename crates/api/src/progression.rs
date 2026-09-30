@@ -109,6 +109,16 @@ pub async fn etat(
         .into_iter()
         .collect();
     jalons_atteints.sort();
+    let jalons_recuperes = sqlx::query_scalar!(
+        "SELECT jalon_id FROM jalon_atteint
+         WHERE joueur_id = $1 AND recupere_le IS NOT NULL ORDER BY jalon_id",
+        joueur
+    )
+    .fetch_all(&mut *tx)
+    .await?
+    .iter()
+    .map(|j| id(j))
+    .collect::<Result<_, _>>()?;
     Ok(Etat {
         version_etat: ligne.version_etat,
         version_catalogue: ligne.version_catalogue,
@@ -126,6 +136,7 @@ pub async fn etat(
         sabliers: sabliers_etat(&mut *tx, joueur).await?,
         indices,
         jalons_atteints,
+        jalons_recuperes,
         prix_indices: indice::PRIX_INDICE.to_vec(),
     })
 }
@@ -641,19 +652,18 @@ async fn jalons_atteints(
     .collect()
 }
 
-/// Accorde les jalons atteints et pas encore reçus (ADR 0038) : un pli
-/// déterministe (un exemplaire de chaque brique, de l'encre si la réserve est
-/// pleine) et des sabliers. Renvoie les jalons accordés.
-pub async fn accorder_jalons(
+/// Marque les jalons atteints et pas encore enregistrés (ADR 0038, 0042).
+/// Leur récompense n'est pas accordée : elle attend que le joueur vienne la
+/// récupérer (`recuperer_jalon`). Renvoie les jalons atteints à l'instant.
+pub async fn atteindre_jalons(
     tx: &mut PgConnection,
     joueur: Uuid,
     jeu: &Jeu,
-    commande: Option<Uuid>,
 ) -> Result<Vec<IdCatalogue>, ErreurApi> {
     let decouverts = mots_decouverts(&mut *tx, joueur).await?;
     let deja = jalons_atteints(&mut *tx, joueur).await?;
     let maintenant = Utc::now();
-    let mut accordes = Vec::new();
+    let mut atteints = Vec::new();
     for fascicule in &jeu.jalons {
         let n = fascicule.mots.intersection(&decouverts).count();
         for jalon in jalon::atteints(n, &fascicule.jalons, &deja) {
@@ -665,54 +675,98 @@ pub async fn accorder_jalons(
             )
             .execute(&mut *tx)
             .await?;
-            let equilibrage = jeu.equilibrage(&fascicule.fascicule_id);
-            let mut stock = stock(&mut *tx, joueur).await?;
-            for brique in &jalon.pli {
-                let resultat = pli::resultat(stock.get(brique).copied());
-                let gouttes = match (resultat, equilibrage, jeu.rarete(brique)) {
-                    (Resultat::ReservePleine, Some(e), Some(rarete)) => {
-                        *e.parametres.encre_reserve_pleine.get(&rarete).unwrap_or(&0)
-                    }
-                    _ => 0,
-                };
-                let gouttes =
-                    i32::try_from(gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
-                if resultat == Resultat::ReservePleine {
-                    crediter_encre(&mut *tx, joueur, commande, gouttes, "jalon", maintenant)
-                        .await?;
-                } else {
-                    crediter_exemplaire(
-                        &mut *tx,
-                        joueur,
-                        commande,
-                        brique.as_str(),
-                        "jalon",
-                        maintenant,
-                    )
-                    .await?;
-                    *stock.entry(brique.clone()).or_default() += 1;
-                }
-                let effets = EffetsPli {
-                    commande: commande.unwrap_or_default(),
-                    fascicule: &fascicule.fascicule_id,
-                    brique,
-                    resultat,
-                    regle: Regle::Deterministe,
-                    gouttes: 0,
-                    energie: Energie::pleine(),
-                    compteurs: Compteurs::default(),
-                    version_equilibrage: equilibrage.map_or("jalon", |e| e.version.as_str()),
-                    maintenant,
-                };
-                historiser_pli(&mut *tx, joueur, &effets, "jalon", gouttes).await?;
-            }
-            let ajout =
-                i32::try_from(jalon.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
-            crediter_sabliers(&mut *tx, joueur, commande, ajout, "jalon", maintenant).await?;
-            accordes.push(jalon.id.clone());
+            atteints.push(jalon.id.clone());
         }
     }
-    Ok(accordes)
+    Ok(atteints)
+}
+
+/// Récupère la récompense d'un jalon atteint (ADR 0042) : un pli
+/// déterministe (un exemplaire de chaque brique, de l'encre si la réserve est
+/// pleine) et des sabliers. Refuse un jalon inconnu (`400`), pas encore
+/// atteint (`403`) ou déjà récupéré (`409`).
+pub async fn recuperer_jalon(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+    commande: Uuid,
+    jalon_id: &IdCatalogue,
+) -> Result<(), ErreurApi> {
+    let (fascicule, jalon) = jeu
+        .jalons
+        .iter()
+        .find_map(|f| f.jalons.iter().find(|j| &j.id == jalon_id).map(|j| (f, j)))
+        .ok_or_else(|| ErreurApi::RequeteInvalide("jalon : inconnu".into()))?;
+    let maintenant = Utc::now();
+    let recupere = sqlx::query_scalar!(
+        "UPDATE jalon_atteint SET recupere_le = $3
+         WHERE joueur_id = $1 AND jalon_id = $2 AND recupere_le IS NULL
+         RETURNING jalon_id",
+        joueur,
+        jalon.id.as_str(),
+        maintenant,
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if recupere.is_none() {
+        return Err(
+            if jalons_atteints(&mut *tx, joueur).await?.contains(&jalon.id) {
+                ErreurApi::Conflit("jalon déjà récupéré")
+            } else {
+                ErreurApi::Interdit("jalon pas encore atteint")
+            },
+        );
+    }
+    let equilibrage = jeu.equilibrage(&fascicule.fascicule_id);
+    let mut stock = stock(&mut *tx, joueur).await?;
+    for brique in &jalon.pli {
+        let resultat = pli::resultat(stock.get(brique).copied());
+        let gouttes = match (resultat, equilibrage, jeu.rarete(brique)) {
+            (Resultat::ReservePleine, Some(e), Some(rarete)) => {
+                *e.parametres.encre_reserve_pleine.get(&rarete).unwrap_or(&0)
+            }
+            _ => 0,
+        };
+        let gouttes = i32::try_from(gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+        if resultat == Resultat::ReservePleine {
+            crediter_encre(
+                &mut *tx,
+                joueur,
+                Some(commande),
+                gouttes,
+                "jalon",
+                maintenant,
+            )
+            .await?;
+        } else {
+            crediter_exemplaire(
+                &mut *tx,
+                joueur,
+                Some(commande),
+                brique.as_str(),
+                "jalon",
+                maintenant,
+            )
+            .await?;
+            *stock.entry(brique.clone()).or_default() += 1;
+        }
+        let effets = EffetsPli {
+            commande,
+            fascicule: &fascicule.fascicule_id,
+            brique,
+            resultat,
+            regle: Regle::Deterministe,
+            gouttes: 0,
+            energie: Energie::pleine(),
+            compteurs: Compteurs::default(),
+            version_equilibrage: equilibrage.map_or("jalon", |e| e.version.as_str()),
+            maintenant,
+        };
+        historiser_pli(&mut *tx, joueur, &effets, "jalon", gouttes).await?;
+    }
+    let ajout = i32::try_from(jalon.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_sabliers(&mut *tx, joueur, Some(commande), ajout, "jalon", maintenant).await?;
+    Ok(())
 }
 
 pub async fn mots_decouverts(
