@@ -4,7 +4,6 @@ import type { Etat, ReponseAchatSablier, ReponseSablier } from '../contrat'
 import { useMaintenant } from '../services/horloge'
 import { useEnLigne } from '../services/reseau'
 import { LOTS, avantPlein, dureeLisible, dureeSablier, energieA, nombrePourRemplir, sabliersAchetables } from '../services/plis'
-import { Compteur } from './Compteur'
 import { fermerVersLeBas, useDialogue } from './useDialogue'
 
 const sabliers = (n: number) => `${n} sablier${n > 1 ? 's' : ''}`
@@ -38,9 +37,9 @@ export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | nu
   return (
     <>
       {s.detenus > 0 ? (
-        <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne} onClick={() => setFeuille('utiliser')} title="Faire avancer le temps avec des sabliers" aria-label={`Faire avancer le temps avec des sabliers (${sabliers(s.detenus)})`}>
+        <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne} onClick={() => setFeuille('utiliser')} title="Faire avancer le temps avec des sabliers">
           <Sablier />
-          Avancer · <Compteur valeur={s.detenus} />
+          Avancer
         </button>
       ) : (
         <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne} onClick={() => setFeuille('acheter')} title="Échanger des gouttes contre des sabliers">
@@ -98,7 +97,7 @@ export function FeuilleAcheter({ etat, envoyer, onFermer }: { etat: Etat; envoye
                     <Sablier />
                     <b>{nombre}</b>
                   </span>
-                  <span className="pk-lot-texte">{envoi === nombre ? 'Un instant…' : manque > 0 ? `Il vous manque ${gouttes(manque)}.` : titre}</span>
+                  {(envoi === nombre || manque > 0) && <span className="pk-lot-texte">{envoi === nombre ? 'Un instant…' : `Il vous manque ${gouttes(manque)}.`}</span>}
                 </button>
               </li>
             )

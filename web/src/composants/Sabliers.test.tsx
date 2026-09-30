@@ -26,9 +26,9 @@ describe('raccourci des sabliers', () => {
     expect(bouton).toBeEnabled()
   })
 
-  it('avec des sabliers, garde « Avancer »', () => {
+  it('avec des sabliers, garde « Avancer », sans nombre', () => {
     rendu(etat(8850, 3))
-    expect(screen.getByRole('button', { name: /Faire avancer le temps/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Avancer' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Acheter des sabliers' })).toBeNull()
   })
 
@@ -60,7 +60,7 @@ describe('raccourci des sabliers', () => {
 
   it('« Annuler » et l’action d’une feuille sont sur une même ligne, à droite, dans cet ordre', () => {
     rendu(etat(8850, 3))
-    fireEvent.click(screen.getByRole('button', { name: /Faire avancer le temps/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Avancer' }))
     const annuler = screen.getByRole('button', { name: 'Annuler' })
     const rangee = annuler.parentElement as HTMLElement
     expect(rangee).toHaveClass('rangee-fin', 'rangee-actions')
