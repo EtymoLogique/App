@@ -27,6 +27,8 @@ interface Props {
   /** Raison pour laquelle la fusion est impossible maintenant, sinon `null`. */
   bloquee: string | null
   onInverser: () => void
+  /** Jalons dont la récompense attend encore d'être récupérée (état confirmé du serveur). */
+  aRecuperer: ReadonlySet<string>
   /** Mène aux quêtes, où attend la récompense d'un jalon atteint. */
   onQuetes: () => void
 }
@@ -45,7 +47,7 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
  * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
  * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, posees, bloquee, onInverser, onQuetes }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes }: Props) {
   let contenu: React.ReactNode
   if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
@@ -57,7 +59,7 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, onQuetes }:
     switch (issue.type) {
       case 'decouverte': {
         const gouttes = issue.gouttes ?? 0
-        const jalon = (retour.jalons ?? []).length > 0
+        const jalon = (retour.jalons ?? []).some((id) => aRecuperer.has(id))
         contenu = (
           <div className="retour">
             <Ligne ton="win">
