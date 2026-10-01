@@ -21,7 +21,7 @@ import { useRoute } from './services/route'
 import { useEnergieAnimee } from './services/animation'
 import { useMaintenant } from './services/horloge'
 import { energieA } from './services/plis'
-import { recompensesARecuperer } from './services/quetes'
+import { quetesDeFascicule, recompensesARecuperer } from './services/quetes'
 import { useEnLigne } from './services/reseau'
 
 interface Props {
@@ -71,6 +71,10 @@ export function App({ api, catalogue }: Props) {
     [catalogueJeu, etat],
   )
   // Exemplaires disponibles : ceux posés sur la table sont réservés.
+  const jalonsARecuperer = useMemo(
+    () => new Set(catalogueJeu ? quetesDeFascicule(catalogueJeu, etat).filter((q) => q.etat === 'a_recuperer').map((q) => q.jalon.id) : []),
+    [catalogueJeu, etat],
+  )
   const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
   const bloquee = !enLigne
@@ -249,6 +253,7 @@ export function App({ api, catalogue }: Props) {
                           posees={partie.table.length}
                           bloquee={bloquee}
                           onInverser={partie.inverser}
+                          aRecuperer={jalonsARecuperer}
                           onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
                         />
                       </>
