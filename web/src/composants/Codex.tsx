@@ -116,7 +116,14 @@ const tri = (t: Tri, inverse: boolean) => (a: EntreeCodex, b: EntreeCodex) => {
   }
 }
 
-export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCodex; nouvelle: boolean; langue: string | null; onOuvrir: () => void }) {
+export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
+  entree: EntreeCodex
+  nouvelle: boolean
+  langue: string | null
+  onOuvrir: () => void
+  /** Rang dans un groupe qu'on vient de déplier : la carte entre en cascade (codex.css). */
+  deplie?: number
+}) {
   const type = TYPES[entree.type]
   const affixe = entree.type === 'prefixe' || entree.type === 'suffixe'
   const nbFormes = entree.formes.length
@@ -124,11 +131,11 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
   const label = entree.trouvee
     ? `${nouvelle ? 'Nouvelle carte : ' : ''}${entree.libelle}, ${type.libelle.toLowerCase()}${entree.sens ? `, « ${entree.sens} »` : ''}, fascicule ${entree.fascicule}, ${trouvees} formes trouvées sur ${nbFormes}`
     : `Carte ${entree.n}, fascicule ${entree.fascicule} : ${type.libelle.toLowerCase()} à découvrir`
-  const classes = ['mini', entree.trouvee ? '' : 'locked', nouvelle && entree.trouvee ? 'is-new' : '', entree.legendaire ? 'is-legend' : '']
+  const classes = ['mini', entree.trouvee ? '' : 'locked', nouvelle && entree.trouvee ? 'is-new' : '', entree.legendaire ? 'is-legend' : '', deplie === undefined ? '' : 'deplie']
     .filter(Boolean)
     .join(' ')
   return (
-    <button type="button" className={classes} data-type={entree.type} style={bandeau(entree.type)} aria-label={label} data-carte={entree.id} onClick={onOuvrir}>
+    <button type="button" className={classes} data-type={entree.type} style={deplie === undefined ? bandeau(entree.type) : ({ ...bandeau(entree.type), '--i': deplie } as React.CSSProperties)} aria-label={label} data-carte={entree.id} onClick={onOuvrir}>
       <span className="m-top">
         <span>
           {numero(entree.n)}
@@ -171,35 +178,64 @@ export function Mini({ entree, nouvelle, langue, onOuvrir }: { entree: EntreeCod
   )
 }
 
-const DUREE_ZOOM_MS = 380
+const DUREE_ZOOM_MS = 420
 
 /**
- * Zoom FLIP (transform seul) entre la carte agrandie et sa miniature dans la
- * grille (ou la table de fusion) : « vers » = ouverture (miniature → place ouverte), sinon fermeture.
- * Renvoie l'animation, ou null s'il n'y a rien à animer (mouvement réduit,
- * miniature absente ou hors écran).
+ * Vol de carte entre la carte agrandie et sa miniature dans la grille (ou la
+ * table de fusion) : « vers » = ouverture (miniature → place ouverte), sinon
+ * fermeture. Simple zoom.
+ * Renvoie l'animation principale, ou null s'il n'y a rien à animer (mouvement
+ * réduit, miniature absente ou hors écran).
  */
 function zoomer(carte: HTMLElement, mini: HTMLElement | null, vers: 'ouverte' | 'miniature'): Animation | null {
-  if (!mini || mouvementReduit() || typeof carte.animate !== 'function') return null
+  if (!mini || typeof carte.animate !== 'function') return null
   // Mesure la carte à sa place : sans animation en cours (StrictMode rejoue l'effet).
   carte.getAnimations().forEach((x) => x.cancel())
+  const ouverture = vers === 'ouverte'
+  // Mouvement réduit : un fondu de 120 ms, sans déplacement.
+  if (mouvementReduit()) return ouverture ? carte.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120 }) : null
   const a = mini.getBoundingClientRect()
   const b = carte.getBoundingClientRect()
   if (a.width === 0 || b.width === 0 || a.bottom < 0 || a.top > window.innerHeight) return null
   // Origine 0 0 (.big-wrap) : la carte réduite est centrée sur la miniature.
   // Échelle qui tient dans la source : la table de fusion est plus large que haute.
   const s = Math.min(a.width / b.width, a.height / b.height)
-  const depart = `translate(${a.left + a.width / 2 - b.left - (s * b.width) / 2}px, ${a.top + a.height / 2 - b.top - (s * b.height) / 2}px) scale(${s})`
+  const dy = a.top + a.height / 2 - b.top - (s * b.height) / 2
+  const duree = ouverture ? DUREE_ZOOM_MS : DUREE_ZOOM_MS * 0.7
   // La miniature n'a pas le ratio de la carte : la carte se fond dans la miniature au bout du trajet.
-  const ouverture = vers === 'ouverte'
   const image: Keyframe[] = ouverture
-    ? [{ transform: depart, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: 'none', opacity: 1 }]
-    : [{ transform: 'none', opacity: 1 }, { opacity: 1, offset: 0.55 }, { transform: depart, opacity: 0 }]
+    ? [{ transform: `translateY(${dy}px) scale(${s})`, opacity: 0 }, { opacity: 1, offset: 0.3 }, { transform: 'none', opacity: 1 }]
+    : [{ transform: 'none', opacity: 1 }, { opacity: 1, offset: 0.55 }, { transform: `translateY(${dy}px) scale(${s})`, opacity: 0 }]
   return carte.animate(image, {
-    duration: ouverture ? DUREE_ZOOM_MS : DUREE_ZOOM_MS * 0.7,
-    easing: ouverture ? 'cubic-bezier(0.16, 1, 0.3, 1)' : 'cubic-bezier(0.4, 0, 0.6, 1)',
+    duration: duree,
+    easing: ouverture ? 'cubic-bezier(0.1, 0.7, 0.3, 1)' : 'cubic-bezier(0.4, 0, 0.6, 1)',
     fill: 'both',
   })
+}
+
+/**
+ * Retournement physique de la carte (600 ms) : elle se soulève pendant le tour
+ * et son ombre se resserre quand on la voit par la tranche. Le sens d'arrivée
+ * vient de la classe `.flipped`, posée au même rendu.
+ */
+function jouerRetournement(carte: HTMLElement | null, versDos: boolean) {
+  const ombre = carte?.parentElement?.querySelector<HTMLElement>('.big-ombre')
+  if (!carte || typeof carte.animate !== 'function') return
+  if (mouvementReduit()) {
+    // Mouvement réduit : la face révélée apparaît en fondu.
+    carte.querySelector(versDos ? '.big-back' : '.big-front')?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 120 })
+    return
+  }
+  const depart = versDos ? 0 : 180
+  carte.animate(
+    [
+      { transform: `rotateY(${depart}deg)` },
+      { transform: `translateZ(40px) rotateY(${depart + 90}deg)`, offset: 0.5 },
+      { transform: `rotateY(${depart + 180}deg)` },
+    ],
+    { duration: 600, easing: 'ease-in-out' },
+  )
+  ombre?.animate([{ scale: '1 1', opacity: 1 }, { scale: '0.06 0.94', opacity: 0.6, translate: '0 18px', offset: 0.5 }, { scale: '1 1', opacity: 1 }], { duration: 600, easing: 'ease-in-out' })
 }
 
 type Dos = 'formes' | 'savoir'
@@ -268,13 +304,14 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const fermer = useRef<HTMLButtonElement>(null)
   const enveloppe = useRef<HTMLDivElement>(null)
   const fond = useRef<HTMLDivElement>(null)
+  const carte = useRef<HTMLDivElement>(null)
   const sortie = useRef(false)
 
   useLayoutEffect(() => {
     if (!zoom) return
     onZoome()
     if (enveloppe.current && zoomer(enveloppe.current, source(), 'ouverte')) {
-      fond.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: DUREE_ZOOM_MS, easing: 'ease-out' })
+      fond.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: mouvementReduit() ? 120 : DUREE_ZOOM_MS, easing: 'ease-out' })
     }
     // Une seule fois, au montage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -351,6 +388,13 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
     setDos(vers)
     if (plus !== (vers === 'savoir')) onPlus(vers === 'savoir')
   }
+  // Retournement : joué quand la carte change de côté (pas d'un onglet du verso à l'autre).
+  const cote = useRef(retournee)
+  useLayoutEffect(() => {
+    if (cote.current === retournee) return
+    cote.current = retournee
+    jouerRetournement(carte.current, retournee)
+  }, [retournee])
   // Focus : sur l'onglet actif (ou « Retourner ») au retournement, sur le bouton ouvreur au retour.
   const premier = useRef(true)
   useEffect(() => {
@@ -359,10 +403,21 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       if (face === null) return
     }
     const cible = () => (face ? (savoir ? onglets.current[face] : retour.current) : ouvreur.current)?.focus()
-    // La face d'arrivée reste visibility: hidden 0,11 s (voir codex.css) : un focus() immédiat échouerait.
-    if (mouvementReduit()) return cible()
-    const t = setTimeout(cible, 150)
-    return () => clearTimeout(t)
+    // La face d'arrivée reste visibility: hidden jusqu'à mi-retournement (codex.css) : un focus() immédiat échouerait.
+    // Le focus suit la fin de cette transition ; le minuteur ne sert que si elle ne vient pas.
+    const arrivee = carte.current?.querySelector<HTMLElement>(face ? '.big-back' : '.big-front')
+    if (mouvementReduit() || !arrivee || getComputedStyle(arrivee).visibility === 'visible') return cible()
+    const t = setTimeout(cible, 450)
+    const surFin = (e: TransitionEvent) => {
+      if (e.target !== arrivee || e.propertyName !== 'visibility') return
+      clearTimeout(t)
+      cible()
+    }
+    arrivee.addEventListener('transitionend', surFin)
+    return () => {
+      arrivee.removeEventListener('transitionend', surFin)
+      clearTimeout(t)
+    }
     // Seul un changement de face déplace le focus.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [face])
@@ -535,7 +590,8 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
         {face === null ? 'Recto' : face === 'formes' ? 'Verso : formes' : 'Verso : en savoir plus'}
       </p>
       <div ref={enveloppe} className="big-wrap">
-        <div className={retournee ? 'big-card flipped' : 'big-card'} style={bandeau(entree.type)}>
+        <div className="big-ombre" aria-hidden="true" />
+        <div ref={carte} className={retournee ? 'big-card flipped' : 'big-card'} style={bandeau(entree.type)}>
           <div className="big-face big-front" aria-hidden={retournee} inert={retournee}>
             <Texture entree={entree} />
             {haut}
@@ -804,12 +860,16 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
 
   /** Groupes repliés dans le tri par fascicule. */
   const [replies, setReplies] = useState<Set<number>>(() => new Set())
-  const basculerGroupe = (numero: number) =>
+  // Dernier groupe déplié : ses cartes entrent en cascade.
+  const [deplie, setDeplie] = useState<number | null>(null)
+  const basculerGroupe = (numero: number) => {
+    setDeplie(replies.has(numero) ? numero : null)
     setReplies((r) => {
       const suite = new Set(r)
       if (!suite.delete(numero)) suite.add(numero)
       return suite
     })
+  }
   const replie = (e: EntreeCodex) => ordre === 'fasc' && replies.has(e.fascicule)
 
   const dansFascicule = entrees.filter((e) => fascicule === 'tous' || e.fascicule === fascicule)
@@ -876,8 +936,8 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
     return () => window.removeEventListener('keydown', touche)
   }, [ouverte])
 
-  const mini = (e: EntreeCodex) => (
-    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
+  const mini = (e: EntreeCodex, rangDeplie?: number) => (
+    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} deplie={rangDeplie} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
       setZoom(e.id)
       naviguer(e.id)
     }} />
@@ -971,7 +1031,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
                         {g.titre} · {g.entrees.length}
                       </b>
                     </div>
-                    {g.entrees.map(mini)}
+                    {g.entrees.map((e) => mini(e))}
                   </Fragment>
                 ))}
               </div>
@@ -990,7 +1050,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
             <p className="cb-note">
               {dernieres.length < NB_RECENTES ? 'Vos cartes trouvées' : `Vos ${NB_RECENTES} dernières cartes trouvées`}, la plus récente d’abord.
             </p>
-            <div className="cb-grid">{dernieres.map(mini)}</div>
+            <div className="cb-grid">{dernieres.map((e) => mini(e))}</div>
           </>
         )
       ) : vue.vue === 'familles' ? (
@@ -1011,7 +1071,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
                   </span>
                 </div>
                 <BarreFamille famille={f} />
-                <div className="cb-grid">{f.mots.map(mini)}</div>
+                <div className="cb-grid">{f.mots.map((e) => mini(e))}</div>
               </section>
             ))}
           </div>
@@ -1072,7 +1132,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
                 Les mots formés sur {detail.brique.libelle}
                 {detail.brique.sens ? <> «&nbsp;{detail.brique.sens}&nbsp;»</> : null} : {detail.trouves} trouvé{detail.trouves > 1 ? 's' : ''} sur {detail.mots.length}.
               </p>
-              <div className="cb-grid">{detail.mots.map(mini)}</div>
+              <div className="cb-grid">{detail.mots.map((e) => mini(e))}</div>
             </section>
           )}
         </div>
@@ -1151,7 +1211,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
                       </span>
                     </button>
                   )}
-                  {!replie(e) && mini(e)}
+                  {!replie(e) && mini(e, ordre === 'fasc' && e.fascicule === deplie ? i - visibles.findIndex((x) => x.fascicule === e.fascicule) : undefined)}
                 </Fragment>
               )
             })}

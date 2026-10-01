@@ -1,7 +1,7 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Etat, OuverturePli, Rarete, ReponseAchatSablier, ReponsePli, ReponseSablier } from '../contrat'
-import { mouvementReduit, useEnergieAnimee } from '../services/animation'
+import { accordLegendaire, basculer, mouvementReduit, useEnergieAnimee, vibrer } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
 import { useEnLigne } from '../services/reseau'
 import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule } from '../services/jeu'
@@ -28,6 +28,12 @@ const au_hasard = <T,>(liste: T[]): T => liste[Math.floor(Math.random() * liste.
 const bruit = (n: number) => Array.from({ length: n }, () => au_hasard(INVENT)).join('')
 const gouttes = (n: number) => `${n} goutte${n > 1 ? 's' : ''}`
 const PLAFOND = 5
+/** Un rayon sur deux est une ligne écrite : étymons du vocabulaire de la langue, et l'alphabet grec. */
+const MOTS_RAYONS = ['ἔτυμος · etymos', 'αβγδε', 'λόγος · logos', 'ζηθικλ', 'ῥίζα · rhiza', 'μνξοπ', 'γράμμα · gramma', 'ρστυφ', 'ὄνομα · onoma', 'χψω']
+const VOYELLES = /[aeiouyàâäéèêëîïôöùûüœæαεηιουωάέήίόύώ]/i
+/** Coupe syllabique naïve : avant une consonne entre deux voyelles, la plume marque une pause. */
+const coupe = (lettres: string[], i: number) =>
+  i > 1 && i < lettres.length - 1 && VOYELLES.test(lettres[i - 1] ?? '') && !VOYELLES.test(lettres[i] ?? '') && VOYELLES.test(lettres[i + 1] ?? '')
 
 /** « 1 / 2 » et le temps restant ; arrêté à 2 / 2 (ADR 0020). */
 function useEnergie(etat: Etat | null) {
@@ -157,7 +163,8 @@ interface Props {
   ouvrirPli: (fascicule: string) => Promise<ReponsePli | { erreur: string }>
   utiliserSabliers: (nombre: number) => Promise<ReponseSablier | { erreur: string }>
   acheterEtAvancer: (nombre: number) => Promise<ReponseSablier | ReponseAchatSablier | { erreur: string }>
-  onEssayer: () => void
+  /** Brique découverte à poser sur la table. */
+  onEssayer: (brique: string) => void
   urlMedia: (chemin: string) => string
   /** Gèle l'encre et les nouveautés affichées pendant le rituel d'ouverture : elles n'arrivent qu'à la révélation. */
   onGeler: (gel: boolean) => void
@@ -253,10 +260,10 @@ interface Ligne {
   saisie: boolean
 }
 
-interface Eclat {
-  cle: number
-  glyphe: string
-  style: React.CSSProperties
+/** Rythme de la plume : lent pour la brique finale, rapide pour un brouillon ou le rituel court. */
+interface Rythme {
+  lettre: number
+  syllabe: number
 }
 
 interface AtelierProps {
@@ -266,7 +273,8 @@ interface AtelierProps {
   onRetour: () => void
   ouvrirPli: Props['ouvrirPli']
   raccourci: ReactNode
-  onEssayer: () => void
+  /** Brique découverte à poser sur la table. */
+  onEssayer: (brique: string) => void
   urlMedia: (c: string) => string
   onGeler: Props['onGeler']
 }
@@ -279,9 +287,12 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   const equilibrage = fascicule.manifeste.pli?.equilibrage
   const ouvrable = pliOuvrable(fascicule) && equilibrage
   const [etape, setEtape] = useState<Etape>('ready')
-  const [classe, setClasse] = useState<'' | 'pk-charging' | 'pk-writing' | 'pk-burst' | 'pk-revealed'>('')
+  /** Pendant le rituel : tête de l'historique au départ (`null` : vide), pour ne rien montrer du nouveau tirage avant la révélation. */
+  const [teteGelee, setTeteGelee] = useState<string | null | undefined>(undefined)
+  const teteReelle = useRef<string | null>(null)
+  /** Temps du rituel : pk-charging, pk-writing, pk-flip, pk-burst (+ pk-revealed) ; pk-anticipe pour une rare ou une légendaire. */
+  const [classe, setClasse] = useState('')
   const [lignes, setLignes] = useState<Ligne[]>([])
-  const [eclats, setEclats] = useState<Eclat[]>([])
   const [reponse, setReponse] = useState<ReponsePli | null>(null)
   const [statut, setStatut] = useState('')
   const passer = useRef(false)
@@ -293,47 +304,32 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
 
   const pause = useCallback((ms: number) => (passer.current || mouvementReduit() ? Promise.resolve() : new Promise<void>((fin) => setTimeout(fin, ms))), [])
 
+  /**
+   * Écriture à un rythme humain : chaque lettre essaie d'abord un glyphe inventé, la plume marque une pause aux
+   * syllabes et accélère sur les lettres déjà écrites dans un brouillon (`connues`).
+   */
   const ecrire = useCallback(
-    async (texte: string, finale: boolean, nature?: string) => {
+    async (texte: string, finale: boolean, rythme: Rythme, connues: ReadonlySet<string>, nature?: string) => {
       const cle = Math.random()
       setLignes((ls) => [...ls.map((l) => ({ ...l, ancienne: true })).slice(-2), { cle, texte: '', finale, nature, saisie: true }])
       const lettres = Array.from(texte)
       for (let i = 0; i < lettres.length; i++) {
         if (passer.current || mouvementReduit()) break
+        if (coupe(lettres, i)) await pause(rythme.syllabe)
         const vu = lettres.slice(0, i).join('')
-        setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, texte: vu + au_hasard(INVENT) } : l)))
-        await pause(20)
+        const connue = connues.has((lettres[i] ?? '').toLowerCase())
+        if (!connue) {
+          setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, texte: vu + au_hasard(INVENT) } : l)))
+          await pause(18)
+        }
         setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, texte: vu + lettres[i] } : l)))
-        await pause(finale ? 22 : 4)
+        await pause(connue ? rythme.lettre / 2 : rythme.lettre)
       }
       setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, texte, saisie: false } : l)))
       return cle
     },
     [pause],
   )
-
-  const eclater = useCallback(() => {
-    if (mouvementReduit()) return
-    const couleurs = ['var(--c-pli)', 'var(--c-pli-deep)', 'var(--c-action)', 'var(--ink)']
-    const lettres = [...INVENT, ...Array.from('αβγδλμπσωΩΛ')]
-    const nouveaux = Array.from({ length: 26 }, (_, i) => {
-      const angle = Math.random() * Math.PI * 2
-      const distance = 140 + Math.random() * 220
-      return {
-        cle: Math.random(),
-        glyphe: au_hasard(lettres),
-        style: {
-          '--c': couleurs[i % couleurs.length],
-          '--s': `${16 + Math.random() * 22}px`,
-          '--dx': `${Math.cos(angle) * distance}px`,
-          '--dy': `${Math.sin(angle) * distance}px`,
-          '--r': `${Math.random() * 540 - 270}deg`,
-        } as React.CSSProperties,
-      }
-    })
-    setEclats(nouveaux)
-    setTimeout(() => setEclats([]), 1300)
-  }, [])
 
   const ouvrir = useCallback(async () => {
     if (occupe.current || !pret) return
@@ -344,12 +340,14 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     setEtape('opening')
     setStatut('Touchez pour passer')
     onGeler(true)
+    setTeteGelee(teteReelle.current)
     // La requête part tout de suite ; rien n'est annoncé avant sa réponse.
     const demande = ouvrirPli(fascicule.manifeste.id)
     setClasse('pk-charging')
     const [resultat] = await Promise.all([demande, pause(260)])
     if ('erreur' in resultat) {
       onGeler(false)
+      setTeteGelee(undefined)
       setClasse('')
       setEtape('ready')
       setStatut(resultat.erreur)
@@ -359,28 +357,38 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     const brique = jeu.briques.get(resultat.ouverture.brique_id)
     const carte = brique ? jeu.cartes.get(brique.uniteId) : undefined
     const etymon = carte?.relations?.find((r) => r.etymon)?.etymon
-    // Glyphes inventés, puis la forme d'origine et sa translittération ; sans étymon, deux essais inventés.
-    const origine = [etymon?.forme.texte, etymon?.forme.translitterations?.[0]?.texte].filter((t): t is string => Boolean(t))
-    const brouillons = [bruit(4), ...(origine.length > 0 ? origine : [bruit(5)])]
-    setClasse('pk-writing')
-    for (const brouillon of brouillons) {
-      const cle = await ecrire(brouillon, false)
-      await pause(60)
-      setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, barree: true } : l)))
-      await pause(110)
+    const rarete = briques.find((b) => b.id === resultat.ouverture.brique_id)?.rarete
+    // Anticipation : une rare ou une légendaire teinte les rayons et la plume dès l'écriture.
+    const anticipe = rarete === 'rare' || rarete === 'legendaire' ? ' pk-anticipe' : ''
+    setClasse(`pk-writing${anticipe}`)
+    const connues = new Set<string>()
+    {
+      // Glyphes inventés, puis la forme d'origine et sa translittération ; sans étymon, deux essais inventés.
+      const origine = [etymon?.forme.texte, etymon?.forme.translitterations?.[0]?.texte].filter((t): t is string => Boolean(t))
+      const brouillons = [bruit(4), ...(origine.length > 0 ? origine : [bruit(5)])]
+      for (const brouillon of brouillons) {
+        const cle = await ecrire(brouillon, false, { lettre: 26, syllabe: 50 }, connues)
+        Array.from(brouillon.toLowerCase()).forEach((c) => connues.add(c))
+        await pause(60)
+        // Rature tracée à la main (.sc-rature, 200 ms).
+        setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, barree: true } : l)))
+        await pause(170)
+      }
     }
     // Seuls préfixes et suffixes s'écrivent dans un cadre de brique coloré ; un mot reste en serif.
-    const finale = await ecrire(brique?.libelle ?? '…', true, brique && brique.nature !== 'mot' ? NATURES[brique.nature] : undefined)
+    const finale = await ecrire(brique?.libelle ?? '…', true, { lettre: 48, syllabe: 90 }, connues, brique && brique.nature !== 'mot' ? NATURES[brique.nature] : undefined)
     setLignes((ls) => ls.map((l) => (l.cle === finale ? { ...l, encree: true } : l)))
     await pause(130)
-    setClasse('pk-burst')
-    eclater()
-    await pause(260)
+    // Le paquet se retourne : il passe sur la tranche, puis la révélation prend sa place en se retournant.
+    setClasse(`pk-flip${anticipe}`)
+    await pause(420)
+    setClasse('pk-burst pk-revealed')
+    if (rarete === 'legendaire') accordLegendaire()
     setReponse(resultat)
-    setClasse('pk-revealed')
     setEtape('revealed')
-    // Les gouttes et la nouveauté du pli arrivent avec la révélation, pas avant.
+    // Les gouttes, la nouveauté et la ligne d'historique arrivent avec la révélation, pas avant.
     onGeler(false)
+    setTeteGelee(undefined)
     const o = resultat.ouverture
     setStatut(
       o.resultat === 'nouvelle'
@@ -390,9 +398,17 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
           : `+1 exemplaire : ×${resultat.exemplaires} dans votre réserve · +${gouttes(o.encre)} d’encre`,
     )
     occupe.current = false
-  }, [pret, ouvrirPli, fascicule, jeu, pause, ecrire, eclater, onGeler])
+  }, [pret, ouvrirPli, fascicule, jeu, etat, briques, pause, ecrire, onGeler])
   // Quitter l'atelier pendant le rituel ne laisse rien de gelé.
   useEffect(() => () => onGeler(false), [onGeler])
+
+  // Entrée du paquet : il se pose, puis le sceau s'imprime (plis.css, à 350 ms) avec une vibration.
+  const paquetPose = etape !== 'revealed' && pret
+  useEffect(() => {
+    if (!paquetPose || mouvementReduit()) return
+    const minuteur = setTimeout(() => vibrer(10), 350)
+    return () => clearTimeout(minuteur)
+  }, [paquetPose])
 
   const continuer = () => {
     if (scene.current) scene.current.scrollTop = 0
@@ -424,7 +440,21 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   const garantie = equilibrage?.garantie_nouveaute ?? 6
   const filet = equilibrage?.filet_utilite ?? 5
   const restantAvantGarantie = Math.max(1, garantie - compteurs.plis_sans_nouveaute)
-  const historique = (etat?.historique_plis ?? []).filter((h) => h.fascicule_id === fascicule.manifeste.id).slice(0, 6)
+  const historiqueReel = (etat?.historique_plis ?? []).filter((h) => h.fascicule_id === fascicule.manifeste.id).slice(0, 6)
+  const cleTirage = (h: (typeof historiqueReel)[number]) => `${h.ouvert_le}-${h.brique_id}`
+  teteReelle.current = historiqueReel[0] ? cleTirage(historiqueReel[0]) : null
+  const historique =
+    teteGelee === undefined ? historiqueReel : teteGelee === null ? [] : historiqueReel.slice(Math.max(0, historiqueReel.findIndex((h) => cleTirage(h) === teteGelee)))
+  // Historique : seule la nouvelle ligne entre, les autres descendent d'un rang. Rien ne bouge à l'arrivée sur l'écran.
+  const tete = historique[0] ? cleTirage(historique[0]) : null
+  const teteVue = useRef(tete)
+  const [arrivee, setArrivee] = useState<string | null>(null)
+  useLayoutEffect(() => {
+    if (tete === teteVue.current) return
+    teteVue.current = tete
+    setArrivee(tete)
+  }, [tete])
+  const nouvelle = arrivee !== null && arrivee === tete
   const nom = fascicule.manifeste.nom ?? `Fascicule ${fascicule.numero}`
   const rareteTiree = reponse ? briques.find((b) => b.id === reponse.ouverture.brique_id)?.rarete : undefined
 
@@ -449,9 +479,17 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
             {raccourci}
           </CartePlisEnAttente>
           <details className="pk-card" open>
-            <summary className="pk-label">Derniers tirages</summary>
+            <summary className="pk-label" onClick={basculer}>Derniers tirages</summary>
             <div className="pk-history">
-              {historique.length === 0 ? <span className="pk-empty">Aucun pli ouvert pour l’instant.</span> : historique.map((h, i) => <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} />)}
+              {historique.length === 0 ? (
+                <span className="pk-empty">Aucun pli ouvert pour l’instant.</span>
+              ) : (
+                <Fragment key={nouvelle ? arrivee : 'repos'}>
+                  {historique.map((h, i) => (
+                    <Tirage key={`${h.ouvert_le}-${i}`} jeu={jeu} ouverture={h} rarete={briques.find((b) => b.id === h.brique_id)?.rarete} entree={nouvelle ? (i === 0 ? 'nouveau' : 'descend') : undefined} />
+                  ))}
+                </Fragment>
+              )}
             </div>
           </details>
         </aside>
@@ -466,7 +504,13 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
               if (etape === 'opening') passer.current = true
             }}
           >
-            <div className="pk-rays" aria-hidden="true" />
+            <div className="pk-rays" aria-hidden="true">
+              {MOTS_RAYONS.map((mot, i) => (
+                <span key={mot} style={{ '--a': `${i * 36 + 21.5}deg` } as CSSProperties}>
+                  {mot}
+                </span>
+              ))}
+            </div>
             <div className="pk-flash" aria-hidden="true" />
             {etape !== 'revealed' && (
               <button type="button" className="pk-pack" aria-label={`Ouvrir le pli du fascicule ${nom}`} disabled={!enLigne || !pret || etape !== 'ready'} onClick={() => void ouvrir()}>
@@ -493,24 +537,30 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
                   {lignes.map((l) => (
                     <span
                       key={l.cle}
-                      className={['sc-line', l.finale ? 'final' : '', l.nature ? 'sc-brick' : '', l.barree ? 'struck' : '', l.ancienne ? 'old' : '', l.encree ? 'inked' : ''].filter(Boolean).join(' ')}
+                      className={['sc-line', l.finale ? 'final' : '', l.nature ? 'sc-brick' : '', l.ancienne ? 'old' : '', l.encree ? 'inked' : ''].filter(Boolean).join(' ')}
                       data-kind={l.nature}
                     >
                       {l.texte}
                       {l.saisie && <span className="sc-caret" />}
+                      {l.barree && (
+                        <svg className="sc-rature" viewBox="0 0 100 20" preserveAspectRatio="none">
+                          <path pathLength={100} d="M0 14 L100 5 M4 7 L96 15" />
+                        </svg>
+                      )}
                     </span>
                   ))}
                 </span>
               </button>
             )}
-            {eclats.map((e) => (
-              <span key={e.cle} className="pk-glyph" style={e.style} aria-hidden="true">
-                {e.glyphe}
-              </span>
-            ))}
             {reponse && <Revelation jeu={jeu} reponse={reponse} onEssayer={onEssayer} onContinuer={continuer} />}
             <p className="pk-tagline" aria-hidden="true">
-              {etapeAffichee === 'recharging' ? 'l’encre sèche…' : 'une racine attend d’être écrite…'}
+              {etapeAffichee === 'recharging' ? 'l’encre sèche' : 'une racine attend d’être écrite'}
+              {/* Les points s'écrivent l'un après l'autre, en boucle lente. */}
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="dt" style={{ '--i': i } as CSSProperties}>
+                  .
+                </span>
+              ))}
             </p>
             <p className="pk-status" role="status" aria-live="polite">
               {statut || (etapeAffichee === 'recharging' ? (ouvrable ? `Pli en recharge · ${energie.texte}` : 'Ce pli n’est pas encore disponible') : 'Touchez le pli pour l’ouvrir')}
@@ -528,8 +578,13 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
         <aside className="pk-side">
           <div className="pk-card">
             <p className="pk-label">Garantie</p>
-            <div className="pk-pity">
-              <i style={{ width: `${inconnues.length === 0 ? 100 : (compteurs.plis_sans_nouveaute / garantie) * 100}%` }} />
+            {/* Un cran par pli sans nouveauté. */}
+            <div className="pk-pity" aria-hidden="true">
+              {Array.from({ length: garantie }, (_, i) => {
+                const pleins = inconnues.length === 0 ? garantie : compteurs.plis_sans_nouveaute
+                const plein = i < pleins
+                return <i key={`${i}-${plein}`} className={plein ? 'plein' : undefined} style={{ '--i': i } as CSSProperties} />
+              })}
             </div>
             <p className="pk-note">
               {inconnues.length === 0
@@ -574,23 +629,31 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
           )}
           {lesChances && (
             <details className="pk-card">
-              <summary className="pk-label">
+              <summary className="pk-label" onClick={basculer}>
                 <span>Toutes les briques du fascicule</span>
                 {/* Les légendaires inconnues ne comptent jamais (ADR 0015). */}
                 <span className="pk-count">
                   {visiblesConnues}&nbsp;/&nbsp;{visibles}
                 </span>
               </summary>
-              <div className="pk-pool">
+              <div className="pk-pool" style={{ '--n': inconnues.length } as CSSProperties}>
                 {lesChances.briques
                   .filter((c) => !(c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)))
                   .sort((a, b) => b.chance - a.chance)
                   .map(({ brique, chance }) => {
                     const connue = jeu.briques.get(brique.id)
                     const n = reserve.get(brique.id)
+                    // Une seule silhouette scintille à la fois, chacune à son tour.
+                    const rang = inconnues.findIndex((b) => b.id === brique.id)
                     return (
                       <span key={brique.id} className="pk-brickodd">
-                        {n !== undefined && connue ? <PetiteBrique brique={connue} /> : <span className="pk-unknown" aria-label="Brique inconnue">? ? ?</span>}
+                        {n !== undefined && connue ? (
+                          <PetiteBrique brique={connue} />
+                        ) : (
+                          <span className="pk-unknown" aria-label="Brique inconnue" style={{ '--i': rang } as CSSProperties}>
+                            ? ? ?
+                          </span>
+                        )}
                         <FormeRarete rarete={brique.rarete} />
                         <small>{n === undefined ? 'inconnue' : n === 0 ? 'épuisée' : `×${n} / ${PLAFOND}`}</small>
                         <b>{pourcentage(chance)}</b>
@@ -613,7 +676,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
         </aside>
       </div>
       <details className="pk-card">
-        <summary className="pk-label">Règles du pli</summary>
+        <summary className="pk-label" onClick={basculer}>Règles du pli</summary>
         <ul className="pk-rules">
           <li>Gratuit, et seule source d’exemplaires après les briques de départ.</li>
           <li>Doublons possibles : chacun ajoute un exemplaire, 5 au plus par brique. Chaque pli rapporte de l’encre, davantage pour un doublon.</li>
@@ -629,23 +692,51 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   )
 }
 
-function Tirage({ jeu, ouverture, rarete }: { jeu: CatalogueJeu; ouverture: OuverturePli; rarete: Rarete | undefined }) {
+function Tirage({ jeu, ouverture, rarete, entree }: { jeu: CatalogueJeu; ouverture: OuverturePli; rarete: Rarete | undefined; entree?: 'nouveau' | 'descend' }) {
   const brique = jeu.briques.get(ouverture.brique_id)
-  const plus = ` · +${gouttes(ouverture.encre)}`
+  const pastille = ouverture.resultat === 'nouvelle' ? 'new' : ouverture.resultat === 'doublon' ? '+1' : null
   return (
-    <div className={ouverture.resultat === 'nouvelle' ? 'pk-hist-item' : 'pk-hist-item dup'}>
-      {brique ? <PetiteBrique brique={brique} /> : <span className="pk-unknown">…</span>}
+    <div className={['pk-hist-item', ouverture.resultat === 'nouvelle' ? '' : 'dup', entree ?? ''].filter(Boolean).join(' ')}>
+      <span className="pk-hist-brique">
+        {brique ? <PetiteBrique brique={brique} /> : <span className="pk-unknown">…</span>}
+        {pastille && <sup className="pk-hist-plus">{pastille}</sup>}
+      </span>
       {rarete ? <FormeRarete rarete={rarete} /> : <span />}
-      <small>{(ouverture.resultat === 'nouvelle' ? 'Nouvelle' : ouverture.resultat === 'reserve_pleine' ? 'Pleine' : '+1') + plus}</small>
+      <small>{(ouverture.resultat === 'reserve_pleine' ? 'Pleine · ' : '') + `+${gouttes(ouverture.encre)}`}</small>
     </div>
   )
 }
 
-/** Révélation (I-21) : la brique atterrit, avec son origine et ce qu'elle apporte. */
-function Revelation({ jeu, reponse, onEssayer, onContinuer }: { jeu: CatalogueJeu; reponse: ReponsePli; onEssayer: () => void; onContinuer: () => void }) {
+/**
+ * Texte qui s'écrit lettre à lettre (plis.css, `.l`) ; `debut` : rang de sa première lettre dans la révélation.
+ * Les lecteurs d'écran lisent le texte entier.
+ */
+function Ecrit({ texte, debut }: { texte: string; debut: number }) {
+  return (
+    <>
+      <span className="sr-only">{texte}</span>
+      <span aria-hidden="true">
+        {Array.from(texte).map((c, i) => (
+          <span key={i} className="l" style={{ '--i': debut + i } as CSSProperties}>
+            {c}
+          </span>
+        ))}
+      </span>
+    </>
+  )
+}
+
+/** Révélation (I-21) : la brique atterrit, son titre s'écrit, puis deux boutons. */
+function Revelation({ jeu, reponse, onEssayer, onContinuer }: { jeu: CatalogueJeu; reponse: ReponsePli; onEssayer: (brique: string) => void; onContinuer: () => void }) {
   const continuer = useRef<HTMLButtonElement>(null)
   // Sans défilement : la scène masque son débordement, un défilement la laisserait décalée.
   useEffect(() => continuer.current?.focus({ preventScroll: true }), [])
+  // La brique s'imprime à 55 % de son atterrissage (plis.css, `imprime`, 500 ms) : la main le sent.
+  useEffect(() => {
+    if (mouvementReduit()) return
+    const minuteur = setTimeout(() => vibrer(20), 275)
+    return () => clearTimeout(minuteur)
+  }, [])
   const o = reponse.ouverture
   const brique = jeu.briques.get(o.brique_id)
   const nouvelle = o.resultat === 'nouvelle'
@@ -660,21 +751,15 @@ function Revelation({ jeu, reponse, onEssayer, onContinuer }: { jeu: CatalogueJe
       ? `Réserve pleine · ×${PLAFOND}`
       : reponse.etait_epuisee
         ? 'De retour !'
-        : `+1 exemplaire · ×${reponse.exemplaires}`
+        : '+1 exemplaire'
   return (
     <div className="pk-reveal">
-      <p className="pk-kicker">{kicker}</p>
-      {brique && <Brique brique={brique} className={nouvelle ? 'pk-brick' : 'pk-brick is-dup'} />}
-      {brique && (
-        <p className="pk-rarity">
-          <FormeRarete rarete={brique.rarete} />
-          {LIBELLES_RARETES[brique.rarete]}
-        </p>
-      )}
-      {nouvelle && brique?.origine && <p className="pk-origin">{brique.origine}</p>}
-      <p className="pk-ink">{nouvelle || pleine ? `+${gouttes(o.encre)} d’encre` : `Réserve : ×${reponse.exemplaires} / ${PLAFOND} · +${gouttes(o.encre)}`}</p>
+      <p className="pk-kicker">
+        <Ecrit texte={kicker} debut={0} />
+      </p>
+      {brique && <Brique brique={brique} className="pk-brick" />}
       <div className="pk-actions">
-        <button type="button" className="btn btn-secondary" onClick={onEssayer}>
+        <button type="button" className="btn btn-secondary" onClick={() => onEssayer(o.brique_id)}>
           Essayer sur la table →
         </button>
         <button ref={continuer} type="button" className="btn btn-secondary" onClick={onContinuer}>

@@ -1,4 +1,7 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+
 import type { IssueFusion } from '../contrat'
+import { mouvementReduit } from '../services/animation'
 import type { CatalogueJeu, Prevision } from '../services/jeu'
 import { texteDuMot } from '../services/jeu'
 import { PetiteBrique } from './Brique'
@@ -49,6 +52,8 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
  */
 export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes }: Props) {
   let contenu: React.ReactNode
+  // Ce que dit le retour : quand elle change, l'ancien message sort et le nouveau entre.
+  const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : (retour?.etat ?? `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`)
   if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
   } else if (retour?.etat === 'prevision') {
@@ -144,9 +149,35 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
       </Ligne>
     )
   }
+  return <Releve cle={cle} contenu={contenu} />
+}
+
+/** Relève de message : l'ancien retour sort par le haut pendant que le nouveau entre par le bas (240 ms). */
+function Releve({ cle, contenu }: { cle: string; contenu: React.ReactNode }) {
+  const dernier = useRef({ cle, contenu })
+  const [sortant, setSortant] = useState<{ cle: string; contenu: React.ReactNode } | null>(null)
+  useLayoutEffect(() => {
+    const avant = dernier.current
+    if (avant.cle === cle || mouvementReduit()) return
+    setSortant(avant)
+    const minuteur = setTimeout(() => setSortant(null), 240)
+    return () => clearTimeout(minuteur)
+  }, [cle])
+  // Après l'effet de relève : il lit le message précédent avant qu'il ne soit remplacé.
+  useLayoutEffect(() => {
+    dernier.current = { cle, contenu }
+  })
+  const releve = sortant !== null && sortant.cle !== cle
   return (
     <div className="retours" role="status" aria-live="polite">
-      {contenu}
+      {releve && (
+        <div key={`sort-${sortant.cle}`} className="sort" aria-hidden="true" inert>
+          {sortant.contenu}
+        </div>
+      )}
+      <div key={cle} className={releve ? 'entre' : undefined}>
+        {contenu}
+      </div>
     </div>
   )
 }

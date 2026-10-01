@@ -17,13 +17,14 @@ interface Props {
   reserve: Exemplaires[]
   briques: Map<string, BriqueJeu>
   table: string[]
-  onAjouter: (brique: string) => void
+  /** `depuis` : la brique touchée, d'où l'exemplaire vole jusqu'à sa case. */
+  onAjouter: (brique: string, depuis?: HTMLElement) => void
   /** Message affiché quand on touche une brique indisponible, sans secousse. */
   onIndisponible: (message: string) => void
   /** Briques qui viennent d'être consommées : un « −1 » s'envole au-dessus. */
   consommees?: string[]
-  /** Dernière brique posée ou retirée : sa pastille rebondit, à chaque nouvelle `cle`. */
-  touchee?: { brique: string; cle: number } | null
+  /** Dernière brique posée ou retirée : sa pastille se contracte (−1) ou gonfle (+1), à chaque nouvelle `cle`. */
+  touchee?: { brique: string; cle: number; sens: 'plus' | 'moins' } | null
 }
 
 /** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
@@ -160,13 +161,13 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
                     e.dataTransfer.setData(TYPE_GLISSE, brique_id)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
-                  onClick={() => (indisponible === null ? onAjouter(brique_id) : onIndisponible(indisponible))}
+                  onClick={(e) => (indisponible === null ? onAjouter(brique_id, e.currentTarget) : onIndisponible(indisponible))}
                 >
                   <ContenuBrique brique={brique} />
                   {brique.nature !== 'mot' && (
                     <span
                       key={touchee?.brique === brique_id ? touchee.cle : 0}
-                      className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? 'rebond' : ''].filter(Boolean).join(' ')}
+                      className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? `rebond ${touchee.sens}` : ''].filter(Boolean).join(' ')}
                       aria-hidden="true"
                     >
                       {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}

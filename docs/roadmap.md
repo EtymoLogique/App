@@ -56,7 +56,7 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 | Projection confirmée et table en cours gardées dans IndexedDB | fait |
 | Écran dans l’URL (`#/codex/unt_…?type=mot`) : un rechargement ou le bouton Précédent ramène au même onglet, aux mêmes filtres et à la même carte ouverte | fait |
 | Coque de l’application (I-01) : quatre destinations Table, Plis, Codex, Réglages (ordre changé le 28 septembre) ; barre d’onglets sur mobile, rail au-delà de 1 100 px ; compteur Corail des nouveautés | fait |
-| Conformité aux maquettes I-09 à I-13 : en-tête d’écran (mots trouvés, accès au codex) ; réserve avec recherche, filtres et tri par briques récentes ; un clic ou un toucher pose la brique, glisser-déposer, flèches et Suppr sur les cases ; table de deux cases (jamais plus de deux briques à la fois) ; retours en ligne (« presque » avec Inverser, rappel du mot déjà découvert, refus doux par une secousse de 500 ms et pop de découverte (briques qui se rejoignent, deux ondes, confettis), selon mouvement.html) ; fiche en trois temps en dialogue, plein écran sur mobile ; état « Aucun mot possible » ; contrôle `visual-identity-check` sans écart | fait |
+| Conformité aux maquettes I-09 à I-13 : en-tête d’écran (mots trouvés, accès au codex) ; réserve avec recherche, filtres et tri par briques récentes ; un clic ou un toucher pose la brique, glisser-déposer, flèches et Suppr sur les cases ; table de deux cases (jamais plus de deux briques à la fois) ; retours en ligne (« presque » avec Inverser, rappel du mot déjà découvert, refus doux par une secousse amortie et découverte (briques qui s’emboîtent en un mot), voir « Animations retenues ») ; fiche en trois temps en dialogue, plein écran sur mobile ; état « Aucun mot possible » ; contrôle `visual-identity-check` sans écart | fait |
 | Réserve sans découverte possible (I-13) : état vide qui mène aux plis | fait |
 | Réserve en modale (issue #9) : cachée par défaut ; toucher une case vide ou le bouton « Réserve » l’ouvre, la brique choisie se pose sur cette case (ou la plus à gauche) ; focus piégé, `Échap`, retour du focus | fait ; maquette I-09 du dossier design à aligner |
 | Réserve fluide : la modale reste ouverte tant qu’une case est libre et se ferme d’elle-même table complète, focus sur « Fusionner » ; table en petit dans la modale (case visée, brique qui s’y pose, retrait d’un toucher), consigne « Choisissez la 1ʳᵉ / 2ᵉ brique » et annonce pour les lecteurs d’écran, pastille ×n qui rebondit ; les briques tombent sur la table une fois le voile levé | fait ; maquette I-09 du dossier design à aligner |
@@ -98,7 +98,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Doublons et encre : 2 gouttes par pli, barèmes du doublon et de la réserve pleine ; chaque variation dans `mouvement` | fait |
 | Historique des plis (`ouverture_pli`, les 20 derniers dans l’état) | fait |
 | Écran des plis : choix du fascicule (I-19) et atelier (I-20) ; carte « Plis en attente » commune aux deux écrans (jaquette par pli prêt, pli en pointillés avec anneau et compte à rebours) ; chances par rareté (légendaire toujours affichée), par type et par brique, légendaires inconnues regroupées ; garanties, encre ; briques du fascicule (compteur connues / total) et derniers tirages repliables ; règles ; compteur de plis prêts sur l’onglet | fait |
-| Rituel d’ouverture (I-21) : charge, écriture, explosion, révélation (≈ 1,6 s), passable, direct en mouvement réduit | fait |
+| Rituel d’ouverture (I-21) : charge, écriture, explosion, révélation (≈ 1,6 s), passable, direct en mouvement réduit ; repris dans « Animations retenues » | fait |
 | Recette locale (filet, garantie, réserve pleine, `409`, mouvement réduit, onglets) et corrections | fait |
 | Navigation : Table, Plis, Codex, Réglages | fait |
 | Déploiement hors-prod : PWA, catalogue (`988a1c0b8eed`) et documentation publiés | fait |
@@ -153,6 +153,20 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Quêtes journalières | à concevoir (ADR à venir) |
 
 Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
+
+## Animations retenues (relevé et décisions du 2026-10-01)
+
+Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.
+
+| Tâche | État |
+|---|---|
+| Jetons `--dur-instant` (120 ms), `--dur-rapide` (240), `--dur-base` (360), `--dur-lent` (480), `--dur-rituel` (1,8 s), `--ease-in` et ressort amorti `--ease-ressort` (`linear()`) dans `styles.css` | fait |
+| Navigation et boutons : burger qui devient croix, sceau en coup de tampon, sections repliables qui se déplient, touche mécanique, bouton prêt (une onde puis l’ombre qui respire) | fait |
+| Réserve et table : vol de la brique depuis la réserve (FLIP), pastille qui gonfle ou se contracte, case visée teintée selon la nature attendue, secousse amortie en deux forces (« presque » 300 ms, échec 500 ms), emboîtement en un mot avec traits d’éclat et lettres, « −1 » qui sèche, relève des retours | fait |
+| Dialogues et codex : ouverture sobre (240 ms), zoom simple de la carte à l’ouverture, retournement physique (600 ms, ombre qui se resserre), focus à la fin du retournement, surlignage du mot qui se trace à l’ouverture d’une carte, barres remplies à l’arrivée, survols ramenés à trois gestes | fait |
+| Plis : paquet posé (plus de suivi du pointeur) avec halo jaune et léger zoom au survol quand il attend, entrée posée puis cachetée, sceau qui ne pulse qu’après 3 s, cire qui chauffe, rayons écrits plus discrets, plume au rythme humain et ratures tracées à chaque ouverture, paquet qui se retourne puis révélation qui se retourne (plus de coup de sabre ni d’éclats de lettres), révélation réduite au titre, à la brique et à deux boutons (« Essayer sur la table » pose la brique à sa place), anticipation rare, accord du légendaire, jauge de garantie en crans identiques, historique (pastille « new » ou « +1 » sur la brique, grille alignée) qui n’apparaît qu’à la révélation, inconnues qui scintillent à tour de rôle, jauge d’énergie au cran sans boucle | fait |
+| Compteurs : glissé court (480 ms) ; mouvement réduit : fondus de 120 ms, révélation du pli en trois temps | fait |
+| Réglage « Sons et vibrations » (activés, coupés), `data-retours` sur `<html>` | fait |
 
 ## Outillage hors-prod
 

@@ -1,18 +1,21 @@
-// Préférences non sensibles, gardées sur l'appareil (ADR 0007) : thème et
-// mouvement. Valeurs énumérées seulement, jamais de texte libre.
+// Préférences non sensibles, gardées sur l'appareil (ADR 0007) : thème,
+// mouvement, sons et vibrations. Valeurs énumérées seulement, jamais de texte libre.
 
 import { useCallback, useEffect, useState } from 'react'
 
 export type Theme = 'systeme' | 'atelier' | 'nocturne'
 export type Mouvement = 'systeme' | 'reduit'
+export type Retours = 'actifs' | 'coupes'
 
 export interface Reglages {
   theme: Theme
   mouvement: Mouvement
+  /** Sons et vibrations (design système 2.4). */
+  retours: Retours
 }
 
 const CLE = 'etymologique.reglages'
-const DEFAUT: Reglages = { theme: 'atelier', mouvement: 'systeme' }
+const DEFAUT: Reglages = { theme: 'atelier', mouvement: 'systeme', retours: 'actifs' }
 const THEMES: readonly Theme[] = ['systeme', 'atelier', 'nocturne']
 
 function lire(): Reglages {
@@ -21,19 +24,22 @@ function lire(): Reglages {
     return {
       theme: valeur.theme && THEMES.includes(valeur.theme) ? valeur.theme : DEFAUT.theme,
       mouvement: valeur.mouvement === 'reduit' ? 'reduit' : 'systeme',
+      retours: valeur.retours === 'coupes' ? 'coupes' : 'actifs',
     }
   } catch {
     return DEFAUT
   }
 }
 
-/** Applique les réglages à la page : `data-theme` et `data-mouvement` sur `<html>`. */
+/** Applique les réglages à la page : `data-theme`, `data-mouvement` et `data-retours` sur `<html>`. */
 export function appliquer(reglages: Reglages): void {
   const racine = document.documentElement
   if (reglages.theme === 'systeme') delete racine.dataset.theme
   else racine.dataset.theme = reglages.theme
   if (reglages.mouvement === 'reduit') racine.dataset.mouvement = 'reduit'
   else delete racine.dataset.mouvement
+  if (reglages.retours === 'coupes') racine.dataset.retours = 'coupes'
+  else delete racine.dataset.retours
 }
 
 export function useReglages() {

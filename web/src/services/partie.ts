@@ -4,11 +4,18 @@ import type { Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePli
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
-import { type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir } from './jeu'
+import { type BriqueJeu, type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir, texteDuMot } from './jeu'
 import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 import { nombrePourRemplir } from './plis'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
+
+/** Fusion réussie en cours d'animation : le mot formé et la nature des briques, pour l'éclat (Table.tsx). */
+export interface FusionEnCours {
+  cle: number
+  mot: string
+  natures: BriqueJeu['nature'][]
+}
 
 /** Carte ouverte sur la table après une fusion réussie, nouvelle ou déjà connue. */
 export interface FicheOuverte {
@@ -23,8 +30,8 @@ function message(e: unknown): string {
 
 /** Durée de la fusion avant la révélation, comme la démo jeu.html. */
 const DUREE_FUSION_MS = 700
-/** Durée du « −1 » qui s'envole d'une brique utilisée (mouvement.html). */
-const DUREE_MOINS_UN_MS = 1400
+/** Durée du « −1 » qui sèche au-dessus d'une brique utilisée (styles.css, `seche`). */
+const DUREE_MOINS_UN_MS = 1000
 
 function mouvementReduit(): boolean {
   return document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
@@ -63,7 +70,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
   /** Secousse de la table après une tentative (design système 4.3), relancée à chaque essai. */
   const [secousse, setSecousse] = useState<{ force: 'legere' | 'forte'; cle: number } | null>(null)
   /** Fusion réussie en cours d'animation (mouvement.html, « Pop de découverte ») : les briques se rejoignent. */
-  const [fusion, setFusion] = useState<number | null>(null)
+  const [fusion, setFusion] = useState<FusionEnCours | null>(null)
   /** Briques qui viennent d'être consommées : leur « −1 » s'envole dans la réserve. */
   const [consommees, setConsommees] = useState<string[]>([])
   /** Découvertes de la session pas encore vues dans le codex : compteur Corail de la navigation. */
@@ -188,7 +195,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       const issue = reponse.issue
       if (issue.type === 'decouverte') {
         // Les briques se rejoignent, puis le mot se révèle et les « −1 » s'envolent (jeu.html, 700 ms).
-        setFusion((f) => (f ?? 0) + 1)
+        const natures = proposition.map((id) => catalogue.briques.get(id)?.nature).filter((n): n is BriqueJeu['nature'] => n !== undefined)
+        setFusion((f) => ({ cle: (f?.cle ?? 0) + 1, mot: texteDuMot(catalogue.cartes.get(issue.mot_id)), natures }))
         await new Promise((fin) => setTimeout(fin, mouvementReduit() ? 0 : DUREE_FUSION_MS))
         setFusion(null)
         confirmer(reponse.etat)
@@ -204,12 +212,12 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       } else {
         confirmer(reponse.etat)
         setRetour({ etat: 'confirme', issue })
-        // Refus doux : une secousse brève, aucune perte (mouvement.html). Un mot déjà connu n'est pas refusé : sa carte s'ouvre.
-        // La table se vide comme après une découverte : rien n'a été consommé.
+        // Refus doux : une secousse brève, aucune perte (mouvement.html), légère pour un « presque ».
+        // Un mot déjà connu n'est pas refusé : sa carte s'ouvre, et la table se vide comme après une découverte.
         if (issue.type === 'connue') {
           setTable(casesVides())
           setFiche({ motId: issue.mot_id })
-        } else setSecousse((s) => ({ force: 'forte', cle: (s?.cle ?? 0) + 1 }))
+        } else setSecousse((s) => ({ force: issue.type === 'presque' ? 'legere' : 'forte', cle: (s?.cle ?? 0) + 1 }))
       }
     } catch (e) {
       if (e instanceof ErreurApi && e.statut === 409) {

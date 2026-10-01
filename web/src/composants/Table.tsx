@@ -1,6 +1,7 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState } from 'react'
 
 import type { BriqueJeu } from '../services/jeu'
+import type { FusionEnCours } from '../services/partie'
 import { TABLE_MAX } from '../services/jeu'
 import { Brique } from './Brique'
 import { TYPE_GLISSE } from './Reserve'
@@ -18,28 +19,49 @@ interface Props {
   /** Toucher une case vide : ouvre la réserve pour cette case. */
   onCaseVide: (rang: number) => void
   secousse?: { force: 'legere' | 'forte'; cle: number } | null
-  /** Fusion réussie en cours : les deux briques se rejoignent, deux ondes et des confettis (mouvement.html). */
-  fusion?: number | null
+  /** Fusion réussie en cours : les briques s'emboîtent en un mot, avec des traits d'éclat et des lettres (mouvement.html). */
+  fusion?: FusionEnCours | null
 }
 
-const COULEURS_CONFETTIS = ['var(--c-prefix)', 'var(--c-action)', 'var(--c-suffix)', '#fffbf3']
+/** Teinte profonde de chaque nature : des lettres lisibles sur le papier. */
+const ENCRE_NATURE: Record<BriqueJeu['nature'], string> = { prefixe: 'var(--c-prefix-deep)', suffixe: 'var(--c-suffix-deep)', mot: 'var(--ink)' }
+const GLYPHES = Array.from('γλφψαωΣΩ')
 
-/** Confettis aux couleurs des briques, répartis en étoile (déterministe : rien d'aléatoire au rendu). */
-function Confettis() {
+/**
+ * Éclat de la découverte : le mot formé, huit traits d'encre sur une ellipse autour de lui,
+ * et des lettres du mot et de glyphes grecs aux couleurs des briques utilisées.
+ * Déterministe : rien d'aléatoire au rendu.
+ */
+function Eclat({ mot, natures }: FusionEnCours) {
+  // Demi-axes de l'ellipse : le mot fait environ 14 px par lettre, plus son cadre.
+  const rx = Math.min(160, Array.from(mot).length * 7 + 26)
+  const ry = 30
+  const couleurs = [...new Set(natures.map((n) => ENCRE_NATURE[n])), 'var(--ink)', 'var(--c-action-deep)']
+  const lettres = [...Array.from(mot.replace(/[\s-]/g, '')), ...GLYPHES]
   return (
-    <>
-      {Array.from({ length: 22 }, (_, i) => {
-        const angle = (i / 22) * Math.PI * 2 + (i % 3) * 0.2
-        const distance = 90 + ((i * 37) % 150)
+    <span className="fu-eclat" aria-hidden="true">
+      {Array.from({ length: 8 }, (_, i) => {
+        const a = (i * Math.PI) / 4
+        const r = (rx * ry) / Math.hypot(ry * Math.sin(a), rx * Math.cos(a))
+        return <i key={`t${i}`} className="fu-trait" style={{ '--a': `${i * 45}deg`, '--r0': `${-Math.round(r)}px` } as React.CSSProperties} />
+      })}
+      {Array.from({ length: 20 }, (_, i) => {
+        const angle = (i / 20) * Math.PI * 2 + (i % 3) * 0.2
+        const distance = 90 + ((i * 37) % 120)
         const style = {
-          '--c': COULEURS_CONFETTIS[i % COULEURS_CONFETTIS.length],
-          '--dx': `${Math.round(Math.cos(angle) * distance)}px`,
-          '--dy': `${Math.round(Math.sin(angle) * distance)}px`,
+          '--c': couleurs[i % couleurs.length],
+          '--dx': `${Math.round(Math.cos(angle) * distance * 1.4)}px`,
+          '--dy': `${Math.round(Math.sin(angle) * distance * 0.6)}px`,
           '--r': `${((i * 97) % 720) - 360}deg`,
         } as React.CSSProperties
-        return <span key={i} className="confetti" style={style} aria-hidden="true" />
+        return (
+          <i key={`l${i}`} className="fu-lettre" style={style}>
+            {lettres[(i * 7) % lettres.length]}
+          </i>
+        )
       })}
-    </>
+      <b className="fu-mot">{mot}</b>
+    </span>
   )
 }
 
@@ -53,6 +75,19 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
   // Secousse déjà jouée : sans cela, elle rejouerait à chaque retour sur la table (display: none relance l'animation).
   const [secouee, setSecouee] = useState<number | null>(null)
   const secoue = secousse && secousse.cle !== secouee && !fusion
+  const rail = useRef<HTMLDivElement>(null)
+
+  // Aimantation : chaque brique parcourt la moitié de l'écart qui la sépare de l'autre, en ligne ou empilée (mobile).
+  useLayoutEffect(() => {
+    const el = rail.current
+    if (!fusion || !el) return
+    const a = el.querySelector('[data-slot="0"] .brick')?.getBoundingClientRect()
+    const b = el.querySelector('[data-slot="1"] .brick')?.getBoundingClientRect()
+    if (!a || !b) return
+    const enLigne = b.left >= a.right - 1
+    el.style.setProperty('--fx', `${enLigne ? (b.left - a.right) / 2 : 0}px`)
+    el.style.setProperty('--fy', `${enLigne ? 0 : (b.top - a.bottom) / 2}px`)
+  }, [fusion])
 
   const deposer = (e: React.DragEvent, rang: number) => {
     e.preventDefault()
@@ -68,9 +103,10 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
 
   return (
     <div
-      key={`${secousse?.cle ?? 0}-${fusion ?? 0}`}
-      className={['slots', secoue ? 'shake' : '', fusion ? 'fusing' : ''].filter(Boolean).join(' ')}
-      onAnimationEnd={(e) => e.animationName === 'shake' && setSecouee(secousse?.cle ?? null)}
+      ref={rail}
+      key={secousse?.cle ?? 0}
+      className={['slots', secoue ? 'shake' : '', secoue && secousse.force === 'legere' ? 'legere' : '', fusion ? 'fusing' : ''].filter(Boolean).join(' ')}
+      onAnimationEnd={(e) => e.target === e.currentTarget && e.animationName.startsWith('amorti') && setSecouee(secousse?.cle ?? null)}
       role="group"
       aria-label="Briques posées, dans l’ordre"
     >
@@ -113,8 +149,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
           </Fragment>
         )
       })}
-      <span className="burst" aria-hidden="true" />
-      {fusion ? <Confettis /> : null}
+      {fusion && <Eclat {...fusion} />}
     </div>
   )
 }

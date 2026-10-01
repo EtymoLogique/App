@@ -43,7 +43,7 @@ interface Props {
 export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, aRecuperer }: Props) {
   return (
     <div className="cb-fasc" role="group" aria-label="Complétude par fascicule, touchez pour filtrer">
-      {jeu.fascicules.map((f) => {
+      {jeu.fascicules.map((f, rang) => {
         const c = completude(entrees.filter((e) => e.fascicule === f.numero))
         const choisi = actif === f.numero
         const recompenses = aRecuperer?.(f) ?? 0
@@ -63,7 +63,8 @@ export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, 
                 <span>{new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(f.parution))}</span>
               </span>
               <span className="cb-fasc-bar">
-                <i style={{ width: `${c.total ? (c.trouvees / c.total) * 100 : 0}%` }} />
+                {/* --i : la barre se remplit à l'arrivée, après celle du fascicule précédent (codex.css). */}
+                <i style={{ width: `${c.total ? (c.trouvees / c.total) * 100 : 0}%`, '--i': rang } as React.CSSProperties} />
               </span>
               <span className="cb-fasc-count">
                 <b>

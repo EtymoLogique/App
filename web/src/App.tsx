@@ -287,7 +287,14 @@ export function App({ api, catalogue }: Props) {
                   ouvrirPli={partie.ouvrirPli}
                   utiliserSabliers={partie.utiliserSabliers}
                   acheterEtAvancer={partie.acheterEtAvancer}
-                  onEssayer={() => setOnglet('table')}
+                  onEssayer={(brique) => {
+                    // Pose la brique découverte à sa place : un préfixe en tête, un suffixe en queue, un mot dans la première case libre.
+                    const nature = catalogueJeu.briques.get(brique)?.nature
+                    const rang = nature === 'prefixe' ? 0 : nature === 'suffixe' ? partie.cases.length - 1 : partie.cases.indexOf(null)
+                    const libres = (etat?.reserve.find((e) => e.brique_id === brique)?.exemplaires ?? 0) - partie.cases.filter((b) => b === brique).length
+                    if (rang >= 0 && libres > 0) partie.poser(brique, rang)
+                    setOnglet('table')
+                  }}
                   onGeler={geler}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                 />

@@ -45,6 +45,15 @@
   --radius: 14px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  /* Ressort amorti (raideur 170, amortissement 14) : un dépassement, puis un léger rebond, sans bibliothèque. */
+  --ease-ressort: linear(0, 0.22 4%, 0.62 10%, 0.96 18%, 1.1 26%, 1.08 34%, 0.98 46%, 0.99 58%, 1.01 70%, 1);
+  /* Cinq durées du design système (1.6 Mouvement). */
+  --dur-instant: 120ms;
+  --dur-rapide: 240ms;
+  --dur-base: 360ms;
+  --dur-lent: 480ms;
+  --dur-rituel: 1.8s;
   color-scheme: light;
 }
 
@@ -117,7 +126,7 @@ button { font: inherit; }
   padding: 8px 6px calc(12px + env(safe-area-inset-bottom));
   border-top: 1.5px solid var(--line); background: var(--cream);
 }
-.navigation .navigation-sceau { display: none; }
+.navigation .navigation-sceau { display: none; cursor: default; }
 .navigation button {
   position: relative; display: grid; justify-items: center; gap: 3px;
   min-height: 48px; padding: 4px 0 0; border: 0; border-radius: 12px;
@@ -142,8 +151,14 @@ button { font: inherit; }
 .navigation-panneau button:hover { background: var(--paper-2); }
 .navigation-panneau button .count { position: static; }
 .navigation-panneau button[aria-current="page"]::before { position: static; width: auto; height: auto; content: "✓"; order: 2; margin-left: auto; }
+/* Les trois traits du burger deviennent une croix : le bouton dit son état. */
+.navigation-burger .ic path { transform-box: fill-box; transform-origin: center; }
+.navigation-burger[aria-expanded="true"] .ic path:nth-child(1) { translate: 0 5px; rotate: 45deg; }
+.navigation-burger[aria-expanded="true"] .ic path:nth-child(2) { opacity: 0; }
+.navigation-burger[aria-expanded="true"] .ic path:nth-child(3) { translate: 0 -5px; rotate: -45deg; }
 @media (prefers-reduced-motion: no-preference) {
-  .navigation-panneau { animation: panneau-burger 120ms ease-out; }
+  :root:not([data-mouvement="reduit"]) .navigation-panneau { animation: panneau-burger var(--dur-instant) ease-out; }
+  :root:not([data-mouvement="reduit"]) .navigation-burger .ic path { transition: translate var(--dur-rapide) var(--ease-ressort), rotate var(--dur-rapide) var(--ease-ressort), opacity var(--dur-instant); }
 }
 @keyframes panneau-burger { from { opacity: 0; translate: 0 6px; } }
 /* Ressources du joueur : une ligne compacte sous les onglets sur mobile, une pile au-dessus des réglages sur le rail. */
@@ -243,8 +258,7 @@ button { font: inherit; }
 /* ---------- Réglages (I-24) ---------- */
 .reglages { display: grid; gap: 16px; max-width: 560px; }
 .reglage { display: grid; gap: 10px; margin: 0; padding: 18px 20px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
-.reglage legend, .reglage h3 { padding: 0; font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
-.reglage legend { float: left; width: 100%; margin-bottom: 10px; }
+.reglage h3 { padding: 0; font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
 .segments { display: flex; flex-wrap: wrap; gap: 8px; clear: both; }
 .segments label {
   display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px;
@@ -267,13 +281,19 @@ button { font: inherit; }
 .btn:disabled, .btn:disabled:hover { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 /* Principal : une seule action principale par écran, toujours en Corail. */
 .btn-primary { background: var(--c-action); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
-.btn-primary:hover { background: var(--c-action-hover); box-shadow: 6px 6px 0 var(--pop-shadow); }
-.btn-primary:active { background: var(--c-action-active); box-shadow: 1px 1px 0 var(--pop-shadow); }
+.btn-primary:not(:disabled):hover { background: var(--c-action-hover); box-shadow: 6px 6px 0 var(--pop-shadow); }
+.btn-primary:not(:disabled):active { background: var(--c-action-active); box-shadow: 0 0 0 var(--pop-shadow); }
+/* Bouton prêt (styles.css, Mouvement) : l'onde est un anneau à part, l'ombre respire de --souffle. */
+.table-panel .actions .btn-primary { position: relative; }
+.table-panel.ready .btn-primary:not(:disabled) { box-shadow: calc(4px + var(--souffle)) calc(4px + var(--souffle)) 0 var(--pop-shadow); }
+.table-panel.ready .btn-primary:not(:disabled):hover { box-shadow: 6px 6px 0 var(--pop-shadow); }
+.table-panel.ready .btn-primary:not(:disabled):active { box-shadow: 0 0 0 var(--pop-shadow); }
+.table-panel.ready .btn-primary:not(:disabled)::after { position: absolute; inset: -1.5px; border-radius: inherit; content: ""; pointer-events: none; }
 .btn-primary:focus-visible { outline-color: var(--ink); }
 /* Secondaire : contour Encre, fond transparent, teinte Encre au survol. */
 .btn-secondary { background: transparent; color: var(--ink); border-color: var(--line-strong); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
-.btn-secondary:active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.btn-secondary:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.btn-secondary:not(:disabled):active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
 /* Icône : cercle de 40 px, zone tactile étendue à 48 px, libellé accessible obligatoire. */
 .btn-icone {
   position: relative; display: grid; place-items: center;
@@ -301,7 +321,7 @@ button { font: inherit; }
   font-family: var(--sans); font-size: 12.5px; font-weight: 600; line-height: 1.3; text-decoration: none;
 }
 .xref::before { color: var(--c-action-deep); content: "\2197"; font-weight: 700; }
-.xref:hover { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 var(--pop-shadow); }
+.xref:hover { background: var(--c-action-tint); color: var(--fixed-ink); }
 .panel-link { display: inline-block; margin-top: 12px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--c-action-deep); font-size: 13px; font-weight: 700; text-decoration: none; }
 .panel-link:hover { text-decoration: underline; }
 
@@ -411,16 +431,19 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 /* Brique posée : mêmes états qu'une brique de la réserve (survol −2 px et ombre 6, pression +2 px et ombre 1). */
 .slot.filled:hover .brick { transform: translate(-2px, -3px) rotate(-1.5deg); box-shadow: 6px 7px 0 var(--pop-shadow); }
 .slot.filled:active .brick { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); }
-.op { font-family: var(--serif); font-size: 32px; }
-/* Ondes et confettis de la fusion : invisibles au repos, et sans mouvement réduit. */
-.burst { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; translate: -50% -50%; pointer-events: none; }
-.burst::before, .burst::after { position: absolute; inset: 0; border: 2px solid var(--c-action); border-radius: 50%; content: ""; opacity: 0; }
-.burst::after { border-color: var(--ink); }
-.confetti {
-  position: absolute; top: 50%; left: 50%; z-index: 6; display: none;
-  width: 9px; height: 13px; border: 1px solid var(--fixed-ink); border-radius: 2px;
-  background: var(--c); pointer-events: none;
+.op { display: inline-block; font-family: var(--serif); font-size: 32px; }
+/* Découverte (Table.tsx) : le mot formé, ses traits d'éclat et ses lettres, au centre du rail. Sans mouvement, rien ne s'affiche. */
+.fu-eclat { position: absolute; top: 50%; left: 50%; z-index: 6; width: 0; height: 0; pointer-events: none; }
+.fu-mot {
+  position: absolute; translate: -50% -50%;
+  padding: 6px 14px; border: 1.5px solid var(--fixed-ink); border-radius: 10px;
+  background: var(--cream); color: var(--ink); box-shadow: 4px 4px 0 var(--pop-shadow);
+  font-family: var(--serif); font-size: 26px; font-weight: 700; white-space: nowrap;
 }
+.fu-trait { position: absolute; width: 3px; height: 16px; margin: -8px -1.5px; border-radius: 2px; background: var(--ink); opacity: 0; }
+.fu-lettre { position: absolute; display: none; translate: -50% -50%; opacity: 0; color: var(--c); font-family: var(--serif); font-size: 17px; font-weight: 700; }
+:root[data-mouvement="reduit"] .fu-eclat { display: none; }
+@media (prefers-reduced-motion: reduce) { .fu-eclat { display: none; } }
 /* Fusionner prend la place ; Réserve et Indices se partagent la ligne suivante sur petit écran. */
 .actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
 @media (max-width: 760px) {
@@ -431,7 +454,7 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 /* Indices : Ambre, la couleur de l'encre qui les paie ; le Corail reste à Fusionner. */
 .btn-indice { background: var(--c-pli); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
 .btn-indice:hover { background: var(--c-pli-tint); box-shadow: 6px 6px 0 var(--pop-shadow); }
-.btn-indice:active { box-shadow: 1px 1px 0 var(--pop-shadow); }
+.btn-indice:active { box-shadow: 0 0 0 var(--pop-shadow); }
 .btn-indice .ic { width: 18px; height: 18px; }
 /* Cercle d'état + phrase courte : Corail plein = découverte, contour Encre = presque, Gris encre = échec, Encre plein = connu. */
 .feedback {
@@ -447,6 +470,10 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .feedback[data-tone="known"]::before { background: var(--ink); }
 .feedback[data-tone="wait"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
 .feedback .bchip { margin-inline: 2px; }
+/* Relève de message (Resultat.tsx) : l'ancien retour, rendu par-dessus, sort par le haut. */
+/* Rogné juste au-delà de ses bords : focus et ombres des boutons restent visibles. */
+.retours { position: relative; overflow: clip; overflow-clip-margin: 8px; }
+.retours > .sort { position: absolute; inset: 0 0 auto; pointer-events: none; }
 
 /* ---------- Fiche de découverte (design système 3.4) : au-dessus de la table, qui reste visible ---------- */
 .result {
@@ -500,42 +527,51 @@ button.disc { font: inherit; cursor: pointer; }
 .jaquette-absente { border-style: dashed; box-shadow: none; background: transparent; }
 
 /* ---------- Mouvement ---------- */
-/* Courts, aux easings du design système, coupés sous prefers-reduced-motion ou par les réglages. */
+/*
+ * Courts, aux durées et courbes du design système (--dur-*, --ease-*), coupés sous
+ * prefers-reduced-motion ou par les réglages : ils deviennent alors des fondus de 120 ms
+ * (bloc suivant). Relevé et décisions : plans/todo/animations-propositions.html.
+ */
+@property --souffle { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @media (prefers-reduced-motion: no-preference) {
-  :root:not([data-mouvement="reduit"]) .seal { transition: rotate 0.5s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .wordmark:hover .seal { rotate: 8deg; }
-  :root:not([data-mouvement="reduit"]) .btn { transition: transform 0.2s var(--ease-spring), box-shadow 0.2s var(--ease-out), background-color 0.2s, border-color 0.2s; }
-  :root:not([data-mouvement="reduit"]) .btn:hover { transform: translate(-2px, -2px); }
-  :root:not([data-mouvement="reduit"]) .btn:active { transform: translate(2px, 2px); }
+  /* Sceau : un coup de tampon, il s'enfonce de son ombre puis remonte. */
+  :root:not([data-mouvement="reduit"]) .seal { transition: scale var(--dur-rapide) var(--ease-ressort), translate var(--dur-rapide) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) :is(.wordmark:hover .seal, .seal.navigation-sceau:hover) { scale: 0.94; translate: 2px 2px; box-shadow: 1px 1px 0 var(--fixed-ink); }
+  /* Touche mécanique : à l'appui, le bouton descend de la longueur de son ombre en 120 ms, puis remonte au ressort. */
+  :root:not([data-mouvement="reduit"]) .btn { transition: transform var(--dur-base) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out), background-color var(--dur-rapide), border-color var(--dur-rapide); }
+  :root:not([data-mouvement="reduit"]) .btn:not(:disabled):hover { transform: translate(-2px, -2px); }
+  :root:not([data-mouvement="reduit"]) .btn:not(:disabled):active { transform: translate(2px, 2px); transition-duration: var(--dur-instant); transition-timing-function: ease-out; }
+  :root:not([data-mouvement="reduit"]) :is(.btn-primary, .btn-indice):not(:disabled):active { transform: translate(4px, 4px); }
   :root:not([data-mouvement="reduit"]) .brick { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out), opacity 0.2s; }
-  /* Chute à la pose depuis la réserve (ReserveModale.tsx, .arrive). */
-  :root:not([data-mouvement="reduit"]) .rm-case.filled.arrive .brick { animation: land 0.45s var(--ease-spring); }
-  /* Pastille d'une brique posée ou retirée depuis la réserve : elle rebondit sur son nouveau compte. */
-  :root:not([data-mouvement="reduit"]) .b-count.rebond { animation: rebond 0.4s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .rm-case:not(.filled) { transition: background-color 0.2s, border-color 0.2s; }
-  :root:not([data-mouvement="reduit"]) .slot { transition: transform 0.55s var(--ease-out), background-color 0.2s, border-color 0.2s; }
-  :root:not([data-mouvement="reduit"]) .xref { transition: transform 0.2s, box-shadow 0.2s; }
+  /* Pastille ×N : +1 la gonfle, −1 la contracte. */
+  :root:not([data-mouvement="reduit"]) .b-count.rebond.plus { animation: gonfle var(--dur-lent) var(--ease-ressort); }
+  :root:not([data-mouvement="reduit"]) .b-count.rebond.moins { animation: contracte var(--dur-lent) var(--ease-ressort); }
+  :root:not([data-mouvement="reduit"]) .slot { transition: background-color var(--dur-rapide), border-color var(--dur-rapide); }
+  :root:not([data-mouvement="reduit"]) .xref { transition: background-color var(--dur-rapide) var(--ease-out), color var(--dur-rapide) var(--ease-out); }
   :root:not([data-mouvement="reduit"]) .result { animation: pop 0.7s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .feedback { animation: bump 0.4s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .table-panel.ready .btn-primary:not(:disabled) { animation: readyPulse 1.5s infinite; }
-  /* Refus doux (mouvement.html) : une secousse brève de 500 ms, aucune perte. */
-  :root:not([data-mouvement="reduit"]) .slots.shake { animation: shake 0.5s; }
-  /* Pop de découverte (mouvement.html, jeu.html) : les briques se rejoignent, deux ondes, des confettis. */
-  :root:not([data-mouvement="reduit"]) .slot { transition: transform 0.55s var(--ease-out), opacity 0.45s, background-color 0.2s, border-color 0.2s; }
-  :root:not([data-mouvement="reduit"]) .op { transition: opacity 0.3s, transform 0.5s var(--ease-out); }
-  :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="0"] { transform: translateX(72px) scale(0.6) rotate(-10deg); opacity: 0; }
-  :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="1"] { transform: translateX(-72px) scale(0.6) rotate(10deg); opacity: 0; }
-  :root:not([data-mouvement="reduit"]) .fusing .op { opacity: 0; transform: scale(2.4) rotate(90deg); }
-  /* Mobile : cases empilées, elles se rejoignent à la verticale. */
-  @media (max-width: 760px) {
-    :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="0"] { transform: translateY(48px) scale(0.6) rotate(-10deg); }
-    :root:not([data-mouvement="reduit"]) .fusing .slot[data-slot="1"] { transform: translateY(-48px) scale(0.6) rotate(10deg); }
-  }
-  :root:not([data-mouvement="reduit"]) .fusing .burst::before { animation: ring 0.8s var(--ease-out) 0.25s; }
-  :root:not([data-mouvement="reduit"]) .fusing .burst::after { animation: ring 0.8s var(--ease-out) 0.38s; }
-  :root:not([data-mouvement="reduit"]) .confetti { display: block; animation: fly 1s var(--ease-out) 0.32s both; }
-  :root:not([data-mouvement="reduit"]) .b-minus { animation: minusUp 1.3s var(--ease-out) forwards; }
-  :root:not([data-mouvement="reduit"]) .dialogue { animation: pop 0.48s var(--ease-spring); }
+  /* Relève de message : l'ancien sort par le haut, le nouveau entre par le bas (Resultat.tsx). */
+  :root:not([data-mouvement="reduit"]) .retours > .entre { animation: releve-entre var(--dur-rapide) var(--ease-out) both; }
+  :root:not([data-mouvement="reduit"]) .retours > .sort { animation: releve-sort var(--dur-rapide) var(--ease-out) both; }
+  /* Bouton prêt : une seule onde quand la table devient prête, puis l'ombre respire d'un pixel. */
+  :root:not([data-mouvement="reduit"]) .table-panel.ready .btn-primary:not(:disabled) { animation: souffle 3s ease-in-out var(--dur-lent) infinite; }
+  :root:not([data-mouvement="reduit"]) .table-panel.ready .btn-primary:not(:disabled)::after { animation: onde var(--dur-lent) var(--ease-out) both; }
+  /* Refus doux, en deux forces (mouvement.html) : « échec » 500 ms, « presque » 300 ms, une oscillation qui s'amortit. */
+  :root:not([data-mouvement="reduit"]) .slots.shake { animation: amorti 0.5s linear; }
+  :root:not([data-mouvement="reduit"]) .slots.shake.legere { animation: amorti-leger 0.3s ease-out; }
+  /*
+   * Découverte (Table.tsx, 700 ms) : les briques s'aimantent (--fx, --fy mesurés), s'écrasent au contact,
+   * puis leurs étiquettes se fondent en un mot ; huit traits d'encre et des lettres jaillissent autour.
+   */
+  :root:not([data-mouvement="reduit"]) .op { transition: opacity var(--dur-instant), scale var(--dur-rapide) var(--ease-in); }
+  :root:not([data-mouvement="reduit"]) .fusing .op { opacity: 0; scale: 0; }
+  :root:not([data-mouvement="reduit"]) .fusing .slot .brick { animation: aimante 0.3s var(--ease-in) forwards, ecrase 0.2s ease-out 0.28s, efface 0.15s 0.35s forwards; }
+  :root:not([data-mouvement="reduit"]) .fu-mot { animation: fondu-mot 0.3s var(--ease-ressort) 0.35s both; }
+  :root:not([data-mouvement="reduit"]) .fu-trait { animation: trait 0.3s ease-out 0.45s forwards; }
+  :root:not([data-mouvement="reduit"]) .fu-lettre { display: block; animation: fly 0.7s var(--ease-out) 0.35s forwards; }
+  /* « −1 » : il monte et se dissout comme de l'encre qui sèche. */
+  :root:not([data-mouvement="reduit"]) .b-minus { animation: seche 0.9s var(--ease-out) forwards; }
+  /* Dialogue : sobre et court ; le pivot reste aux récompenses. */
+  :root:not([data-mouvement="reduit"]) .dialogue { animation: sobre var(--dur-rapide) var(--ease-out); }
   /* Réserve : elle monte sans pivoter. */
   :root:not([data-mouvement="reduit"]) .dialogue.reserve-modale { animation: bump 0.25s var(--ease-out); }
   /* Indice : elle s'affiche sans animation. */
@@ -546,25 +582,52 @@ button.disc { font: inherit; cursor: pointer; }
     :root:not([data-mouvement="reduit"]) .scrim:not(.mise-a-jour) .scrim-fond { animation: voile 0.32s ease-out; }
   }
 }
+/* Mouvement réduit : l'information reste, le mouvement part. Ce qui apparaît le fait en fondu de 120 ms. */
+@media (prefers-reduced-motion: reduce) {
+  :is(.dialogue, .result, .retours > .entre, .navigation-panneau, .pk-reveal > *, .viewer) { animation: fondu var(--dur-instant) linear both; }
+}
+:root[data-mouvement="reduit"] :is(.dialogue, .result, .retours > .entre, .navigation-panneau, .pk-reveal > *, .viewer) { animation: fondu var(--dur-instant) linear both; }
+@keyframes fondu { from { opacity: 0; } }
 @keyframes monte { from { transform: translateY(100%); } }
 @keyframes voile { from { opacity: 0; } }
-@keyframes land { from { transform: translateY(-18px) scale(0.9); } }
-@keyframes rebond { from { transform: scale(1.45); } }
+@keyframes gonfle { from { transform: scale(1.2); } }
+@keyframes contracte { from { transform: scale(0.85); } }
+@keyframes trace { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(0.75) rotate(-3deg); } }
+@keyframes sobre { from { opacity: 0; transform: scale(0.96); } }
 @keyframes bump { from { transform: translateY(6px); opacity: 0.3; } }
-@keyframes readyPulse {
-  0% { box-shadow: 4px 4px 0 var(--pop-shadow), 0 0 0 0 rgba(255, 107, 74, 0.5); }
-  100% { box-shadow: 4px 4px 0 var(--pop-shadow), 0 0 0 14px rgba(255, 107, 74, 0); }
+@keyframes releve-entre { from { opacity: 0; translate: 0 100%; } }
+@keyframes releve-sort { to { opacity: 0; translate: 0 -100%; } }
+@keyframes onde {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-action) 55%, transparent); }
+  to { box-shadow: 0 0 0 16px color-mix(in srgb, var(--c-action) 0%, transparent); }
 }
-@keyframes shake {
-  10%, 90% { transform: translateX(-2px); }
-  20%, 80% { transform: translateX(4px); }
-  30%, 50%, 70% { transform: translateX(-9px); }
-  40%, 60% { transform: translateX(9px); }
+@keyframes souffle { 50% { --souffle: 1px; } }
+@keyframes amorti {
+  12% { transform: translateX(-8px); } 25% { transform: translateX(8px); }
+  38% { transform: translateX(-6px); } 50% { transform: translateX(6px); }
+  62% { transform: translateX(-4px); } 75% { transform: translateX(4px); }
+  88% { transform: translateX(-2px); }
 }
-@keyframes ring { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(30); } }
+@keyframes amorti-leger { 25% { transform: translateX(-3px); } 60% { transform: translateX(3px); } }
+/* Les deux briques vont l'une vers l'autre : la seconde en sens inverse (--sens). */
+.slot[data-slot="1"] { --sens: -1; }
+@keyframes aimante { to { translate: calc(var(--sens, 1) * var(--fx, 0px)) calc(var(--sens, 1) * var(--fy, 0px)); } }
+@keyframes ecrase { 50% { scale: 0.96 1; } }
+@keyframes efface { to { opacity: 0; } }
+@keyframes fondu-mot { from { opacity: 0; scale: 0.9; } }
+@keyframes trait {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(var(--r0)) scaleY(0.2); }
+  40% { opacity: 1; transform: rotate(var(--a)) translateY(calc(var(--r0) - 14px)) scaleY(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(var(--r0) - 30px)) scaleY(0.1); }
+}
 @keyframes fly { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)); } }
-@keyframes minusUp { 0% { opacity: 0; transform: translate(-50%, 6px) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -6px) scale(1.1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -26px); } }
+@keyframes seche {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.6); filter: blur(0); }
+  20% { opacity: 1; transform: translate(-50%, -6px) scale(1.1); }
+  60% { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; transform: translate(-50%, -22px); filter: blur(2px); }
+}
 @keyframes eqIn { from { opacity: 0; transform: translateY(14px) scale(0.85) rotate(-4deg); } }
 @keyframes eqFade { from { opacity: 0; transform: translateY(6px); } }
 
@@ -693,13 +756,17 @@ button.disc { font: inherit; cursor: pointer; }
   cursor: pointer;
 }
 /* Case à remplir : trait plein et teinte Corail, comme une cible de dépôt sur la table. */
-.rm-case.visee { border-style: solid; background: var(--c-action-tint); color: var(--fixed-ink); }
+.rm-case.visee, .rm-case.over { border-style: solid; background: var(--c-action-tint); color: var(--fixed-ink); }
 .rm-case.filled { border-color: transparent; }
 .rm-case.filled .brick { cursor: pointer; }
 /* En petit, la brique garde son libellé et son trait d'union ; nature et sens sont dans la réserve, juste dessous. */
 .rm-case .brick.s { min-width: 88px; min-height: 52px; align-items: center; justify-content: center; }
 .rm-case .b-meta { display: none; }
 .rm-case:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+/* Contour tracé à la plume autour de la case visée (ReserveModale.tsx) ; la case 1 attend un préfixe, la dernière un suffixe. */
+.rm-case { position: relative; }
+.rm-case.visee[data-attendue="prefixe"] { background: var(--c-prefix-tint); }
+.rm-case.visee[data-attendue="suffixe"] { background: var(--c-suffix-tint); }
 .rm-num { font-family: var(--serif); font-size: 26px; font-style: italic; opacity: 0.6; }
 
 /* Nom d'un fascicule (celui de sa jaquette, ADR 0016) en avant, son numéro en petit. */

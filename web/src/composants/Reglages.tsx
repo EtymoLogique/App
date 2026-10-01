@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { Mouvement, Reglages as R, Theme } from '../services/reglages'
+import type { Mouvement, Reglages as R, Retours, Theme } from '../services/reglages'
 
 interface Props {
   reglages: R
@@ -17,8 +17,8 @@ function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
   onChoisir: (v: T) => void
 }) {
   return (
-    <fieldset className="reglage">
-      <legend>{legende}</legend>
+    <section className="reglage" role="group" aria-label={legende}>
+      <h3>{legende}</h3>
       <div className="segments">
         {options.map(([v, libelle]) => (
           <label key={v} className={v === valeur ? 'on' : undefined}>
@@ -27,7 +27,7 @@ function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
           </label>
         ))}
       </div>
-    </fieldset>
+    </section>
   )
 }
 
@@ -68,7 +68,7 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
   )
 }
 
-/** Réglages (I-24), contenu du MVP en cours : apparence, mouvement, profil, licences. */
+/** Réglages (I-24), contenu du MVP en cours : apparence, mouvement, sons et vibrations, profil, licences. */
 export function Reglages({ reglages, onChanger, onReinitialiser }: Props) {
   return (
     <div className="reglages">
@@ -92,6 +92,16 @@ export function Reglages({ reglages, onChanger, onReinitialiser }: Props) {
           ['reduit', 'Réduites'],
         ]}
         onChoisir={(mouvement) => onChanger({ mouvement })}
+      />
+      <Choix<Retours>
+        nom="retours"
+        legende="Sons et vibrations"
+        valeur={reglages.retours}
+        options={[
+          ['actifs', 'Activés'],
+          ['coupes', 'Coupés'],
+        ]}
+        onChoisir={(retours) => onChanger({ retours })}
       />
       <section className="reglage">
         <h3>Profil invité</h3>

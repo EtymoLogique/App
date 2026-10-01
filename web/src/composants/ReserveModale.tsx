@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import { mouvementReduit } from '../services/animation'
 import type { BriqueJeu } from '../services/jeu'
 import { Brique } from './Brique'
-import { Reserve } from './Reserve'
+import { Reserve, TYPE_GLISSE } from './Reserve'
 import { useDialogue } from './useDialogue'
 
 /** Pause avant la fermeture automatique : le joueur voit la dernière brique se poser. */
@@ -44,13 +44,37 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
   // Annonce pour les lecteurs d'écran : ce qui vient de se passer, puis la suite.
   const [annonce, setAnnonce] = useState('')
   const [vise, setVise] = useState(rang)
-  // Dernière brique touchée : sa pastille rebondit ; dernière case remplie : sa brique s'y pose.
-  const [touchee, setTouchee] = useState<{ brique: string; rang: number; cle: number } | null>(null)
+  // Dernière brique touchée : sa pastille rebondit ; dernière case remplie : sa brique y vole depuis la réserve.
+  const [touchee, setTouchee] = useState<{ brique: string; rang: number; cle: number; sens: 'plus' | 'moins'; depuis?: DOMRect } | null>(null)
   const [complete, setComplete] = useState(false)
+  /** Case survolée par une brique glissée. */
+  const [survol, setSurvol] = useState<number | null>(null)
 
   const posees = cases.filter((b): b is string => b !== null)
   const cible = vise !== null && cases[vise] === null ? vise : cases.indexOf(null)
   const libelle = (id: string) => briques.get(id)?.libelle ?? ''
+
+  // Vol depuis la réserve (FLIP) : la brique part de sa place dans la réserve, se pose dans la case et s'y écrase un peu.
+  useLayoutEffect(() => {
+    const brique = boite.current?.querySelector<HTMLElement>('.rm-case.arrive .brick')
+    const a = touchee?.depuis
+    if (!brique || !a || mouvementReduit() || typeof brique.animate !== 'function') return
+    const b = brique.getBoundingClientRect()
+    if (b.width === 0) return
+    // Les briques de la réserve s'étirent sur leur ligne : l'échelle suit la plus petite des deux dimensions.
+    const depart = `translate(${a.left + a.width / 2 - (b.left + b.width / 2)}px, ${a.top + a.height / 2 - (b.top + b.height / 2)}px) scale(${Math.min(a.width / b.width, a.height / b.height)})`
+    brique.animate(
+      [
+        { transform: depart, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+        { transform: 'none', offset: 0.75 },
+        { transform: 'scaleY(0.94)', offset: 0.87 },
+        { transform: 'none' },
+      ],
+      { duration: 480 },
+    )
+    // Une fois par pose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touchee?.cle])
 
   useEffect(() => {
     if (!complete) return
@@ -58,23 +82,23 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     return () => clearTimeout(minuteur)
   }, [complete, fermer])
 
-  const choisir = (brique: string) => {
+  const choisir = (brique: string, depuis?: HTMLElement, visee = cible) => {
     if (complete) return
-    if (cible < 0) {
+    if (visee < 0) {
       setMessage('La table est pleine. Touchez une brique posée, ci-dessus, pour libérer sa case.')
       return
     }
-    onPoser(brique, cible)
+    onPoser(brique, visee)
     setMessage(null)
-    setTouchee({ brique, rang: cible, cle: (touchee?.cle ?? 0) + 1 })
-    const suivante = cases.findIndex((b, i) => b === null && i !== cible)
+    setTouchee({ brique, rang: visee, cle: (touchee?.cle ?? 0) + 1, sens: 'moins', depuis: depuis?.getBoundingClientRect() })
+    const suivante = cases.findIndex((b, i) => b === null && i !== visee)
     setVise(suivante < 0 ? null : suivante)
     if (suivante < 0) {
-      setAnnonce(`${libelle(brique)} posée en case ${cible + 1}. La table est prête : fusionnez.`)
+      setAnnonce(`${libelle(brique)} posée en case ${visee + 1}. La table est prête : fusionnez.`)
       setComplete(true)
       onComplete()
     } else {
-      setAnnonce(`${libelle(brique)} posée en case ${cible + 1}. Choisissez la ${ordinal(suivante)} brique.`)
+      setAnnonce(`${libelle(brique)} posée en case ${visee + 1}. Choisissez la ${ordinal(suivante)} brique.`)
     }
   }
 
@@ -85,7 +109,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setVise(i)
     if (!id) return
     onRetirer(i)
-    setTouchee({ brique: id, rang: -1, cle: (touchee?.cle ?? 0) + 1 })
+    setTouchee({ brique: id, rang: -1, cle: (touchee?.cle ?? 0) + 1, sens: 'plus' })
     setAnnonce(`${libelle(id)} retirée de la case ${i + 1}. Choisissez la ${ordinal(i)} brique.`)
   }
 
@@ -117,7 +141,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
             {cases.map((id, i) => {
               const brique = id ? briques.get(id) : undefined
               const visee = !complete && i === cible
-              const classes = ['rm-case', brique ? 'filled' : '', visee ? 'visee' : '', brique && touchee?.rang === i ? 'arrive' : ''].filter(Boolean).join(' ')
+              const classes = ['rm-case', brique ? 'filled' : '', visee ? 'visee' : '', survol === i ? 'over' : '', brique && touchee?.rang === i ? 'arrive' : ''].filter(Boolean).join(' ')
               return (
                 <Fragment key={i}>
                   {i > 0 && (
@@ -130,9 +154,26 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
                     className={classes}
                     aria-label={brique ? `Case ${i + 1} : ${brique.libelle}. Retirer` : `Case ${i + 1} vide${visee ? ', à remplir' : '. La choisir'}`}
                     aria-current={visee ? 'step' : undefined}
+                    data-attendue={i === 0 ? 'prefixe' : i === cases.length - 1 ? 'suffixe' : undefined}
                     onClick={() => toucherCase(i)}
+                    onDragOver={(e) => {
+                      if (brique) return
+                      e.preventDefault()
+                      setSurvol(i)
+                    }}
+                    onDragLeave={() => setSurvol(null)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      setSurvol(null)
+                      const glissee = e.dataTransfer.getData(TYPE_GLISSE)
+                      if (glissee && !brique) choisir(glissee, undefined, i)
+                    }}
                   >
-                    {brique ? <Brique key={touchee?.rang === i ? touchee.cle : 0} brique={brique} taille="s" /> : <span className="rm-num">{i + 1}</span>}
+                    {brique ? (
+                      <Brique key={touchee?.rang === i ? touchee.cle : 0} brique={brique} taille="s" />
+                    ) : (
+                      <span className="rm-num">{i + 1}</span>
+                    )}
                   </button>
                 </Fragment>
               )

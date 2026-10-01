@@ -33,27 +33,27 @@ describe('raccourci des sabliers', () => {
   })
 
   it('propose les trois lots de la boutique et désactive ceux que l’encre ne couvre pas', () => {
-    rendu(etat(35, 0))
+    rendu(etat(130, 0))
     fireEvent.click(screen.getByRole('button', { name: 'Acheter des sabliers' }))
     const feuille = screen.getByRole('dialog')
-    expect(within(feuille).getByRole('button', { name: 'Un sablier contre 10 gouttes' })).toBeEnabled()
-    expect(within(feuille).getByRole('button', { name: 'Trois sabliers contre 30 gouttes' })).toBeEnabled()
-    expect(within(feuille).getByRole('button', { name: 'Douze sabliers contre 120 gouttes' })).toBeDisabled()
-    expect(within(feuille).getByText('Il vous manque 85 gouttes.')).toBeInTheDocument()
+    expect(within(feuille).getByRole('button', { name: /^Six sabliers contre 60 gouttes/ })).toBeEnabled()
+    expect(within(feuille).getByRole('button', { name: /^Douze sabliers contre 120 gouttes/ })).toBeEnabled()
+    expect(within(feuille).getByRole('button', { name: /^Vingt-quatre sabliers contre 240 gouttes/ })).toBeDisabled()
+    expect(within(feuille).getByText('Il vous manque 110 gouttes.')).toBeInTheDocument()
   })
 
   it('un clic sur un lot échange et avance aussitôt, sans second clic', async () => {
     const acheter = rendu(etat(8850, 0))
     fireEvent.click(screen.getByRole('button', { name: 'Acheter des sabliers' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Trois sabliers contre 30 gouttes' }))
-    await waitFor(() => expect(acheter).toHaveBeenCalledWith(3))
+    fireEvent.click(screen.getByRole('button', { name: /^Six sabliers contre 60 gouttes/ }))
+    await waitFor(() => expect(acheter).toHaveBeenCalledWith(6))
     expect(acheter).toHaveBeenCalledTimes(1)
   })
 
   it('une erreur reste affichée et la feuille reste ouverte', async () => {
     rendu(etat(8850, 0), vi.fn().mockResolvedValue({ erreur: 'Pas assez d’encre pour cet échange.' }))
     fireEvent.click(screen.getByRole('button', { name: 'Acheter des sabliers' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Un sablier contre 10 gouttes' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Six sabliers contre 60 gouttes/ }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Pas assez d’encre pour cet échange.')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })

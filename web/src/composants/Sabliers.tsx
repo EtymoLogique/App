@@ -54,7 +54,7 @@ export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | nu
 }
 
 /**
- * Feuille d'achat (I-22, ADR 0039) : les trois lots de la boutique. Un lot se
+ * Feuille d'achat (I-22, ADR 0039) : les lots de la boutique, le recommandé étant le plus petit qui remplit les plis. Un lot se
  * choisit d'un clic, sans confirmation : l'échange est fait et les sabliers
  * servent aussitôt, dans la limite de ce qui remplit l'énergie.
  */
@@ -63,6 +63,10 @@ export function FeuilleAcheter({ etat, envoyer, onFermer }: { etat: Etat; envoye
   const [envoi, setEnvoi] = useState<number | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const s = etat.sabliers ?? SANS_SABLIERS
+  const maintenant = useMaintenant()
+  // Recommandé : le plus petit lot qui remplit les plis (sabliers déjà détenus déduits), sans trop dépenser.
+  const pourRemplir = Math.max(0, nombrePourRemplir(etat.energie, maintenant) - s.detenus)
+  const reco = pourRemplir > 0 ? LOTS.find((l) => l.nombre >= pourRemplir)?.nombre : undefined
 
   const choisir = async (nombre: number) => {
     setEnvoi(nombre)
@@ -85,11 +89,19 @@ export function FeuilleAcheter({ etat, envoyer, onFermer }: { etat: Etat; envoye
         </p>
         <ul className="pk-lots">
           {LOTS.map(({ nombre, titre }) => {
+            const recommande = nombre === reco
             const cout = nombre * s.prix_gouttes
             const manque = cout - etat.encre
             return (
               <li key={nombre}>
-                <button type="button" className="btn btn-secondary pk-lot" disabled={envoi !== null || manque > 0} aria-label={`${titre} contre ${gouttes(cout)}`} onClick={() => void choisir(nombre)}>
+                <button
+                  type="button"
+                  className={['btn btn-secondary pk-lot', recommande ? 'is-reco' : ''].filter(Boolean).join(' ')}
+                  disabled={envoi !== null || manque > 0}
+                  aria-label={`${titre} contre ${gouttes(cout)}${recommande ? '. Recommandé' : ''}`}
+                  onClick={() => void choisir(nombre)}
+                >
+                  {recommande && <span className="pk-lot-reco">Recommandé</span>}
                   <span className="bq-troc" aria-hidden="true">
                     <span className="pk-drop" />
                     <b>{cout}</b>
