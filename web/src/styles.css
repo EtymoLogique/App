@@ -508,8 +508,7 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .btn:hover { transform: translate(-2px, -2px); }
   :root:not([data-mouvement="reduit"]) .btn:active { transform: translate(2px, 2px); }
   :root:not([data-mouvement="reduit"]) .brick { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out), opacity 0.2s; }
-  /* Chute à la pose seulement (Table.tsx, .arrive) : pas au retour sur la table. */
-  :root:not([data-mouvement="reduit"]) .slot.filled.arrive .brick { animation: land 0.45s var(--ease-spring); }
+  /* Chute à la pose depuis la réserve (ReserveModale.tsx, .arrive). */
   :root:not([data-mouvement="reduit"]) .rm-case.filled.arrive .brick { animation: land 0.45s var(--ease-spring); }
   /* Pastille d'une brique posée ou retirée depuis la réserve : elle rebondit sur son nouveau compte. */
   :root:not([data-mouvement="reduit"]) .b-count.rebond { animation: rebond 0.4s var(--ease-spring); }

@@ -225,7 +225,6 @@ export function App({ api, catalogue }: Props) {
                           onDeplacer={partie.deplacer}
                           onRetirer={partie.retirer}
                           onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
-                          retenue={reserveOuverte !== null}
                         />
                         <div className="actions">
                           <button
