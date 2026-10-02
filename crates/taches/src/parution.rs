@@ -81,9 +81,10 @@ pub async fn publier_fascicules(
 
     // Un fascicule déjà paru ne disparaît pas de l'index parce qu'il manque
     // au calendrier : un retrait après parution se fait en restaurant une
-    // version antérieure de l'index (ADR 0029).
+    // version antérieure de l'index (ADR 0029). Hors production (`essai`),
+    // le calendrier fait foi : un fascicule retiré du contenu quitte l'index.
     let mut parus: BTreeMap<u32, EntreeFascicule> = BTreeMap::new();
-    if let Some(actuel) = &actuel {
+    if let Some(actuel) = actuel.as_ref().filter(|_| !calendrier.essai) {
         for entree in &actuel.fascicules {
             if !calendrier
                 .fascicules
