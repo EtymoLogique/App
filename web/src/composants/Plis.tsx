@@ -464,7 +464,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   const parType = (nature: 'prefixe' | 'suffixe' | 'mot') => lesChances?.briques.filter((c) => (c.brique.nature ?? 'mot') === nature && !(fixe && c.brique.rarete === 'legendaire')).reduce((n, c) => n + c.chance, 0) ?? 0
   const visibles = briques.filter((b) => b.rarete !== 'legendaire' || reserve.has(b.id)).length
   const visiblesConnues = briques.filter((b) => reserve.has(b.id)).length
-  const legendairesInconnues = fixe ? [] : lesChances?.briques.filter((c) => c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)) ?? []
+  const legendairesInconnues = lesChances?.briques.filter((c) => c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)) ?? []
 
   return (
     <div className="pk-ecran">
@@ -641,7 +641,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
               </summary>
               <div className="pk-pool" style={{ '--n': inconnues.length } as CSSProperties}>
                 {lesChances.briques
-                  .filter((c) => !(c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)))
+                  .filter((c) => !(c.brique.rarete === 'legendaire' && (fixe || !reserve.has(c.brique.id))))
                   .sort((a, b) => b.chance - a.chance)
                   .map(({ brique, chance }) => {
                     const connue = jeu.briques.get(brique.id)
@@ -663,14 +663,14 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
                       </span>
                     )
                   })}
-                {legendairesInconnues.length > 0 && (
+                {(fixe ? (lesChances?.parRarete.legendaire ?? 0) > 0 : legendairesInconnues.length > 0) && (
                   <span className="pk-brickodd">
                     <span className="pk-unknown" aria-hidden="true">
                       ◆
                     </span>
                     <FormeRarete rarete="legendaire" />
-                    <small>Légendaires inconnues</small>
-                    <b>{pourcentage(legendairesInconnues.reduce((s, c) => s + c.chance, 0))}</b>
+                    <small>{fixe ? 'Légendaires' : 'Légendaires inconnues'}</small>
+                    <b>{pourcentage(fixe ? (lesChances?.parRarete.legendaire ?? 0) : legendairesInconnues.reduce((s, c) => s + c.chance, 0))}</b>
                   </span>
                 )}
               </div>
