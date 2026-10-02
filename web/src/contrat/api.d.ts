@@ -15,7 +15,8 @@ export interface paths {
         put?: never;
         /**
          * Remet le joueur à zéro, pour la recette hors production : codex vide,
-         *     réserve de départ, 10 000 gouttes. Route absente (`404`) en production.
+         *     réserve vide (les graines des fascicules parus ne sont pas rendues),
+         *     10 000 gouttes. Route absente (`404`) en production.
          */
         post: operations["reinitialiser"];
         delete?: never;

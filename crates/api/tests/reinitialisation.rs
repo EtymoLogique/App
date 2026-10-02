@@ -63,23 +63,17 @@ async fn hors_production_le_joueur_repart_de_zero(base: PgPool) {
     assert_eq!(etat["decouvertes"], json!([]));
     assert_eq!(etat["energie"]["charges"], etat["energie"]["capacite"]);
     assert_eq!(etat["historique_plis"], json!([]));
-    let nombres = |e: &serde_json::Value| -> Vec<(String, u64)> {
-        e["reserve"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|l| {
-                (
-                    l["brique_id"].to_string(),
-                    l["exemplaires"].as_u64().unwrap(),
-                )
-            })
-            .collect()
-    };
+    assert_ne!(depart["reserve"], json!([]), "graines reçues au départ");
     assert_eq!(
-        nombres(&etat),
-        nombres(&depart),
-        "réserve de départ reprise"
+        etat["reserve"],
+        json!([]),
+        "codex vide : graines non rendues"
+    );
+    let (_, _, synchronise) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(
+        synchronise["reserve"],
+        json!([]),
+        "la synchronisation ne ressème pas"
     );
     assert_eq!(somme_mouvements(&base, "encre").await, 10_000);
     assert!(etat["version_etat"].as_i64() > depart["version_etat"].as_i64());
@@ -123,6 +117,15 @@ async fn la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer(base: Pg
     assert_eq!(etat["jalons_atteints"], json!([]));
     assert_eq!(etat["jalons_recuperes"], json!([]));
 
+    // La réinitialisation ne rend pas les graines : les deux briques reviennent à la main.
+    sqlx::query(
+        "INSERT INTO exemplaire (joueur_id, brique_id, nombre)
+         SELECT id, b, 1 FROM joueur, unnest($1::text[]) AS b",
+    )
+    .bind([GEO, LOGIE])
+    .execute(&base)
+    .await
+    .unwrap();
     let etat = atteindre().await;
     assert_eq!(etat["jalons_atteints"], json!([JALON]));
     assert_eq!(etat["jalons_recuperes"], json!([]));
