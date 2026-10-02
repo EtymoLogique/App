@@ -22,9 +22,22 @@ export const LIBELLES_RARETES: Record<Rarete, string> = {
   legendaire: 'Légendaire',
 }
 
-/** Poids des briques : celui de leur seule rareté (ADR 0035), miroir de `etymo_domaine::pli::poids`. */
+/**
+ * Poids des briques, miroir de `etymo_domaine::pli::poids_eligibles` (tout est éligible).
+ * Sans `chance_legendaire`, le poids de la seule rareté (ADR 0035). Sinon les légendaires
+ * se partagent à parts égales la chance fixe, et les autres briques le reste selon leur rareté (ADR 0043).
+ */
 export function poids(briques: BriquePli[], equilibrage: Equilibrage): number[] {
-  return briques.map((b) => equilibrage.poids_raretes[b.rarete] ?? 0)
+  const bruts = briques.map((b) => equilibrage.poids_raretes[b.rarete] ?? 0)
+  const chance = Math.min(equilibrage.chance_legendaire ?? 0, 100)
+  const nbLegendaires = briques.filter((b) => b.rarete === 'legendaire').length
+  if (chance === 0 || nbLegendaires === 0) {
+    return chance === 0 ? bruts : bruts.map((p, i) => (briques[i]?.rarete === 'legendaire' ? 0 : p))
+  }
+  const autres = bruts.reduce((n, p, i) => (briques[i]?.rarete === 'legendaire' ? n : n + p), 0)
+  return bruts.map((p, i) =>
+    briques[i]?.rarete === 'legendaire' ? (autres === 0 ? 1 : chance * autres) : p * (100 - chance) * nbLegendaires,
+  )
 }
 
 export interface Chances {
@@ -44,6 +57,11 @@ export function chances(briques: BriquePli[], equilibrage: Equilibrage): Chances
     return { brique, chance }
   })
   return { briques: resultat, parRarete }
+}
+
+/** Vrai si les légendaires ont une chance fixe : elles ne comptent plus dans les chances par type (ADR 0043). */
+export function chanceFixe(equilibrage: Equilibrage): boolean {
+  return (equilibrage.chance_legendaire ?? 0) > 0
 }
 
 /**

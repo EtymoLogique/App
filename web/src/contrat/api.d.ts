@@ -472,6 +472,14 @@ export interface components {
              */
             base_encre: number;
             /**
+             * Format: int32
+             * @description Chance fixe, en pourcent, qu'un pli donne une légendaire, partagée à
+             *     parts égales entre les légendaires du fascicule ; les poids ne
+             *     s'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :
+             *     zéro, et les légendaires gardent leur poids.
+             */
+            chance_legendaire?: number;
+            /**
              * @description Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).
              *     Absent d'un manifeste antérieur : une découverte ne rapporte rien.
              */
@@ -497,8 +505,9 @@ export interface components {
              */
             garantie_nouveaute: number;
             /**
-             * @description Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est
-             *     proportionnelle au poids de sa seule rareté (ADR 0035).
+             * @description Poids de chaque rareté (62, 26, 10) : la chance d'une brique est
+             *     proportionnelle au poids de sa seule rareté (ADR 0035). Le poids des
+             *     légendaires ne compte que si `chance_legendaire` est nulle.
              */
             poids_raretes: {
                 [key: string]: number;
@@ -751,7 +760,7 @@ export interface components {
          * @description Règle qui a décidé de la brique tirée.
          * @enum {string}
          */
-        Regle: "tirage" | "garantie" | "filet" | "deterministe";
+        Regle: "tirage" | "garantie" | "filet" | "garantie_legendaire" | "deterministe";
         RelationCarte: {
             etymon?: components["schemas"]["Etymon"] | null;
             fait?: components["schemas"]["Fait"] | null;

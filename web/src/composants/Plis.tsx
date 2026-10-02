@@ -9,6 +9,7 @@ import {
   LIBELLES_RARETES,
   ORDRE_RARETES,
   briquesDuPli,
+  chanceFixe,
   chances,
   compteur,
   duree,
@@ -458,10 +459,12 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   const nom = fascicule.manifeste.nom ?? `Fascicule ${fascicule.numero}`
   const rareteTiree = reponse ? briques.find((b) => b.id === reponse.ouverture.brique_id)?.rarete : undefined
 
-  const parType = (nature: 'prefixe' | 'suffixe' | 'mot') => lesChances?.briques.filter((c) => (c.brique.nature ?? 'mot') === nature).reduce((n, c) => n + c.chance, 0) ?? 0
+  const fixe = equilibrage ? chanceFixe(equilibrage) : false
+  // Chance fixe : les chances par type se calculent hors légendaires (ADR 0043).
+  const parType = (nature: 'prefixe' | 'suffixe' | 'mot') => lesChances?.briques.filter((c) => (c.brique.nature ?? 'mot') === nature && !(fixe && c.brique.rarete === 'legendaire')).reduce((n, c) => n + c.chance, 0) ?? 0
   const visibles = briques.filter((b) => b.rarete !== 'legendaire' || reserve.has(b.id)).length
   const visiblesConnues = briques.filter((b) => reserve.has(b.id)).length
-  const legendairesInconnues = lesChances?.briques.filter((c) => c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)) ?? []
+  const legendairesInconnues = fixe ? [] : lesChances?.briques.filter((c) => c.brique.rarete === 'legendaire' && !reserve.has(c.brique.id)) ?? []
 
   return (
     <div className="pk-ecran">
@@ -606,7 +609,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
                 {ORDRE_RARETES.map((r) => (
                   <span key={r} className="pk-odd">
                     <FormeRarete rarete={r} />
-                    <span>{LIBELLES_RARETES[r]}</span>
+                    <span>{fixe && r === 'legendaire' ? 'Légendaires' : LIBELLES_RARETES[r]}</span>
                     <b>{pourcentage(lesChances.parRarete[r])}</b>
                   </span>
                 ))}
@@ -680,9 +683,9 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
         <ul className="pk-rules">
           <li>Gratuit, et seule source d’exemplaires après les briques de départ.</li>
           <li>Doublons possibles : chacun ajoute un exemplaire, 5 au plus par brique. Chaque pli rapporte de l’encre, davantage pour un doublon.</li>
-          <li>Chances affichées pour chaque rareté, chaque type et chaque brique. Les légendaires inconnues forment une seule ligne : leur nombre reste secret.</li>
-          <li>Une brique nouvelle garantie au moins tous les {garantie} plis.</li>
-          <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli.</li>
+          <li>Chances affichées pour chaque rareté, chaque type et chaque brique. {fixe ? 'Les légendaires ont une seule ligne, à chance fixe : leur nombre reste secret.' : 'Les légendaires inconnues forment une seule ligne : leur nombre reste secret.'}</li>
+          <li>Une brique nouvelle garantie au moins tous les {garantie} plis{fixe ? ', jamais une légendaire' : ''}.</li>
+          <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli{fixe ? ', jamais une légendaire' : ''}.</li>
           <li>Deux plis au plus en attente, un toutes les 12&nbsp;h.</li>
           <li>Un sablier avance la recharge d’une heure. L’encre en achète sans limite, à la boutique.</li>
           <li>La garantie de nouveauté et le filet se comptent par fascicule.</li>

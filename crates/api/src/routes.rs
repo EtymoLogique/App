@@ -366,7 +366,13 @@ fn tirer_pli<'a>(
         gouttes: pli::encre(resultat, brique.rarete, parametres),
         avant,
         apres,
-        compteurs: pli::compteurs_apres(compteurs, resultat, bloque_avant, bloque_apres),
+        compteurs: pli::compteurs_apres(
+            compteurs,
+            resultat,
+            brique.rarete == pli::Rarete::Legendaire,
+            bloque_avant,
+            bloque_apres,
+        ),
     })
 }
 
