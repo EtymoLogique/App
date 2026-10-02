@@ -258,7 +258,7 @@ pub async fn compteurs(
     fascicule: &IdCatalogue,
 ) -> Result<Compteurs, ErreurApi> {
     Ok(sqlx::query!(
-        "SELECT plis_sans_nouveaute, plis_sans_utilite FROM compteur_pli
+        "SELECT plis_sans_nouveaute, plis_sans_utilite, plis_sans_legendaire FROM compteur_pli
          WHERE joueur_id = $1 AND fascicule_id = $2",
         joueur,
         fascicule.as_str(),
@@ -268,6 +268,7 @@ pub async fn compteurs(
     .map_or_else(Compteurs::default, |l| Compteurs {
         plis_sans_nouveaute: positif(l.plis_sans_nouveaute),
         plis_sans_utilite: positif(l.plis_sans_utilite),
+        plis_sans_legendaire: positif(l.plis_sans_legendaire),
     }))
 }
 
@@ -338,14 +339,16 @@ pub async fn ouvrir_pli(
     )
     .await?;
     sqlx::query!(
-        "INSERT INTO compteur_pli (joueur_id, fascicule_id, plis_sans_nouveaute, plis_sans_utilite)
-         VALUES ($1, $2, $3, $4)
+        "INSERT INTO compteur_pli (joueur_id, fascicule_id, plis_sans_nouveaute, plis_sans_utilite, plis_sans_legendaire)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (joueur_id, fascicule_id) DO UPDATE
-         SET plis_sans_nouveaute = EXCLUDED.plis_sans_nouveaute, plis_sans_utilite = EXCLUDED.plis_sans_utilite",
+         SET plis_sans_nouveaute = EXCLUDED.plis_sans_nouveaute, plis_sans_utilite = EXCLUDED.plis_sans_utilite,
+             plis_sans_legendaire = EXCLUDED.plis_sans_legendaire",
         joueur,
         effets.fascicule.as_str(),
         i32::try_from(effets.compteurs.plis_sans_nouveaute).unwrap_or(i32::MAX),
         i32::try_from(effets.compteurs.plis_sans_utilite).unwrap_or(i32::MAX),
+        i32::try_from(effets.compteurs.plis_sans_legendaire).unwrap_or(i32::MAX),
     )
     .execute(&mut *tx)
     .await?;

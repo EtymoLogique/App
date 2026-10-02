@@ -67,9 +67,16 @@ pub struct BriquePli {
 /// Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Equilibrage {
-    /// Poids de chaque rareté (62, 26, 10, 2) : la chance d'une brique est
-    /// proportionnelle au poids de sa seule rareté (ADR 0035).
+    /// Poids de chaque rareté (62, 26, 10) : la chance d'une brique est
+    /// proportionnelle au poids de sa seule rareté (ADR 0035). Le poids des
+    /// légendaires ne compte que si `chance_legendaire_pour_mille` est nulle.
     pub poids_raretes: BTreeMap<Rarete, u32>,
+    /// Chance fixe, en pour mille (12 = 1,2 %), qu'un pli donne une légendaire, partagée à
+    /// parts égales entre les légendaires du fascicule ; les poids ne
+    /// s'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :
+    /// zéro, et les légendaires gardent leur poids.
+    #[serde(default)]
+    pub chance_legendaire_pour_mille: u32,
     /// Gouttes rapportées par tout pli (ADR 0020).
     pub base_encre: u32,
     /// Gouttes en plus pour un doublon sous le plafond (ADR 0019).
@@ -96,6 +103,9 @@ pub enum Regle {
     Garantie,
     /// Filet d'utilité : tirage parmi les briques qui rendent une découverte possible.
     Filet,
+    /// Garantie lointaine : tirage parmi les légendaires du fascicule, au plus
+    /// tard au `GARANTIE_LEGENDAIRE`ᵉ pli d'affilée sans légendaire (ADR 0043).
+    GarantieLegendaire,
     /// Pli de jalon : briques déclarées par le fascicule (ADR 0038).
     Deterministe,
 }
@@ -117,7 +127,11 @@ pub enum Resultat {
 pub struct Compteurs {
     pub plis_sans_nouveaute: u32,
     pub plis_sans_utilite: u32,
+    pub plis_sans_legendaire: u32,
 }
+
+/// Une légendaire au plus tard à ce pli d'affilée sans légendaire, par fascicule.
+pub const GARANTIE_LEGENDAIRE: u32 = 100;
 
 /// Poids des briques : le poids de la seule rareté de chacune (ADR 0035).
 /// Deux briques de même rareté ont toujours la même chance.
@@ -126,6 +140,57 @@ pub fn poids(briques: &[BriquePli], equilibrage: &Equilibrage) -> Vec<u64> {
     briques
         .iter()
         .map(|b| u64::from(*equilibrage.poids_raretes.get(&b.rarete).unwrap_or(&0)))
+        .collect()
+}
+
+/// Poids de tirage des briques éligibles (les autres pèsent zéro).
+///
+/// Sans `chance_legendaire_pour_mille`, c'est le poids de la rareté. Sinon, les légendaires
+/// éligibles se partagent à parts égales la chance fixe `c` ‰, et les autres
+/// briques les `1000 - c` ‰ restants selon les poids de leur rareté. Les poids
+/// sont des entiers : ceux des non-légendaires sont multipliés par
+/// `(1000 - c) × nombre de légendaires`, chaque légendaire pèse `c × somme des
+/// poids des autres`. Sans légendaire éligible, les poids restent ceux des raretés.
+#[must_use]
+pub fn poids_eligibles(
+    briques: &[BriquePli],
+    eligibles: &[bool],
+    equilibrage: &Equilibrage,
+) -> Vec<u64> {
+    let bruts = poids(briques, equilibrage);
+    let chance = u64::from(equilibrage.chance_legendaire_pour_mille.min(1000));
+    let eligible = |i: usize| eligibles.get(i).copied().unwrap_or(false);
+    if chance == 0 {
+        return bruts
+            .into_iter()
+            .enumerate()
+            .map(|(i, p)| if eligible(i) { p } else { 0 })
+            .collect();
+    }
+    let legendaire = |i: usize| briques[i].rarete == Rarete::Legendaire;
+    let nb_legendaires = (0..briques.len())
+        .filter(|&i| eligible(i) && legendaire(i))
+        .count() as u64;
+    let somme_autres: u64 = (0..briques.len())
+        .filter(|&i| eligible(i) && !legendaire(i))
+        .map(|i| bruts[i])
+        .sum();
+    (0..briques.len())
+        .map(|i| {
+            if !eligible(i) {
+                0
+            } else if legendaire(i) {
+                if somme_autres == 0 {
+                    1
+                } else {
+                    chance * somme_autres
+                }
+            } else if nb_legendaires == 0 {
+                bruts[i]
+            } else {
+                bruts[i] * (1000 - chance) * nb_legendaires
+            }
+        })
         .collect()
 }
 
@@ -228,11 +293,8 @@ pub fn briques_utiles<S: BuildHasher, T: BuildHasher>(
 /// Somme des poids des briques éligibles à la règle retenue.
 #[must_use]
 pub fn somme_eligible(briques: &[BriquePli], eligibles: &[bool], equilibrage: &Equilibrage) -> u64 {
-    poids(briques, equilibrage)
+    poids_eligibles(briques, eligibles, equilibrage)
         .iter()
-        .zip(eligibles)
-        .filter(|&(_, &e)| e)
-        .map(|(p, _)| p)
         .sum()
 }
 
@@ -252,16 +314,38 @@ pub fn regle<S: BuildHasher, T: BuildHasher>(
     utiles: &HashSet<IdCatalogue, T>,
     bloque: bool,
 ) -> (Regle, Vec<bool>) {
+    // Avec une chance fixe, les garanties de nouveauté et d'utilité ne tirent
+    // jamais une légendaire (ADR 0043) ; seule la garantie lointaine en donne une.
+    let hors_legendaire = |b: &BriquePli| {
+        equilibrage.chance_legendaire_pour_mille == 0 || b.rarete != Rarete::Legendaire
+    };
+    if equilibrage.chance_legendaire_pour_mille > 0
+        && compteurs.plis_sans_legendaire + 1 >= GARANTIE_LEGENDAIRE
+    {
+        let eligibles: Vec<bool> = briques
+            .iter()
+            .map(|b| b.rarete == Rarete::Legendaire)
+            .collect();
+        if eligibles.iter().any(|&e| e) {
+            return (Regle::GarantieLegendaire, eligibles);
+        }
+    }
     let filet = bloque && compteurs.plis_sans_utilite + 1 >= equilibrage.filet_utilite;
     if filet {
-        let eligibles: Vec<bool> = briques.iter().map(|b| utiles.contains(&b.id)).collect();
+        let eligibles: Vec<bool> = briques
+            .iter()
+            .map(|b| utiles.contains(&b.id) && hors_legendaire(b))
+            .collect();
         if eligibles.iter().any(|&e| e) {
             return (Regle::Filet, eligibles);
         }
     }
     let garantie = compteurs.plis_sans_nouveaute + 1 >= equilibrage.garantie_nouveaute;
     if garantie {
-        let eligibles: Vec<bool> = briques.iter().map(|b| !connues.contains(&b.id)).collect();
+        let eligibles: Vec<bool> = briques
+            .iter()
+            .map(|b| !connues.contains(&b.id) && hors_legendaire(b))
+            .collect();
         if eligibles.iter().any(|&e| e) {
             return (Regle::Garantie, eligibles);
         }
@@ -277,11 +361,7 @@ pub fn tirer<'a>(
     equilibrage: &Equilibrage,
     alea: u64,
 ) -> Option<&'a BriquePli> {
-    let poids: Vec<u64> = poids(briques, equilibrage)
-        .into_iter()
-        .zip(eligibles)
-        .map(|(p, &e)| if e { p } else { 0 })
-        .collect();
+    let poids = poids_eligibles(briques, eligibles, equilibrage);
     choisir(&poids, alea).map(|i| &briques[i])
 }
 
@@ -336,11 +416,13 @@ pub fn rarete_mot<'a>(
 
 /// Compteurs après un pli : la nouveauté remet la garantie à zéro ; le filet
 /// compte les plis consécutifs ouverts sans découverte possible, jusqu'à ce
-/// que la réserve en permette une.
+/// que la réserve en permette une ; la garantie lointaine compte les plis
+/// d'affilée sans légendaire.
 #[must_use]
 pub fn compteurs_apres(
     avant: Compteurs,
     resultat: Resultat,
+    legendaire: bool,
     bloque_avant: bool,
     bloque_apres: bool,
 ) -> Compteurs {
@@ -355,6 +437,11 @@ pub fn compteurs_apres(
         } else {
             0
         },
+        plis_sans_legendaire: if legendaire {
+            0
+        } else {
+            avant.plis_sans_legendaire + 1
+        },
     }
 }
 
@@ -368,6 +455,7 @@ mod tests {
 
     fn equilibrage() -> Equilibrage {
         Equilibrage {
+            chance_legendaire_pour_mille: 0,
             poids_raretes: BTreeMap::from([
                 (Rarete::Commune, 62),
                 (Rarete::PeuCommune, 26),
@@ -437,6 +525,7 @@ mod tests {
         let cinq = Compteurs {
             plis_sans_nouveaute: 5,
             plis_sans_utilite: 0,
+            plis_sans_legendaire: 0,
         };
         let (r, eligibles) = regle(
             &briques(),
@@ -472,6 +561,7 @@ mod tests {
         let compteurs = Compteurs {
             plis_sans_nouveaute: 9,
             plis_sans_utilite: 0,
+            plis_sans_legendaire: 0,
         };
         assert_eq!(
             regle(
@@ -493,6 +583,7 @@ mod tests {
         let compteurs = Compteurs {
             plis_sans_nouveaute: 5,
             plis_sans_utilite: 4,
+            plis_sans_legendaire: 0,
         };
         let (r, eligibles) = regle(
             &briques(),
@@ -525,16 +616,21 @@ mod tests {
         let avant = Compteurs {
             plis_sans_nouveaute: 3,
             plis_sans_utilite: 2,
+            plis_sans_legendaire: 0,
         };
         assert_eq!(
-            compteurs_apres(avant, Resultat::Nouvelle, true, false),
-            Compteurs::default()
+            compteurs_apres(avant, Resultat::Nouvelle, false, true, false),
+            Compteurs {
+                plis_sans_legendaire: 1,
+                ..Compteurs::default()
+            }
         );
         assert_eq!(
-            compteurs_apres(avant, Resultat::Doublon, true, true),
+            compteurs_apres(avant, Resultat::Doublon, false, true, true),
             Compteurs {
                 plis_sans_nouveaute: 4,
-                plis_sans_utilite: 3
+                plis_sans_utilite: 3,
+                plis_sans_legendaire: 1,
             }
         );
     }
@@ -572,5 +668,144 @@ mod tests {
             Rarete::PeuCommune
         );
         assert_eq!(rarete_mot([], rarete), Rarete::Commune);
+    }
+
+    fn avec_legendaires() -> (Vec<BriquePli>, Equilibrage) {
+        let mut briques = briques();
+        briques.push(brique(
+            "brq_0000g001",
+            NaturePli::Prefixe,
+            Rarete::Legendaire,
+        ));
+        briques.push(brique(
+            "brq_0000g002",
+            NaturePli::Suffixe,
+            Rarete::Legendaire,
+        ));
+        let mut e = equilibrage();
+        e.chance_legendaire_pour_mille = 12;
+        (briques, e)
+    }
+
+    #[test]
+    fn la_chance_fixe_ne_depend_ni_du_poids_ni_du_nombre_de_legendaires() {
+        let (briques, e) = avec_legendaires();
+        let tous = vec![true; briques.len()];
+        let p = poids_eligibles(&briques, &tous, &e);
+        let somme: u64 = p.iter().sum();
+        let legendaires: u64 = p[4] + p[5];
+        // 1,2 % pour l'ensemble, partagé à parts égales.
+        assert_eq!(legendaires * 1000, somme * 12);
+        assert_eq!(p[4], p[5]);
+        // Les 98,8 % restants suivent les poids 62, 62, 62, 10.
+        assert_eq!(p[0], p[1]);
+        assert_eq!(p[3] * 62, p[0] * 10);
+        // Une seule légendaire garde la même chance totale.
+        let seule: Vec<bool> = vec![true, true, true, true, true, false];
+        let p = poids_eligibles(&briques, &seule, &e);
+        assert_eq!(p[4] * 1000, p.iter().sum::<u64>() * 12);
+    }
+
+    #[test]
+    fn sans_chance_fixe_ou_sans_legendaire_les_poids_sont_ceux_des_raretes() {
+        let (briques, mut e) = avec_legendaires();
+        let tous = vec![true; briques.len()];
+        e.chance_legendaire_pour_mille = 0;
+        assert_eq!(
+            poids_eligibles(&briques, &tous, &e),
+            vec![62, 62, 62, 10, 2, 2]
+        );
+        e.chance_legendaire_pour_mille = 12;
+        let sans = vec![true, true, true, true, false, false];
+        assert_eq!(
+            poids_eligibles(&briques, &sans, &e),
+            vec![62, 62, 62, 10, 0, 0]
+        );
+    }
+
+    #[test]
+    fn les_garanties_ne_tirent_jamais_une_legendaire() {
+        let (briques, e) = avec_legendaires();
+        let connues = HashSet::from([id("brq_0000ge00")]);
+        let compteurs = Compteurs {
+            plis_sans_nouveaute: 5,
+            ..Compteurs::default()
+        };
+        let (r, eligibles) = regle(&briques, compteurs, &e, &connues, &HashSet::new(), false);
+        assert_eq!(r, Regle::Garantie);
+        assert_eq!(eligibles, vec![false, true, true, true, false, false]);
+        let utiles = HashSet::from([id("brq_0000g001"), id("brq_000109e0")]);
+        let bloque = Compteurs {
+            plis_sans_utilite: 4,
+            ..Compteurs::default()
+        };
+        let (r, eligibles) = regle(&briques, bloque, &e, &HashSet::new(), &utiles, true);
+        assert_eq!(r, Regle::Filet);
+        assert_eq!(eligibles, vec![false, false, true, false, false, false]);
+    }
+
+    #[test]
+    fn la_garantie_lointaine_donne_une_legendaire_au_centieme_pli() {
+        let (briques, e) = avec_legendaires();
+        let quatre_vingt_dix_huit = Compteurs {
+            plis_sans_legendaire: GARANTIE_LEGENDAIRE - 2,
+            ..Compteurs::default()
+        };
+        let connues = HashSet::new();
+        assert_eq!(
+            regle(
+                &briques,
+                quatre_vingt_dix_huit,
+                &e,
+                &connues,
+                &HashSet::new(),
+                false
+            )
+            .0,
+            Regle::Tirage
+        );
+        let quatre_vingt_dix_neuf = Compteurs {
+            plis_sans_legendaire: GARANTIE_LEGENDAIRE - 1,
+            ..Compteurs::default()
+        };
+        let (r, eligibles) = regle(
+            &briques,
+            quatre_vingt_dix_neuf,
+            &e,
+            &connues,
+            &HashSet::new(),
+            false,
+        );
+        assert_eq!(r, Regle::GarantieLegendaire);
+        assert_eq!(eligibles, vec![false, false, false, false, true, true]);
+        // Sans légendaire dans le fascicule, ou sans chance fixe, la garantie ne joue pas.
+        assert_eq!(
+            regle(
+                &briques[..4],
+                quatre_vingt_dix_neuf,
+                &e,
+                &connues,
+                &HashSet::new(),
+                false
+            )
+            .0,
+            Regle::Tirage
+        );
+    }
+
+    #[test]
+    fn le_compteur_de_legendaire_repart_a_zero_sur_une_legendaire() {
+        let avant = Compteurs {
+            plis_sans_legendaire: 40,
+            ..Compteurs::default()
+        };
+        assert_eq!(
+            compteurs_apres(avant, Resultat::Doublon, true, false, false).plis_sans_legendaire,
+            0
+        );
+        assert_eq!(
+            compteurs_apres(avant, Resultat::Nouvelle, false, false, false).plis_sans_legendaire,
+            41
+        );
     }
 }

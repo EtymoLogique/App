@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { manifeste } from '../test/fixtures'
-import { type BriquePli, chances, duree, dureeLisible, avantPlein, dureeSablier, energieA, nombrePourRemplir, poids, pourcentage, sabliersAchetables } from './plis'
+import { type BriquePli, chanceFixe, chances, duree, dureeLisible, avantPlein, dureeSablier, energieA, nombrePourRemplir, poids, pourcentage, sabliersAchetables } from './plis'
 
 const equilibrage = manifeste.pli!.equilibrage!
 const brique = (id: string, nature: BriquePli['nature'], rarete: BriquePli['rarete']): BriquePli => ({ id, unite_id: 'unt_00000000', nature, rarete })
@@ -17,6 +17,27 @@ describe('plis', () => {
     expect(poids(briques, equilibrage)).toEqual([62, 62, 62, 10])
     const c = chances(briques, equilibrage)
     expect(c.parRarete.commune).toBeCloseTo(186 / 196)
+  })
+
+  it('donne aux légendaires une chance fixe, partagée, hors poids des raretés', () => {
+    const briques = [
+      brique('brq_0000ge00', 'prefixe', 'commune'),
+      brique('brq_000109e0', 'suffixe', 'rare'),
+      brique('brq_0000g001', 'prefixe', 'legendaire'),
+      brique('brq_0000g002', 'suffixe', 'legendaire'),
+    ]
+    const fixe = { ...equilibrage, chance_legendaire_pour_mille: 12 }
+    const c = chances(briques, fixe)
+    expect(chanceFixe(fixe)).toBe(true)
+    expect(c.parRarete.legendaire).toBeCloseTo(0.012)
+    expect(c.briques[2]?.chance).toBeCloseTo(0.006)
+    expect(c.briques[3]?.chance).toBeCloseTo(0.006)
+    // Le reste suit 62 / 10 sur 98,8 %.
+    expect(c.parRarete.commune).toBeCloseTo((0.988 * 62) / 72)
+    expect(c.parRarete.commune + c.parRarete.rare).toBeCloseTo(0.988)
+    // Sans chance fixe (manifeste ancien), le poids de la rareté joue encore.
+    expect(chanceFixe(equilibrage)).toBe(false)
+    expect(poids(briques, equilibrage)).toEqual([62, 10, 2, 2])
   })
 
   it('n’arrondit jamais une chance à 0 % ni à 100 %', () => {
