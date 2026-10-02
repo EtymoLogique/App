@@ -173,11 +173,23 @@ async fn un_fichier_altere_bloque_la_parution() {
     assert!(!existe(&bucket, "public/index.json").await);
 }
 
-#[tokio::test]
-async fn un_fascicule_paru_retire_du_calendrier_reste_dans_l_index() {
+/// Le calendrier d'essai écrit par `essai::calendrier`, passé en production.
+fn en_production(racine: &CheminLocal) {
+    let chemin = racine.join(CALENDRIER);
+    let mut valeur: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&chemin).unwrap()).unwrap();
+    valeur["essai"] = false.into();
+    std::fs::write(chemin, serde_json::to_vec(&valeur).unwrap()).unwrap();
+}
+
+/// Publie le fascicule 0, puis un calendrier qui ne le cite plus.
+async fn retirer_apres_parution(prod: bool) -> (RapportParution, Calendrier) {
     let dossier = tempfile::tempdir().unwrap();
     let premier = essai::fascicule(dossier.path(), 0, PASSE);
     essai::calendrier(dossier.path(), CALENDRIER, "v1", &[(0, PASSE, &premier)]);
+    if prod {
+        en_production(dossier.path());
+    }
     let bucket = InMemory::new();
     deposer_staging(&bucket, dossier.path()).await;
     publier_fascicules(&bucket, Cible::Bucket, maintenant())
@@ -185,13 +197,30 @@ async fn un_fascicule_paru_retire_du_calendrier_reste_dans_l_index() {
         .unwrap();
 
     essai::calendrier(dossier.path(), CALENDRIER, "v2", &[]);
+    if prod {
+        en_production(dossier.path());
+    }
     deposer_staging(&bucket, dossier.path()).await;
     let rapport = publier_fascicules(&bucket, Cible::Bucket, maintenant())
         .await
         .unwrap();
+    (rapport, index(&bucket).await)
+}
+
+#[tokio::test]
+async fn en_production_un_fascicule_paru_retire_du_calendrier_reste_dans_l_index() {
+    let (rapport, index) = retirer_apres_parution(true).await;
     assert_eq!(rapport.conserves, vec![0]);
-    assert_eq!(index(&bucket).await.fascicules.len(), 1);
-    assert_eq!(index(&bucket).await.version, "v2");
+    assert_eq!(index.fascicules.len(), 1);
+    assert_eq!(index.version, "v2");
+}
+
+#[tokio::test]
+async fn hors_production_un_fascicule_retire_du_calendrier_quitte_l_index() {
+    let (rapport, index) = retirer_apres_parution(false).await;
+    assert!(rapport.conserves.is_empty());
+    assert!(index.fascicules.is_empty());
+    assert_eq!(index.version, "v2");
 }
 
 #[tokio::test]
