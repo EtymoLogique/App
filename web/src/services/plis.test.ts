@@ -26,15 +26,15 @@ describe('plis', () => {
       brique('brq_0000g001', 'prefixe', 'legendaire'),
       brique('brq_0000g002', 'suffixe', 'legendaire'),
     ]
-    const fixe = { ...equilibrage, chance_legendaire: 3 }
+    const fixe = { ...equilibrage, chance_legendaire_pour_mille: 12 }
     const c = chances(briques, fixe)
     expect(chanceFixe(fixe)).toBe(true)
-    expect(c.parRarete.legendaire).toBeCloseTo(0.03)
-    expect(c.briques[2]?.chance).toBeCloseTo(0.015)
-    expect(c.briques[3]?.chance).toBeCloseTo(0.015)
-    // Le reste suit 62 / 10 sur 97 %.
-    expect(c.parRarete.commune).toBeCloseTo((0.97 * 62) / 72)
-    expect(c.parRarete.commune + c.parRarete.rare).toBeCloseTo(0.97)
+    expect(c.parRarete.legendaire).toBeCloseTo(0.012)
+    expect(c.briques[2]?.chance).toBeCloseTo(0.006)
+    expect(c.briques[3]?.chance).toBeCloseTo(0.006)
+    // Le reste suit 62 / 10 sur 98,8 %.
+    expect(c.parRarete.commune).toBeCloseTo((0.988 * 62) / 72)
+    expect(c.parRarete.commune + c.parRarete.rare).toBeCloseTo(0.988)
     // Sans chance fixe (manifeste ancien), le poids de la rareté joue encore.
     expect(chanceFixe(equilibrage)).toBe(false)
     expect(poids(briques, equilibrage)).toEqual([62, 10, 2, 2])

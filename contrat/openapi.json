@@ -1482,10 +1482,10 @@
             "description": "Gouttes rapportées par tout pli (ADR 0020).",
             "minimum": 0
           },
-          "chance_legendaire": {
+          "chance_legendaire_pour_mille": {
             "type": "integer",
             "format": "int32",
-            "description": "Chance fixe, en pourcent, qu'un pli donne une légendaire, partagée à\nparts égales entre les légendaires du fascicule ; les poids ne\ns'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :\nzéro, et les légendaires gardent leur poids.",
+            "description": "Chance fixe, en pour mille (12 = 1,2 %), qu'un pli donne une légendaire, partagée à\nparts égales entre les légendaires du fascicule ; les poids ne\ns'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :\nzéro, et les légendaires gardent leur poids.",
             "minimum": 0
           },
           "encre_decouverte": {
@@ -1559,7 +1559,7 @@
           },
           "poids_raretes": {
             "type": "object",
-            "description": "Poids de chaque rareté (62, 26, 10) : la chance d'une brique est\nproportionnelle au poids de sa seule rareté (ADR 0035). Le poids des\nlégendaires ne compte que si `chance_legendaire` est nulle.",
+            "description": "Poids de chaque rareté (62, 26, 10) : la chance d'une brique est\nproportionnelle au poids de sa seule rareté (ADR 0035). Le poids des\nlégendaires ne compte que si `chance_legendaire_pour_mille` est nulle.",
             "additionalProperties": {
               "type": "integer",
               "format": "int32",

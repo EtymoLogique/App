@@ -69,14 +69,14 @@ pub struct BriquePli {
 pub struct Equilibrage {
     /// Poids de chaque rareté (62, 26, 10) : la chance d'une brique est
     /// proportionnelle au poids de sa seule rareté (ADR 0035). Le poids des
-    /// légendaires ne compte que si `chance_legendaire` est nulle.
+    /// légendaires ne compte que si `chance_legendaire_pour_mille` est nulle.
     pub poids_raretes: BTreeMap<Rarete, u32>,
-    /// Chance fixe, en pourcent, qu'un pli donne une légendaire, partagée à
+    /// Chance fixe, en pour mille (12 = 1,2 %), qu'un pli donne une légendaire, partagée à
     /// parts égales entre les légendaires du fascicule ; les poids ne
     /// s'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :
     /// zéro, et les légendaires gardent leur poids.
     #[serde(default)]
-    pub chance_legendaire: u32,
+    pub chance_legendaire_pour_mille: u32,
     /// Gouttes rapportées par tout pli (ADR 0020).
     pub base_encre: u32,
     /// Gouttes en plus pour un doublon sous le plafond (ADR 0019).
@@ -145,11 +145,11 @@ pub fn poids(briques: &[BriquePli], equilibrage: &Equilibrage) -> Vec<u64> {
 
 /// Poids de tirage des briques éligibles (les autres pèsent zéro).
 ///
-/// Sans `chance_legendaire`, c'est le poids de la rareté. Sinon, les légendaires
-/// éligibles se partagent à parts égales la chance fixe `c` %, et les autres
-/// briques les `100 - c` % restants selon les poids de leur rareté. Les poids
+/// Sans `chance_legendaire_pour_mille`, c'est le poids de la rareté. Sinon, les légendaires
+/// éligibles se partagent à parts égales la chance fixe `c` ‰, et les autres
+/// briques les `1000 - c` ‰ restants selon les poids de leur rareté. Les poids
 /// sont des entiers : ceux des non-légendaires sont multipliés par
-/// `(100 - c) × nombre de légendaires`, chaque légendaire pèse `c × somme des
+/// `(1000 - c) × nombre de légendaires`, chaque légendaire pèse `c × somme des
 /// poids des autres`. Sans légendaire éligible, les poids restent ceux des raretés.
 #[must_use]
 pub fn poids_eligibles(
@@ -158,7 +158,7 @@ pub fn poids_eligibles(
     equilibrage: &Equilibrage,
 ) -> Vec<u64> {
     let bruts = poids(briques, equilibrage);
-    let chance = u64::from(equilibrage.chance_legendaire.min(100));
+    let chance = u64::from(equilibrage.chance_legendaire_pour_mille.min(1000));
     let eligible = |i: usize| eligibles.get(i).copied().unwrap_or(false);
     if chance == 0 {
         return bruts
@@ -188,7 +188,7 @@ pub fn poids_eligibles(
             } else if nb_legendaires == 0 {
                 bruts[i]
             } else {
-                bruts[i] * (100 - chance) * nb_legendaires
+                bruts[i] * (1000 - chance) * nb_legendaires
             }
         })
         .collect()
@@ -316,9 +316,10 @@ pub fn regle<S: BuildHasher, T: BuildHasher>(
 ) -> (Regle, Vec<bool>) {
     // Avec une chance fixe, les garanties de nouveauté et d'utilité ne tirent
     // jamais une légendaire (ADR 0043) ; seule la garantie lointaine en donne une.
-    let hors_legendaire =
-        |b: &BriquePli| equilibrage.chance_legendaire == 0 || b.rarete != Rarete::Legendaire;
-    if equilibrage.chance_legendaire > 0
+    let hors_legendaire = |b: &BriquePli| {
+        equilibrage.chance_legendaire_pour_mille == 0 || b.rarete != Rarete::Legendaire
+    };
+    if equilibrage.chance_legendaire_pour_mille > 0
         && compteurs.plis_sans_legendaire + 1 >= GARANTIE_LEGENDAIRE
     {
         let eligibles: Vec<bool> = briques
@@ -454,7 +455,7 @@ mod tests {
 
     fn equilibrage() -> Equilibrage {
         Equilibrage {
-            chance_legendaire: 0,
+            chance_legendaire_pour_mille: 0,
             poids_raretes: BTreeMap::from([
                 (Rarete::Commune, 62),
                 (Rarete::PeuCommune, 26),
@@ -682,7 +683,7 @@ mod tests {
             Rarete::Legendaire,
         ));
         let mut e = equilibrage();
-        e.chance_legendaire = 3;
+        e.chance_legendaire_pour_mille = 12;
         (briques, e)
     }
 
@@ -693,28 +694,28 @@ mod tests {
         let p = poids_eligibles(&briques, &tous, &e);
         let somme: u64 = p.iter().sum();
         let legendaires: u64 = p[4] + p[5];
-        // 3 % pour l'ensemble, partagé à parts égales.
-        assert_eq!(legendaires * 100, somme * 3);
+        // 1,2 % pour l'ensemble, partagé à parts égales.
+        assert_eq!(legendaires * 1000, somme * 12);
         assert_eq!(p[4], p[5]);
-        // Les 97 % restants suivent les poids 62, 62, 62, 10.
+        // Les 98,8 % restants suivent les poids 62, 62, 62, 10.
         assert_eq!(p[0], p[1]);
         assert_eq!(p[3] * 62, p[0] * 10);
         // Une seule légendaire garde la même chance totale.
         let seule: Vec<bool> = vec![true, true, true, true, true, false];
         let p = poids_eligibles(&briques, &seule, &e);
-        assert_eq!(p[4] * 100, p.iter().sum::<u64>() * 3);
+        assert_eq!(p[4] * 1000, p.iter().sum::<u64>() * 12);
     }
 
     #[test]
     fn sans_chance_fixe_ou_sans_legendaire_les_poids_sont_ceux_des_raretes() {
         let (briques, mut e) = avec_legendaires();
         let tous = vec![true; briques.len()];
-        e.chance_legendaire = 0;
+        e.chance_legendaire_pour_mille = 0;
         assert_eq!(
             poids_eligibles(&briques, &tous, &e),
             vec![62, 62, 62, 10, 2, 2]
         );
-        e.chance_legendaire = 3;
+        e.chance_legendaire_pour_mille = 12;
         let sans = vec![true, true, true, true, false, false];
         assert_eq!(
             poids_eligibles(&briques, &sans, &e),
