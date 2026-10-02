@@ -1043,6 +1043,26 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
     Ok(())
 }
 
+/// Marque les graines des fascicules parus comme accordées, sans exemplaire :
+/// après une réinitialisation, la réserve et le codex restent vides.
+pub async fn graines_sans_exemplaire(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+) -> Result<(), ErreurApi> {
+    for (fascicule, _) in &jeu.graines {
+        sqlx::query!(
+            "INSERT INTO graine_accordee (joueur_id, fascicule_id) VALUES ($1, $2)
+             ON CONFLICT DO NOTHING",
+            joueur,
+            fascicule.as_str(),
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    Ok(())
+}
+
 pub async fn incrementer_version(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
     sqlx::query!(
         "UPDATE joueur SET version_etat = version_etat + 1, derniere_activite = now() WHERE id = $1",

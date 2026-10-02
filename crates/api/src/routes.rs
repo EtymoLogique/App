@@ -37,7 +37,8 @@ pub fn routes_hors_prod() -> Router<Arc<EtatApp>> {
 }
 
 /// Remet le joueur à zéro, pour la recette hors production : codex vide,
-/// réserve de départ, 10 000 gouttes. Route absente (`404`) en production.
+/// réserve vide (les graines des fascicules parus ne sont pas rendues),
+/// 10 000 gouttes. Route absente (`404`) en production.
 #[utoipa::path(post, path = "/dev/reset", tag = "hors-production", security(("session" = [])),
     responses(
         (status = 200, description = "Joueur remis à zéro, état confirmé", body = Etat),
@@ -52,7 +53,7 @@ pub async fn reinitialiser(
     progression::verrouiller(&mut tx, joueur).await?;
     progression::reinitialiser(&mut tx, joueur).await?;
     if let Some(catalogue) = app.catalogue.courant() {
-        progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
+        progression::graines_sans_exemplaire(&mut tx, joueur, &catalogue.jeu).await?;
         sqlx::query!(
             "UPDATE joueur SET version_catalogue = $2 WHERE id = $1",
             joueur,
