@@ -1,0 +1,46 @@
+/* ---------- Ricochets (ADR 0044, maquette I-26) : une séance de cinq questions ---------- */
+.ricochets { display: grid; gap: 16px; max-width: 640px; }
+.rico-intro, .rico-verdict { margin: 0; color: var(--ink-2); }
+.rico-verdict { min-height: 1.5em; }
+.ricochets .btn { justify-self: start; }
+
+/* Cinq points en tête : jamais de chronomètre ni de note. */
+.rico-points { display: flex; gap: 8px; margin: 0 0 16px; }
+.rico-points span { width: 12px; height: 12px; border: 1.5px solid var(--ink); border-radius: 50%; }
+.rico-points .fait { background: var(--ink); }
+.rico-points .en-cours { background: var(--c-pli); }
+
+.rico-enonce { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 16px; font-family: var(--serif); font-size: clamp(20px, 3vw, 26px); font-weight: 600; }
+.rico-enonce:focus { outline: none; }
+.rico-mot { font-size: 1.3em; letter-spacing: 0.02em; }
+
+/* Un toucher répond : des choix de 44 px de haut au moins, espacés de 8 px. */
+.rico-choix { display: grid; gap: 8px; }
+.rico-choix-bouton {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: 44px; padding: 10px 14px; text-align: left;
+  border: 1.5px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink);
+  font: inherit; cursor: pointer;
+}
+.rico-choix-bouton:not(:disabled):hover { background: var(--paper-2); }
+.rico-choix-bouton:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.rico-choix-bouton:disabled { cursor: default; }
+/* Bonne réponse : trait plein et coche. Mauvaise : Gris encre, pointillé, jamais de rouge. */
+.rico-choix-bouton.juste { border-width: 3px; background: var(--c-prefix-tint); }
+.rico-choix-bouton.rate { border-style: dashed; border-color: var(--ink-3); color: var(--ink-3); background: transparent; }
+.rico-choix-bouton.prise { border-width: 3px; background: var(--paper-2); }
+.rico-choix-bouton.relie { border-width: 3px; background: var(--c-suffix-tint); }
+.rico-etiquette { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.rico-etiquette .ic { width: 16px; height: 16px; }
+
+.rico-paires { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+.rico-colonne { display: grid; gap: 8px; align-content: start; }
+.rico-numero { display: grid; place-items: center; min-width: 24px; height: 24px; border: 1.5px solid var(--ink); border-radius: 50%; font-family: var(--mono); font-size: 12px; font-weight: 700; }
+
+.rico-recap { display: grid; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+.rico-recap li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 10px 14px; border: 1.5px solid var(--ink); border-radius: 12px; background: var(--cream); }
+.rico-carte { font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.rico-retour { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.rico-annonce { flex-basis: 100%; color: var(--ink-2); }
+.rico-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { .rico-choix-bouton { transition: none; } }

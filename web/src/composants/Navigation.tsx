@@ -16,6 +16,7 @@ const ONGLETS: Entree[] = [
   { id: 'codex', libelle: 'Codex', icone: 'codex' },
   { id: 'quetes', libelle: 'Quêtes', icone: 'quete' },
   { id: 'boutique', libelle: 'Boutique', icone: 'boutique' },
+  { id: 'ricochets', libelle: 'Ricochets', icone: 'ricochet' },
   { id: 'reglages', libelle: 'Réglages', icone: 'reglages' },
 ]
 
@@ -59,7 +60,7 @@ function Ressources({ plis, capacite, gouttes, sabliers, recharge, avance }: Non
 }
 
 /**
- * Navigation principale (design système 4.1) : six destinations, dans cet
+ * Navigation principale (design système 4.1) : sept destinations, dans cet
  * ordre. Barre d'onglets en bas sur mobile, rail vertical au-delà de 1 100 px.
  */
 export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, ressources }: Props) {
