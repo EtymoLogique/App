@@ -10,7 +10,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use commun::{ORIGINE, appeler, banc, get_etat, post_session, secret};
+use commun::{ORIGINE, appeler, banc, get_etat, post_pli, post_session, secret};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn sante_donne_la_version_du_catalogue(base: PgPool) {
@@ -192,4 +192,49 @@ async fn purge_les_commandes_de_plus_de_30_jours(base: PgPool) {
         .await
         .unwrap();
     assert_eq!(restantes, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn compte_les_jours_de_jeu_en_jours_gmt(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let installation = Uuid::new_v4();
+    let demande = json!({ "installation": installation, "secret": secret(1) });
+    let reculer = || async {
+        sqlx::query("UPDATE joueur SET derniere_activite = derniere_activite - interval '1 day' WHERE id = $1")
+            .bind(installation)
+            .execute(&base)
+            .await
+            .unwrap();
+    };
+    let jours = || async {
+        let (_, _, corps) = appeler(&banc.routeur, post_session(&demande)).await;
+        let jeton = corps["jeton"].as_str().unwrap().to_owned();
+        let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+        (etat["jours_de_jeu"].as_u64().unwrap(), jeton, etat)
+    };
+
+    // Premier jour, puis une autre venue le même jour.
+    assert_eq!(jours().await.0, 1);
+    assert_eq!(jours().await.0, 1);
+
+    // Une venue le lendemain compte un jour de plus, une seule fois.
+    reculer().await;
+    assert_eq!(jours().await.0, 2);
+    let (n, jeton, etat) = jours().await;
+    assert_eq!(n, 2);
+
+    // Une commande d'un nouveau jour compte aussi ; son rejeu ne recompte pas.
+    reculer().await;
+    let pli = json!({
+        "commande": Uuid::new_v4(),
+        "version_etat": etat["version_etat"],
+        "version_catalogue": etat["version_catalogue"],
+        "fascicule_id": "fsc_00000000",
+    });
+    let (statut, _, reponse) = appeler(&banc.routeur, post_pli(&jeton, &pli)).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(reponse["etat"]["jours_de_jeu"], 3);
+    reculer().await;
+    let (_, _, rejeu) = appeler(&banc.routeur, post_pli(&jeton, &pli)).await;
+    assert_eq!(rejeu["etat"]["jours_de_jeu"], 3);
 }

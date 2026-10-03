@@ -444,3 +444,36 @@ export function savoirPlus(entree: EntreeCodex, jeu: CatalogueJeu): SavoirPlus |
 }
 
 export type { Forme }
+
+// ------------------------------------------------------------------ cabinet
+
+export interface Cabinet {
+  mots: number
+  langues: number
+  /** Légendaires trouvées : un nombre seul, jamais leur total (ADR 0043). */
+  legendaires: number
+  /** Mot trouvé dont la filiation traverse le plus de langues, de l'origine au mot. */
+  voyage: { mot: EntreeCodex; langues: string[] } | null
+}
+
+/**
+ * Votre cabinet (I-30, ADR 0050) : les nombres que le client tire du codex.
+ * Les jours de jeu viennent du serveur (`Etat.jours_de_jeu`).
+ */
+export function cabinet(entrees: EntreeCodex[], jeu: CatalogueJeu): Cabinet {
+  const mots = entrees.filter((e) => e.type === 'mot' && e.trouvee)
+  let voyage: Cabinet['voyage'] = null
+  for (const mot of mots) {
+    const chemin = savoirPlus(mot, jeu)?.chemin ?? []
+    const langues = chemin.length > 0 ? chemin.map((c) => c.nom) : [nomDeLangue(jeu, mot.langueId ?? '')].flatMap((n) => n ?? [])
+    // À égalité, le plus récemment trouvé.
+    const plusRecent = Date.parse(mot.trouveeLe ?? '') > Date.parse(voyage?.mot.trouveeLe ?? '')
+    if (!voyage || langues.length > voyage.langues.length || (langues.length === voyage.langues.length && plusRecent)) voyage = { mot, langues }
+  }
+  return {
+    mots: mots.length,
+    langues: entrees.filter((e) => e.type === 'langue' && e.trouvee).length,
+    legendaires: completude(entrees).legendaires,
+    voyage,
+  }
+}

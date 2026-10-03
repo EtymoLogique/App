@@ -268,6 +268,7 @@ export function App({ api, catalogue }: Props) {
                 <Codex
                   entrees={entrees}
                   jeu={catalogueJeu}
+                  joursDeJeu={etat?.jours_de_jeu}
                   nouvelles={partie.nouvelles}
                   onVue={partie.carteVue}
                   vue={route}

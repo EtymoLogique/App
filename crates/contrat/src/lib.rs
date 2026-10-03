@@ -80,6 +80,11 @@ pub struct Etat {
     /// Prix de chaque niveau d'indice, en gouttes, du premier à la solution.
     #[serde(default)]
     pub prix_indices: Vec<u32>,
+    /// Jours GMT distincts où le joueur a joué, premier jour compris
+    /// (ADR 0050). Absent des réponses enregistrées avant App#25.
+    #[serde(default)]
+    #[schema(minimum = 1)]
+    pub jours_de_jeu: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

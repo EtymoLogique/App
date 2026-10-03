@@ -408,7 +408,7 @@
 .cb-empty p { max-width: 44ch; margin: 0; }
 .cb-empty .cb-empty-k { color: var(--ink); font-family: var(--serif); font-size: 22px; font-weight: 600; }
 
-/* ---------- Codex : familles et objectifs (I-18) — Rose dans la seule barre de progression ; jamais de bande latérale (boussole) ---------- */
+/* ---------- Codex : familles et cabinet (I-18, I-30) — Rose dans la seule barre de progression ; jamais de bande latérale (boussole) ---------- */
 .fam-list { display: grid; gap: 28px; }
 .fam {
   display: grid; gap: 10px; padding: 14px 16px;
@@ -424,32 +424,35 @@
 .fam-count { font-family: var(--mono); font-size: 12px; font-weight: 700; }
 .fam-bar { display: block; height: 8px; overflow: hidden; border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-2); }
 .fam-bar i { display: block; height: 100%; border-radius: 999px; background: var(--c-family); }
-.fam-bar.is-lang i { background: var(--c-lang); }
 /* Jalon : il donne un pli, il prend la couleur des plis. */
 .fam-bar.is-jalon i { background: var(--c-pli); }
-.fam-btn {
-  width: 100%; cursor: pointer; font: inherit; text-align: left;
-  transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out);
+.cab { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+.cab > section { display: grid; gap: 10px; }
+.cab .cb-note { margin: 0; }
+/* Des nombres seuls : ni rang, ni jauge (ADR 0050). */
+.cab-nombres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.cab-nombre { display: grid; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.cab-nombre dd { margin: 0; font-family: var(--serif); font-size: 28px; font-weight: 600; line-height: 1; }
+.cab-nombre dt { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+/* La valeur avant son libellé à l'écran ; l'ordre du DOM reste dt puis dd pour les lecteurs d'écran. */
+.cab-nombre dt { order: 2; }
+.cab-voyage .more-k { margin: 0; }
+/* Badges de famille (I-30) : un anneau Rose, un segment par mot. */
+.cab-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; }
+.cab-badge {
+  display: grid; justify-items: center; gap: 3px; min-height: 44px; padding: 4px 2px;
+  border: 0; border-radius: 12px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; text-align: center;
 }
-.fam-btn:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--pop-shadow); }
-.fam-btn[aria-pressed="true"] { border-color: var(--ink); box-shadow: 3px 3px 0 var(--pop-shadow); }
-.fam-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.obj { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 24px; }
-.obj-list { display: grid; gap: 10px; }
-.obj-list .more-k:not(:first-child) { margin-top: 12px; }
-.obj-detail {
-  position: sticky; top: 16px; display: grid; gap: 12px; padding: 18px;
-  border: 1.5px solid var(--line-strong); border-radius: 14px; background: var(--paper);
+.cab-badge:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.cab-anneau { position: relative; display: grid; place-items: center; width: 60px; height: 60px; }
+.cab-anneau svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; fill: none; stroke-width: 4.5; }
+.cab-anneau circle { stroke: var(--paper-2); }
+.cab-anneau circle.on { stroke: var(--c-family); }
+.cab-anneau b { font-family: var(--mono); font-size: 10px; }
+.cab-sens { font-family: var(--serif); font-size: 13px; line-height: 1.2; }
+@media (max-width: 900px) { .cab { grid-template-columns: minmax(0, 1fr); } }
 }
-.obj-title { margin: 0; }
-.obj-title .fam-word { font-size: 28px; }
-.obj-title .bchip { font-size: 24px; }
-.obj-detail .cb-note { margin: 0; }
-@media (max-width: 900px) {
-  .obj { grid-template-columns: minmax(0, 1fr); }
-  .obj-detail { position: static; }
 }
-@media (prefers-reduced-motion: reduce) { .fam-btn { transition: none; } }
 
 /* ---------- Carte agrandie : « En savoir plus » (I-16), au dos de la carte ---------- */
 .bb-tabs { display: flex; flex: none; gap: 2px; padding: 3px; border: 1.5px solid var(--line-strong); border-radius: 12px; }

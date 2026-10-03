@@ -1699,6 +1699,12 @@
             },
             "description": "Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint\nabsent de cette liste attend le joueur dans les quêtes."
           },
+          "jours_de_jeu": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours GMT distincts où le joueur a joué, premier jour compris\n(ADR 0050). Absent des réponses enregistrées avant App#25.",
+            "minimum": 1
+          },
           "prix_indices": {
             "type": "array",
             "items": {

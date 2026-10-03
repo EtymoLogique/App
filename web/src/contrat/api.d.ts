@@ -556,6 +556,12 @@ export interface components {
              *     absent de cette liste attend le joueur dans les quêtes.
              */
             jalons_recuperes?: components["schemas"]["IdCatalogue"][];
+            /**
+             * Format: int32
+             * @description Jours GMT distincts où le joueur a joué, premier jour compris
+             *     (ADR 0050). Absent des réponses enregistrées avant App#25.
+             */
+            jours_de_jeu?: number;
             /** @description Prix de chaque niveau d'indice, en gouttes, du premier à la solution. */
             prix_indices?: number[];
             /**

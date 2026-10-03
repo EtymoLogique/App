@@ -10,7 +10,7 @@ export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'regla
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
-export type VueCodex = 'tout' | 'recentes' | 'familles' | 'objectifs'
+export type VueCodex = 'tout' | 'recentes' | 'familles' | 'cabinet'
 /** Onglets des quêtes (ADR 0042) : journalières, puis récompenses de fascicule. */
 export type OngletQuetes = 'journalieres' | 'fascicules'
 
@@ -37,7 +37,7 @@ const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'regl
 const QUETES: OngletQuetes[] = ['journalieres', 'fascicules']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc']
-const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'objectifs']
+const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'cabinet']
 const IDENTIFIANT = /^(unt|lng)_[0-9a-hjkmnp-tv-z]{8}$/
 const FASCICULE = /^fsc_[0-9a-hjkmnp-tv-z]{8}$/
 
@@ -49,6 +49,8 @@ export function lireRoute(fragment: string): Route {
   const [onglet, carte] = chemin.split('/')
   const params = new URLSearchParams(requete)
   const fascicule = Number(params.get('fascicule'))
+  // « Objectifs » est devenu « Cabinet » (App#25) : les anciennes adresses y mènent.
+  if (params.get('vue') === 'objectifs') params.set('vue', 'cabinet')
   const route: Route = {
     onglet: ONGLETS.includes(onglet as Onglet) ? (onglet as Onglet) : 'table',
     carte: null,

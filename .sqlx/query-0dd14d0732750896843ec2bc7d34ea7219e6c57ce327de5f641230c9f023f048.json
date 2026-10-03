@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT version_etat, version_catalogue FROM joueur WHERE id = $1",
+  "query": "SELECT version_etat, version_catalogue, jours_de_jeu FROM joueur WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "ordinal": 1,
         "name": "version_catalogue",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "jours_de_jeu",
+        "type_info": "Int4"
       }
     ],
     "parameters": {
@@ -21,8 +26,9 @@
     },
     "nullable": [
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "db84f1a0583e9be238e23bc923f01bb22a11e7f631400c6e9d3563c27813644d"
+  "hash": "0dd14d0732750896843ec2bc7d34ea7219e6c57ce327de5f641230c9f023f048"
 }
