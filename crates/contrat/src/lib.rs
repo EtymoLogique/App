@@ -4,7 +4,7 @@
 //!
 //! Toute requête refuse les propriétés inconnues.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::MotifPresque;
 use etymo_domaine::pli::{Regle, Resultat};
@@ -85,6 +85,122 @@ pub struct Etat {
     #[serde(default)]
     #[schema(minimum = 1)]
     pub jours_de_jeu: u32,
+    /// Cartes qui ont un historique de ricochets (ADR 0044) ; une carte sans
+    /// ligne est au niveau 0, à revoir aujourd'hui. Absent avant App#18.
+    #[serde(default)]
+    pub ricochets: Vec<RicochetEtat>,
+    /// Réponses du jour GMT, pour les quêtes ; absent avant App#18.
+    #[serde(default)]
+    pub ricochets_du_jour: RicochetsDuJour,
+}
+
+/// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RicochetEtat {
+    /// Mot (`unt_…`) ou brique (`brq_…`).
+    pub unite_id: IdCatalogue,
+    #[schema(minimum = 0, maximum = 3)]
+    pub niveau: u8,
+    /// Définitif : une carte maîtrisée le reste.
+    pub maitrisee: bool,
+    /// Vrai si une réponse d'aujourd'hui compterait.
+    pub a_revoir: bool,
+}
+
+/// Les cinq premières réponses du jour comptent pour les quêtes (ADR 0045).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RicochetsDuJour {
+    #[schema(minimum = 0, maximum = 5)]
+    pub reponses: u8,
+    #[schema(minimum = 0, maximum = 5)]
+    pub bonnes: u8,
+}
+
+/// Les cinq formats d'une question de ricochet (ADR 0044).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FormatRicochet {
+    /// Quel sens pour cette brique ? Cible `brq_…`, réponse un `sns_…`.
+    SensBrique,
+    /// Quelle brique pour ce sens ? Cible `brq_…`, réponse un `brq_…`.
+    BriqueSens,
+    /// Quel mot pour ce sens littéral ? Cible `unt_…`, réponse un `unt_…`.
+    MotSens,
+    /// Où couper ce mot ? Cible `unt_…`, réponse les positions de coupe.
+    Decouper,
+    /// Relier une brique à son sens, une commande par brique. Cible `brq_…`,
+    /// réponse le premier `sns_…` essayé pour elle.
+    Paires,
+}
+
+/// Une question de la séance, par identifiants : le client rend les textes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QuestionRicochet {
+    pub format: FormatRicochet,
+    /// La carte visée ; quatre briques pour les paires.
+    pub cartes: Vec<IdCatalogue>,
+    /// Choix possibles, dans le désordre : des `sns_…`, `brq_…` ou `unt_…`
+    /// selon le format. Vide pour *découper* et *paires*.
+    #[serde(default)]
+    pub choix: Vec<IdCatalogue>,
+}
+
+/// Séance de ricochets : cinq questions au plus, aucune chronologie, rien n'est écrit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SeanceRicochets {
+    pub questions: Vec<QuestionRicochet>,
+}
+
+/// Réponse du joueur : un choix, ou les positions de coupe d'un mot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(untagged)]
+pub enum ReponseJoueur {
+    Choix(IdCatalogue),
+    /// Huit positions au plus.
+    Coupes(Vec<u32>),
+}
+
+/// Commande de réponse à une question de ricochet : une commande, une carte.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeRicochet {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub format: FormatRicochet,
+    pub unite_id: IdCatalogue,
+    pub reponse: ReponseJoueur,
+}
+
+/// Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CarteRicochet {
+    #[schema(minimum = 0, maximum = 3)]
+    pub niveau: u8,
+    pub maitrisee: bool,
+    /// Jour GMT du prochain ricochet qui compte.
+    pub prochaine_revision: NaiveDate,
+    /// Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
+    #[schema(minimum = 0, maximum = 3)]
+    pub bonnes_niveau_3: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseRicochet {
+    /// Vrai si la réponse est la bonne, que la carte ait été à revoir ou non.
+    pub juste: bool,
+    pub carte: CarteRicochet,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

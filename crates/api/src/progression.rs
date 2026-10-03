@@ -19,6 +19,7 @@ use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
+use crate::ricochets;
 
 pub type Tx<'a> = Transaction<'a, Postgres>;
 
@@ -139,6 +140,8 @@ pub async fn etat(
         jalons_recuperes,
         prix_indices: indice::PRIX_INDICE.to_vec(),
         jours_de_jeu: positif(ligne.jours_de_jeu),
+        ricochets: ricochets::etat(&mut *tx, joueur, maintenant.date_naive()).await?,
+        ricochets_du_jour: ricochets::du_jour(&mut *tx, joueur, maintenant.date_naive()).await?,
     })
 }
 
@@ -1024,6 +1027,12 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
         .await?;
     // Jalons atteints et récompenses récupérées : les quêtes se recettent de nouveau (ADR 0042).
     sqlx::query!("DELETE FROM jalon_atteint WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM ricochet WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM ricochet_jour WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
     sqlx::query!("DELETE FROM commande WHERE joueur_id = $1", joueur)

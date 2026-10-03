@@ -17,11 +17,11 @@ use std::sync::Arc;
 pub use carte::Carte;
 pub use chemin::{Chemin, ErreurChemin};
 pub use format::{
-    BriquePliManifeste, Calendrier, CarteManifeste, Difficulte, Emplacement, EntreeFascicule,
-    EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, PliManifeste, Recette,
-    RecetteManifeste,
+    BriquePliManifeste, BriqueRicochet, Calendrier, CarteManifeste, Difficulte, Emplacement,
+    EntreeFascicule, EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, MotRicochet,
+    PliManifeste, Recette, RecetteManifeste, RicochetsManifeste,
 };
-pub use jeu::{JalonsJeu, Jeu, PliJeu};
+pub use jeu::{JalonsJeu, Jeu, PliJeu, RicochetsJeu};
 pub use lecteur::{Lecteur, LecteurDossier, LecteurHttp};
 
 /// Nom de l'index global, seul fichier modifiable du préfixe `public/`.

@@ -71,6 +71,38 @@ pub struct Manifeste {
     /// Mots posables comme briques : leur découverte en offre un exemplaire.
     #[serde(default)]
     pub mots_briques: Vec<MotBrique>,
+    /// De quoi juger un ricochet sans lire un texte (ADR 0044).
+    #[serde(default)]
+    pub ricochets: RicochetsManifeste,
+}
+
+/// Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RicochetsManifeste {
+    #[serde(default)]
+    pub briques: Vec<BriqueRicochet>,
+    #[serde(default)]
+    pub mots: Vec<MotRicochet>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BriqueRicochet {
+    pub id: IdCatalogue,
+    /// Sens affiché de la brique : la bonne réponse de « sens d'une brique ».
+    pub sens_id: IdCatalogue,
+    /// Commune à deux briques de même glose : jamais deux leurres de même classe.
+    pub classe_sens: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MotRicochet {
+    pub id: IdCatalogue,
+    /// Commune à deux mots de même sens littéral ; absente si le mot n'en a pas.
+    #[serde(default)]
+    pub classe_litteral: Option<IdCatalogue>,
+    /// Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas.
+    #[serde(default)]
+    pub coupes: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

@@ -30,6 +30,9 @@ pub const LOGIE: &str = "brq_000109e0";
 pub const BIO: &str = "brq_0000b100";
 pub const MOT: &str = "unt_0000000a";
 pub const RECETTE: &str = "rct_0000000a";
+/// Sens affichés de `GEO` et `LOGIE`, pour les ricochets.
+pub const SENS_GEO: &str = "sns_0000ge01";
+pub const SENS_LOGIE: &str = "sns_000109e1";
 
 /// Écrit un fascicule minimal (une carte, une recette, des exclusions, une
 /// jaquette, des graines) et renvoie le chemin de son manifeste.
@@ -82,6 +85,13 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "recettes": [{ "id": RECETTE, "chemin": recette }],
         "compteurs": { "mots": 1 },
         "mots_briques": [{ "mot_id": MOT, "brique_id": BIO }],
+        "ricochets": {
+            "briques": [
+                { "id": GEO, "sens_id": SENS_GEO, "classe_sens": SENS_GEO },
+                { "id": LOGIE, "sens_id": SENS_LOGIE, "classe_sens": SENS_LOGIE }
+            ],
+            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3] }]
+        },
         "pli": {
             "briques": [
                 { "id": GEO, "nature": "prefixe", "rarete": "commune", "unite_id": "unt_0000000g" },

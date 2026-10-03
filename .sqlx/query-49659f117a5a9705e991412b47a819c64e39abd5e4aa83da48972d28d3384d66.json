@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT reponses, bonnes FROM ricochet_jour WHERE joueur_id = $1 AND jour = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reponses",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "bonnes",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "49659f117a5a9705e991412b47a819c64e39abd5e4aa83da48972d28d3384d66"
+}
