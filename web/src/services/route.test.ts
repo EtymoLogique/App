@@ -9,6 +9,12 @@ describe('route', () => {
     expect(lireRoute(ecrireRoute(route))).toEqual(route)
   })
 
+  it('écrit et relit l’onglet des quêtes au long cours', () => {
+    const route = { ...ROUTE_PAR_DEFAUT, onglet: 'quetes' as const, quete: 'au-long-cours' as const }
+    expect(ecrireRoute(route)).toBe('#/quetes/au-long-cours')
+    expect(lireRoute('#/quetes/au-long-cours')).toEqual(route)
+  })
+
   it('ne déplie « En savoir plus » que sous une carte ouverte', () => {
     expect(lireRoute('#/codex?plus=1').plus).toBe(false)
     expect(ecrireRoute({ ...ROUTE_PAR_DEFAUT, onglet: 'codex', plus: true })).toBe('#/codex')

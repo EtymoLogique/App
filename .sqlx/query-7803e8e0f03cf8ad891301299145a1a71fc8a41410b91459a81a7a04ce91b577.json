@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT palier_id FROM palier_recupere WHERE joueur_id = $1 ORDER BY palier_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "palier_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7803e8e0f03cf8ad891301299145a1a71fc8a41410b91459a81a7a04ce91b577"
+}

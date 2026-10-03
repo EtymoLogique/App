@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
+import type { Calendrier } from './contrat'
 import { ClientApi } from './services/api'
 import { effacerPartie } from './services/local'
 import { GEO, MOT, RECETTE, etat, lecteurFictif } from './test/fixtures'
@@ -19,6 +20,30 @@ function lecteurAvecJalon() {
     ...(await complet!(...args)),
     jalons: [{ id: JALON, decouvertes: 1, pli: [GEO], sabliers: 2 }],
   }))
+  return lecteur
+}
+
+const QUETE = 'qlc_0000000a'
+const PALIER = 'pal_0000000a'
+const palierAtteint = etat({ decouvertes, progression_quetes: [{ quete_id: QUETE, progression: 1 }], paliers_recuperes: [] })
+
+/** Lecteur fictif dont l'index déclare une quête de langue : un palier à 1 forme, 5 gouttes d'encre et 1 sablier. */
+function lecteurAvecQuete() {
+  const lecteur = lecteurFictif()
+  const index = vi.mocked(lecteur.index)
+  const complet = index.getMockImplementation()!
+  index.mockImplementation(async () => ({
+    ...(await complet())!,
+    quetes: [
+      {
+        id: QUETE,
+        sorte: 'langue' as const,
+        langue_id: 'lng_0000000a',
+        libelles: { fr: { titre: 'Grec ancien', consigne: 'Trouvez des formes de grec ancien.' } },
+        paliers: [{ id: PALIER, seuil: 1, encre: 5, sabliers: 1 }],
+      },
+    ],
+  }) as Calendrier)
   return lecteur
 }
 
@@ -61,5 +86,22 @@ describe('quêtes', () => {
     expect(await screen.findByText('Bientôt disponibles')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Récupérer votre récompense de fascicule' }))
     expect(await screen.findByRole('button', { name: 'Récupérer' })).toBeInTheDocument()
+  })
+
+  it('annonce le palier d’une quête au long cours et le récupère au clic', async () => {
+    history.replaceState(null, '', '/#/quetes/au-long-cours')
+    const api = new ClientApi('https://api.exemple.test')
+    vi.spyOn(api, 'etat').mockResolvedValue(palierAtteint)
+    vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', revision_api: '', reinitialisation: false })
+    const palier = vi.spyOn(api, 'palier').mockResolvedValue({
+      etat: { ...palierAtteint, version_etat: 2, paliers_recuperes: [PALIER], encre: palierAtteint.encre + 5 },
+    })
+    render(<App api={api} catalogue={lecteurAvecQuete()} />)
+    expect(await screen.findByRole('heading', { name: 'Grec ancien' })).toBeInTheDocument()
+    expect(screen.getByText('5 gouttes d’encre')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText(/^Récompense ajoutée : 5.gouttes d’encre et 1.sablier\.$/)).toBeInTheDocument()
+    expect(palier).toHaveBeenCalledWith(expect.objectContaining({ palier_id: PALIER, version_etat: 1, version_catalogue: 'v1' }))
+    expect(screen.getByText('✓ Récupérée')).toBeInTheDocument()
   })
 })

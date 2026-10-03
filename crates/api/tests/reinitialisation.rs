@@ -131,3 +131,23 @@ async fn la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer(base: Pg
     assert_eq!(etat["jalons_recuperes"], json!([]));
     recuperer(&etat).await;
 }
+
+/// Les paliers de quêtes au long cours (ADR 0045) se recettent de même : la
+/// réinitialisation efface les récompenses récupérées.
+#[sqlx::test(migrations = "../../migrations")]
+async fn la_reinitialisation_remet_les_paliers_a_recuperer(base: PgPool) {
+    const PALIER: &str = "pal_0000000a";
+    let banc = banc_avec(base.clone(), Limiteurs::default(), true).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    let demande = commande(&etat, json!({ "briques": [GEO, LOGIE] }));
+    let (_, _, reponse) = appeler(&banc.routeur, post_fusion(&jeton, &demande)).await;
+    let demande = commande(&reponse["etat"], json!({ "palier_id": PALIER }));
+    let (statut, _, reponse) = appeler(&banc.routeur, post(&jeton, "/palier", &demande)).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(reponse["etat"]["paliers_recuperes"], json!([PALIER]));
+
+    let (statut, _, etat) = appeler(&banc.routeur, post_reset(&jeton)).await;
+    assert_eq!(statut, StatusCode::OK, "{etat}");
+    assert_eq!(etat["paliers_recuperes"], json!([]));
+}

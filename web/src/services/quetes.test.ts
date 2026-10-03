@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, MOT, RECETTE, etat, jeu, manifeste } from '../test/fixtures'
-import { quetesDeFascicule, recompensesARecuperer } from './quetes'
+import { quetesAuLongCours, quetesDeFascicule, recompensesARecuperer } from './quetes'
 
 const JALON = 'jal_0000000a'
 const SUIVANT = 'jal_0000000b'
@@ -43,5 +43,50 @@ describe('quêtes de fascicule', () => {
 
   it('ne compte rien sans état confirmé', () => {
     expect(recompensesARecuperer(avecJalons(), null)).toBe(0)
+  })
+})
+
+const QUETE = 'qlc_0000000a'
+const PALIER = 'pal_0000000a'
+const AUTRE = 'pal_0000000b'
+
+/** Catalogue fictif qui déclare une quête de langue, à un puis trois paliers de formes. */
+function avecQuete() {
+  const quete = {
+    id: QUETE,
+    sorte: 'langue' as const,
+    langue_id: 'lng_0000000a',
+    libelles: { fr: { titre: 'Grec ancien', consigne: 'Trouvez des formes de grec ancien.' } },
+    paliers: [
+      { id: AUTRE, seuil: 3, sabliers: 1 },
+      { id: PALIER, seuil: 1, encre: 5 },
+    ],
+  }
+  return { ...jeu(), quetes: [quete] }
+}
+
+describe('quêtes au long cours', () => {
+  it('lit la progression du serveur et range les paliers par seuil', () => {
+    const [longue] = quetesAuLongCours(avecQuete(), etat({ progression_quetes: [{ quete_id: QUETE, progression: 2 }] }))
+    expect(longue?.titre).toBe('Grec ancien')
+    expect(longue?.paliers.map((p) => [p.palier.id, p.avancee, p.etat])).toEqual([
+      [PALIER, 1, 'a_recuperer'],
+      [AUTRE, 2, 'en_cours'],
+    ])
+  })
+
+  it('distingue le palier récupéré et compte ceux qui attendent', () => {
+    const j = avecQuete()
+    const e = etat({ progression_quetes: [{ quete_id: QUETE, progression: 3 }], paliers_recuperes: [PALIER] })
+    expect(quetesAuLongCours(j, e)[0]?.paliers.map((p) => p.etat)).toEqual(['recupere', 'a_recuperer'])
+    expect(recompensesARecuperer(j, e)).toBe(1)
+  })
+
+  it('ne compte rien sans progression confirmée, et marque les sortes pas encore ouvertes', () => {
+    const j = avecQuete()
+    expect(recompensesARecuperer(j, etat())).toBe(0)
+    expect(quetesAuLongCours(j, etat())[0]?.ouverte).toBe(true)
+    const ricochets = { ...j.quetes[0]!, sorte: 'ricochets' as const }
+    expect(quetesAuLongCours({ ...j, quetes: [ricochets] }, etat())[0]?.ouverte).toBe(false)
   })
 })

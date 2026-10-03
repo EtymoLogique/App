@@ -2,7 +2,7 @@
 // prévisualisation d'une fusion. Le serveur fait foi (ADR 0007, ADR 0027) :
 // la prévisualisation n'est qu'une réponse immédiate, démentie au besoin.
 
-import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, Rarete, Recette } from '../contrat'
+import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, QueteLongCours, Rarete, Recette } from '../contrat'
 import type { LecteurCatalogue } from './catalogue'
 
 /** La table accepte exactement deux briques, comme `TABLE_MIN` et `TABLE_MAX` de l'API. */
@@ -58,6 +58,8 @@ export interface CatalogueJeu {
   /** Noms des types de relation et de transformation, par code (« forme de composition », « élision »). */
   typesRelation: Map<string, string>
   typesTransformation: Map<string, string>
+  /** Quêtes au long cours déclarées par l'index (ADR 0045). */
+  quetes: QueteLongCours[]
 }
 
 export type Prevision =
@@ -168,6 +170,7 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
     glyphes: glyphesDesLangues(index),
     typesRelation: nomsDesTypes(index, 'types_relation'),
     typesTransformation: nomsDesTypes(index, 'types_transformation'),
+    quetes: index.quetes ?? [],
   }
   for (const entree of index.fascicules) {
     const manifeste = await lecteur.manifeste(entree.manifeste)

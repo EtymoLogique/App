@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier, Sante, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseSablier, Sante, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -136,6 +136,15 @@ export class ClientApi {
   /** Récupère la récompense d'un jalon atteint : `403` s'il n'est pas atteint, `409` s'il est déjà récupéré. */
   jalon(demande: DemandeJalon): Promise<ReponseJalon> {
     return this.authentifie('/jalon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Récupère la récompense d'un palier de quête au long cours : `403` s'il n'est pas atteint, `409` s'il est déjà récupéré. */
+  palier(demande: DemandePalier): Promise<ReponsePalier> {
+    return this.authentifie('/palier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

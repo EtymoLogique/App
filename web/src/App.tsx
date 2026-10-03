@@ -310,6 +310,7 @@ export function App({ api, catalogue }: Props) {
                   onChangerVue={naviguer}
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   recuperer={partie.recupererJalon}
+                  recupererPalier={partie.recupererPalier}
                   inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
                 />
               </section>

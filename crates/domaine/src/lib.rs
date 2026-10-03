@@ -6,6 +6,7 @@ pub mod identifiant;
 pub mod indice;
 pub mod jalon;
 pub mod pli;
+pub mod quete;
 pub mod reserve;
 pub mod sablier;
 

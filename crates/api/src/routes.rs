@@ -7,12 +7,14 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeSablier,
-    DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion,
-    ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier, Sante, Session, StatutSante,
+    DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli,
+    DemandeSablier, DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier,
+    ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseSablier, Sante,
+    Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
+use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
@@ -29,6 +31,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/sablier/achat", post(acheter_sabliers))
         .route("/indice", post(acheter_indice))
         .route("/jalon", post(recuperer_jalon))
+        .route("/palier", post(recuperer_palier))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -63,7 +66,7 @@ pub async fn reinitialiser(
         .await?;
     }
     progression::incrementer_version(&mut tx, joueur).await?;
-    let etat = progression::etat(&mut tx, joueur, app.recharge).await?;
+    let etat = etat_courant(&app, &mut tx, joueur).await?;
     tx.commit().await?;
     Ok(Json(etat))
 }
@@ -175,7 +178,7 @@ pub async fn etat(
         .execute(&mut *tx)
         .await?;
     }
-    let etat = progression::etat(&mut tx, joueur, app.recharge).await?;
+    let etat = etat_courant(&app, &mut tx, joueur).await?;
     tx.commit().await?;
     Ok(Json(etat))
 }
@@ -276,7 +279,7 @@ pub async fn fusion(
         Issue::Echec => IssueFusion::Echec,
     };
     let reponse = ReponseFusion {
-        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
         issue,
         jalons,
     };
@@ -482,7 +485,7 @@ pub async fn ouvrir_pli(
         },
         exemplaires: tirage.apres,
         etait_epuisee: tirage.avant == Some(0),
-        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     let enregistree =
         serde_json::to_value(&reponse).map_err(|e| ErreurApi::Interne(e.to_string()))?;
@@ -596,7 +599,7 @@ pub async fn acheter_sabliers(
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseAchatSablier {
         prix,
-        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "sablier", &reponse).await?;
     Ok(Json(reponse))
@@ -648,7 +651,7 @@ pub async fn utiliser_sabliers(
     .await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseSablier {
-        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "sablier", &reponse).await?;
     Ok(Json(reponse))
@@ -722,7 +725,7 @@ pub async fn acheter_indice(
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseIndice {
         prix,
-        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "indice", &reponse).await?;
     Ok(Json(reponse))
@@ -765,8 +768,65 @@ pub async fn recuperer_jalon(
     progression::recuperer_jalon(&mut tx, joueur, jeu, demande.commande, &demande.jalon_id).await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseJalon {
-        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "jalon", &reponse).await?;
     Ok(Json(reponse))
+}
+
+/// Récupère la récompense d'un palier de quête au long cours (ADR 0045) :
+/// de l'encre et des sabliers. Le serveur a mesuré la progression sur le
+/// codex ; rien n'est accordé tant que le seuil n'est pas franchi.
+#[utoipa::path(post, path = "/palier", tag = "jeu", security(("session" = [])), request_body = DemandePalier,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponsePalier),
+        (status = 400, description = "Requête invalide ou palier inconnu", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Palier pas encore atteint", body = Erreur),
+        (status = 409, description = "Récompense déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_palier(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandePalier>,
+) -> Result<Json<ReponsePalier>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    progression::recuperer_palier(
+        &mut tx,
+        joueur,
+        &catalogue.jeu,
+        demande.commande,
+        &demande.palier_id,
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponsePalier {
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "palier", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// État confirmé du joueur, avec la progression de ses quêtes sur le catalogue courant.
+async fn etat_courant(
+    app: &EtatApp,
+    tx: &mut sqlx::PgConnection,
+    joueur: Uuid,
+) -> Result<Etat, ErreurApi> {
+    let catalogue = app.catalogue.courant();
+    progression::etat(tx, joueur, app.recharge, catalogue.as_ref().map(|c| &c.jeu)).await
 }
