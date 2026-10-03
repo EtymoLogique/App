@@ -3,7 +3,7 @@
 // niveau, la maîtrise et les quêtes. Miroir de `juger` (crates/api/src/ricochets.rs).
 
 import type { CarteRicochet, QuestionRicochet } from '../contrat'
-import { type CatalogueJeu, formeCanonique, texteDuMot } from './jeu'
+import { type BriqueJeu, type CatalogueJeu, formeCanonique, texteDuMot } from './jeu'
 
 export type FormatRicochet = QuestionRicochet['format']
 
@@ -119,4 +119,18 @@ export function retour(carte: CarteRicochet, aujourdhui: Date = new Date()): str
   const jours = Math.max(1, Math.round((jour(carte.prochaine_revision) - auj) / JOUR_MS))
   const delai = jours === 1 ? 'Demain' : `Dans ${jours} jours`
   return carte.maitrisee ? `Maîtrisée · ${delai.toLowerCase()}` : delai
+}
+
+/** Morceaux du mot dans sa composition préférée, aux couleurs de leurs briques (verdict de « découper »). */
+export function morceauxDuMot(jeu: CatalogueJeu, motId: string): { debut: number; fin: number; nature: BriqueJeu['nature'] }[] {
+  const compositions = jeu.cartes.get(motId)?.compositions ?? []
+  const choisie = compositions.find((c) => c.preferee) ?? compositions[0]
+  return [...(choisie?.parties ?? [])]
+    .sort((a, b) => a.rang - b.rang)
+    .map((p) => ({ debut: p.segment_debut ?? -1, fin: p.segment_fin ?? -1, nature: jeu.cartes.get(p.unite_id)?.nature ?? 'mot' }))
+}
+
+/** Cartes trouvées que les ricochets savent poser : briques de la réserve et mots du codex. */
+export function cartesTrouvees(d: DonneesRicochets, etat: { reserve: { brique_id: string }[]; decouvertes: { mot_id: string }[] }): string[] {
+  return [...etat.reserve.map((e) => e.brique_id).filter((b) => d.briques.has(b)), ...etat.decouvertes.map((x) => x.mot_id).filter((m) => d.mots.has(m))]
 }

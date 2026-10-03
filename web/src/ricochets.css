@@ -1,46 +1,99 @@
-/* ---------- Ricochets (ADR 0044, maquette I-26) : une séance de cinq questions ---------- */
-.ricochets { display: grid; gap: 16px; max-width: 640px; }
-.rico-intro, .rico-verdict { margin: 0; color: var(--ink-2); }
-.rico-verdict { min-height: 1.5em; }
-.ricochets .btn { justify-self: start; }
+/* ---------- Ricochets (ADR 0044, maquette I-26) ---------- */
 
-/* Cinq points en tête : jamais de chronomètre ni de note. */
-.rico-points { display: flex; gap: 8px; margin: 0 0 16px; }
-.rico-points span { width: 12px; height: 12px; border: 1.5px solid var(--ink); border-radius: 50%; }
-.rico-points .fait { background: var(--ink); }
-.rico-points .en-cours { background: var(--c-pli); }
+/* Accueil de l'onglet */
+.ricochets { display: grid; gap: 16px; max-width: 62ch; }
+.ricochets > .btn { justify-self: start; }
+.rico-intro { margin: 0; line-height: 1.55; }
+.rico-jauge { margin: 0; font-family: var(--serif); font-size: 18px; color: var(--ink-2); }
+.rico-jauge strong { font-size: 28px; color: var(--ink); }
+.rico-note { margin: 0; color: var(--ink-2); }
 
-.rico-enonce { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 16px; font-family: var(--serif); font-size: clamp(20px, 3vw, 26px); font-weight: 600; }
-.rico-enonce:focus { outline: none; }
-.rico-mot { font-size: 1.3em; letter-spacing: 0.02em; }
-
-/* Un toucher répond : des choix de 44 px de haut au moins, espacés de 8 px. */
-.rico-choix { display: grid; gap: 8px; }
-.rico-choix-bouton {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; min-height: 44px; padding: 10px 14px; text-align: left;
-  border: 1.5px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink);
-  font: inherit; cursor: pointer;
+/* Séance : panneau centré sur ordinateur, plein écran sur mobile (styles.css, .dialogue). */
+.dialogue.rico-seance {
+  grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px;
+  width: min(560px, 100%); height: min(760px, calc(100vh - 40px)); overflow: hidden; padding: 16px 20px 20px;
 }
-.rico-choix-bouton:not(:disabled):hover { background: var(--paper-2); }
-.rico-choix-bouton:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-.rico-choix-bouton:disabled { cursor: default; }
-/* Bonne réponse : trait plein et coche. Mauvaise : Gris encre, pointillé, jamais de rouge. */
-.rico-choix-bouton.juste { border-width: 3px; background: var(--c-prefix-tint); }
-.rico-choix-bouton.rate { border-style: dashed; border-color: var(--ink-3); color: var(--ink-3); background: transparent; }
-.rico-choix-bouton.prise { border-width: 3px; background: var(--paper-2); }
-.rico-choix-bouton.relie { border-width: 3px; background: var(--c-suffix-tint); }
-.rico-etiquette { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
-.rico-etiquette .ic { width: 16px; height: 16px; }
+@media (max-width: 760px) { .dialogue.rico-seance { height: 100%; padding: 12px 16px 16px; } }
 
-.rico-paires { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
-.rico-colonne { display: grid; gap: 8px; align-content: start; }
-.rico-numero { display: grid; place-items: center; min-width: 24px; height: 24px; border: 1.5px solid var(--ink); border-radius: 50%; font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.rico-tete { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; }
+.rico-tete h1 { margin: 0; text-align: center; font-family: var(--serif); font-size: 22px; }
+.rico-compte { justify-self: end; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.rico-fermer {
+  display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 1.5px solid var(--ink); border-radius: 50%; background: transparent; color: var(--ink); cursor: pointer;
+}
+.rico-fermer svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.rico-fermer:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
-.rico-recap { display: grid; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
-.rico-recap li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 10px 14px; border: 1.5px solid var(--ink); border-radius: 12px; background: var(--cream); }
-.rico-carte { font-family: var(--serif); font-size: 18px; font-weight: 600; }
-.rico-retour { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
-.rico-annonce { flex-basis: 100%; color: var(--ink-2); }
-.rico-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-@media (prefers-reduced-motion: reduce) { .rico-choix-bouton { transition: none; } }
+/* Cinq points : le point en cours est cerclé. Jamais de chronomètre ni de note. */
+.rico-points { display: flex; justify-content: center; gap: 10px; margin: 0; }
+.rico-points span { width: 10px; height: 10px; border: 1.5px solid var(--ink); border-radius: 50%; }
+.rico-points .fait { background: var(--ink); }
+.rico-points .en-cours { box-shadow: 0 0 0 2.5px var(--cream), 0 0 0 4px var(--ink); }
+
+.rico-corps { display: grid; gap: 14px; align-content: start; overflow-y: auto; margin: 0 -4px; padding: 4px; }
+.rico-format { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+
+/* Le sujet, en grand : c'est lui que la question interroge. */
+.rico-sujet { display: grid; place-items: center; min-height: 96px; padding: 8px 0; }
+.rico-sujet .brick { transform: scale(1.35); }
+.rico-sens, .rico-mot { font-family: var(--serif); font-weight: 600; text-align: center; line-height: 1.2; }
+.rico-sens { font-size: clamp(22px, 5vw, 28px); }
+.rico-mot { font-size: clamp(30px, 8vw, 40px); letter-spacing: -0.01em; }
+.dialogue .rico-consigne { margin: 0; text-align: center; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--ink-2); }
+.dialogue .rico-consigne:focus { outline: none; }
+
+/* Choix : 44 px au moins, espacés de 8 px, un rond qui dit l'état sans la couleur. */
+.rico-choix { display: grid; gap: 8px; }
+.rico-option {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 14px; text-align: left;
+  border: 1.5px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink);
+  font-family: var(--serif); font-size: 18px; font-weight: 600; cursor: pointer;
+}
+.rico-option:not(:disabled):hover { background: var(--paper); }
+.rico-option:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.rico-option:disabled { cursor: default; }
+.rico-option-texte { flex: 1; }
+.rico-rond { flex: none; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.rico-etiquette { flex: none; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Bonne réponse : Papier 2, trait épais, rond plein coché. Jamais la couleur d'une nature de brique. */
+.rico-option.juste { border-width: 2.5px; background: var(--paper-2); }
+.rico-option.juste .rico-rond circle { fill: var(--ink); }
+.rico-option.juste .rico-rond path { stroke: var(--cream); stroke-width: 2.25; }
+/* Pas celle-ci : Gris encre, pointillé ; la brique touchée s'éteint aussi. Jamais de rouge. */
+.rico-option.rate { border-style: dashed; border-color: var(--ink-3); background: transparent; color: var(--ink-3); }
+.rico-option.rate .brick { filter: grayscale(1); opacity: 0.55; box-shadow: none; }
+.rico-option:disabled:not(.juste, .rate, .relie) { opacity: 0.55; }
+
+.rico-verdict { display: grid; gap: 4px; min-height: 3em; padding: 12px 14px; border-radius: 12px; background: var(--paper); line-height: 1.45; }
+.rico-verdict:empty { visibility: hidden; }
+.rico-verdict strong { font-family: var(--serif); font-size: 17px; }
+.rico-segmente { font-family: var(--serif); font-size: 20px; font-weight: 600; }
+
+/* Paires : deux colonnes de lignes de même hauteur ; le même numéro des deux côtés. */
+.rico-paires { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 12px; }
+.rico-option.rico-paire { min-height: 56px; justify-content: space-between; font-size: 16px; }
+.rico-option.rico-paire .brick.s .b-meta { display: none; }
+.rico-option.prise { border-width: 2.5px; background: var(--paper-2); }
+.rico-option.relie { border-width: 2.5px; background: var(--paper-2); }
+.rico-option.relie.manquee { border-style: dashed; border-color: var(--ink-3); background: transparent; }
+.rico-numero { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--cream); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.rico-option.manquee .rico-numero { border: 1.5px dashed var(--ink-3); background: transparent; color: var(--ink-3); }
+
+/* Récapitulatif : chaque carte, son résultat et son retour ; aucun score. */
+.rico-annonce { margin: 0; padding: 12px 14px; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--paper-2); line-height: 1.6; }
+.rico-recap { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rico-recap li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+.rico-recap li.manquee { color: var(--ink-3); }
+.rico-recap li.manquee .bchip { filter: grayscale(1); opacity: 0.6; }
+.rico-recap .rico-rond { width: 20px; height: 20px; }
+.rico-recap li:not(.manquee) .rico-rond circle { fill: var(--ink); }
+.rico-recap li:not(.manquee) .rico-rond path { stroke: var(--cream); stroke-width: 2.25; }
+.rico-retour { margin-left: auto; color: var(--ink-2); }
+.rico-mot-court { font-family: var(--serif); font-size: 17px; font-weight: 600; }
+
+/* Pied : l'action unique, toujours visible, jamais sous la navigation. */
+.rico-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; min-height: 48px; }
+.rico-pied .btn { flex: 1; }
+.rico-pied .rico-note { text-align: center; }
