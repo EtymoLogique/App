@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
-import { completude, construireCodex, familles, recentes, rechercher, savoirPlus } from './codex'
+import { cabinet, completude, construireCodex, familles, recentes, rechercher, savoirPlus } from './codex'
 
 function catalogue() {
   const c = jeu()
@@ -120,6 +120,12 @@ describe('codex', () => {
       // Une adresse qui n'est pas en https n'est jamais un lien.
       sources: [{ id: 'src_0000000a', reference: 'TLFi', detail: 'Référence · dictionnaire', url: null }],
     })
+
+    // Le cabinet : sans mot trouvé, pas de voyage ; ensuite, la filiation du mot.
+    expect(cabinet(construireCodex(c, etat()), c)).toEqual({ mots: 0, langues: 0, legendaires: 0, voyage: null })
+    const apres = cabinet(construireCodex(c, etat({ decouvertes: [decouverte] })), c)
+    expect(apres).toMatchObject({ mots: 1, legendaires: 0, voyage: { mot: { id: MOT }, langues: ['Grec ancien', 'Français'] } })
+    expect(Object.keys(apres)).not.toContain('total')
   })
 })
 

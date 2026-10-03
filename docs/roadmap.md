@@ -80,6 +80,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Recherche parmi les seules cartes trouvées, par forme ou par sens (I-17), raccourci « / », jamais dans l’adresse | fait |
 | Vues Tout, Récentes, Familles et Objectifs, tenues dans l’adresse (`vue=`) ; familles déduites des recettes : les mots formés sur une brique trouvée | fait |
 | Onglet Objectifs (I-18) : familles à compléter avec leur détail, langues rencontrées | fait ; jalons ajoutés en J4 |
+| Onglet Cabinet (I-30, App#25), à la place d’Objectifs (`vue=objectifs` y mène) : jours de jeu (`Etat.jours_de_jeu`, jours GMT comptés par le serveur), mots trouvés, langues rencontrées, légendaires trouvées sans total, mot au plus long voyage, familles en badges segmentés ; cartes maîtrisées et cartes de lecteur remplies avec App#18 et la carte de lecteur | fait |
 | « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la carte du codex (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
 
 ### Exigence reportée à J6

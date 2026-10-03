@@ -45,7 +45,7 @@ pub async fn etat(
     recharge: TimeDelta,
 ) -> Result<Etat, ErreurApi> {
     let ligne = sqlx::query!(
-        "SELECT version_etat, version_catalogue FROM joueur WHERE id = $1",
+        "SELECT version_etat, version_catalogue, jours_de_jeu FROM joueur WHERE id = $1",
         joueur
     )
     .fetch_one(&mut *tx)
@@ -138,6 +138,7 @@ pub async fn etat(
         jalons_atteints,
         jalons_recuperes,
         prix_indices: indice::PRIX_INDICE.to_vec(),
+        jours_de_jeu: positif(ligne.jours_de_jeu),
     })
 }
 
@@ -1065,7 +1066,9 @@ pub async fn graines_sans_exemplaire(
 
 pub async fn incrementer_version(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
     sqlx::query!(
-        "UPDATE joueur SET version_etat = version_etat + 1, derniere_activite = now() WHERE id = $1",
+        "UPDATE joueur SET version_etat = version_etat + 1,
+             jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int, derniere_activite = now()
+         WHERE id = $1",
         joueur
     )
     .execute(tx)

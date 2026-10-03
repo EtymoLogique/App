@@ -324,16 +324,53 @@ describe('table de fusion', () => {
     expect(window.location.hash).toBe('#/codex')
   })
 
-  it('tient la vue du codex dans l’adresse : familles et objectifs', async () => {
+  it('tient la vue du codex dans l’adresse : familles et cabinet', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
     fireEvent.click(await screen.findByRole('button', { name: /^Familles/ }))
     expect(window.location.hash).toBe('#/codex?vue=familles')
     expect(screen.getByRole('region', { name: 'Famille de géo- : 0 mots trouvés sur 1' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^Objectifs/ }))
-    expect(window.location.hash).toBe('#/codex?vue=objectifs')
-    expect(screen.getByText('Familles à compléter')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Famille de géo- : 0 mots trouvés sur 1' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: /^Cabinet/ }))
+    expect(window.location.hash).toBe('#/codex?vue=cabinet')
+    const badge = screen.getByRole('button', { name: 'Famille de géo-, terre : 0 mot sur 1' })
+    expect(badge).toHaveTextContent('0 / 1')
+    // Le badge mène à la famille, dans la vue Familles.
+    fireEvent.click(badge)
+    expect(window.location.hash).toBe('#/codex?vue=familles')
+  })
+
+  it('montre le cabinet du joueur : ses nombres seuls, sans total des légendaires', async () => {
+    window.location.hash = '#/codex?vue=objectifs'
+    const api = new ClientApi('https://api.exemple.test')
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ jours_de_jeu: 12 }))
+    render(<App api={api} catalogue={lecteur} />)
+    // Une ancienne adresse « Objectifs » ouvre le cabinet.
+    expect(await screen.findByRole('button', { name: /^Cabinet/ })).toHaveAttribute('aria-pressed', 'true')
+    const cabinet = await screen.findByRole('region', { name: 'Votre cabinet' })
+    await within(cabinet).findByText('jours de jeu')
+    expect(within(cabinet).getByText('12')).toBeInTheDocument()
+    expect(within(cabinet).getByText('mot trouvé')).toBeInTheDocument()
+    expect(within(cabinet).getByText('légendaire trouvée')).toBeInTheDocument()
+    expect(cabinet).not.toHaveTextContent(/sur|maîtrisée|lecteur/)
+    // Aucun mot trouvé : pas de voyage.
+    expect(within(cabinet).queryByText('Mot au plus long voyage')).not.toBeInTheDocument()
+  })
+
+  it('joint les segments d’une famille complète et montre le mot au plus long voyage', async () => {
+    window.location.hash = '#/codex?vue=cabinet'
+    const api = new ClientApi('https://api.exemple.test')
+    vi.spyOn(api, 'etat').mockResolvedValue(
+      etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
+    )
+    render(<App api={api} catalogue={lecteur} />)
+    const badge = await screen.findByRole('button', { name: 'Famille de géo-, terre : 1 mot sur 1' })
+    expect(badge).toHaveTextContent('1 / 1')
+    expect(badge.querySelector('circle')).toHaveAttribute('stroke-dasharray', '100 100')
+    const cabinet = screen.getByRole('region', { name: 'Votre cabinet' })
+    expect(within(cabinet).getByText('Mot au plus long voyage')).toBeInTheDocument()
+    expect(within(cabinet).getByText('géologie')).toBeInTheDocument()
+    // État d'avant App#25 : pas de jours de jeu plutôt qu'un nombre faux.
+    expect(within(cabinet).queryByText(/jours? de jeu/)).not.toBeInTheDocument()
   })
 
   it('ouvre « En savoir plus » depuis la carte vue au codex, jusque dans l’adresse', async () => {

@@ -9,6 +9,7 @@ import {
   ORDRE_TYPES,
   TYPES,
   type TypeCarte,
+  cabinet,
   completude,
   familles,
   recentes,
@@ -45,7 +46,7 @@ const VUES: [VueCodex, string][] = [
   ['tout', 'Tout'],
   ['recentes', 'Récentes'],
   ['familles', 'Familles'],
-  ['objectifs', 'Objectifs'],
+  ['cabinet', 'Cabinet'],
 ]
 
 /** Bandeau : couleur du type de ressource ; Encre pour un mot (identité, « une couleur, un seul sens »). */
@@ -804,6 +805,60 @@ function BarreFamille({ famille }: { famille: Famille }) {
   )
 }
 
+function Nombre({ n, un, plusieurs }: { n: number; un: string; plusieurs: string }) {
+  return (
+    <div className="cab-nombre">
+      <dt>{n > 1 ? plusieurs : un}</dt>
+      <dd>{n}</dd>
+    </div>
+  )
+}
+
+/**
+ * Badge de famille (I-30) : un anneau Rose, un segment par mot de la famille,
+ * la brique au centre et le compte toujours écrit. Complète, la famille joint
+ * ses segments en un anneau continu.
+ */
+function BadgeFamille({ famille, onOuvrir }: { famille: Famille; onOuvrir: () => void }) {
+  const total = famille.mots.length
+  const complete = famille.trouves === total
+  const pas = 100 / total
+  // ponytail: écart fixe de 3 % du tour, réduit pour les grandes familles ; à revoir au-delà de ~25 mots.
+  const longueur = complete ? pas : pas - Math.min(3, pas / 3)
+  const b = famille.brique
+  return (
+    <button
+      type="button"
+      className="cab-badge"
+      data-complete={complete || undefined}
+      aria-label={`Famille de ${b.libelle}${b.sens ? `, ${b.sens}` : ''} : ${famille.trouves} mot${famille.trouves > 1 ? 's' : ''} sur ${total}`}
+      onClick={onOuvrir}
+    >
+      <span className="cab-anneau">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          {famille.mots.map((m, i) => (
+            <circle
+              key={m.id}
+              r="16"
+              cx="20"
+              cy="20"
+              pathLength="100"
+              strokeDasharray={`${longueur} 100`}
+              strokeDashoffset={-i * pas}
+              className={i < famille.trouves ? 'on' : undefined}
+            />
+          ))}
+        </svg>
+        <b>{b.libelle}</b>
+      </span>
+      {b.sens && <span className="cab-sens">{b.sens.charAt(0).toUpperCase() + b.sens.slice(1)}</span>}
+      <span className="fam-count">
+        {famille.trouves} / {total}
+      </span>
+    </button>
+  )
+}
+
 function TitreFamille({ famille }: { famille: Famille }) {
   const b = famille.brique
   const affixe = b.type === 'prefixe' || b.type === 'suffixe'
@@ -818,6 +873,8 @@ function TitreFamille({ famille }: { famille: Famille }) {
 interface Props {
   entrees: EntreeCodex[]
   jeu: CatalogueJeu
+  /** Jours de jeu comptés par le serveur ; absent d'un état d'avant App#25. */
+  joursDeJeu?: number
   nouvelles: Set<string>
   onVue: (id: string) => void
   /** Vue du codex tenue dans l'URL : vue, filtres, tri et carte agrandie. */
@@ -830,11 +887,11 @@ interface Props {
 }
 
 /**
- * Codex (I-14, codex.html) : vues Tout, Récentes, Familles et Objectifs,
+ * Codex (I-14, codex.html) : vues Tout, Récentes, Familles et Cabinet (I-30),
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
  */
-export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
+export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
   const filtre = vue.filtre
   const ordre = vue.tri
   const fascicule = vue.fascicule ?? 'tous'
@@ -850,13 +907,13 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
   /** Recherche : gardée à l'écran, jamais dans l'adresse (ADR 0034). */
   const [recherche, setRecherche] = useState('')
   const champ = useRef<HTMLInputElement>(null)
-  /** Famille détaillée dans l'onglet Objectifs. */
-  const [familleChoisie, setFamilleChoisie] = useState<string | null>(null)
-  const detailFamille = useRef<HTMLElement>(null)
-  // Sur mobile, le détail est sous la liste : le choisir l'amène à l'écran.
+  /** Famille touchée dans le cabinet : la vue Familles s'ouvre sur elle. */
+  const familleVisee = useRef<string | null>(null)
   useEffect(() => {
-    if (familleChoisie) detailFamille.current?.scrollIntoView?.({ block: 'nearest' })
-  }, [familleChoisie])
+    if (!familleVisee.current || vue.vue !== 'familles') return
+    document.getElementById(`famille-${familleVisee.current}`)?.scrollIntoView?.({ block: 'start' })
+    familleVisee.current = null
+  }, [vue.vue])
 
   /** Groupes repliés dans le tri par fascicule. */
   const [replies, setReplies] = useState<Set<number>>(() => new Set())
@@ -880,8 +937,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
   const dernieres = recentes(entrees)
   const lesFamilles = familles(entrees, jeu)
   const aCompleter = lesFamilles.filter((f) => f.trouves < f.mots.length)
-  const detail = lesFamilles.find((f) => f.brique.id === familleChoisie) ?? aCompleter[0] ?? lesFamilles[0]
-  const langues = entrees.filter((e) => e.type === 'langue')
+  const stats = cabinet(entrees, jeu)
 
   // Précédente et suivante : l'ordre de ce qui est affiché.
   const sequence = enRecherche
@@ -890,8 +946,8 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
       ? dernieres
       : vue.vue === 'familles'
         ? lesFamilles.flatMap((f) => f.mots)
-        : vue.vue === 'objectifs'
-          ? (detail?.mots ?? [])
+        : vue.vue === 'cabinet'
+          ? []
           : visibles.filter((e) => !replie(e))
 
   /** Carte ouverte par un clic sur sa miniature : elle seule grossit depuis la grille. */
@@ -959,7 +1015,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
               </>
             ) : (
               <>
-                Vue <em>{{ tout: 'globale', familles: 'des familles', objectifs: 'des objectifs' }[vue.vue]}</em>
+                Vue <em>{{ tout: 'globale', familles: 'des familles', cabinet: 'du cabinet' }[vue.vue]}</em>
               </>
             )}
           </h2>
@@ -1005,7 +1061,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
             <button key={v} type="button" aria-pressed={vue.vue === v} onClick={() => setVue(v)}>
               {libelle}
               {v === 'familles' && lesFamilles.length > 0 && <b>{lesFamilles.length}</b>}
-              {v === 'objectifs' && aCompleter.length > 0 && <b>{aCompleter.length}</b>}
+              {v === 'cabinet' && aCompleter.length > 0 && <b>{aCompleter.length}</b>}
             </button>
           ))}
         </div>
@@ -1062,7 +1118,7 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
         ) : (
           <div className="fam-list">
             {lesFamilles.map((f) => (
-              <section key={f.brique.id} className="fam" aria-label={`Famille de ${f.brique.libelle} : ${f.trouves} mots trouvés sur ${f.mots.length}`}>
+              <section key={f.brique.id} id={`famille-${f.brique.id}`} className="fam" aria-label={`Famille de ${f.brique.libelle} : ${f.trouves} mots trouvés sur ${f.mots.length}`}>
                 <div className="fam-head">
                   <TitreFamille famille={f} />
                   <span className="fam-count">
@@ -1076,65 +1132,60 @@ export function Codex({ entrees, jeu, nouvelles, onVue, vue, onChangerVue, urlMe
             ))}
           </div>
         )
-      ) : vue.vue === 'objectifs' ? (
-        <div className="obj">
-          <div className="obj-list">
-            <p className="more-k">Familles à compléter</p>
-            {aCompleter.length === 0 ? (
-              <p className="cb-note">{lesFamilles.length === 0 ? 'Trouvez une brique pour ouvrir sa famille.' : 'Toutes vos familles sont complètes.'}</p>
-            ) : (
-              aCompleter.map((f) => (
-                <button
-                  key={f.brique.id}
-                  type="button"
-                  className="fam fam-btn"
-                  aria-pressed={detail?.brique.id === f.brique.id}
-                  aria-label={`Famille de ${f.brique.libelle} : ${f.trouves} mots trouvés sur ${f.mots.length}`}
-                  onClick={() => setFamilleChoisie(f.brique.id)}
-                >
-                  <span className="fam-head">
-                    <TitreFamille famille={f} />
-                    <span className="fam-count">
-                      {f.trouves} / {f.mots.length}
-                    </span>
-                  </span>
-                  <BarreFamille famille={f} />
-                </button>
-              ))
+      ) : vue.vue === 'cabinet' ? (
+        <div className="cab">
+          <section className="cab-stats" aria-labelledby="cab-titre">
+            <p id="cab-titre" className="more-k">Votre cabinet</p>
+            <p className="cb-note">Ces nombres sont les vôtres. Ils ne sont comparés à ceux de personne.</p>
+            <dl className="cab-nombres">
+              {/* Absent d'un état d'avant App#25 : rien plutôt qu'un nombre faux. */}
+              {joursDeJeu ? <Nombre n={joursDeJeu} un="jour de jeu" plusieurs="jours de jeu" /> : null}
+              <Nombre n={stats.mots} un="mot trouvé" plusieurs="mots trouvés" />
+              <Nombre n={stats.langues} un="langue rencontrée" plusieurs="langues rencontrées" />
+              {/* Jamais « sur N » : le total des légendaires reste secret (ADR 0043). */}
+              <Nombre n={stats.legendaires} un="légendaire trouvée" plusieurs="légendaires trouvées" />
+            </dl>
+            {stats.voyage && (
+              <div className="fam cab-voyage">
+                <p className="more-k">Mot au plus long voyage</p>
+                <b className="fam-word">{stats.voyage.mot.libelle}</b>
+                <p className="more-path" aria-label={`Filiation : ${stats.voyage.langues.join(', puis ')}`}>
+                  {stats.voyage.langues.map((nom, i) => (
+                    <Fragment key={nom}>
+                      {i > 0 && (
+                        <span className="more-arrow" aria-hidden="true">
+                          ›
+                        </span>
+                      )}
+                      <span className="bf-lang">
+                        <i />
+                        {nom}
+                      </span>
+                    </Fragment>
+                  ))}
+                </p>
+              </div>
             )}
-            <p className="more-k">Langues rencontrées</p>
-            <div className="fam">
-              <span className="fam-head">
-                <span className="fam-name">
-                  <b className="fam-word">Langues</b>
-                </span>
-                <span className="fam-count">
-                  {langues.filter((l) => l.trouvee).length} / {langues.length}
-                </span>
-              </span>
-              <span className="fam-bar is-lang" aria-hidden="true">
-                <i style={{ width: `${langues.length ? (langues.filter((l) => l.trouvee).length / langues.length) * 100 : 0}%` }} />
-              </span>
-            </div>
-            <p className="more-k">Jalons</p>
-            <p className="cb-note">Les jalons de chaque fascicule et leurs récompenses sont dans les quêtes.</p>
-            <button type="button" className="btn btn-secondary obj-quetes" onClick={() => onChangerVue({ onglet: 'quetes', quete: 'fascicules' })}>
-              Voir les récompenses de fascicule
-            </button>
-          </div>
-          {detail && (
-            <section ref={detailFamille} className="obj-detail" aria-label={`Famille de ${detail.brique.libelle}`}>
-              <p className="more-k">Famille</p>
-              <h3 className="obj-title">
-                <TitreFamille famille={detail} />
-              </h3>
-              <p className="cb-note">
-                Les mots formés sur {detail.brique.libelle}
-                {detail.brique.sens ? <> «&nbsp;{detail.brique.sens}&nbsp;»</> : null} : {detail.trouves} trouvé{detail.trouves > 1 ? 's' : ''} sur {detail.mots.length}.
-              </p>
-              <div className="cb-grid">{detail.mots.map((e) => mini(e))}</div>
-            </section>
-          )}
+          </section>
+          <section className="cab-familles" aria-labelledby="cab-familles">
+            <p id="cab-familles" className="more-k">Familles</p>
+            {lesFamilles.length === 0 ? (
+              <p className="cb-note">Trouvez une brique pour ouvrir sa famille.</p>
+            ) : (
+              <div className="cab-badges">
+                {lesFamilles.map((f) => (
+                  <BadgeFamille
+                    key={f.brique.id}
+                    famille={f}
+                    onOuvrir={() => {
+                      familleVisee.current = f.brique.id
+                      setVue('familles')
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       ) : (
         <>

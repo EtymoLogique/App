@@ -123,7 +123,8 @@ pub async fn session(
 
     if !cree {
         let connue = sqlx::query_scalar!(
-            "UPDATE joueur SET derniere_activite = now() WHERE id = $1 RETURNING empreinte_secret",
+            "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int, derniere_activite = now()
+             WHERE id = $1 RETURNING empreinte_secret",
             demande.installation,
         )
         .fetch_optional(&app.base)
