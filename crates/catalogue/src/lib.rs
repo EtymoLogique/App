@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub use carte::Carte;
 pub use chemin::{Chemin, ErreurChemin};
 pub use format::{
-    BriquePliManifeste, Calendrier, CarteManifeste, Emplacement, EntreeFascicule,
+    BriquePliManifeste, Calendrier, CarteManifeste, Difficulte, Emplacement, EntreeFascicule,
     EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, PliManifeste, Recette,
     RecetteManifeste,
 };

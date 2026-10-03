@@ -8,7 +8,7 @@ use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
 
-use crate::format::Role;
+use crate::format::{Difficulte, Role};
 use crate::{EquilibrageManifeste, FasciculeCharge, Graine};
 
 #[derive(Debug, Clone, Default)]
@@ -27,6 +27,8 @@ pub struct Jeu {
     pub legendaires: HashSet<IdCatalogue>,
     /// Brique-mot par mot (unité) : la découverte d'un mot ingrédient en offre un exemplaire.
     pub briques_de_mot: HashMap<IdCatalogue, IdCatalogue>,
+    /// Difficulté des mots qui en portent une (ADR 0047). Jamais exposée au joueur.
+    pub difficultes: HashMap<IdCatalogue, Difficulte>,
 }
 
 /// Les jalons d'un fascicule et les mots qui les font avancer.
@@ -132,6 +134,13 @@ impl Jeu {
                     .collect(),
                 jalons: fascicule.manifeste.jalons.clone(),
             });
+            jeu.difficultes.extend(
+                fascicule
+                    .manifeste
+                    .cartes
+                    .iter()
+                    .filter_map(|c| Some((c.id.clone(), c.difficulte?))),
+            );
             jeu.briques.extend(pli.briques.iter().map(|b| b.id.clone()));
             jeu.briques_de_mot.extend(
                 fascicule

@@ -274,6 +274,7 @@ export interface components {
         };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
+            difficulte?: components["schemas"]["Difficulte"] | null;
             id: components["schemas"]["IdCatalogue"];
             role: components["schemas"]["Role"];
             silhouette?: components["schemas"]["Chemin"] | null;
@@ -436,6 +437,11 @@ export interface components {
             /** @description Secret aléatoire de 256 bits, en base64url sans remplissage. */
             secret: string;
         };
+        /**
+         * @description Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.
+         * @enum {string}
+         */
+        Difficulte: "facile" | "moyen" | "difficile";
         Emplacement: {
             briques_acceptees: components["schemas"]["IdCatalogue"][];
             /** Format: int32 */

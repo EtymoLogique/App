@@ -121,6 +121,15 @@ pub enum Role {
     Ingredient,
 }
 
+/// Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Difficulte {
+    Facile,
+    Moyen,
+    Difficile,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PliManifeste {
     #[serde(default)]
@@ -154,6 +163,9 @@ pub struct CarteManifeste {
     pub role: Role,
     pub carte: Chemin,
     pub silhouette: Option<Chemin>,
+    /// Résultats seulement ; absente d'un manifeste antérieur à l'ADR 0047.
+    #[serde(default)]
+    pub difficulte: Option<Difficulte>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

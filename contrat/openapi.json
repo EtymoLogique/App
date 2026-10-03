@@ -1022,6 +1022,17 @@
           "carte": {
             "$ref": "#/components/schemas/Chemin"
           },
+          "difficulte": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Difficulte",
+                "description": "Résultats seulement ; absente d'un manifeste antérieur à l'ADR 0047."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
@@ -1384,6 +1395,15 @@
           }
         },
         "additionalProperties": false
+      },
+      "Difficulte": {
+        "type": "string",
+        "description": "Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.",
+        "enum": [
+          "facile",
+          "moyen",
+          "difficile"
+        ]
       },
       "Emplacement": {
         "type": "object",

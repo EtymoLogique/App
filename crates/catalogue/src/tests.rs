@@ -39,6 +39,10 @@ async fn charge_l_index_et_ses_manifestes() {
         vec![essai::LOGIE.parse().unwrap()],
     ];
     assert_eq!(jeu.recettes[0].emplacements, attendus);
+    assert_eq!(
+        jeu.difficultes.get(&essai::MOT.parse().unwrap()),
+        Some(&Difficulte::Moyen)
+    );
     assert_eq!(jeu.exclusions.len(), 1);
     assert!(jeu.briques.contains(&essai::GEO.parse().unwrap()));
     assert_eq!(jeu.graines[0].0.as_str(), "fsc_00000000");

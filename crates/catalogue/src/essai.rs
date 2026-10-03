@@ -77,7 +77,7 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "test": true,
         "jaquette": jaquette,
         "exclusions": exclusions,
-        "cartes": [{ "id": MOT, "role": "resultat", "carte": carte, "silhouette": null }],
+        "cartes": [{ "id": MOT, "role": "resultat", "carte": carte, "silhouette": null, "difficulte": "moyen" }],
         "langues": [],
         "recettes": [{ "id": RECETTE, "chemin": recette }],
         "compteurs": { "mots": 1 },
