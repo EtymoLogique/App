@@ -18,7 +18,7 @@
 .ring-tete, .ring-tete-halo { opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity 0.25s var(--ease-out); }
 .ring-tete { fill: var(--c-pli-tint); stroke: var(--c-pli); stroke-width: 1.5; }
 .ring-tete-halo { fill: var(--c-pli); }
-/* Avance au cran : la jauge avance au ressort (animation.ts) ; la tête laisse une traînée qui s'efface en 300 ms. Pas de boucle. */
+/* Avance au cran : la jauge glisse sans rebond (animation.ts) ; la tête laisse une traînée qui s'efface en 300 ms. Pas de boucle. */
 .is-avance .ring-halo { opacity: 0.6; }
 .is-avance .ring-tete { opacity: 1; }
 .ring-halo, .ring-tete, .ring-tete-halo { transition-duration: 0.3s; }

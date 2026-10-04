@@ -11,8 +11,6 @@ const DUREE_MS = 480
 
 /** Sortie douce, cubique. */
 export const sortieDouce = (p: number) => 1 - (1 - p) ** 3
-/** Ressort amorti : un dépassement, puis un léger rebond (même courbe que --ease-ressort). */
-export const ressort = (p: number) => 1 - Math.exp(-6 * p) * Math.cos(9 * p) * (1 - p)
 
 export function mouvementReduit(): boolean {
   return document.documentElement.dataset.mouvement === 'reduit' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
@@ -90,8 +88,9 @@ export function accordLegendaire(): void {
  * Valeur affichée : elle glisse vers `cible` quand celle-ci saute de plus de
  * `seuil`, et la suit sinon (le temps qui s'écoule seconde après seconde).
  * Une glissade en cours va jusqu'au bout, même si la cible bouge encore.
+ * `baisseSeule` : une hausse saute directement, sans glisser.
  */
-export function useValeurAnimee(cible: number, seuil = 0, courbe: (p: number) => number = sortieDouce): number {
+export function useValeurAnimee(cible: number, seuil = 0, courbe: (p: number) => number = sortieDouce, baisseSeule = false): number {
   const [affichee, setAffichee] = useState(cible)
   const courante = useRef(cible)
   const enCours = useRef(false)
@@ -99,7 +98,8 @@ export function useValeurAnimee(cible: number, seuil = 0, courbe: (p: number) =>
     const depart = courante.current
     if (Object.is(depart, cible)) return
     // Une valeur absente (NaN) est remplacée sans glisser : pas de défilement au chargement.
-    if (Number.isNaN(depart) || Number.isNaN(cible) || (!enCours.current && Math.abs(cible - depart) <= seuil) || mouvementReduit()) {
+    if (Number.isNaN(depart) || Number.isNaN(cible) || (!enCours.current && Math.abs(cible - depart) <= seuil) || (baisseSeule && cible > depart) || mouvementReduit()) {
+      enCours.current = false
       courante.current = cible
       setAffichee(cible)
       return
@@ -108,7 +108,8 @@ export function useValeurAnimee(cible: number, seuil = 0, courbe: (p: number) =>
     const t0 = performance.now()
     let image = 0
     const pas = (t: number) => {
-      const p = Math.min(1, (t - t0) / DUREE_MS)
+      // Le premier horodatage d'image peut précéder t0 : un p négatif ferait partir la glissade à l'envers.
+      const p = Math.min(1, Math.max(0, (t - t0) / DUREE_MS))
       courante.current = depart + (cible - depart) * courbe(p)
       setAffichee(courante.current)
       if (p < 1) image = requestAnimationFrame(pas)
@@ -130,15 +131,19 @@ export function energieDepuisReste(energie: EnergieEtat, reste: number, maintena
   return { ...energie, charges: energie.capacite - manquantes, prochaine_charge: new Date(maintenant + reste - (manquantes - 1) * recharge).toISOString() }
 }
 
+/** Écart du temps restant au-delà duquel ce n'est plus l'horloge qui avance : c'est une commande. */
+const SEUIL_COMMANDE_MS = 5000
+
 /**
- * Énergie dont le temps restant glisse quand des sabliers l'avancent, au
- * ressort : la jauge avance d'un cran ; `avance` est vrai pendant la glissade
- * (traînée de la jauge).
+ * Énergie dont le temps restant glisse quand des sabliers l'avancent : la
+ * jauge avance sans rebond, qui ferait clignoter un pli à la frontière d'une
+ * charge ; `avance` est vrai pendant la glissade (traînée de la jauge). Un pli
+ * ouvert fait remonter le temps restant d'un coup, sans glisser.
  */
 export function useEnergieAnimee<E extends EnergieEtat | undefined>(energie: E, maintenant: number): { energie: E; avance: boolean } {
   const reste = energie ? avantPlein(energie, maintenant) : Number.NaN
-  // Au-delà de 5 s d'écart, ce n'est plus l'horloge : c'est une commande.
-  const anime = useValeurAnimee(reste, 5000, ressort)
-  const avance = energie !== undefined && !Number.isNaN(anime) && anime !== reste
+  const anime = useValeurAnimee(reste, SEUIL_COMMANDE_MS, sortieDouce, true)
+  // La valeur affichée suit l'horloge avec un rendu de retard : en deçà du seuil, ce n'est pas une glissade.
+  const avance = energie !== undefined && anime - reste > SEUIL_COMMANDE_MS
   return { energie: avance ? (energieDepuisReste(energie, anime, maintenant) as E) : energie, avance }
 }

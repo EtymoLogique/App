@@ -7,8 +7,49 @@ import { Brique } from './Brique'
 import { Reserve, TYPE_GLISSE } from './Reserve'
 import { useDialogue } from './useDialogue'
 
-/** Pause avant la fermeture automatique : le joueur voit la dernière brique se poser. */
-const PAUSE_MS = 350
+/** Pause avant la fermeture automatique : le joueur voit la dernière brique se poser (vol de 480 ms). */
+const PAUSE_MS = 500
+/** Vol des briques de la modale vers la table, et effacement de la feuille. */
+const VOL_MS = 560
+const SORTIE_MS = 280
+
+/**
+ * Retour à la table : chaque brique posée quitte la petite table de la modale et flotte jusqu'à sa case
+ * sur la vraie table, pendant que la feuille s'efface (ou redescend, sur mobile) et que le voile se lève.
+ * La brique qui vole est une copie de celle de la table, masquée jusqu'à l'arrivée de sa copie.
+ */
+function fermerEnVol(boite: HTMLElement | null, onFermer: () => void) {
+  if (!boite || typeof boite.animate !== 'function' || mouvementReduit()) return onFermer()
+  if (boite.dataset.sortie) return
+  boite.dataset.sortie = '1'
+  const scrim = boite.parentElement
+  if (scrim) scrim.style.pointerEvents = 'none'
+  boite.querySelectorAll<HTMLElement>('.rm-case').forEach((place, i) => {
+    const source = place.querySelector<HTMLElement>('.brick')
+    const cible = document.querySelector<HTMLElement>(`.slots [data-slot="${i}"] .brick`)
+    if (!source || !cible) return
+    const a = source.getBoundingClientRect()
+    const b = cible.getBoundingClientRect()
+    if (a.width === 0 || b.width === 0) return
+    const copie = cible.cloneNode(true) as HTMLElement
+    Object.assign(copie.style, { position: 'fixed', left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: '0', zIndex: '70', pointerEvents: 'none', transformOrigin: '0 0' })
+    copie.setAttribute('aria-hidden', 'true')
+    document.body.append(copie)
+    source.style.visibility = 'hidden'
+    const depart = `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${a.width / b.width}, ${a.height / b.height})`
+    // Un léger décalage par case : les briques partent l'une après l'autre, comme posées à la main.
+    const options = { duration: VOL_MS, delay: i * 50, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } as const
+    cible.animate([{ opacity: 0 }, { opacity: 0, offset: 0.9 }, { opacity: 1 }], options)
+    copie
+      .animate([{ transform: depart }, { transform: 'translate(0, -6px) rotate(-1.5deg)', offset: 0.7 }, { transform: 'none' }], options)
+      .finished.finally(() => copie.remove())
+  })
+  const mobile = window.matchMedia?.('(max-width: 760px)').matches
+  const options: KeyframeAnimationOptions = { duration: SORTIE_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' }
+  scrim?.querySelector('.scrim-fond')?.animate([{ opacity: 1 }, { opacity: 0 }], options)
+  const fin = mobile ? [{ transform: 'translateY(100%)' }] : [{ opacity: 0, transform: 'translateY(10px) scale(0.97)' }]
+  boite.animate([{ opacity: 1, transform: 'none' }, ...fin], options).finished.then(onFermer, onFermer)
+}
 
 interface Props {
   reserve: Exemplaires[]
@@ -38,7 +79,7 @@ function ordinal(rang: number): string {
  * Table complète, elle se ferme d'elle-même : il ne reste qu'à fusionner.
  */
 export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, onPoser, onRetirer, onComplete, onFermer }: Props) {
-  const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
+  const [boite, fermer] = useDialogue<HTMLElement>(onFermer, fermerEnVol)
   // Le message reste dans la modale : un message de la table s'afficherait derrière le voile.
   const [message, setMessage] = useState<string | null>(null)
   // Annonce pour les lecteurs d'écran : ce qui vient de se passer, puis la suite.

@@ -12,6 +12,7 @@ import {
   cabinet,
   completude,
   familles,
+  libelleMaitrise,
   recentes,
   rechercher,
   savoirPlus,
@@ -24,6 +25,7 @@ import { MotSegmente } from './MotSegmente'
 import { mouvementReduit } from '../services/animation'
 import { chargerSilhouette } from '../services/silhouettes'
 import { FormeRarete } from './Rarete'
+import { Filet, Galet } from './Maitrise'
 import { Jaquette, SelecteurFascicules, TitreFascicule } from './Fascicules'
 
 type Tri = TriCodex
@@ -130,7 +132,7 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
   const nbFormes = entree.formes.length
   const trouvees = entree.formes.filter((f) => f.trouvee).length
   const label = entree.trouvee
-    ? `${nouvelle ? 'Nouvelle carte : ' : ''}${entree.libelle}, ${type.libelle.toLowerCase()}${entree.sens ? `, « ${entree.sens} »` : ''}, fascicule ${entree.fascicule}, ${trouvees} formes trouvées sur ${nbFormes}`
+    ? `${nouvelle ? 'Nouvelle carte : ' : ''}${entree.libelle}, ${type.libelle.toLowerCase()}${entree.sens ? `, « ${entree.sens} »` : ''}, fascicule ${entree.fascicule}, ${trouvees} formes trouvées sur ${nbFormes}${entree.maitrise ? `, ${libelleMaitrise(entree.maitrise).toLowerCase()}` : ''}`
     : `Carte ${entree.n}, fascicule ${entree.fascicule} : ${type.libelle.toLowerCase()} à découvrir`
   const classes = ['mini', entree.trouvee ? '' : 'locked', nouvelle && entree.trouvee ? 'is-new' : '', entree.legendaire ? 'is-legend' : '', deplie === undefined ? '' : 'deplie']
     .filter(Boolean)
@@ -143,6 +145,7 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
         </span>
         <span className="m-side">
           <span className="m-kind">{type.libelle}</span>
+          {entree.maitrise?.maitrisee && <Galet className="galet m-galet" cache />}
           {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar m-rar" />}
         </span>
       </span>
@@ -168,6 +171,7 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
               </span>
             )}
           </span>
+          {entree.maitrise && <Filet maitrise={entree.maitrise} className="filet-maitrise m-filet" />}
         </>
       ) : (
         <>
@@ -440,6 +444,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       <span>{numero(entree.n)}</span>
       <span className="bf-side">
         <span className="bf-type">{type.libelle}</span>
+        {entree.maitrise?.maitrisee && <Galet className="galet bf-galet" />}
         {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
       </span>
     </div>
@@ -673,6 +678,15 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                 </>
               )}
             </div>
+            {entree.maitrise && (
+              <div className="bf-maitrise">
+                <p>
+                  <span>Maîtrise</span>
+                  <b>{libelleMaitrise(entree.maitrise)}</b>
+                </p>
+                <Filet maitrise={entree.maitrise} />
+              </div>
+            )}
             <div className="bf-foot">
               <span className="conf">
                 {entree.trouvee && entree.confiance ? (

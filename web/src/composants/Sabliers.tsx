@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Etat, ReponseAchatSablier, ReponseSablier } from '../contrat'
+import { useEnergieAnimee } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
 import { useEnLigne } from '../services/reseau'
 import { LOTS, avantPlein, dureeLisible, dureeSablier, energieA, nombrePourRemplir, sabliersAchetables } from '../services/plis'
@@ -31,12 +32,17 @@ export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | nu
   const enLigne = useEnLigne()
   const [feuille, setFeuille] = useState<'utiliser' | 'acheter' | null>(null)
   const maintenant = useMaintenant()
-  if (!etat || energieA(etat.energie, maintenant).prochaine === null) return null
+  // Le bouton suit la jauge animée : il part quand les plis se remplissent à l'écran, pas à la réponse du serveur.
+  const { energie } = useEnergieAnimee(etat?.energie, maintenant)
+  if (!etat || !energie) return null
+  const plein = energieA(energie, maintenant).prochaine === null
   const s = etat.sabliers ?? SANS_SABLIERS
   const fermer = () => setFeuille(null)
+  // Feuille ouverte : son bouton garde son libellé, même quand un achat apporte des sabliers.
+  const avancer = feuille ? feuille === 'utiliser' : s.detenus > 0
   return (
     <>
-      {s.detenus > 0 ? (
+      {plein ? null : avancer ? (
         <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne} onClick={() => setFeuille('utiliser')} title="Faire avancer le temps avec des sabliers">
           <Sablier />
           Avancer

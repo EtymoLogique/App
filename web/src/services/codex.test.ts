@@ -47,6 +47,20 @@ describe('codex', () => {
     expect(rechercher(apres, 'terre').map((g) => g.titre)).toEqual(['Briques', 'Mots'])
   })
 
+  it('donne leur niveau de ricochets aux cartes trouvées, par mot ou par brique', () => {
+    const ricochets = [
+      { unite_id: GEO, niveau: 2, maitrisee: false, a_revoir: false },
+      { unite_id: MOT, niveau: 3, maitrisee: true, a_revoir: false },
+    ]
+    const entrees = construireCodex(catalogue(), etat({ decouvertes: [decouverte], ricochets }))
+    expect(entrees.map((e) => [e.libelle, e.maitrise])).toEqual([
+      ['géo-', { niveau: 2, maitrisee: false }],
+      ['-logie', { niveau: 0, maitrisee: false }],
+      ['géologie', { niveau: 3, maitrisee: true }],
+    ])
+    expect(construireCodex(catalogue(), etat()).find((e) => e.id === MOT)?.maitrise).toBeNull()
+  })
+
   it('range les découvertes récentes de la plus récente à la plus ancienne', () => {
     const entrees = construireCodex(catalogue(), etat({ decouvertes: [decouverte] }))
     // Obtenues au même instant, les briques se départagent par leur numéro.

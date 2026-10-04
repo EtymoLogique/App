@@ -93,9 +93,9 @@
 /* Texture de carte (ADR 0023) : silhouette d'une seule teinte, sous le contenu, jamais sous le bandeau. */
 .card-art { position: absolute; z-index: 0; inset: 25px 0 0; overflow: hidden; color: var(--ink); opacity: 0.1; pointer-events: none; --art-bg: var(--paper); }
 .card-art svg { display: block; width: 100%; height: 100%; }
-.mini > :not(.card-art):not(.cv-art):not(.m-top) { position: relative; z-index: 1; }
+.mini > :not(.card-art):not(.cv-art):not(.m-top):not(.m-filet) { position: relative; z-index: 1; }
 .big-face .card-art { inset: 0; opacity: 0.085; --art-bg: var(--cream); }
-.big-face .bf-top, .big-face .bf-body, .big-face .bf-foot { position: relative; z-index: 1; }
+.big-face .bf-top, .big-face .bf-body, .big-face .bf-maitrise, .big-face .bf-foot { position: relative; z-index: 1; }
 /* Sur une texture, le sens littéral passe en Crème cerné de Gris encre pour rester une pastille distincte. */
 .big-face:has(.card-art) .bf-lit { border: 1px solid var(--ink-3); background: var(--cream); }
 /* Gris encre et Corail profond tombent sous 4,5:1 sur la texture : texte secondaire et liens passent en Encre secondaire, le lien reste souligné. */
@@ -254,7 +254,7 @@
   .viewer-nav.next { justify-self: start; }
   .big-wrap { width: min(410px, 88vw, calc((100svh - 240px) * 0.714)); }
   .bf-body { padding: 18px; }
-  .bf-top, .bf-foot { padding-inline: 16px; }
+  .bf-top, .bf-maitrise, .bf-foot { padding-inline: 16px; }
   .viewer-close { top: 10px; right: 10px; width: 42px; height: 42px; }
 }
 
@@ -302,6 +302,26 @@
 .mini .m-rar, .bf-rar { fill: var(--rd); stroke: var(--tc); }
 .mini .m-rar { width: 12px; height: 12px; margin-right: -4px; }
 .mini.is-legend { border-color: var(--ink); }
+
+/* ---------- Maîtrise (ADR 0044) : galet dans le bandeau, filet de quatre segments ---------- */
+/* Quatre segments, jamais trois : trois traits disent la confiance éditoriale. */
+.filet-maitrise { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+.filet-maitrise i { height: 3px; border-radius: 2px; background: var(--line); }
+.filet-maitrise i.on { background: var(--ink); }
+.galet { flex: none; color: var(--tt); }
+.m-galet { width: 11px; height: 11px; }
+.bf-galet { width: 16px; height: 16px; }
+.mini:has(.m-filet) { padding-bottom: 16px; }
+.m-filet { position: absolute; z-index: 1; right: 12px; bottom: 6px; left: 12px; }
+.bf-maitrise { display: grid; gap: 5px; padding: 8px 22px 7px; border-top: 1px solid var(--line); }
+.bf-maitrise p { display: flex; justify-content: space-between; gap: 8px; margin: 0; color: var(--ink-2); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.bf-maitrise b { color: var(--ink); font-weight: 600; }
+.bf-maitrise .filet-maitrise { gap: 3px; }
+.bf-maitrise .filet-maitrise i { height: 5px; }
+@media (max-width: 760px) {
+  .mini:has(.m-filet) { padding-bottom: 13px; }
+  .m-filet { right: 8px; bottom: 4px; left: 8px; }
+}
 @media (prefers-reduced-motion: reduce) { .cb-fasc-btn, .cb-fasc-bar i { transition: none; } }
 
 /* ---------- Ajustements de l'application ---------- */

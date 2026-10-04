@@ -83,7 +83,8 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Onglet Cabinet (I-30, App#25), à la place d’Objectifs (`vue=objectifs` y mène) : jours de jeu (`Etat.jours_de_jeu`, jours GMT comptés par le serveur), mots trouvés, langues rencontrées, légendaires trouvées sans total, mot au plus long voyage, familles en badges segmentés ; cartes maîtrisées et cartes de lecteur remplies avec App#18 et la carte de lecteur | fait |
 | Ricochets, API et base (App#18, [ADR 0044](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0044-ricochets-reviser-et-maitriser-les-cartes.md)) : tables `ricochet` et `ricochet_jour`, règle de maîtrise `etymo_domaine::ricochet`, `GET /ricochets/seance`, `POST /ricochet`, `Etat.ricochets` et `Etat.ricochets_du_jour`, données de jugement dans le manifeste (`ricochets`) ; cinq formats (sens d’une brique, brique d’un sens, mot d’un sens littéral, découper, paires), le format « littéral ou actuel » est abandonné | fait |
 | Ricochets, PWA (App#19) : onglet « Ricochets » dans le menu (écart à l’ADR 0044, qui n’ajoute aucune destination), séance de cinq questions, verdict immédiat, récapitulatif confirmé par le serveur | fait |
-| Ricochets, PWA : signe de maîtrise sur la carte et jauge « N / M maîtrisées » du fascicule | à faire |
+| Ricochets, PWA : niveau sur la carte du codex, filet de quatre segments (niveaux 1 à 3, puis maîtrise) et galet de maîtrise dans le bandeau, mini-carte et carte ouverte | fait |
+| Ricochets, PWA : jauge « N / M maîtrisées » du fascicule | à faire |
 | « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la carte du codex (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
 
 ### Exigence reportée à J6
