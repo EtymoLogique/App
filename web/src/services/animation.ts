@@ -131,17 +131,17 @@ export function energieDepuisReste(energie: EnergieEtat, reste: number, maintena
   return { ...energie, charges: energie.capacite - manquantes, prochaine_charge: new Date(maintenant + reste - (manquantes - 1) * recharge).toISOString() }
 }
 
+/** Écart du temps restant au-delà duquel ce n'est plus l'horloge qui avance : c'est une commande. */
+const SEUIL_COMMANDE_MS = 5000
+
 /**
  * Énergie dont le temps restant glisse quand des sabliers l'avancent : la
  * jauge avance sans rebond, qui ferait clignoter un pli à la frontière d'une
  * charge ; `avance` est vrai pendant la glissade (traînée de la jauge). Un pli
  * ouvert fait remonter le temps restant d'un coup, sans glisser.
  */
-const SEUIL_COMMANDE_MS = 5000
-
 export function useEnergieAnimee<E extends EnergieEtat | undefined>(energie: E, maintenant: number): { energie: E; avance: boolean } {
   const reste = energie ? avantPlein(energie, maintenant) : Number.NaN
-  // Au-delà de 5 s d'écart, ce n'est plus l'horloge : c'est une commande.
   const anime = useValeurAnimee(reste, SEUIL_COMMANDE_MS, sortieDouce, true)
   // La valeur affichée suit l'horloge avec un rendu de retard : en deçà du seuil, ce n'est pas une glissade.
   const avance = energie !== undefined && anime - reste > SEUIL_COMMANDE_MS
