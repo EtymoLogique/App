@@ -69,7 +69,12 @@ export interface EntreeCodex {
   resultat: boolean
   /** Composants d'un mot, ou mots formés par une brique. */
   liens: { titre: 'Composants' | 'Mots formés'; items: Lien[] } | null
+  /** Niveau de ricochets d'une carte trouvée (ADR 0044) ; nul pour une carte à trouver ou une langue. */
+  maitrise: { niveau: number; maitrisee: boolean } | null
 }
+
+/** « Niveau 2 sur 3 » ou « Maîtrisée » (ADR 0044). */
+export const libelleMaitrise = (m: NonNullable<EntreeCodex['maitrise']>) => (m.maitrisee ? 'Maîtrisée' : `Niveau ${m.niveau} sur 3`)
 
 function formesDe(carte: Carte, trouvee: boolean): FormeTrouvee[] {
   const formes: FormeTrouvee[] = []
@@ -108,6 +113,7 @@ function plusTot(a: string | undefined, b: string | undefined): string | null {
 export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCodex[] {
   const decouvertes = new Map(etat?.decouvertes.map((d) => [d.mot_id, d.decouverte_le]) ?? [])
   const connues = new Map(etat?.reserve.map((e) => [e.brique_id, e.connue_le]) ?? [])
+  const ricochets = new Map(etat?.ricochets?.map((r) => [r.unite_id, r]) ?? [])
   const decouverts = new Set(decouvertes.keys())
   const legendaires = new Set([...jeu.briques.values()].filter((b) => b.rarete === 'legendaire').map((b) => b.id))
   const entrees: EntreeCodex[] = []
@@ -130,6 +136,8 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
       // Rien ne trahit une légendaire inconnue, ni les mots qui en dépendent.
       if (!estTrouvee && (legendaire || dependDUneLegendaire)) continue
       const affixe = carte.nature !== 'mot'
+      // Un mot se révise par son identifiant, même s'il sert aussi de brique ; un affixe, par sa brique.
+      const ricochet = ricochets.get(affixe && carte.brique ? carte.brique.id : carte.id)
       const forme = formeCanonique(carte)?.texte ?? ''
       let liens: EntreeCodex['liens'] = null
       if (!affixe) {
@@ -185,6 +193,7 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
         carte,
         formes: formesDe(carte, estTrouvee),
         liens,
+        maitrise: estTrouvee ? { niveau: ricochet?.niveau ?? 0, maitrisee: ricochet?.maitrisee ?? false } : null,
       })
     }
     for (const ref of fascicule.manifeste.langues ?? []) {
@@ -212,6 +221,7 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
         carte: null,
         formes: [],
         liens: null,
+        maitrise: null,
       })
     }
   }
