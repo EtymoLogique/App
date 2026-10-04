@@ -1,7 +1,11 @@
 /* ---------- Ricochets (ADR 0044, maquette I-26) ---------- */
 
 /* Accueil de l'onglet */
-.ricochets { display: grid; gap: 16px; width: 100%; max-width: 62ch; margin-inline: auto; }
+.ricochets {
+  display: grid; gap: 16px; width: 100%; max-width: 62ch; margin-inline: auto; padding: 24px 28px 28px;
+  border: 1.5px solid var(--fixed-ink); border-radius: 20px; background: var(--cream); box-shadow: 8px 8px 0 var(--pop-shadow);
+}
+@media (max-width: 760px) { .ricochets { padding: 16px 16px 20px; box-shadow: 4px 4px 0 var(--pop-shadow); } }
 .ricochets > .btn { justify-self: center; }
 .rico-intro { margin: 0; line-height: 1.55; }
 .rico-jauge { margin: 0; font-family: var(--serif); font-size: 18px; color: var(--ink-2); }

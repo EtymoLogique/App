@@ -614,7 +614,7 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
     <div className="ricochets">
       <Ricochet />
       <p className="rico-intro">
-        Ici, on apprend. Cinq questions sur les cartes que vous avez trouvées, pour retenir ce que disent leurs briques. Prenez votre temps : une erreur ne coûte rien, et chaque carte bien comprise finit maîtrisée.
+        Zone d’apprentissage. Cinq questions sur les cartes trouvées, pour retenir le sens de leurs briques. Une erreur ne coûte rien ; une carte bien sue devient maîtrisée.
       </p>
       {trouvees.length > 0 && (
         <p className="rico-jauge">
