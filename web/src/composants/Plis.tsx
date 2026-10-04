@@ -291,6 +291,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   /** Pendant le rituel : tête de l'historique au départ (`null` : vide), pour ne rien montrer du nouveau tirage avant la révélation. */
   const [teteGelee, setTeteGelee] = useState<string | null | undefined>(undefined)
   const teteReelle = useRef<string | null>(null)
+  /** Pendant le rituel : état d'avant le tirage, pour que garantie, réserve et chances ne trahissent rien avant la révélation. */
+  const [etatGele, setEtatGele] = useState<typeof etat | undefined>(undefined)
   /** Temps du rituel : pk-charging, pk-writing, pk-flip, pk-burst (+ pk-revealed) ; pk-anticipe pour une rare ou une légendaire. */
   const [classe, setClasse] = useState('')
   const [lignes, setLignes] = useState<Ligne[]>([])
@@ -342,6 +344,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     setStatut('Touchez pour passer')
     onGeler(true)
     setTeteGelee(teteReelle.current)
+    setEtatGele(etat)
     // La requête part tout de suite ; rien n'est annoncé avant sa réponse.
     const demande = ouvrirPli(fascicule.manifeste.id)
     setClasse('pk-charging')
@@ -349,6 +352,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     if ('erreur' in resultat) {
       onGeler(false)
       setTeteGelee(undefined)
+    setEtatGele(undefined)
       setClasse('')
       setEtape('ready')
       setStatut(resultat.erreur)
@@ -411,7 +415,15 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     return () => clearTimeout(minuteur)
   }, [paquetPose])
 
+  // La garantie et la réserve suivent une fois la brique posée (plis.css, atterrissage en 500 ms) : pas avant qu'on la voie.
+  useEffect(() => {
+    if (etape !== 'revealed') return
+    const minuteur = setTimeout(() => setEtatGele(undefined), mouvementReduit() ? 0 : 700)
+    return () => clearTimeout(minuteur)
+  }, [etape])
+
   const continuer = () => {
+    setEtatGele(undefined)
     if (scene.current) scene.current.scrollTop = 0
     setReponse(null)
     setLignes([])
@@ -432,10 +444,11 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     return () => window.removeEventListener('keydown', touche)
   }, [etape])
 
-  const decouverts = new Set(etat?.decouvertes.map((d) => d.mot_id) ?? [])
-  const reserve = new Map(etat?.reserve.map((e) => [e.brique_id, e.exemplaires]) ?? [])
-  const bloque = etat ? !decouvertePossible(jeu, etat.reserve, decouverts) : false
-  const compteurs = compteur(etat, fascicule.manifeste.id)
+  const etatVu = etatGele ?? etat
+  const decouverts = new Set(etatVu?.decouvertes.map((d) => d.mot_id) ?? [])
+  const reserve = new Map(etatVu?.reserve.map((e) => [e.brique_id, e.exemplaires]) ?? [])
+  const bloque = etatVu ? !decouvertePossible(jeu, etatVu.reserve, decouverts) : false
+  const compteurs = compteur(etatVu, fascicule.manifeste.id)
   const lesChances = equilibrage ? chances(briques, equilibrage) : null
   const inconnues = briques.filter((b) => !reserve.has(b.id))
   const garantie = equilibrage?.garantie_nouveaute ?? 6
