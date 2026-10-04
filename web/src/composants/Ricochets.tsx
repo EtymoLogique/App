@@ -1,7 +1,7 @@
-import { type KeyboardEvent, type ReactNode, useCallback, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, Fragment, type KeyboardEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Etat, QuestionRicochet, ReponseRicochet, SeanceRicochets } from '../contrat'
-import type { CatalogueJeu } from '../services/jeu'
+import { type CatalogueJeu, NATURES } from '../services/jeu'
 import {
   type DonneesRicochets,
   type FormatRicochet,
@@ -9,18 +9,16 @@ import {
   cartesTrouvees,
   donneesRicochets,
   juger,
-  longueurDuMot,
   melanger,
+  briquesDuMot,
   morceauxDuMot,
-  motCoupe,
   motDe,
-  propositionsDeCoupe,
   retour,
   sensLitteral,
 } from '../services/ricochets'
+import { mouvementReduit } from '../services/animation'
 import { Brique, PetiteBrique } from './Brique'
 import { MotSegmente } from './MotSegmente'
-import { useDialogue } from './useDialogue'
 
 type Envoi = Promise<ReponseRicochet | { erreur: string }>
 
@@ -33,14 +31,6 @@ interface Props {
 }
 
 const HORS_LIGNE = 'Hors ligne. Le codex se consulte ; les ricochets reprennent avec le réseau.'
-
-const FORMATS: Record<FormatRicochet, string> = {
-  sens_brique: 'Sens d’une brique',
-  brique_sens: 'Brique d’un sens',
-  mot_sens: 'Sens littéral',
-  decouper: 'Découper',
-  paires: 'Paires',
-}
 
 /** Une carte, telle qu'au codex : la brique en brique (jamais en texte brut), le mot en serif. */
 function Carte({ jeu, id }: { jeu: CatalogueJeu; id: string }) {
@@ -131,17 +121,26 @@ function preparer(q: QuestionRicochet, jeu: CatalogueJeu, d: DonneesRicochets): 
     }
     default: {
       const mot = motDe(jeu, cible)
-      const propositions = propositionsDeCoupe(d.mots.get(cible)?.coupes ?? [], longueurDuMot(jeu, cible))
+      const morceaux = (d.mots.get(cible)?.coupes.length ?? 1) + 1
+      const parties = morceauxDuMot(jeu, cible)
       return {
         sujet: <span className="rico-mot">{mot}</span>,
-        consigne: 'Où ce mot se coupe-t-il ?',
-        choix: propositions.map((c) => ({ cle: c.join(), contenu: motCoupe(mot, c), reponse: c })),
+        consigne: morceaux === 2 ? 'Où ce mot se coupe-t-il ?' : `Coupez ce mot en ${morceaux} morceaux.`,
+        choix: [],
         lecon: (
           <>
             Le mot se coupe ainsi :{' '}
             <span className="rico-segmente">
-              <MotSegmente mot={mot} morceaux={morceauxDuMot(jeu, cible)} />
+              <MotSegmente mot={mot} morceaux={parties} />
             </span>
+            {/* Les briques élémentaires et leur sens : de quoi apprendre, juste ou pas. */}
+            <ul className="rico-briques">
+              {briquesDuMot(jeu, cible).map((b) => (
+                <li key={b.id}>
+                  <Brique brique={b} taille="s" />
+                </li>
+              ))}
+            </ul>
           </>
         ),
       }
@@ -173,10 +172,10 @@ function Qcm({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const choisi = question.choix.find((c) => c.cle === touche)
   return (
     <>
-      <div className="rico-sujet">{question.sujet}</div>
       <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
         {question.consigne}
       </h2>
+      <div className="rico-sujet">{question.sujet}</div>
       <div className="rico-choix" role="group" aria-label="Réponses possibles" onKeyDown={naviguerAuClavier}>
         {question.choix.map((c) => {
           const etat = touche === null ? '' : juste(c) ? 'juste' : c.cle === touche ? 'rate' : ''
@@ -202,31 +201,133 @@ function Qcm({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   )
 }
 
-/** Paires : une brique puis son sens ; une paire fausse se défait ; reliée après un essai manqué, la brique compte comme manquée. */
+/** Découper : le mot en grand ; survolée, une jointure écarte le mot ; touchée, elle le coupe. Le verdict tombe à la dernière coupe. */
+function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
+  const question = useMemo(() => preparer(q, jeu, d), [q, jeu, d])
+  const unite = q.cartes[0] ?? ''
+  const attendu = d.mots.get(unite)?.coupes ?? []
+  const lettres = Array.from(motDe(jeu, unite))
+  const [coupes, setCoupes] = useState<number[]>([])
+  const fini = coupes.length > 0 && coupes.length === attendu.length
+  // Invite : tant que le joueur n'a pas touché au mot, il s'ouvre doucement, jointure après jointure.
+  const [invite, setInvite] = useState(() => !mouvementReduit())
+  const [demo, setDemo] = useState<number | null>(null)
+  const n = lettres.length
+  useEffect(() => {
+    if (!invite || coupes.length > 0) return
+    const debut = Math.max(1, Math.round(n * 0.3))
+    const aller = Array.from({ length: Math.max(1, Math.min(n - 1, Math.round(n * 0.7)) - debut + 1) }, (_, i) => debut + i)
+    const cycle = [...aller, ...aller.slice(1, -1).reverse()]
+    let i = 0
+    const id = setInterval(() => {
+      setDemo(cycle[i++ % cycle.length] ?? debut)
+    }, 320)
+    return () => {
+      clearInterval(id)
+      setDemo(null)
+    }
+  }, [invite, coupes.length, n])
+  const couper = (p: number) => {
+    if (fini) return
+    const suite = coupes.includes(p) ? coupes.filter((c) => c !== p) : [...coupes, p].sort((a, b) => a - b)
+    setCoupes(suite)
+    if (suite.length !== attendu.length) return
+    envoyer('decouper', unite, suite)
+    repondu()
+  }
+  // Validé : le mot devient des briques. Justes, elles prennent leur vraie nature ; sinon préfixe, mot, suffixe selon leur place.
+  const juste = fini && juger(d, 'decouper', unite, coupes) === true
+  const bornes = [0, ...coupes, lettres.length]
+  const reels = morceauxDuMot(jeu, unite)
+  const morceaux = bornes.slice(1).map((fin, i, tous) => {
+    const nature = (juste && reels.length === tous.length ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
+    const texte = lettres.slice(bornes[i], fin).join('')
+    return { nature, texte }
+  })
+  return (
+    <>
+      <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
+        {question.consigne}
+      </h2>
+      <div className="rico-sujet">
+        {fini ? (
+          <span className={`rico-mot rico-morceaux ${juste ? 'juste' : 'faux'}`} lang="fr">
+            {morceaux.map((m, i) => (
+              // --d : de combien d'écarts le morceau revient vers le centre au départ, d'où il s'écarte.
+              <span key={i} className="rico-morceau" data-kind={NATURES[m.nature]} style={{ '--d': (morceaux.length - 1) / 2 - i } as CSSProperties}>
+                <svg className="rico-contour" aria-hidden="true" focusable="false">
+                  <rect width="100%" height="100%" rx="12" pathLength={1} />
+                </svg>
+                {m.nature === 'suffixe' && <span className="rico-tiret">-</span>}
+                {m.texte}
+                {m.nature === 'prefixe' && <span className="rico-tiret">-</span>}
+              </span>
+            ))}
+          </span>
+        ) : (
+        <span className={`rico-mot rico-decoupe ${demo !== null ? 'invite' : ''}`} role="group" aria-label="Endroits où couper" onPointerEnter={() => setInvite(false)} onFocus={() => setInvite(false)}>
+          {lettres.map((l, k) => (
+            <Fragment key={k}>
+              {k > 0 && (
+                <button
+                  type="button"
+                  className={`rico-coupe ${coupes.includes(k) ? 'coupee' : demo === k ? 'demo' : ''}`}
+                  aria-label={`Couper entre « ${lettres.slice(0, k).join('')} » et « ${lettres.slice(k).join('')} »`}
+                  aria-pressed={coupes.includes(k)}
+                  onClick={() => couper(k)}
+                />
+              )}
+              <span aria-hidden="true">{l}</span>
+            </Fragment>
+          ))}
+        </span>
+        )}
+      </div>
+      <div className="rico-verdict" role="status" aria-live="polite" ref={(e) => (fini ? e?.scrollIntoView({ block: 'nearest' }) : undefined)}>
+        {fini && (
+          <>
+            <strong>{juste ? 'Bien vu.' : 'Pas cette fois.'}</strong>
+            <div>{question.lecon}</div>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Paires : on relie librement chaque brique à un sens, dans un sens ou dans l'autre (touchée de nouveau, une paire se refait),
+ * puis on valide. Rien n'est jugé avant : après validation, les paires justes en Encre, les fausses
+ * en pointillé, et le bon sens de chaque brique ratée pour apprendre.
+ */
 function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const sens = useMemo(() => melanger(q.cartes.map((b) => d.briques.get(b)?.sens ?? '')), [q, d])
-  const [choisie, setChoisie] = useState<string | null>(null)
+  // Premier élément touché, d'une colonne ou de l'autre ; le second, dans l'autre colonne, fait la paire.
+  const [choisie, setChoisie] = useState<{ cote: 'brique' | 'sens'; id: string } | null>(null)
   const [liens, setLiens] = useState<Map<string, string>>(new Map())
-  const [manquees, setManquees] = useState<Map<string, string>>(new Map())
-  const [rate, setRate] = useState<string | null>(null)
-  const relier = (s: string) => {
-    if (!choisie) return
-    if (juger(d, 'paires', choisie, s)) {
-      const suite = new Map(liens).set(choisie, s)
-      setLiens(suite)
-      setRate(null)
-      // Premier essai : le sens juste ; sinon le premier sens tenté, qui compte comme manqué.
-      envoyer('paires', choisie, manquees.get(choisie) ?? s)
-      if (suite.size === q.cartes.length) repondu()
-    } else {
-      if (!manquees.has(choisie)) setManquees(new Map(manquees).set(choisie, s))
-      setRate(s)
-    }
+  const [valide, setValide] = useState(false)
+  const relier = (b: string, s: string) => {
+    // Un sens ne va qu'à une brique : il quitte son ancienne paire.
+    const suite = new Map([...liens].filter(([, v]) => v !== s))
+    setLiens(suite.set(b, s))
     setChoisie(null)
   }
-  const numero = (b: string) => [...liens.keys()].indexOf(b) + 1
+  const toucher = (cote: 'brique' | 'sens', id: string) => {
+    if (choisie && choisie.cote !== cote) return cote === 'brique' ? relier(id, choisie.id) : relier(choisie.id, id)
+    setChoisie(choisie?.id === id ? null : { cote, id })
+  }
+  const pris = (id: string) => choisie?.id === id
+  const valider = () => {
+    setValide(true)
+    for (const [b, s] of liens) envoyer('paires', b, s)
+    repondu()
+  }
+  const juste = (b: string) => juger(d, 'paires', b, liens.get(b) ?? '') === true
+  const etat = (b: string | undefined) => (!b || !liens.has(b) ? '' : !valide ? 'relie' : juste(b) ? 'juste' : 'rate')
+  // Numéro fixe par brique : le même des deux côtés, sans bouger quand une paire se refait.
+  const numero = (b: string) => q.cartes.indexOf(b) + 1
   const briqueDe = (s: string) => [...liens.entries()].find(([, v]) => v === s)?.[0]
-  const termine = liens.size === q.cartes.length
+  const ratees = q.cartes.filter((b) => valide && !juste(b))
   return (
     <>
       <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
@@ -234,47 +335,40 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
       </h2>
       <div className="rico-paires">
         <div className="rico-choix" role="group" aria-label="Briques" onKeyDown={naviguerAuClavier}>
-          {q.cartes.map((b) => {
-            const n = numero(b)
-            const manquee = n > 0 && manquees.has(b)
-            return (
-              <button
-                key={b}
-                type="button"
-                className={['rico-option', 'rico-paire', choisie === b && 'prise', n > 0 && 'relie', manquee && 'manquee'].filter(Boolean).join(' ')}
-                disabled={n > 0}
-                aria-pressed={choisie === b}
-                onClick={() => {
-                  setRate(null)
-                  setChoisie(b)
-                }}
-              >
-                <BriqueSansGlose jeu={jeu} id={b} taille="s" />
-                {n > 0 && (
-                  <span className="rico-numero" aria-label={`paire ${n}${manquee ? ', manquée' : ''}`}>
-                    {n}
-                  </span>
-                )}
-              </button>
-            )
-          })}
+          {q.cartes.map((b) => (
+            <button
+              key={b}
+              type="button"
+              className={['rico-option', 'rico-paire', pris(b) && 'prise', etat(b)].filter(Boolean).join(' ')}
+              disabled={valide}
+              aria-pressed={pris(b)}
+              onClick={() => toucher('brique', b)}
+            >
+              <BriqueSansGlose jeu={jeu} id={b} taille="s" />
+              {liens.has(b) && (
+                <span className="rico-numero" aria-label={`paire ${numero(b)}`}>
+                  {numero(b)}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
         <div className="rico-choix" role="group" aria-label="Sens" onKeyDown={naviguerAuClavier}>
           {sens.map((s) => {
             const b = briqueDe(s)
-            const n = b ? numero(b) : 0
             return (
               <button
                 key={s}
                 type="button"
-                className={['rico-option', 'rico-paire', n > 0 && 'relie', b && manquees.has(b) && 'manquee', rate === s && 'rate'].filter(Boolean).join(' ')}
-                disabled={n > 0 || !choisie}
-                onClick={() => relier(s)}
+                className={['rico-option', 'rico-paire', pris(s) && 'prise', etat(b)].filter(Boolean).join(' ')}
+                disabled={valide}
+                aria-pressed={pris(s)}
+                onClick={() => toucher('sens', s)}
               >
                 <span className="rico-option-texte">«&nbsp;{d.gloses.get(s) ?? '…'}&nbsp;»</span>
-                {n > 0 && (
+                {b && (
                   <span className="rico-numero" aria-hidden="true">
-                    {n}
+                    {numero(b)}
                   </span>
                 )}
               </button>
@@ -282,18 +376,22 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
           })}
         </div>
       </div>
+      {!valide && liens.size === q.cartes.length && (
+        <button type="button" className="btn btn-primary rico-valider" onClick={valider}>
+          Valider les paires
+        </button>
+      )}
       <div className="rico-verdict" role="status" aria-live="polite">
-        {rate ? (
+        {valide && (
           <>
-            <strong>Pas cette paire.</strong>
-            <span>La brique comptera comme manquée ; trouvez son sens.</span>
+            <strong>{ratees.length === 0 ? 'Toutes les paires sont justes.' : 'Pas toutes justes.'}</strong>
+            {ratees.map((b) => (
+              <span key={b}>
+                <Carte jeu={jeu} id={b} /> veut dire «&nbsp;{d.gloses.get(d.briques.get(b)?.sens ?? '') ?? '…'}&nbsp;».
+              </span>
+            ))}
           </>
-        ) : termine ? (
-          <>
-            <strong>Toutes les paires sont faites.</strong>
-            {manquees.size > 0 && <span>Les paires en pointillé comptent comme manquées.</span>}
-          </>
-        ) : null}
+        )}
       </div>
     </>
   )
@@ -351,9 +449,8 @@ interface SeanceProps {
   onFermer: () => void
 }
 
-/** La séance, en modale : plein écran sur mobile, panneau centré sur ordinateur. */
+/** La séance, dans l'onglet : elle remplace l'accueil jusqu'à sa fermeture. */
 function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer }: SeanceProps) {
-  const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
   const [phase, setPhase] = useState<Phase>({ t: 'question', i: 0, repondu: false })
   const q = phase.t === 'question' ? questions[phase.i] : undefined
   const i = phase.t === 'question' ? phase.i : questions.length
@@ -366,61 +463,115 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
     void Promise.all(envois.current).then(() => setPhase({ t: 'fin' }))
   }
   return (
-    <div className="scrim">
-      <div className="scrim-fond" aria-hidden="true" />
-      <section ref={boite} className="dialogue rico-seance" role="dialog" aria-modal="true" aria-labelledby="rico-titre">
-        <header className="rico-tete">
-          <button type="button" className="rico-fermer" aria-label="Fermer la séance" onClick={fermer}>
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-          <h1 id="rico-titre">Ricochets</h1>
-          <span className="rico-compte">{phase.t === 'question' ? `${i + 1} / ${questions.length}` : ''}</span>
-        </header>
+    <section className="rico-seance" aria-label="Séance de ricochets">
+      <header className="rico-tete">
+        <button type="button" className="rico-fermer" aria-label="Fermer la séance" onClick={onFermer}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
         <p className="rico-points" aria-hidden="true">
           {questions.map((_, k) => (
             <span key={k} className={k < i ? 'fait' : k === i ? 'en-cours' : ''} />
           ))}
         </p>
-        <div className="rico-corps">
-          {q && phase.t === 'question' && (
-            <>
-              <p className="rico-format">{FORMATS[q.format]}</p>
-              {q.format === 'paires' ? (
-                <Paires key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
-              ) : (
-                <Qcm key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
-              )}
-            </>
-          )}
-          {phase.t === 'attente' && (
-            <p className="rico-note" role="status">
-              Enregistrement des réponses…
-            </p>
-          )}
-          {phase.t === 'fin' && <Recapitulatif jeu={jeu} reponses={reponses} />}
-        </div>
-        <footer className="rico-pied">
-          {phase.t === 'question' && !phase.repondu && <p className="rico-note">{q?.format === 'paires' ? 'Touchez une brique, puis son sens.' : 'Touchez la bonne réponse.'}</p>}
-          {phase.t === 'question' && phase.repondu && (
-            <button type="button" className="btn btn-primary" onClick={suivant}>
-              {phase.i + 1 === questions.length ? 'Terminer' : 'Suivant'}
+        <span className="rico-compte">{phase.t === 'question' ? `${i + 1} / ${questions.length}` : ''}</span>
+      </header>
+      <div className="rico-corps">
+        {q && phase.t === 'question' && (
+          <>
+            {q.format === 'paires' ? (
+              <Paires key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
+            ) : q.format === 'decouper' ? (
+              <Decoupe key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
+            ) : (
+              <Qcm key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
+            )}
+          </>
+        )}
+        {phase.t === 'attente' && (
+          <p className="rico-note" role="status">
+            Enregistrement des réponses…
+          </p>
+        )}
+        {phase.t === 'fin' && <Recapitulatif jeu={jeu} reponses={reponses} />}
+      </div>
+      <footer className="rico-pied">
+        {phase.t === 'question' && !phase.repondu && <p className="rico-note">{q?.format === 'paires' ? 'Touchez une brique et son sens, dans l’ordre que vous voulez.' : q?.format === 'decouper' ? 'Touchez le mot là où il se coupe.' : 'Touchez la bonne réponse.'}</p>}
+        {phase.t === 'question' && phase.repondu && (
+          <button type="button" className="btn btn-primary" onClick={suivant}>
+            {phase.i + 1 === questions.length ? 'Terminer' : 'Suivant'}
+          </button>
+        )}
+        {phase.t === 'fin' && (
+          <>
+            <button type="button" className="btn btn-primary" onClick={encore}>
+              Encore cinq
             </button>
-          )}
-          {phase.t === 'fin' && (
-            <>
-              <button type="button" className="btn btn-primary" onClick={encore}>
-                Encore cinq
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={fermer}>
-                Fermer
-              </button>
-            </>
-          )}
-        </footer>
-      </section>
-    </div>
+            <button type="button" className="btn btn-secondary" onClick={onFermer}>
+              Fermer
+            </button>
+          </>
+        )}
+      </footer>
+    </section>
+  )
+}
+
+/** Trajectoire du galet : quatre rebonds de plus en plus courts, puis il coule. */
+const TRAJET = 'M20 60Q100-30 180 130Q250 50 320 130Q370 80 420 130Q455 100 490 130Q510 115 530 130'
+/** Points d'impact sur l'eau et instant (fraction du cycle) où le galet les touche, à vitesse constante. */
+const IMPACTS = [
+  { x: 180, t: 0.194, r: 34 },
+  { x: 320, t: 0.341, r: 28 },
+  { x: 420, t: 0.443, r: 22 },
+  { x: 490, t: 0.512, r: 16 },
+  { x: 530, t: 0.55, r: 40 },
+]
+const CYCLE = '4.5s'
+
+/** Ronds dans l'eau à un impact : deux cercles qui s'élargissent et s'effacent. */
+function Ronds({ x, t, r, anime }: { x: number; t: number; r: number; anime: boolean }) {
+  return [0, 0.04].map((d) => {
+    const debut = t + d
+    const fin = debut + 0.22
+    return (
+      <ellipse key={d} className="rico-rond-eau" cx={x} cy={130} rx={anime ? 0 : r * (d ? 0.6 : 1)} ry={anime ? 0 : r * (d ? 0.15 : 0.25)} opacity={anime ? 0 : 0.35}>
+        {anime && (
+          <>
+            <animate attributeName="rx" values={`0;0;${r};${r}`} keyTimes={`0;${debut};${fin};1`} dur={CYCLE} repeatCount="indefinite" />
+            <animate attributeName="ry" values={`0;0;${r / 4};${r / 4}`} keyTimes={`0;${debut};${fin};1`} dur={CYCLE} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;0;0.9;0;0" keyTimes={`0;${debut};${debut + 0.005};${fin};1`} dur={CYCLE} repeatCount="indefinite" />
+          </>
+        )}
+      </ellipse>
+    )
+  })
+}
+
+/** Accueil : un galet ricoche sur l'eau, en boucle ; figé, sa trace seule, en mouvement réduit. */
+function Ricochet() {
+  const anime = !mouvementReduit()
+  return (
+    <svg className="rico-scene" viewBox="0 0 560 170" aria-hidden="true" focusable="false">
+      <path className="rico-trace" d={TRAJET} />
+      <path className="rico-eau" d="M0 130q35-6 70 0t70 0 70 0 70 0 70 0 70 0 70 0 70 0" />
+      <path className="rico-eau rico-eau-2" d="M20 148q35-5 70 0t70 0 70 0 70 0 70 0 70 0 70 0" />
+      <path className="rico-eau rico-eau-3" d="M60 162q35-4 70 0t70 0 70 0 70 0 70 0" />
+      {IMPACTS.map((i) => (
+        <Ronds key={i.x} {...i} anime={anime} />
+      ))}
+      <g transform={anime ? undefined : 'translate(100 15) rotate(-20)'} opacity={anime ? 0 : 1}>
+        <ellipse className="rico-galet-ombre" cx={2} cy={3} rx={13} ry={7} />
+        <ellipse className="rico-galet" rx={13} ry={7} />
+        {anime && (
+          <>
+            <animateMotion path={TRAJET} rotate="auto" keyPoints="0;1;1" keyTimes="0;0.55;1" calcMode="linear" dur={CYCLE} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.03;0.55;0.56;1" dur={CYCLE} repeatCount="indefinite" />
+          </>
+        )}
+      </g>
+    </svg>
   )
 }
 
@@ -457,8 +608,10 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
   const trouvees = etat ? cartesTrouvees(d, etat) : []
   const maitrisees = new Set(etat?.ricochets?.filter((r) => r.maitrisee).map((r) => r.unite_id))
   const nMaitrisees = trouvees.filter((c) => maitrisees.has(c)).length
+  if (questions) return <Seance key={tirage} jeu={jeu} d={d} questions={questions} envoyer={envoyer} reponses={reponses} envois={envois} encore={() => void commencer()} onFermer={fermer} />
   return (
     <div className="ricochets">
+      <Ricochet />
       <p className="rico-intro">
         Cinq questions sur les cartes que vous avez trouvées. Une bonne réponse fait revenir la carte plus tard ; trois au plus haut niveau, et elle est maîtrisée. Rien n’est consommé.
       </p>
@@ -472,7 +625,6 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
       </button>
       {!enLigne && <p className="rico-note">{HORS_LIGNE}</p>}
       {message && <p className="rico-note">{message}</p>}
-      {questions && <Seance key={tirage} jeu={jeu} d={d} questions={questions} envoyer={envoyer} reponses={reponses} envois={envois} encore={() => void commencer()} onFermer={fermer} />}
     </div>
   )
 }

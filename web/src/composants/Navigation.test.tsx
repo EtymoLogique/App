@@ -11,13 +11,13 @@ const rendu = (props: Partial<Parameters<typeof Navigation>[0]> = {}) => {
 const burger = () => screen.getByRole('button', { name: /^Menu/ })
 
 describe('menu burger mobile', () => {
-  it('range Quêtes, Boutique, Ricochets et Réglages dans le burger', () => {
+  it('range Ricochets, Quêtes, Boutique et Réglages dans le burger', () => {
     rendu()
     expect(burger().getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(burger())
     expect(burger().getAttribute('aria-expanded')).toBe('true')
     const panneau = document.getElementById(burger().getAttribute('aria-controls') as string) as HTMLElement
-    expect(within(panneau).getAllByRole('button').map((b) => b.textContent)).toEqual(['Quêtes', 'Boutique', 'Ricochets', 'Réglages'])
+    expect(within(panneau).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ricochets', 'Quêtes', 'Boutique', 'Réglages'])
   })
 
   it('Escape ferme et rend le focus', () => {

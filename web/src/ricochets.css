@@ -1,19 +1,29 @@
 /* ---------- Ricochets (ADR 0044, maquette I-26) ---------- */
 
 /* Accueil de l'onglet */
-.ricochets { display: grid; gap: 16px; max-width: 62ch; }
-.ricochets > .btn { justify-self: start; }
+.ricochets { display: grid; gap: 16px; width: 100%; max-width: 62ch; margin-inline: auto; }
+.ricochets > .btn { justify-self: center; }
 .rico-intro { margin: 0; line-height: 1.55; }
 .rico-jauge { margin: 0; font-family: var(--serif); font-size: 18px; color: var(--ink-2); }
 .rico-jauge strong { font-size: 28px; color: var(--ink); }
 .rico-note { margin: 0; color: var(--ink-2); }
 
-/* Séance : panneau centré sur ordinateur, plein écran sur mobile (styles.css, .dialogue). */
-.dialogue.rico-seance {
-  grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px;
-  width: min(560px, 100%); height: min(760px, calc(100vh - 40px)); overflow: hidden; padding: 16px 20px 20px;
+/* Scène d'accueil : un galet ricoche, l'eau garde ses ronds. */
+.rico-scene { width: 100%; max-width: 560px; justify-self: center; overflow: visible; }
+.rico-trace { fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 1 7; stroke-linecap: round; opacity: 0.6; }
+.rico-eau { fill: none; stroke: var(--ink); stroke-width: 1.75; stroke-linecap: round; }
+.rico-eau-2 { opacity: 0.45; }
+.rico-eau-3 { opacity: 0.2; }
+.rico-rond-eau { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.rico-galet { fill: var(--c-pli); stroke: var(--fixed-ink); stroke-width: 1.75; }
+.rico-galet-ombre { fill: var(--pop-shadow); }
+
+/* Séance : dans l'onglet, à la place de l'accueil. */
+.rico-seance {
+  display: grid; gap: 8px; width: 100%; max-width: 560px; margin-inline: auto; padding: 16px 20px 20px;
+  border: 1.5px solid var(--fixed-ink); border-radius: 20px; background: var(--cream); box-shadow: 8px 8px 0 var(--pop-shadow);
 }
-@media (max-width: 760px) { .dialogue.rico-seance { height: 100%; padding: 12px 16px 16px; } }
+@media (max-width: 760px) { .rico-seance { padding: 12px 16px 16px; box-shadow: 4px 4px 0 var(--pop-shadow); } }
 
 .rico-tete { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; }
 .rico-tete h1 { margin: 0; text-align: center; font-family: var(--serif); font-size: 22px; }
@@ -31,17 +41,71 @@
 .rico-points .fait { background: var(--ink); }
 .rico-points .en-cours { box-shadow: 0 0 0 2.5px var(--cream), 0 0 0 4px var(--ink); }
 
-.rico-corps { display: grid; gap: 14px; align-content: start; overflow-y: auto; margin: 0 -4px; padding: 4px; }
-.rico-format { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.rico-corps { display: grid; gap: 10px; align-content: start; }
 
 /* Le sujet, en grand : c'est lui que la question interroge. */
-.rico-sujet { display: grid; place-items: center; min-height: 96px; padding: 8px 0; }
-.rico-sujet .brick { transform: scale(1.35); }
+.rico-sujet { display: grid; place-items: center; min-height: 64px; padding: 4px 0; }
+/* En grand, par la taille et non par scale() : scale ne pousse pas la mise en page et la brique déborderait sur la question. */
+.rico-sujet .brick { padding: 14px 20px; }
+.rico-sujet .brick .b-label { font-size: 30px; }
 .rico-sens, .rico-mot { font-family: var(--serif); font-weight: 600; text-align: center; line-height: 1.2; }
 .rico-sens { font-size: clamp(22px, 5vw, 28px); }
 .rico-mot { font-size: clamp(30px, 8vw, 40px); letter-spacing: -0.01em; }
-.dialogue .rico-consigne { margin: 0; text-align: center; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--ink-2); }
-.dialogue .rico-consigne:focus { outline: none; }
+.rico-seance .rico-consigne { margin: 0; text-align: center; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--ink-2); }
+.rico-seance .rico-consigne:focus { outline: none; }
+
+/* Découper : chaque jointure est un bouton invisible ; survolée ou coupée, elle s'ouvre et écarte le mot. */
+.rico-decoupe { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; font-size: clamp(36px, 10vw, 56px); padding: 8px 0; }
+.rico-coupe { position: relative; width: 0; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+/* Zone de toucher plus large que la jointure, à cheval sur les lettres voisines. */
+.rico-coupe::after { content: ""; position: absolute; inset: -6px -10px; }
+/* Le trait de coupe est un élément plein, pas une bordure. */
+.rico-coupe::before { content: ""; position: absolute; inset: 0.1em auto 0.05em 50%; translate: -50% 0; width: 2.5px; border-radius: 2px; background: var(--ink); opacity: 0; }
+.rico-coupe:is(:hover, :focus-visible, .coupee, .demo) { width: 0.4em; }
+.rico-coupe:is(:hover, :focus-visible, .coupee, .demo)::before { opacity: 1; }
+.rico-coupe:is(:hover, .demo):not(.coupee)::before { background: var(--ink-3); }
+.rico-coupe:focus-visible { outline: none; }
+.rico-coupe:focus-visible::before { width: 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) .rico-coupe { transition: width var(--dur-base) var(--ease-ressort); }
+  :root:not([data-mouvement="reduit"]) .rico-coupe::before { transition: opacity var(--dur-rapide); }
+  /* Invite (.demo) : rapide et sans rebond ; la suivante s'ouvre pendant que la précédente se referme. */
+  :root:not([data-mouvement="reduit"]) .rico-decoupe.invite .rico-coupe { transition: width 0.28s var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .rico-decoupe.invite .rico-coupe::before { transition: opacity 0.2s var(--ease-out); }
+}
+
+/*
+ * Verdict de découpe, en trois temps : le mot s'écarte à la coupe, un contour de brique se trace autour
+ * de chaque morceau, puis la brique se remplit de sa couleur. Fausses, elles sont rouges et tremblent
+ * comme une fusion ratée. Sans mouvement, l'état final s'affiche directement.
+ */
+.rico-morceaux { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; padding: 8px 0; }
+.rico-morceau {
+  --fond: var(--c-prefix); --trait: var(--fixed-ink);
+  position: relative; isolation: isolate; padding: 0 14px 4px; border-radius: 12px;
+  color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow);
+}
+.rico-morceau[data-kind="suffixe"] { --fond: var(--c-suffix); }
+/* Comme les cartes de mot (styles.css, .brick[data-kind="mot"]) : Crème fixe, de jour comme de nuit. */
+.rico-morceau[data-kind="mot"] { --fond: #fffbf3; }
+.rico-morceaux.faux .rico-morceau { --fond: var(--c-action-tint); --trait: var(--c-action-deep); color: var(--c-action-deep); }
+.rico-morceau::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--fond); }
+.rico-contour { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.rico-contour rect { fill: none; stroke: var(--trait); stroke-width: 1.75; stroke-dasharray: 1; }
+/* Écart à combler par coupe : le gap (16 px), deux marges internes (2 × 14 px) et les tirets encore invisibles (≈ 0,6 em). */
+@keyframes rico-ecarte { from { translate: calc(var(--d, 0) * (44px + 0.6em)) 0; } }
+@keyframes rico-trace { from { stroke-dashoffset: 1; } }
+@keyframes rico-remplit { from { clip-path: inset(100% 0 0 0 round 12px); } to { clip-path: inset(0 round 12px); } }
+@keyframes rico-ombre { from { box-shadow: 0 0 0 var(--pop-shadow); } }
+@keyframes rico-encre { from { color: var(--ink); } }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) .rico-morceau { animation: rico-ecarte 0.3s var(--ease-out) both, rico-ombre 0.25s var(--ease-out) 0.85s both; }
+  :root:not([data-mouvement="reduit"]) .rico-morceaux.faux .rico-morceau { animation: rico-ecarte 0.3s var(--ease-out) both, rico-ombre 0.25s var(--ease-out) 0.85s both, rico-encre 0.25s var(--ease-out) 0.6s both; }
+  :root:not([data-mouvement="reduit"]) .rico-contour rect { animation: rico-trace 0.35s var(--ease-out) 0.25s both; }
+  :root:not([data-mouvement="reduit"]) .rico-morceau::before { animation: rico-remplit 0.3s var(--ease-out) 0.6s both; }
+  :root:not([data-mouvement="reduit"]) .rico-tiret { animation: fondu 0.2s var(--ease-out) 0.6s both; }
+  :root:not([data-mouvement="reduit"]) .rico-morceaux.faux { animation: amorti 0.5s linear 0.95s; }
+}
 
 /* Choix : 44 px au moins, espacés de 8 px, un rond qui dit l'état sans la couleur. */
 .rico-choix { display: grid; gap: 8px; }
@@ -50,36 +114,45 @@
   border: 1.5px solid var(--ink); border-radius: 12px; background: var(--cream); color: var(--ink);
   font-family: var(--serif); font-size: 18px; font-weight: 600; cursor: pointer;
 }
-.rico-option:not(:disabled):hover { background: var(--paper); }
+.rico-option:not(:disabled, .juste, .rate):hover { background: var(--paper); }
 .rico-option:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .rico-option:disabled { cursor: default; }
 .rico-option-texte { flex: 1; }
 .rico-rond { flex: none; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .rico-etiquette { flex: none; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
 
-/* Bonne réponse : Papier 2, trait épais, rond plein coché. Jamais la couleur d'une nature de brique. */
-.rico-option.juste { border-width: 2.5px; background: var(--paper-2); }
-.rico-option.juste .rico-rond circle { fill: var(--ink); }
-.rico-option.juste .rico-rond path { stroke: var(--cream); stroke-width: 2.25; }
-/* Pas celle-ci : Gris encre, pointillé ; la brique touchée s'éteint aussi. Jamais de rouge. */
-.rico-option.rate { border-style: dashed; border-color: var(--ink-3); background: transparent; color: var(--ink-3); }
+/* Bonne réponse : fond Encre, texte Crème, rond plein coché. Jamais la couleur d'une nature de brique. */
+.rico-option.juste { box-shadow: inset 0 0 0 1px var(--ink); background: var(--ink); color: var(--cream); }
+.rico-option.juste .rico-rond circle { fill: var(--cream); stroke: var(--cream); }
+.rico-option.juste .rico-rond path { stroke: var(--ink); stroke-width: 2.25; }
+/* Pas celle-ci : hachures Papier 2, Gris encre, pointillé ; la brique touchée s'éteint aussi. Jamais de rouge. */
+.rico-option.rate {
+  border-style: dashed; border-color: var(--ink-3); color: var(--ink-3);
+  background: repeating-linear-gradient(-45deg, var(--paper-2) 0 6px, transparent 6px 12px);
+}
 .rico-option.rate .brick { filter: grayscale(1); opacity: 0.55; box-shadow: none; }
-.rico-option:disabled:not(.juste, .rate, .relie) { opacity: 0.55; }
+/* Choix écartés après la réponse ; un sens de paire attend seulement sa brique, il reste lisible. */
+.rico-option:disabled:not(.juste, .rate, .relie, .rico-paire) { opacity: 0.55; }
 
-.rico-verdict { display: grid; gap: 4px; min-height: 3em; padding: 12px 14px; border-radius: 12px; background: var(--paper); line-height: 1.45; }
-.rico-verdict:empty { visibility: hidden; }
+.rico-verdict { display: grid; gap: 4px; padding: 10px 14px; border-radius: 12px; background: var(--paper); line-height: 1.45; }
+/* Vide : sans hauteur, mais présent pour que la région live annonce le verdict. */
+.rico-verdict:empty { padding: 0; }
 .rico-verdict strong { font-family: var(--serif); font-size: 17px; }
+.rico-verdict .bchip, .rico-annonce .bchip { margin-inline-end: 6px; vertical-align: middle; }
+.rico-briques { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
 .rico-segmente { font-family: var(--serif); font-size: 20px; font-weight: 600; }
 
 /* Paires : deux colonnes de lignes de même hauteur ; le même numéro des deux côtés. */
 .rico-paires { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 12px; }
-.rico-option.rico-paire { min-height: 56px; justify-content: space-between; font-size: 16px; }
-.rico-option.rico-paire .brick.s .b-meta { display: none; }
-.rico-option.prise { border-width: 2.5px; background: var(--paper-2); }
-.rico-option.relie { border-width: 2.5px; background: var(--paper-2); }
-.rico-option.relie.manquee { border-style: dashed; border-color: var(--ink-3); background: transparent; }
+.rico-option.rico-paire { min-height: 48px; justify-content: space-between; font-size: 16px; }
+.rico-option .brick.s .b-meta { display: none; }
+/* Trait épais en ombre intérieure, pas en bordure : la taille de la ligne ne bouge pas à la sélection. */
+.rico-option.prise { box-shadow: inset 0 0 0 1px var(--ink); background: var(--paper-2); }
+.rico-option.relie { box-shadow: inset 0 0 0 1px var(--ink); background: var(--paper-2); }
+.rico-option.juste .rico-numero { background: var(--cream); color: var(--ink); }
+.rico-valider { justify-self: center; }
 .rico-numero { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--cream); font-family: var(--mono); font-size: 12px; font-weight: 700; }
-.rico-option.manquee .rico-numero { border: 1.5px dashed var(--ink-3); background: transparent; color: var(--ink-3); }
+.rico-option.rate .rico-numero { border: 1.5px dashed var(--ink-3); background: transparent; color: var(--ink-3); }
 
 /* Récapitulatif : chaque carte, son résultat et son retour ; aucun score. */
 .rico-annonce { margin: 0; padding: 12px 14px; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--paper-2); line-height: 1.6; }
@@ -97,3 +170,7 @@
 .rico-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; min-height: 48px; }
 .rico-pied .btn { flex: 1; }
 .rico-pied .rico-note { text-align: center; }
+/* Sur mobile, collé au-dessus de la navigation, comme .barre-actions. */
+@media (max-width: 760px) {
+  .rico-pied { position: sticky; bottom: 76px; z-index: 30; margin: 0 -16px; padding: 10px 16px; background: var(--cream); border-top: 1px solid var(--line); }
+}

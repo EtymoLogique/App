@@ -3,7 +3,7 @@
 // niveau, la maîtrise et les quêtes. Miroir de `juger` (crates/api/src/ricochets.rs).
 
 import type { CarteRicochet, QuestionRicochet } from '../contrat'
-import { type BriqueJeu, type CatalogueJeu, formeCanonique, texteDuMot } from './jeu'
+import { type BriqueJeu, type CatalogueJeu, texteDuMot } from './jeu'
 
 export type FormatRicochet = QuestionRicochet['format']
 
@@ -63,23 +63,6 @@ export function juger(d: DonneesRicochets, format: FormatRicochet, unite: string
   return reponse === brique.sens || [...d.briques.values()].some((b) => b.sens === reponse && b.classe === brique.classe)
 }
 
-/** Quatre découpages proposés : le bon, et trois leurres obtenus en déplaçant une coupe d'une ou deux lettres. */
-export function propositionsDeCoupe(coupes: number[], longueur: number, hasard: () => number = Math.random): number[][] {
-  const connus = new Set([coupes.join()])
-  const leurres: number[][] = []
-  const essais = coupes.flatMap((_, i) => [-1, 1, -2, 2].map((delta) => [i, delta] as const))
-  for (const [i, delta] of melanger(essais, hasard)) {
-    const coupe = (coupes[i] ?? 0) + delta
-    const autre = coupes.map((c, j) => (j === i ? coupe : c))
-    const valide = coupe >= 1 && coupe <= longueur - 1 && autre.every((c, j) => j === 0 || c > (autre[j - 1] ?? 0))
-    if (valide && !connus.has(autre.join())) {
-      connus.add(autre.join())
-      leurres.push(autre)
-    }
-  }
-  return melanger([coupes, ...leurres.slice(0, 3)], hasard)
-}
-
 export function melanger<T>(valeurs: T[], hasard: () => number = Math.random): T[] {
   const copie = [...valeurs]
   for (let i = copie.length - 1; i > 0; i--) {
@@ -89,25 +72,9 @@ export function melanger<T>(valeurs: T[], hasard: () => number = Math.random): T
   return copie
 }
 
-/** Mot coupé aux positions données : « géo · graphie ». */
-export function motCoupe(mot: string, coupes: number[]): string {
-  const lettres = Array.from(mot)
-  const bornes = [0, ...coupes, lettres.length]
-  return bornes
-    .slice(1)
-    .map((fin, i) => lettres.slice(bornes[i], fin).join(''))
-    .join(' · ')
-}
-
 export function motDe(jeu: CatalogueJeu, id: string): string {
   const carte = jeu.cartes.get(id)
   return carte ? texteDuMot(carte) : '…'
-}
-
-export function longueurDuMot(jeu: CatalogueJeu, id: string): number {
-  const carte = jeu.cartes.get(id)
-  const forme = carte && formeCanonique(carte)
-  return forme ? Array.from(forme.texte).length : 0
 }
 
 const JOUR_MS = 86_400_000
@@ -128,6 +95,15 @@ export function morceauxDuMot(jeu: CatalogueJeu, motId: string): { debut: number
   return [...(choisie?.parties ?? [])]
     .sort((a, b) => a.rang - b.rang)
     .map((p) => ({ debut: p.segment_debut ?? -1, fin: p.segment_fin ?? -1, nature: jeu.cartes.get(p.unite_id)?.nature ?? 'mot' }))
+}
+
+/** Briques de la première recette du mot, dans l'ordre : les morceaux de la composition sont des unités, pas des briques. */
+export function briquesDuMot(jeu: CatalogueJeu, motId: string): BriqueJeu[] {
+  const recette = jeu.recettes.find((r) => r.motId === motId)
+  return (recette?.emplacements ?? []).flatMap((e) => {
+    const b = e[0] && jeu.briques.get(e[0])
+    return b ? [b] : []
+  })
 }
 
 /** Cartes trouvées que les ricochets savent poser : briques de la réserve et mots du codex. */

@@ -14,9 +14,9 @@ const ONGLETS: Entree[] = [
   { id: 'table', libelle: 'Table', icone: 'table' },
   { id: 'plis', libelle: 'Plis', icone: 'pli' },
   { id: 'codex', libelle: 'Codex', icone: 'codex' },
+  { id: 'ricochets', libelle: 'Ricochets', icone: 'ricochet' },
   { id: 'quetes', libelle: 'Quêtes', icone: 'quete' },
   { id: 'boutique', libelle: 'Boutique', icone: 'boutique' },
-  { id: 'ricochets', libelle: 'Ricochets', icone: 'ricochet' },
   { id: 'reglages', libelle: 'Réglages', icone: 'reglages' },
 ]
 

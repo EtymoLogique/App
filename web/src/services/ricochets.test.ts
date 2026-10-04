@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { type DonneesRicochets, juger, motCoupe, propositionsDeCoupe, retour } from './ricochets'
+import { type DonneesRicochets, juger, retour } from './ricochets'
 
 const d: DonneesRicochets = {
   briques: new Map([
@@ -33,24 +33,6 @@ describe('juger', () => {
     expect(juger(d, 'decouper', 'unt_1', [3, 3])).toBe(true)
     expect(juger(d, 'decouper', 'unt_1', [2])).toBe(false)
     expect(juger(d, 'decouper', 'unt_2', [1])).toBeNull()
-  })
-})
-
-describe('découper', () => {
-  it('propose le bon découpage et des leurres valides, tous différents', () => {
-    for (let essai = 0; essai < 50; essai++) {
-      const propositions = propositionsDeCoupe([3, 5], 9)
-      expect(propositions).toHaveLength(4)
-      expect(propositions.map((p) => p.join())).toContain('3,5')
-      expect(new Set(propositions.map((p) => p.join())).size).toBe(4)
-      for (const p of propositions) {
-        expect(p.every((c, i) => c >= 1 && c <= 8 && (i === 0 || c > (p[i - 1] ?? 0)))).toBe(true)
-      }
-    }
-  })
-  it('coupe un mot en morceaux', () => {
-    expect(motCoupe('géographie', [3])).toBe('géo · graphie')
-    expect(motCoupe('abcdef', [2, 4])).toBe('ab · cd · ef')
   })
 })
 
