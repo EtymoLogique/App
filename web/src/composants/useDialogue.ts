@@ -20,11 +20,11 @@ export function fermerVersLeBas(boite: HTMLElement | null, onFermer: () => void)
 /**
  * Comportement d'une modale : focus initial (l'élément `data-focus-initial`, sinon le premier),
  * focus piégé dans la boîte, `Échap` qui ferme, focus rendu au déclencheur à la fermeture.
- * Renvoie la référence à poser sur la boîte et la fermeture animée (fermerVersLeBas).
+ * Renvoie la référence à poser sur la boîte et la fermeture animée (`sortie`, fermerVersLeBas par défaut).
  */
-export function useDialogue<T extends HTMLElement>(onFermer: () => void): [React.RefObject<T | null>, () => void] {
+export function useDialogue<T extends HTMLElement>(onFermer: () => void, sortie = fermerVersLeBas): [React.RefObject<T | null>, () => void] {
   const boite = useRef<T>(null)
-  const fermer = useCallback(() => fermerVersLeBas(boite.current, onFermer), [onFermer])
+  const fermer = useCallback(() => sortie(boite.current, onFermer), [onFermer, sortie])
   useEffect(() => {
     const declencheur = document.activeElement as HTMLElement | null
     const cibles = () => Array.from(boite.current?.querySelectorAll<HTMLElement>(FOCALISABLES) ?? [])
