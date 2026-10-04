@@ -30,6 +30,8 @@ export function completerEtat(etat: Etat): Etat {
     // Avant l'ADR 0042, un jalon atteint était accordé d'office : il est récupéré.
     jalons_recuperes: etat.jalons_recuperes ?? etat.jalons_atteints ?? [],
     prix_indices: etat.prix_indices ?? [],
+    ricochets: etat.ricochets ?? [],
+    ricochets_du_jour: etat.ricochets_du_jour ?? { reponses: 0, bonnes: 0 },
   }
 }
 

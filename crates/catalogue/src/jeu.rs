@@ -8,7 +8,7 @@ use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
 
-use crate::format::{Difficulte, Role};
+use crate::format::{BriqueRicochet, Difficulte, MotRicochet, Role};
 use crate::{EquilibrageManifeste, FasciculeCharge, Graine};
 
 #[derive(Debug, Clone, Default)]
@@ -29,6 +29,15 @@ pub struct Jeu {
     pub briques_de_mot: HashMap<IdCatalogue, IdCatalogue>,
     /// Difficulté des mots qui en portent une (ADR 0047). Jamais exposée au joueur.
     pub difficultes: HashMap<IdCatalogue, Difficulte>,
+    /// Cartes qu'un ricochet peut viser : jamais une légendaire (ADR 0044).
+    pub ricochets: RicochetsJeu,
+}
+
+/// Données de jugement des ricochets, par carte.
+#[derive(Debug, Clone, Default)]
+pub struct RicochetsJeu {
+    pub briques: HashMap<IdCatalogue, BriqueRicochet>,
+    pub mots: HashMap<IdCatalogue, MotRicochet>,
 }
 
 /// Les jalons d'un fascicule et les mots qui les font avancer.
@@ -93,6 +102,28 @@ impl Jeu {
 }
 
 impl Jeu {
+    /// Un ricochet ne vise ni une légendaire ni un mot qui en exige une : même
+    /// règle que les recettes secrètes (ADR 0015), le contenu l'applique déjà.
+    fn ecarter_les_legendaires_des_ricochets(&mut self) {
+        let secrets: HashSet<&IdCatalogue> = self
+            .recettes
+            .iter()
+            .filter(|r| {
+                r.emplacements
+                    .iter()
+                    .flatten()
+                    .any(|b| self.legendaires.contains(b))
+            })
+            .map(|r| &r.mot_id)
+            .collect();
+        let secrets: HashSet<IdCatalogue> = secrets.into_iter().cloned().collect();
+        self.ricochets.mots.retain(|id, _| !secrets.contains(id));
+        let legendaires = &self.legendaires;
+        self.ricochets
+            .briques
+            .retain(|id, _| !legendaires.contains(id));
+    }
+
     #[must_use]
     pub fn depuis(fascicules: &[FasciculeCharge]) -> Self {
         let mut jeu = Self::default();
@@ -186,7 +217,15 @@ impl Jeu {
                 fascicule.manifeste.id.clone(),
                 fascicule.manifeste.graines.clone(),
             ));
+            let ricochets = &fascicule.manifeste.ricochets;
+            jeu.ricochets
+                .briques
+                .extend(ricochets.briques.iter().map(|b| (b.id.clone(), b.clone())));
+            jeu.ricochets
+                .mots
+                .extend(ricochets.mots.iter().map(|m| (m.id.clone(), m.clone())));
         }
+        jeu.ecarter_les_legendaires_des_ricochets();
         jeu
     }
 }

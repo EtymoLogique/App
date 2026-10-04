@@ -8,6 +8,7 @@ import { Navigation, type Onglet } from './composants/Navigation'
 import { Plis } from './composants/Plis'
 import { Quetes } from './composants/Quetes'
 import { Reglages } from './composants/Reglages'
+import { Ricochets } from './composants/Ricochets'
 import { ReserveModale } from './composants/ReserveModale'
 import { Resultat } from './composants/Resultat'
 import { Table } from './composants/Table'
@@ -334,6 +335,11 @@ export function App({ api, catalogue }: Props) {
               )}
             </>
           )}
+
+          <section {...ecran('ricochets')}>
+            <EnTete titre="Ricochets" id="titre-ricochets" />
+            <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} />
+          </section>
 
           <section {...ecran('reglages')}>
             <EnTete titre="Réglages" id="titre-reglages" />

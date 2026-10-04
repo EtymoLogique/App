@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier } from '../contrat'
+import type { DemandeRicochet, Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -80,8 +80,14 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
   const actif = useRef(true)
   const restauree = useRef(false)
 
+  /** Dernier état confirmé, pour enchaîner les réponses d'une séance sans attendre un rendu. */
+  const etatCourant = useRef<Etat | null>(null)
+  /** Réponses de ricochets en attente d'envoi : une à la fois, chacune sur l'état renvoyé par la précédente. */
+  const fileRicochets = useRef<Promise<unknown>>(Promise.resolve())
+
   const confirmer = useCallback((recu: Etat) => {
     const nouvel = completerEtat(recu)
+    etatCourant.current = nouvel
     setEtat(nouvel)
     setTable((t) => tableValide(t, nouvel))
     void memoriserEtat(nouvel)
@@ -363,6 +369,50 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander, etat, jeu],
   )
 
+  /** Tire une séance de ricochets (lecture seule, rien n'est écrit). */
+  const seanceRicochets = useCallback(async (): Promise<SeanceRicochets | { erreur: string }> => {
+    if (!enLigne) return { erreur: HORS_LIGNE }
+    try {
+      return await api.seanceRicochets()
+    } catch (e) {
+      return { erreur: message(e) }
+    }
+  }, [api, enLigne])
+
+  /**
+   * Répond à une question de ricochet (ADR 0044). Les réponses partent l'une après l'autre ;
+   * sur un `409` l'état est resynchronisé et la réponse rejouée une fois. Le serveur fait foi.
+   */
+  const repondreRicochet = useCallback(
+    (format: DemandeRicochet['format'], unite: string, reponse: DemandeRicochet['reponse']): Promise<ReponseRicochet | { erreur: string }> => {
+      const envoyer = async (): Promise<ReponseRicochet | { erreur: string }> => {
+        if (!enLigne) return { erreur: HORS_LIGNE }
+        if (jeu.etat !== 'pret' || !jeu.valeur || !etatCourant.current) return { erreur: 'Votre partie n’est pas encore chargée.' }
+        const version = jeu.valeur.version
+        for (let essai = 0; essai < 2; essai++) {
+          const e = etatCourant.current
+          if (!e) break
+          try {
+            const recu = await api.ricochet({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, format, unite_id: unite, reponse })
+            confirmer(recu.etat)
+            return recu
+          } catch (err) {
+            if (err instanceof ErreurApi && err.statut === 409 && essai === 0) {
+              await synchroniser()
+              continue
+            }
+            return { erreur: err instanceof ErreurApi && err.statut === 403 ? 'Cette carte ne peut pas être posée.' : message(err) }
+          }
+        }
+        return { erreur: 'Votre partie a changé entre-temps.' }
+      }
+      const suite = fileRicochets.current.then(envoyer, envoyer)
+      fileRicochets.current = suite
+      return suite
+    },
+    [api, enLigne, jeu, confirmer, synchroniser],
+  )
+
   /** Hors production : repart d'un joueur neuf. Le serveur fait foi, l'état renvoyé remplace tout. */
   const reinitialiser = useCallback(async (): Promise<string | null> => {
     try {
@@ -387,6 +437,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     acheterEtAvancer,
     acheterIndice,
     recupererJalon,
+    seanceRicochets,
+    repondreRicochet,
     erreurEtat,
     table,
     cases,

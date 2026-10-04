@@ -78,6 +78,14 @@ const TRACES = {
       <path d="M4 17h16" />
     </>
   ),
+  // Galet qui rebondit : un ricochet.
+  ricochet: (
+    <>
+      <ellipse cx="17" cy="8" rx="3.5" ry="2" />
+      <path d="M3 18c2.5 0 3.5-3 5-3s2 3 4 3 2.5-5 2.5-5" />
+    </>
+  ),
+  coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   verrou: (
     <>
       <rect x="5" y="11" width="14" height="9.5" rx="2" />

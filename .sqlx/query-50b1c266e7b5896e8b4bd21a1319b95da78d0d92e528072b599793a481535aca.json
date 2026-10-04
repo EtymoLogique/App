@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ricochet (joueur_id, unite_id, niveau, bonnes_niveau_3, prochaine_revision, maitrisee_le)\n         VALUES ($1, $2, $3, $4, $5, $6)\n         ON CONFLICT (joueur_id, unite_id) DO UPDATE SET\n             niveau = EXCLUDED.niveau,\n             bonnes_niveau_3 = EXCLUDED.bonnes_niveau_3,\n             prochaine_revision = EXCLUDED.prochaine_revision,\n             maitrisee_le = COALESCE(ricochet.maitrisee_le, EXCLUDED.maitrisee_le)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int2",
+        "Int2",
+        "Date",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "50b1c266e7b5896e8b4bd21a1319b95da78d0d92e528072b599793a481535aca"
+}

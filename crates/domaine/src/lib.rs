@@ -7,6 +7,7 @@ pub mod indice;
 pub mod jalon;
 pub mod pli;
 pub mod reserve;
+pub mod ricochet;
 pub mod sablier;
 
 pub use identifiant::{ErreurIdentifiant, IdCatalogue};

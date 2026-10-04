@@ -7,16 +7,17 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeSablier,
-    DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion,
-    ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier, Sante, Session, StatutSante,
+    CarteRicochet, DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli,
+    DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat, IssueFusion, OuverturePli,
+    ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePli, ReponseRicochet,
+    ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
-use crate::{EtatApp, debit, progression, secret};
+use crate::{EtatApp, debit, progression, ricochets, secret};
 
 pub fn routes() -> Router<Arc<EtatApp>> {
     Router::new()
@@ -29,6 +30,8 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/sablier/achat", post(acheter_sabliers))
         .route("/indice", post(acheter_indice))
         .route("/jalon", post(recuperer_jalon))
+        .route("/ricochets/seance", get(seance_ricochets))
+        .route("/ricochet", post(repondre_ricochet))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -769,5 +772,93 @@ pub async fn recuperer_jalon(
         etat: progression::etat(&mut tx, joueur, app.recharge).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "jalon", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Tire une séance de ricochets (ADR 0044) : au plus cinq questions, par
+/// identifiants. Lecture seule : rien n'est écrit, recharger tire une autre séance.
+#[utoipa::path(get, path = "/ricochets/seance", tag = "jeu", security(("session" = [])),
+    responses(
+        (status = 200, description = "Séance tirée", body = SeanceRicochets),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn seance_ricochets(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+) -> Result<Json<SeanceRicochets>, ErreurApi> {
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    let mut conn = app.base.acquire().await?;
+    let niveaux = ricochets::lire(&mut conn, joueur).await?;
+    let cartes = ricochets::cartes_du_joueur(&mut conn, joueur, jeu)
+        .await?
+        .into_iter()
+        .map(|(id, recence)| {
+            let carte = niveaux.get(&id).copied();
+            (id, carte, recence)
+        })
+        .collect();
+    let ordre = ricochets::ordonner(cartes, Utc::now().date_naive());
+    let questions = ricochets::tirer(jeu, &ordre, &mut ricochets::Hasard::depuis_le_systeme()?);
+    Ok(Json(SeanceRicochets { questions }))
+}
+
+/// Répond à une question de ricochet (ADR 0044). Le serveur juge sur les
+/// identifiants, applique la règle de maîtrise et compte la réponse parmi les
+/// cinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.
+/// Rien n'est consommé : ni exemplaire, ni énergie, ni encre.
+#[utoipa::path(post, path = "/ricochet", tag = "jeu", security(("session" = [])), request_body = DemandeRicochet,
+    responses(
+        (status = 200, description = "Résultat, carte après la réponse et état confirmé", body = ReponseRicochet),
+        (status = 400, description = "Requête invalide : format, identifiant ou réponse mal formés", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Carte inconnue, légendaire ou pas encore trouvée", body = Erreur),
+        (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn repondre_ricochet(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeRicochet>,
+) -> Result<Json<ReponseRicochet>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let juste = ricochets::juger(
+        &catalogue.jeu,
+        demande.format,
+        &demande.unite_id,
+        &demande.reponse,
+    )?;
+    if !ricochets::est_trouvee(&mut tx, joueur, &demande.unite_id).await? {
+        return Err(ErreurApi::Interdit("carte pas encore trouvée"));
+    }
+    let carte =
+        ricochets::enregistrer(&mut tx, joueur, &demande.unite_id, juste, Utc::now()).await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseRicochet {
+        juste,
+        carte: CarteRicochet {
+            niveau: carte.niveau,
+            maitrisee: carte.maitrisee,
+            prochaine_revision: carte.prochaine_revision,
+            bonnes_niveau_3: carte.bonnes_niveau_3,
+        },
+        etat: progression::etat(&mut tx, joueur, app.recharge).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "ricochet", &reponse).await?;
     Ok(Json(reponse))
 }

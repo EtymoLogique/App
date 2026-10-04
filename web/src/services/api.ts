@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePli, ReponseSablier, Sante, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -127,6 +127,20 @@ export class ClientApi {
   /** Achète le niveau suivant d'un indice : `403` sans assez d'encre, `409` si la recette est découverte. */
   indice(demande: DemandeIndice): Promise<ReponseIndice> {
     return this.authentifie('/indice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Tire une séance de ricochets : cinq questions au plus, par identifiants. Rien n'est écrit. */
+  seanceRicochets(): Promise<SeanceRicochets> {
+    return this.authentifie('/ricochets/seance')
+  }
+
+  /** Répond à une question de ricochet : `403` carte inconnue ou pas trouvée, `409` si l'état est périmé. */
+  ricochet(demande: DemandeRicochet): Promise<ReponseRicochet> {
+    return this.authentifie('/ricochet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

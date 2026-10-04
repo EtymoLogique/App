@@ -133,6 +133,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ricochet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Répond à une question de ricochet (ADR 0044). Le serveur juge sur les
+         *     identifiants, applique la règle de maîtrise et compte la réponse parmi les
+         *     cinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.
+         *     Rien n'est consommé : ni exemplaire, ni énergie, ni encre.
+         */
+        post: operations["repondre_ricochet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ricochets/seance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tire une séance de ricochets (ADR 0044) : au plus cinq questions, par
+         *     identifiants. Lecture seule : rien n'est écrit, recharger tire une autre séance.
+         */
+        get: operations["seance_ricochets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sablier": {
         parameters: {
             query?: never;
@@ -244,6 +286,13 @@ export interface components {
             rarete: components["schemas"]["Rarete"];
             unite_id: components["schemas"]["IdCatalogue"];
         };
+        BriqueRicochet: {
+            /** @description Commune à deux briques de même glose : jamais deux leurres de même classe. */
+            classe_sens: components["schemas"]["IdCatalogue"];
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Sens affiché de la brique : la bonne réponse de « sens d'une brique ». */
+            sens_id: components["schemas"]["IdCatalogue"];
+        };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
@@ -278,6 +327,22 @@ export interface components {
             id: components["schemas"]["IdCatalogue"];
             role: components["schemas"]["Role"];
             silhouette?: components["schemas"]["Chemin"] | null;
+        };
+        /** @description Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »). */
+        CarteRicochet: {
+            /**
+             * Format: int32
+             * @description Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
+             */
+            bonnes_niveau_3: number;
+            maitrisee: boolean;
+            /** Format: int32 */
+            niveau: number;
+            /**
+             * Format: date
+             * @description Jour GMT du prochain ricochet qui compte.
+             */
+            prochaine_revision: string;
         };
         /** @description Chemin haché d'un fichier de l'artefact, relatif au préfixe publié. */
         Chemin: string;
@@ -395,6 +460,23 @@ export interface components {
             commande: string;
             fascicule_id: components["schemas"]["IdCatalogue"];
             /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de réponse à une question de ricochet : une commande, une carte. */
+        DemandeRicochet: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            format: components["schemas"]["FormatRicochet"];
+            reponse: components["schemas"]["ReponseJoueur"];
+            unite_id: components["schemas"]["IdCatalogue"];
             version_catalogue: string;
             /**
              * Format: int64
@@ -570,6 +652,13 @@ export interface components {
              */
             reserve: components["schemas"]["Exemplaires"][];
             /**
+             * @description Cartes qui ont un historique de ricochets (ADR 0044) ; une carte sans
+             *     ligne est au niveau 0, à revoir aujourd'hui. Absent avant App#18.
+             */
+            ricochets?: components["schemas"]["RicochetEtat"][];
+            /** @description Réponses du jour GMT, pour les quêtes ; absent avant App#18. */
+            ricochets_du_jour?: components["schemas"]["RicochetsDuJour"];
+            /**
              * @description Sabliers détenus et plafonds (ADR 0020). Absents des réponses
              *     enregistrées avant J4, comme les champs qui suivent.
              */
@@ -611,6 +700,11 @@ export interface components {
             confiance: components["schemas"]["Confiance"];
             sources?: components["schemas"]["SourceCitee"][];
         };
+        /**
+         * @description Les cinq formats d'une question de ricochet (ADR 0044).
+         * @enum {string}
+         */
+        FormatRicochet: "sens_brique" | "brique_sens" | "mot_sens" | "decouper" | "paires";
         Forme: {
             id: components["schemas"]["IdCatalogue"];
             /** @description `canonique` pour la forme de référence. */
@@ -707,11 +801,19 @@ export interface components {
             /** @description Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011). */
             pli?: components["schemas"]["PliManifeste"];
             recettes?: components["schemas"]["RecetteManifeste"][];
+            /** @description De quoi juger un ricochet sans lire un texte (ADR 0044). */
+            ricochets?: components["schemas"]["RicochetsManifeste"];
             test?: boolean;
         };
         MotBrique: {
             brique_id: components["schemas"]["IdCatalogue"];
             mot_id: components["schemas"]["IdCatalogue"];
+        };
+        MotRicochet: {
+            classe_litteral?: components["schemas"]["IdCatalogue"] | null;
+            /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
+            coupes?: number[];
+            id: components["schemas"]["IdCatalogue"];
         };
         /** @enum {string} */
         MotifPresque: "ordre" | "incomplet";
@@ -752,6 +854,17 @@ export interface components {
         PliManifeste: {
             briques?: components["schemas"]["BriquePliManifeste"][];
             equilibrage?: components["schemas"]["EquilibrageManifeste"] | null;
+        };
+        /** @description Une question de la séance, par identifiants : le client rend les textes. */
+        QuestionRicochet: {
+            /** @description La carte visée ; quatre briques pour les paires. */
+            cartes: components["schemas"]["IdCatalogue"][];
+            /**
+             * @description Choix possibles, dans le désordre : des `sns_…`, `brq_…` ou `unt_…`
+             *     selon le format. Vide pour *découper* et *paires*.
+             */
+            choix?: components["schemas"]["IdCatalogue"][];
+            format: components["schemas"]["FormatRicochet"];
         };
         /**
          * @description Rareté d'une brique élémentaire : quatre niveaux, quatre formes.
@@ -809,6 +922,8 @@ export interface components {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
         };
+        /** @description Réponse du joueur : un choix, ou les positions de coupe d'un mot. */
+        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[];
         ReponsePli: {
             /** @description Vrai si la brique était épuisée : « De retour ! ». */
             etait_epuisee: boolean;
@@ -821,6 +936,13 @@ export interface components {
             exemplaires: number;
             ouverture: components["schemas"]["OuverturePli"];
         };
+        ReponseRicochet: {
+            carte: components["schemas"]["CarteRicochet"];
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Vrai si la réponse est la bonne, que la carte ait été à revoir ou non. */
+            juste: boolean;
+        };
         ReponseSablier: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
@@ -830,6 +952,29 @@ export interface components {
          * @enum {string}
          */
         Resultat: "nouvelle" | "doublon" | "reserve_pleine";
+        /** @description Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise. */
+        RicochetEtat: {
+            /** @description Vrai si une réponse d'aujourd'hui compterait. */
+            a_revoir: boolean;
+            /** @description Définitif : une carte maîtrisée le reste. */
+            maitrisee: boolean;
+            /** Format: int32 */
+            niveau: number;
+            /** @description Mot (`unt_…`) ou brique (`brq_…`). */
+            unite_id: components["schemas"]["IdCatalogue"];
+        };
+        /** @description Les cinq premières réponses du jour comptent pour les quêtes (ADR 0045). */
+        RicochetsDuJour: {
+            /** Format: int32 */
+            bonnes: number;
+            /** Format: int32 */
+            reponses: number;
+        };
+        /** @description Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte. */
+        RicochetsManifeste: {
+            briques?: components["schemas"]["BriqueRicochet"][];
+            mots?: components["schemas"]["MotRicochet"][];
+        };
         /** @enum {string} */
         Role: "resultat" | "ingredient";
         SabliersEtat: {
@@ -857,6 +1002,10 @@ export interface components {
             version_api: string;
             /** @description Version du catalogue chargée en mémoire, `null` si aucun index n'est publié. */
             version_catalogue?: string | null;
+        };
+        /** @description Séance de ricochets : cinq questions au plus, aucune chronologie, rien n'est écrit. */
+        SeanceRicochets: {
+            questions: components["schemas"]["QuestionRicochet"][];
         };
         Sens: {
             id: components["schemas"]["IdCatalogue"];
@@ -1268,6 +1417,131 @@ export interface operations {
             };
             /** @description État ou catalogue périmé : resynchroniser */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    repondre_ricochet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeRicochet"];
+            };
+        };
+        responses: {
+            /** @description Résultat, carte après la réponse et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseRicochet"];
+                };
+            };
+            /** @description Requête invalide : format, identifiant ou réponse mal formés */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Carte inconnue, légendaire ou pas encore trouvée */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    seance_ricochets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Séance tirée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeanceRicochets"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

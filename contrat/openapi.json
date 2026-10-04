@@ -469,6 +469,158 @@
         ]
       }
     },
+    "/ricochet": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Répond à une question de ricochet (ADR 0044). Le serveur juge sur les\nidentifiants, applique la règle de maîtrise et compte la réponse parmi les\ncinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.\nRien n'est consommé : ni exemplaire, ni énergie, ni encre.",
+        "operationId": "repondre_ricochet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeRicochet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Résultat, carte après la réponse et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseRicochet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide : format, identifiant ou réponse mal formés",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Carte inconnue, légendaire ou pas encore trouvée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/ricochets/seance": {
+      "get": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Tire une séance de ricochets (ADR 0044) : au plus cinq questions, par\nidentifiants. Lecture seule : rien n'est écrit, recharger tire une autre séance.",
+        "operationId": "seance_ricochets",
+        "responses": {
+          "200": {
+            "description": "Séance tirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeanceRicochets"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/sablier": {
       "post": {
         "tags": [
@@ -899,6 +1051,27 @@
           }
         }
       },
+      "BriqueRicochet": {
+        "type": "object",
+        "required": [
+          "id",
+          "sens_id",
+          "classe_sens"
+        ],
+        "properties": {
+          "classe_sens": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Commune à deux briques de même glose : jamais deux leurres de même classe."
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "sens_id": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Sens affiché de la brique : la bonne réponse de « sens d'une brique »."
+          }
+        }
+      },
       "Calendrier": {
         "type": "object",
         "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
@@ -1050,6 +1223,40 @@
             ]
           }
         }
+      },
+      "CarteRicochet": {
+        "type": "object",
+        "description": "Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »).",
+        "required": [
+          "niveau",
+          "maitrisee",
+          "prochaine_revision",
+          "bonnes_niveau_3"
+        ],
+        "properties": {
+          "bonnes_niveau_3": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.",
+            "maximum": 3,
+            "minimum": 0
+          },
+          "maitrisee": {
+            "type": "boolean"
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 3,
+            "minimum": 0
+          },
+          "prochaine_revision": {
+            "type": "string",
+            "format": "date",
+            "description": "Jour GMT du prochain ricochet qui compte."
+          }
+        },
+        "additionalProperties": false
       },
       "Chemin": {
         "type": "string",
@@ -1329,6 +1536,44 @@
           "version_catalogue": {
             "type": "string",
             "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeRicochet": {
+        "type": "object",
+        "description": "Commande de réponse à une question de ricochet : une commande, une carte.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "format",
+          "unite_id",
+          "reponse"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "format": {
+            "$ref": "#/components/schemas/FormatRicochet"
+          },
+          "reponse": {
+            "$ref": "#/components/schemas/ReponseJoueur"
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
             "maxLength": 64
           },
           "version_etat": {
@@ -1721,6 +1966,17 @@
             },
             "description": "Briques connues et leurs exemplaires, triées par brique. Une brique à 0\nexemplaire est épuisée mais reste connue."
           },
+          "ricochets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RicochetEtat"
+            },
+            "description": "Cartes qui ont un historique de ricochets (ADR 0044) ; une carte sans\nligne est au niveau 0, à revoir aujourd'hui. Absent avant App#18."
+          },
+          "ricochets_du_jour": {
+            "$ref": "#/components/schemas/RicochetsDuJour",
+            "description": "Réponses du jour GMT, pour les quêtes ; absent avant App#18."
+          },
           "sabliers": {
             "$ref": "#/components/schemas/SabliersEtat",
             "description": "Sabliers détenus et plafonds (ADR 0020). Absents des réponses\nenregistrées avant J4, comme les champs qui suivent."
@@ -1843,6 +2099,17 @@
             }
           }
         }
+      },
+      "FormatRicochet": {
+        "type": "string",
+        "description": "Les cinq formats d'une question de ricochet (ADR 0044).",
+        "enum": [
+          "sens_brique",
+          "brique_sens",
+          "mot_sens",
+          "decouper",
+          "paires"
+        ]
       },
       "Forme": {
         "type": "object",
@@ -2198,6 +2465,10 @@
               "$ref": "#/components/schemas/RecetteManifeste"
             }
           },
+          "ricochets": {
+            "$ref": "#/components/schemas/RicochetsManifeste",
+            "description": "De quoi juger un ricochet sans lire un texte (ADR 0044)."
+          },
           "test": {
             "type": "boolean"
           }
@@ -2214,6 +2485,37 @@
             "$ref": "#/components/schemas/IdCatalogue"
           },
           "mot_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
+      "MotRicochet": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "classe_litteral": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Commune à deux mots de même sens littéral ; absente si le mot n'en a pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coupes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas."
+          },
+          "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           }
         }
@@ -2341,6 +2643,34 @@
             ]
           }
         }
+      },
+      "QuestionRicochet": {
+        "type": "object",
+        "description": "Une question de la séance, par identifiants : le client rend les textes.",
+        "required": [
+          "format",
+          "cartes"
+        ],
+        "properties": {
+          "cartes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "La carte visée ; quatre briques pour les paires."
+          },
+          "choix": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Choix possibles, dans le désordre : des `sns_…`, `brq_…` ou `unt_…`\nselon le format. Vide pour *découper* et *paires*."
+          },
+          "format": {
+            "$ref": "#/components/schemas/FormatRicochet"
+          }
+        },
+        "additionalProperties": false
       },
       "Rarete": {
         "type": "string",
@@ -2518,6 +2848,23 @@
         },
         "additionalProperties": false
       },
+      "ReponseJoueur": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Huit positions au plus."
+          }
+        ],
+        "description": "Réponse du joueur : un choix, ou les positions de coupe d'un mot."
+      },
       "ReponsePli": {
         "type": "object",
         "required": [
@@ -2548,6 +2895,28 @@
         },
         "additionalProperties": false
       },
+      "ReponseRicochet": {
+        "type": "object",
+        "required": [
+          "juste",
+          "carte",
+          "etat"
+        ],
+        "properties": {
+          "carte": {
+            "$ref": "#/components/schemas/CarteRicochet"
+          },
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "juste": {
+            "type": "boolean",
+            "description": "Vrai si la réponse est la bonne, que la carte ait été à revoir ou non."
+          }
+        },
+        "additionalProperties": false
+      },
       "ReponseSablier": {
         "type": "object",
         "required": [
@@ -2569,6 +2938,78 @@
           "doublon",
           "reserve_pleine"
         ]
+      },
+      "RicochetEtat": {
+        "type": "object",
+        "description": "Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.",
+        "required": [
+          "unite_id",
+          "niveau",
+          "maitrisee",
+          "a_revoir"
+        ],
+        "properties": {
+          "a_revoir": {
+            "type": "boolean",
+            "description": "Vrai si une réponse d'aujourd'hui compterait."
+          },
+          "maitrisee": {
+            "type": "boolean",
+            "description": "Définitif : une carte maîtrisée le reste."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 3,
+            "minimum": 0
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Mot (`unt_…`) ou brique (`brq_…`)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "RicochetsDuJour": {
+        "type": "object",
+        "description": "Les cinq premières réponses du jour comptent pour les quêtes (ADR 0045).",
+        "required": [
+          "reponses",
+          "bonnes"
+        ],
+        "properties": {
+          "bonnes": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 0
+          },
+          "reponses": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "RicochetsManifeste": {
+        "type": "object",
+        "description": "Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte.",
+        "properties": {
+          "briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriqueRicochet"
+            }
+          },
+          "mots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MotRicochet"
+            }
+          }
+        }
       },
       "Role": {
         "type": "string",
@@ -2628,6 +3069,22 @@
               "null"
             ],
             "description": "Version du catalogue chargée en mémoire, `null` si aucun index n'est publié."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SeanceRicochets": {
+        "type": "object",
+        "description": "Séance de ricochets : cinq questions au plus, aucune chronologie, rien n'est écrit.",
+        "required": [
+          "questions"
+        ],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionRicochet"
+            }
           }
         },
         "additionalProperties": false

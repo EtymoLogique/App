@@ -35,4 +35,9 @@ describe('route', () => {
     expect(ecrireRoute({ ...route, quete: 'journalieres' })).toBe('#/quetes/journalieres')
     expect(lireRoute('#/quetes/<script>').quete).toBeNull()
   })
+
+  it('connaît l’onglet des ricochets', () => {
+    expect(lireRoute('#/ricochets').onglet).toBe('ricochets')
+    expect(ecrireRoute({ ...ROUTE_PAR_DEFAUT, onglet: 'ricochets' })).toBe('#/ricochets')
+  })
 })
