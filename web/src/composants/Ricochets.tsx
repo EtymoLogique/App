@@ -376,6 +376,7 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
           })}
         </div>
       </div>
+      {!valide && <p className="rico-note rico-aide">Touchez une brique et son sens, dans l’ordre que vous voulez.</p>}
       {!valide && liens.size === q.cartes.length && (
         <button type="button" className="btn btn-primary rico-valider" onClick={valider}>
           Valider les paires
@@ -497,7 +498,7 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
         {phase.t === 'fin' && <Recapitulatif jeu={jeu} reponses={reponses} />}
       </div>
       <footer className="rico-pied">
-        {phase.t === 'question' && !phase.repondu && <p className="rico-note">{q?.format === 'paires' ? 'Touchez une brique et son sens, dans l’ordre que vous voulez.' : q?.format === 'decouper' ? 'Touchez le mot là où il se coupe.' : 'Touchez la bonne réponse.'}</p>}
+        {phase.t === 'question' && !phase.repondu && q?.format !== 'paires' && <p className="rico-note">{q?.format === 'decouper' ? 'Touchez le mot là où il se coupe.' : 'Touchez la bonne réponse.'}</p>}
         {phase.t === 'question' && phase.repondu && (
           <button type="button" className="btn btn-primary" onClick={suivant}>
             {phase.i + 1 === questions.length ? 'Terminer' : 'Suivant'}
@@ -613,7 +614,7 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
     <div className="ricochets">
       <Ricochet />
       <p className="rico-intro">
-        Cinq questions sur les cartes que vous avez trouvées. Une bonne réponse fait revenir la carte plus tard ; trois au plus haut niveau, et elle est maîtrisée. Rien n’est consommé.
+        Ici, on apprend. Cinq questions sur les cartes que vous avez trouvées, pour retenir ce que disent leurs briques. Prenez votre temps : une erreur ne coûte rien, et chaque carte bien comprise finit maîtrisée.
       </p>
       {trouvees.length > 0 && (
         <p className="rico-jauge">

@@ -151,6 +151,7 @@
 .rico-option.relie { box-shadow: inset 0 0 0 1px var(--ink); background: var(--paper-2); }
 .rico-option.juste .rico-numero { background: var(--cream); color: var(--ink); }
 .rico-valider { justify-self: center; }
+.rico-aide { text-align: center; }
 .rico-numero { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--cream); font-family: var(--mono); font-size: 12px; font-weight: 700; }
 .rico-option.rate .rico-numero { border: 1.5px dashed var(--ink-3); background: transparent; color: var(--ink-3); }
 
@@ -170,6 +171,7 @@
 .rico-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; min-height: 48px; }
 .rico-pied .btn { flex: 1; }
 .rico-pied .rico-note { text-align: center; }
+.rico-pied:empty { display: none; }
 /* Sur mobile, collé au-dessus de la navigation, comme .barre-actions. */
 @media (max-width: 760px) {
   .rico-pied { position: sticky; bottom: 76px; z-index: 30; margin: 0 -16px; padding: 10px 16px; background: var(--cream); border-top: 1px solid var(--line); }
