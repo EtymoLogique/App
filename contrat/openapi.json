@@ -373,6 +373,102 @@
         ]
       }
     },
+    "/palier": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'un palier de quête au long cours (ADR 0045) :\nde l'encre et des sabliers. Le serveur a mesuré la progression sur le\ncodex ; rien n'est accordé tant que le seuil n'est pas franchi.",
+        "operationId": "recuperer_palier",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandePalier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponsePalier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou palier inconnu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Palier pas encore atteint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Récompense déjà récupérée, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/pli": {
       "post": {
         "tags": [
@@ -1096,6 +1192,13 @@
             "format": "int32",
             "minimum": 0
           },
+          "quetes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueteLongCours"
+            },
+            "description": "Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;\nabsentes d'un index antérieur."
+          },
           "referentiels": {
             "description": "Langues, systèmes d'écriture et conventions, recopiés tels quels."
           },
@@ -1501,6 +1604,36 @@
             "description": "Clé d'idempotence générée par le client (UUID v4)."
           },
           "jalon_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandePalier": {
+        "type": "object",
+        "description": "Commande de récupération de la récompense d'un palier de quête au long cours (ADR 0045).",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "palier_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "palier_id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
           "version_catalogue": {
@@ -1950,6 +2083,13 @@
             "description": "Jours GMT distincts où le joueur a joué, premier jour compris\n(ADR 0050). Absent des réponses enregistrées avant App#25.",
             "minimum": 1
           },
+          "paliers_recuperes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Paliers de quêtes au long cours dont la récompense a été récupérée."
+          },
           "prix_indices": {
             "type": "array",
             "items": {
@@ -1958,6 +2098,13 @@
               "minimum": 0
             },
             "description": "Prix de chaque niveau d'indice, en gouttes, du premier à la solution."
+          },
+          "progression_quetes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressionQuete"
+            },
+            "description": "Progression de chaque quête au long cours, calculée par le serveur sur\nle codex (ADR 0045). Un palier est atteint quand elle franchit son seuil."
           },
           "reserve": {
             "type": "array",
@@ -2367,6 +2514,22 @@
           }
         }
       },
+      "LibellesQuete": {
+        "type": "object",
+        "required": [
+          "titre",
+          "consigne"
+        ],
+        "properties": {
+          "consigne": {
+            "type": "string"
+          },
+          "titre": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "Manifeste": {
         "type": "object",
         "required": [
@@ -2580,6 +2743,36 @@
         },
         "additionalProperties": false
       },
+      "Palier": {
+        "type": "object",
+        "description": "Un palier : sa récompense est affichée d'avance et se récupère comme un jalon.",
+        "required": [
+          "id",
+          "seuil"
+        ],
+        "properties": {
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "seuil": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Valeur de la progression qui atteint le palier.",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
       "Partie": {
         "type": "object",
         "required": [
@@ -2644,6 +2837,24 @@
           }
         }
       },
+      "ProgressionQuete": {
+        "type": "object",
+        "required": [
+          "quete_id",
+          "progression"
+        ],
+        "properties": {
+          "progression": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "quete_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
       "QuestionRicochet": {
         "type": "object",
         "description": "Une question de la séance, par identifiants : le client rend les textes.",
@@ -2671,6 +2882,43 @@
           }
         },
         "additionalProperties": false
+      },
+      "QueteLongCours": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Sorte"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "paliers",
+              "libelles"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "libelles": {
+                "type": "object",
+                "description": "Libellés par locale ; `fr` est la locale de référence.",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/LibellesQuete"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              },
+              "paliers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Palier"
+                },
+                "description": "Paliers par seuil croissant."
+              }
+            }
+          }
+        ]
       },
       "Rarete": {
         "type": "string",
@@ -2864,6 +3112,19 @@
           }
         ],
         "description": "Réponse du joueur : un choix, ou les positions de coupe d'un mot."
+      },
+      "ReponsePalier": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          }
+        },
+        "additionalProperties": false
       },
       "ReponsePli": {
         "type": "object",
@@ -3133,6 +3394,115 @@
           }
         },
         "additionalProperties": false
+      },
+      "Sorte": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Formes trouvées d'une langue, comme sa carte les compte.",
+            "required": [
+              "langue_id",
+              "sorte"
+            ],
+            "properties": {
+              "langue_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "langue"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Familles (mots formés sur une même brique) d'au moins `mots_par_famille` mots trouvés.",
+            "required": [
+              "mots_par_famille",
+              "sorte"
+            ],
+            "properties": {
+              "mots_par_famille": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "famille"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Mots trouvés qui portent une transformation de ce type.",
+            "required": [
+              "type_code",
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "transformation"
+                ]
+              },
+              "type_code": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Cartes maîtrisées par les ricochets (ADR 0044).",
+            "required": [
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "ricochets"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Cartes de lecteur remplies (ADR 0045).",
+            "required": [
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "lecteur"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Exception de l'ADR 0045 : trouver sa première légendaire.",
+            "required": [
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "premiere_legendaire"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Ce qu'une quête compte : la liste fermée de l'ADR 0045."
       },
       "Source": {
         "type": "object",

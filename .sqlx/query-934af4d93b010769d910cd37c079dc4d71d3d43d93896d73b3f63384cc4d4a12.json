@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO palier_recupere (joueur_id, palier_id, recupere_le) VALUES ($1, $2, $3)\n         ON CONFLICT DO NOTHING RETURNING palier_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "palier_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "934af4d93b010769d910cd37c079dc4d71d3d43d93896d73b3f63384cc4d4a12"
+}

@@ -8,11 +8,12 @@ use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
 use etymo_contrat::{
     CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, IndiceObtenu, OuverturePli,
-    SabliersEtat,
+    ProgressionQuete, SabliersEtat,
 };
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::energie::{self, Energie};
 use etymo_domaine::pli::{self, Compteurs, Regle, Resultat};
+use etymo_domaine::quete::{self, Codex};
 use etymo_domaine::reserve::ajout_plafonne;
 use etymo_domaine::{indice, jalon, sablier};
 use sqlx::{PgConnection, Postgres, Transaction};
@@ -44,6 +45,7 @@ pub async fn etat(
     tx: &mut PgConnection,
     joueur: Uuid,
     recharge: TimeDelta,
+    jeu: Option<&Jeu>,
 ) -> Result<Etat, ErreurApi> {
     let ligne = sqlx::query!(
         "SELECT version_etat, version_catalogue, jours_de_jeu FROM joueur WHERE id = $1",
@@ -110,16 +112,6 @@ pub async fn etat(
         .into_iter()
         .collect();
     jalons_atteints.sort();
-    let jalons_recuperes = sqlx::query_scalar!(
-        "SELECT jalon_id FROM jalon_atteint
-         WHERE joueur_id = $1 AND recupere_le IS NOT NULL ORDER BY jalon_id",
-        joueur
-    )
-    .fetch_all(&mut *tx)
-    .await?
-    .iter()
-    .map(|j| id(j))
-    .collect::<Result<_, _>>()?;
     Ok(Etat {
         version_etat: ligne.version_etat,
         version_catalogue: ligne.version_catalogue,
@@ -137,11 +129,16 @@ pub async fn etat(
         sabliers: sabliers_etat(&mut *tx, joueur).await?,
         indices,
         jalons_atteints,
-        jalons_recuperes,
+        jalons_recuperes: jalons_recuperes(&mut *tx, joueur).await?,
         prix_indices: indice::PRIX_INDICE.to_vec(),
         jours_de_jeu: positif(ligne.jours_de_jeu),
         ricochets: ricochets::etat(&mut *tx, joueur, maintenant.date_naive()).await?,
         ricochets_du_jour: ricochets::du_jour(&mut *tx, joueur, maintenant.date_naive()).await?,
+        progression_quetes: match jeu {
+            Some(jeu) => progression_quetes(&mut *tx, joueur, jeu).await?,
+            None => Vec::new(),
+        },
+        paliers_recuperes: paliers_recuperes(&mut *tx, joueur).await?,
     })
 }
 
@@ -776,6 +773,142 @@ pub async fn recuperer_jalon(
     Ok(())
 }
 
+async fn jalons_recuperes(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+) -> Result<Vec<IdCatalogue>, ErreurApi> {
+    sqlx::query_scalar!(
+        "SELECT jalon_id FROM jalon_atteint
+         WHERE joueur_id = $1 AND recupere_le IS NOT NULL ORDER BY jalon_id",
+        joueur
+    )
+    .fetch_all(tx)
+    .await?
+    .iter()
+    .map(|j| id(j))
+    .collect()
+}
+
+async fn paliers_recuperes(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+) -> Result<Vec<IdCatalogue>, ErreurApi> {
+    sqlx::query_scalar!(
+        "SELECT palier_id FROM palier_recupere WHERE joueur_id = $1 ORDER BY palier_id",
+        joueur
+    )
+    .fetch_all(tx)
+    .await?
+    .iter()
+    .map(|p| id(p))
+    .collect()
+}
+
+/// Briques connues du joueur : sa réserve, dont la carte se montre au codex.
+async fn briques_connues(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+) -> Result<HashSet<IdCatalogue>, ErreurApi> {
+    sqlx::query_scalar!(
+        "SELECT brique_id FROM exemplaire WHERE joueur_id = $1",
+        joueur
+    )
+    .fetch_all(tx)
+    .await?
+    .iter()
+    .map(|b| id(b))
+    .collect()
+}
+
+/// Progression de chaque quête au long cours, mesurée sur le codex (ADR 0045).
+async fn progression_quetes(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+) -> Result<Vec<ProgressionQuete>, ErreurApi> {
+    if jeu.quetes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mots = mots_decouverts(&mut *tx, joueur).await?;
+    let briques = briques_connues(&mut *tx, joueur).await?;
+    let codex = Codex {
+        mots: &mots,
+        briques: &briques,
+    };
+    Ok(jeu
+        .quetes
+        .iter()
+        .map(|q| ProgressionQuete {
+            quete_id: q.id.clone(),
+            progression: jeu.mesures.progression(&q.sorte, &codex),
+        })
+        .collect())
+}
+
+/// Récupère la récompense d'un palier atteint (ADR 0045) : de l'encre et des
+/// sabliers. Refuse un palier inconnu (`400`), pas encore atteint (`403`) ou
+/// déjà récupéré (`409`).
+pub async fn recuperer_palier(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+    commande: Uuid,
+    palier_id: &IdCatalogue,
+) -> Result<(), ErreurApi> {
+    let (quete, palier) = jeu
+        .quetes
+        .iter()
+        .find_map(|q| {
+            q.paliers
+                .iter()
+                .find(|p| &p.id == palier_id)
+                .map(|p| (q, p))
+        })
+        .ok_or_else(|| ErreurApi::RequeteInvalide("palier : inconnu".into()))?;
+    let progression = progression_quetes(&mut *tx, joueur, jeu)
+        .await?
+        .into_iter()
+        .find(|p| p.quete_id == quete.id)
+        .map_or(0, |p| p.progression);
+    if !quete::atteint(palier, progression) {
+        return Err(ErreurApi::Interdit("palier pas encore atteint"));
+    }
+    let maintenant = Utc::now();
+    let nouveau = sqlx::query_scalar!(
+        "INSERT INTO palier_recupere (joueur_id, palier_id, recupere_le) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING RETURNING palier_id",
+        joueur,
+        palier.id.as_str(),
+        maintenant,
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if nouveau.is_none() {
+        return Err(ErreurApi::Conflit("palier déjà récupéré"));
+    }
+    let gouttes = i32::try_from(palier.encre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        gouttes,
+        "palier",
+        maintenant,
+    )
+    .await?;
+    let sabliers = i32::try_from(palier.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        sabliers,
+        "palier",
+        maintenant,
+    )
+    .await?;
+    Ok(())
+}
+
 pub async fn mots_decouverts(
     tx: &mut PgConnection,
     joueur: Uuid,
@@ -1033,6 +1166,9 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
         .execute(&mut *tx)
         .await?;
     sqlx::query!("DELETE FROM ricochet_jour WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM palier_recupere WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
     sqlx::query!("DELETE FROM commande WHERE joueur_id = $1", joueur)

@@ -108,6 +108,7 @@ pub async fn publier_fascicules(
         version: calendrier.version.clone(),
         essai: calendrier.essai,
         referentiels: calendrier.referentiels.clone(),
+        quetes: calendrier.quetes.clone(),
         fascicules: parus.into_values().collect(),
     };
     if actuel.as_ref() != Some(&index) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { DemandeRicochet, Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
+import type { DemandeRicochet, Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -413,6 +413,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, enLigne, jeu, confirmer, synchroniser],
   )
 
+  /** Récupère la récompense d'un palier de quête au long cours (ADR 0045) : de l'encre et des sabliers. */
+  const recupererPalier = useCallback(
+    (palier: string): Promise<ReponsePalier | { erreur: string }> =>
+      commander(
+        (e, version) => api.palier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, palier_id: palier }),
+        'Cette récompense n’est pas encore disponible.',
+      ),
+    [api, commander],
+  )
+
   /** Hors production : repart d'un joueur neuf. Le serveur fait foi, l'état renvoyé remplace tout. */
   const reinitialiser = useCallback(async (): Promise<string | null> => {
     try {
@@ -439,6 +449,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     recupererJalon,
     seanceRicochets,
     repondreRicochet,
+    recupererPalier,
     erreurEtat,
     table,
     cases,

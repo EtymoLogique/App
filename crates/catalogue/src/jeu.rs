@@ -7,9 +7,11 @@ use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
+use etymo_domaine::quete::{CarteQuete, Famille, Mesures, QueteLongCours};
 
+use crate::carte::Nature;
 use crate::format::{BriqueRicochet, Difficulte, MotRicochet, Role};
-use crate::{EquilibrageManifeste, FasciculeCharge, Graine};
+use crate::{Carte, EquilibrageManifeste, FasciculeCharge, Graine};
 
 #[derive(Debug, Clone, Default)]
 pub struct Jeu {
@@ -31,6 +33,10 @@ pub struct Jeu {
     pub difficultes: HashMap<IdCatalogue, Difficulte>,
     /// Cartes qu'un ricochet peut viser : jamais une légendaire (ADR 0044).
     pub ricochets: RicochetsJeu,
+    /// Quêtes au long cours déclarées par l'index (ADR 0045).
+    pub quetes: Vec<QueteLongCours>,
+    /// Ce que ces quêtes mesurent dans le catalogue.
+    pub mesures: Mesures,
 }
 
 /// Données de jugement des ricochets, par carte.
@@ -122,6 +128,89 @@ impl Jeu {
         self.ricochets
             .briques
             .retain(|id, _| !legendaires.contains(id));
+    }
+
+    /// Déclare les quêtes au long cours et prépare leurs mesures à partir des
+    /// cartes publiées. Un mot légendaire n'entre dans aucun décompte
+    /// (ADR 0045) : ni lui, ni ses formes, ni les familles qu'il remplit.
+    pub fn mesurer(&mut self, quetes: Vec<QueteLongCours>, cartes: &[Carte]) {
+        let depend_d_une_legendaire = |mot: &IdCatalogue| {
+            self.recettes.iter().filter(|r| &r.mot_id == mot).any(|r| {
+                r.emplacements
+                    .iter()
+                    .flatten()
+                    .any(|b| self.legendaires.contains(b))
+            })
+        };
+        let legendaire = |c: &Carte| {
+            depend_d_une_legendaire(&c.id)
+                || c.brique
+                    .as_ref()
+                    .is_some_and(|b| self.legendaires.contains(&b.id))
+        };
+        let mut mesures = Mesures::default();
+        let mut vues = HashSet::new();
+        for carte in cartes {
+            if !vues.insert(&carte.id) {
+                continue;
+            }
+            if legendaire(carte) {
+                if carte.nature == Nature::Mot {
+                    mesures.legendaires.insert(carte.id.clone());
+                }
+                continue;
+            }
+            let canonique = carte.formes.iter().any(|f| f.role == "canonique");
+            let langues = canonique
+                .then(|| carte.langue_id.clone())
+                .into_iter()
+                .chain(
+                    carte
+                        .relations
+                        .iter()
+                        .filter_map(|r| r.etymon.as_ref())
+                        .map(|e| e.langue_id.clone()),
+                )
+                .collect();
+            let composition = carte
+                .compositions
+                .iter()
+                .find(|c| c.preferee)
+                .or(carte.compositions.first());
+            mesures.cartes.push(CarteQuete {
+                id: carte.id.clone(),
+                brique: carte.brique.as_ref().map(|b| b.id.clone()),
+                langues,
+                transformations: composition.map_or_else(Vec::new, |c| {
+                    c.transformations
+                        .iter()
+                        .map(|t| t.type_code.clone())
+                        .collect()
+                }),
+            });
+            // Une famille se forme sur une brique d'affixe.
+            if let (Some(brique), true) = (&carte.brique, carte.nature != Nature::Mot) {
+                let mut mots: Vec<IdCatalogue> = Vec::new();
+                for recette in self
+                    .recettes
+                    .iter()
+                    .filter(|r| r.emplacements.iter().any(|e| e.contains(&brique.id)))
+                {
+                    if !mots.contains(&recette.mot_id) && !depend_d_une_legendaire(&recette.mot_id)
+                    {
+                        mots.push(recette.mot_id.clone());
+                    }
+                }
+                if !mots.is_empty() {
+                    mesures.familles.push(Famille {
+                        brique: brique.id.clone(),
+                        mots,
+                    });
+                }
+            }
+        }
+        self.quetes = quetes;
+        self.mesures = mesures;
     }
 
     #[must_use]

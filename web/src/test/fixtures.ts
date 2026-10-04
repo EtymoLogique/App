@@ -109,6 +109,7 @@ export function jeu(): CatalogueJeu {
     glyphes: new Map([[FR, 'É']]),
     typesRelation: new Map([['forme_de_composition', 'forme de composition']]),
     typesTransformation: new Map([['elision', 'élision']]),
+    quetes: [],
   }
 }
 

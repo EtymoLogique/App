@@ -9,6 +9,7 @@ use chrono::{DateTime, FixedOffset};
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
+use etymo_domaine::quete::QueteLongCours;
 use serde::{Deserialize, Serialize};
 
 use crate::Chemin;
@@ -24,6 +25,10 @@ pub struct Calendrier {
     /// Langues, systèmes d'écriture et conventions, recopiés tels quels.
     #[schema(value_type = Value)]
     pub referentiels: serde_json::Value,
+    /// Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
+    /// absentes d'un index antérieur.
+    #[serde(default)]
+    pub quetes: Vec<QueteLongCours>,
     pub fascicules: Vec<EntreeFascicule>,
 }
 

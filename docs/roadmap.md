@@ -158,6 +158,18 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Hors production : « Réinitialiser » (Réglages) efface aussi les jalons atteints et récupérés ; une fois le jalon de nouveau atteint, sa récompense est à récupérer (test `la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer`) | fait |
 | Quêtes journalières | à concevoir (ADR à venir) |
 
+### Quêtes au long cours (App#22, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Domaine : `quete` (cinq sortes de la liste fermée, plus l’exception « première légendaire » ; paliers ; mesures sur le codex, légendaires exclus) | fait |
+| Catalogue : `quetes` dans l’index (`Calendrier`), recopiées par la tâche de parution ; le serveur lit les cartes pour mesurer langues, familles et transformations | fait côté App ; **à faire dans Content** : déclaration, schéma, validateur et compilation |
+| Base : `palier_recupere`, commande `palier`, motif `palier` des mouvements | fait |
+| API : `progression_quetes` et `paliers_recuperes` dans l’état ; `POST /palier` idempotent (`403` pas atteint, `409` déjà récupéré, `400` inconnu) ; réinitialisation hors production | fait |
+| PWA : onglet « Au long cours » (`#/quetes/au-long-cours`), paliers à récompense annoncée d’avance, « Récupérer », compteur Corail | fait ; **maquette I-28 à dessiner** |
+| Récompenses : encre et sabliers ; les plis de lecteur arrivent avec la carte de lecteur | écart assumé |
+| Sortes « ricochets » et « lecteur » : déclarables, progression à zéro tant que ADR 0044 et la carte de lecteur ne sont pas livrés | en attente |
+
 Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
 
 ## Animations retenues (relevé et décisions du 2026-10-01)

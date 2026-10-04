@@ -92,6 +92,13 @@ pub struct Etat {
     /// Réponses du jour GMT, pour les quêtes ; absent avant App#18.
     #[serde(default)]
     pub ricochets_du_jour: RicochetsDuJour,
+    /// Progression de chaque quête au long cours, calculée par le serveur sur
+    /// le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
+    #[serde(default)]
+    pub progression_quetes: Vec<ProgressionQuete>,
+    /// Paliers de quêtes au long cours dont la récompense a été récupérée.
+    #[serde(default)]
+    pub paliers_recuperes: Vec<IdCatalogue>,
 }
 
 /// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.
@@ -203,6 +210,13 @@ pub struct ReponseRicochet {
     pub etat: Etat,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressionQuete {
+    pub quete_id: IdCatalogue,
+    pub progression: u32,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SabliersEtat {
@@ -307,6 +321,26 @@ pub struct DemandeJalon {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReponseJalon {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande de récupération de la récompense d'un palier de quête au long cours (ADR 0045).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandePalier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub palier_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponsePalier {
     /// État confirmé après la commande.
     pub etat: Etat,
 }

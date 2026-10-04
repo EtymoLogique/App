@@ -111,6 +111,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/palier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'un palier de quête au long cours (ADR 0045) :
+         *     de l'encre et des sabliers. Le serveur a mesuré la progression sur le
+         *     codex ; rien n'est accordé tant que le seuil n'est pas franchi.
+         */
+        post: operations["recuperer_palier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pli": {
         parameters: {
             query?: never;
@@ -302,6 +323,11 @@ export interface components {
             fascicules: components["schemas"]["EntreeFascicule"][];
             /** Format: int32 */
             format: number;
+            /**
+             * @description Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
+             *     absentes d'un index antérieur.
+             */
+            quetes?: components["schemas"]["QueteLongCours"][];
             /** @description Langues, systèmes d'écriture et conventions, recopiés tels quels. */
             referentiels: unknown;
             version: string;
@@ -444,6 +470,21 @@ export interface components {
              */
             commande: string;
             jalon_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération de la récompense d'un palier de quête au long cours (ADR 0045). */
+        DemandePalier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            palier_id: components["schemas"]["IdCatalogue"];
             version_catalogue: string;
             /**
              * Format: int64
@@ -644,8 +685,15 @@ export interface components {
              *     (ADR 0050). Absent des réponses enregistrées avant App#25.
              */
             jours_de_jeu?: number;
+            /** @description Paliers de quêtes au long cours dont la récompense a été récupérée. */
+            paliers_recuperes?: components["schemas"]["IdCatalogue"][];
             /** @description Prix de chaque niveau d'indice, en gouttes, du premier à la solution. */
             prix_indices?: number[];
+            /**
+             * @description Progression de chaque quête au long cours, calculée par le serveur sur
+             *     le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
+             */
+            progression_quetes?: components["schemas"]["ProgressionQuete"][];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
@@ -776,6 +824,10 @@ export interface components {
             id: components["schemas"]["IdCatalogue"];
             silhouette?: components["schemas"]["Chemin"] | null;
         };
+        LibellesQuete: {
+            consigne: string;
+            titre: string;
+        };
         Manifeste: {
             cartes?: components["schemas"]["CarteManifeste"][];
             compteurs?: unknown;
@@ -837,6 +889,19 @@ export interface components {
             regle: components["schemas"]["Regle"];
             resultat: components["schemas"]["Resultat"];
         };
+        /** @description Un palier : sa récompense est affichée d'avance et se récupère comme un jalon. */
+        Palier: {
+            /** Format: int32 */
+            encre?: number;
+            id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            sabliers?: number;
+            /**
+             * Format: int32
+             * @description Valeur de la progression qui atteint le palier.
+             */
+            seuil: number;
+        };
         Partie: {
             forme_id: components["schemas"]["IdCatalogue"];
             /** Format: int32 */
@@ -855,6 +920,11 @@ export interface components {
             briques?: components["schemas"]["BriquePliManifeste"][];
             equilibrage?: components["schemas"]["EquilibrageManifeste"] | null;
         };
+        ProgressionQuete: {
+            /** Format: int32 */
+            progression: number;
+            quete_id: components["schemas"]["IdCatalogue"];
+        };
         /** @description Une question de la séance, par identifiants : le client rend les textes. */
         QuestionRicochet: {
             /** @description La carte visée ; quatre briques pour les paires. */
@@ -865,6 +935,15 @@ export interface components {
              */
             choix?: components["schemas"]["IdCatalogue"][];
             format: components["schemas"]["FormatRicochet"];
+        };
+        QueteLongCours: components["schemas"]["Sorte"] & {
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Libellés par locale ; `fr` est la locale de référence. */
+            libelles: {
+                [key: string]: components["schemas"]["LibellesQuete"];
+            };
+            /** @description Paliers par seuil croissant. */
+            paliers: components["schemas"]["Palier"][];
         };
         /**
          * @description Rareté d'une brique élémentaire : quatre niveaux, quatre formes.
@@ -924,6 +1003,10 @@ export interface components {
         };
         /** @description Réponse du joueur : un choix, ou les positions de coupe d'un mot. */
         ReponseJoueur: components["schemas"]["IdCatalogue"] | number[];
+        ReponsePalier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
         ReponsePli: {
             /** @description Vrai si la brique était épuisée : « De retour ! ». */
             etait_epuisee: boolean;
@@ -1023,6 +1106,30 @@ export interface components {
             jeton: string;
             /** @description Vrai si le profil vient d'être créé. */
             nouveau: boolean;
+        };
+        /** @description Ce qu'une quête compte : la liste fermée de l'ADR 0045. */
+        Sorte: {
+            langue_id: components["schemas"]["IdCatalogue"];
+            /** @enum {string} */
+            sorte: "langue";
+        } | {
+            /** Format: int32 */
+            mots_par_famille: number;
+            /** @enum {string} */
+            sorte: "famille";
+        } | {
+            /** @enum {string} */
+            sorte: "transformation";
+            type_code: string;
+        } | {
+            /** @enum {string} */
+            sorte: "ricochets";
+        } | {
+            /** @enum {string} */
+            sorte: "lecteur";
+        } | {
+            /** @enum {string} */
+            sorte: "premiere_legendaire";
         };
         Source: {
             edition?: string | null;
@@ -1329,6 +1436,84 @@ export interface operations {
                 };
             };
             /** @description Jalon pas encore atteint */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Récompense déjà récupérée, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_palier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandePalier"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponsePalier"];
+                };
+            };
+            /** @description Requête invalide ou palier inconnu */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Palier pas encore atteint */
             403: {
                 headers: {
                     [name: string]: unknown;

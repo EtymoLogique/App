@@ -44,3 +44,9 @@
 .quete-sabliers { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
 .quete .feedback { margin: 0; }
 .obj-quetes { justify-self: start; }
+
+/* Quêtes au long cours (ADR 0045) : une carte par quête, ses paliers dessous. */
+.quetes-longues { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; }
+.quete-longue { display: grid; gap: 8px; }
+.quete-longue-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.quete-longue-titre { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 600; }
