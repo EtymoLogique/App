@@ -26,7 +26,7 @@ Avant d'ouvrir le navigateur, écrire la liste des attentes vérifiables :
 Depuis la racine du workspace :
 
 ```sh
-python3 design/.agents/skills/visual-identity-check/check_identity.py app/web/src/styles.css app/web/src/*.css
+cargo run -q --manifest-path design/outils/Cargo.toml --bin check_identity -- app/web/src/styles.css app/web/src/*.css
 ```
 
 Fichiers CSS modifiés seulement si le diff est petit. Une erreur nouvelle (`hors-palette`, `blanc-pur`, `degrade-mixte`, `texte-sur-vif`, `bande-laterale`) = écart bloquant. Les écarts préexistants se signalent, sans plus. Le script ne voit ni le rendu ni les couleurs calculées : la section 4 reste obligatoire.

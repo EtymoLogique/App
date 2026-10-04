@@ -8,9 +8,7 @@ import { PetiteBrique } from './Brique'
 
 const RAISONS: Record<string, string> = {
   archaique: 'le mot est archaïque',
-  rare: 'le mot est trop rare',
   offensant: 'le mot est offensant',
-  analyse_non_etablie: 'son analyse n’est pas établie',
 }
 
 export type Retour =
