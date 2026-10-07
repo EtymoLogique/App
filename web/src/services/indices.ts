@@ -1,5 +1,5 @@
-// Indices à la carte (ADR 0051) : trois indices par recette, achetés dans
-// l'ordre voulu, une fois chacun. Le serveur encaisse ; le contenu de chaque
+// Indices (ADR 0051) : trois indices par recette, achetés dans l'ordre,
+// une fois chacun. Le serveur encaisse ; le contenu de chaque
 // indice se lit dans le catalogue public, comme la prévisualisation d'une fusion.
 
 import type { Etat } from '../contrat'
@@ -7,7 +7,7 @@ import type { EntreeCodex } from './codex'
 import { type CatalogueJeu, type RecetteJeu, realisable } from './jeu'
 import { sensLitteral } from './ricochets'
 
-/** Indices dans l'ordre affiché ; `niveau` est le numéro attendu par l'API, aussi l'indice du barème `prix_indices`. */
+/** Indices dans l'ordre d'achat et d'affichage ; `niveau` est le numéro attendu par l'API, aussi l'indice du barème `prix_indices`. */
 export const INDICES = [
   { niveau: 3, titre: 'Définition' },
   { niveau: 1, titre: 'Silhouette' },
@@ -69,4 +69,9 @@ export function contenuIndice(jeu: CatalogueJeu, entree: EntreeCodex, niveau: nu
 /** Numéros des indices qu'une carte peut vendre : on ne vend jamais un indice vide. */
 export function indicesDisponibles(jeu: CatalogueJeu, entree: EntreeCodex): number[] {
   return INDICES.filter((i) => contenuIndice(jeu, entree, i.niveau) !== null).map((i) => i.niveau)
+}
+
+/** Seul indice achetable : le premier que la carte vend et que le joueur n'a pas encore. */
+export function indiceSuivant(jeu: CatalogueJeu, entree: EntreeCodex, obtenus: Set<number>): number | undefined {
+  return indicesDisponibles(jeu, entree).find((n) => !obtenus.has(n))
 }

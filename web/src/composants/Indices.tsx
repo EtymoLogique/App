@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { Etat, ReponseIndice } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
-import { INDICES, contenuIndice, indiceCourant, indicesObtenus } from '../services/indices'
+import { INDICES, contenuIndice, indiceCourant, indiceSuivant, indicesObtenus } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
 import { useEnLigne } from '../services/reseau'
 import { chargerSilhouette } from '../services/silhouettes'
@@ -40,8 +40,8 @@ function CarteSilhouette({ entree, chemin, lireMedia }: { entree: EntreeCodex; c
 }
 
 /**
- * Indices (I-12, ADR 0051) : une seule silhouette à trouver (indiceCourant), puis trois indices au
- * choix (silhouette, sens littéral, définition), chacun acheté une fois contre de l'encre.
+ * Indices (I-12, ADR 0051) : une seule silhouette à trouver (indiceCourant), puis trois indices
+ * (définition, silhouette, sens littéral), achetés dans cet ordre, chacun une fois contre de l'encre.
  */
 export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Props) {
   const enLigne = useEnLigne()
@@ -54,6 +54,7 @@ export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Pr
   const obtenus = cible ? indicesObtenus(etat, cible.recette.id) : new Set<number>()
   const encre = etat?.encre ?? 0
   const prix = etat?.prix_indices ?? []
+  const suivant = cible ? indiceSuivant(jeu, cible.entree, obtenus) : undefined
 
   const payer = async (niveau: number) => {
     if (!cible) return
@@ -94,7 +95,7 @@ export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Pr
                       <span aria-label="Obtenu">✓</span>
                     ) : (
                       cout !== undefined && (
-                        <button type="button" className="btn btn-secondary btn-prix" aria-label={`${titre}, ${cout} gouttes`} disabled={!enLigne || envoi || encre < cout} onClick={() => void payer(niveau)}>
+                        <button type="button" className="btn btn-secondary btn-prix" aria-label={`${titre}, ${cout} gouttes`} disabled={!enLigne || envoi || niveau !== suivant || encre < cout} onClick={() => void payer(niveau)}>
                           <span className="prix">{cout}</span>
                           <span className="pk-drop" aria-hidden="true" />
                         </button>
@@ -115,7 +116,7 @@ export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Pr
                 {erreur}
               </p>
             )}
-            <p className="pk-note">Chaque indice ne se paie qu’une fois.</p>
+            <p className="pk-note">Les indices s’obtiennent dans l’ordre, chacun une seule fois.</p>
           </>
         )}
       </section>

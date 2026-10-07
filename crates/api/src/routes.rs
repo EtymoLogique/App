@@ -660,15 +660,17 @@ pub async fn utiliser_sabliers(
     Ok(Json(reponse))
 }
 
-/// Achète un indice au choix (ADR 0051) pour une recette encore à découvrir :
-/// 1 silhouette, 2 sens littéral, 3 définition. Le contenu se lit dans le
+/// Achète un indice (ADR 0051) pour une recette encore à découvrir, dans
+/// l'ordre : définition (3), silhouette (1), sens littéral (2). Un indice
+/// n'est vendu qu'une fois les précédents obtenus ; une carte sans silhouette
+/// passe de la définition au sens littéral. Le contenu se lit dans le
 /// catalogue public.
 #[utoipa::path(post, path = "/indice", tag = "jeu", security(("session" = [])), request_body = DemandeIndice,
     responses(
         (status = 200, description = "Indice obtenu et état confirmé", body = ReponseIndice),
         (status = 400, description = "Requête invalide, recette inconnue ou secrète, indice hors barème", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
-        (status = 403, description = "Encre insuffisante", body = Erreur),
+        (status = 403, description = "Encre insuffisante ou indice précédent pas encore obtenu", body = Erreur),
         (status = 409, description = "Recette déjà découverte, indice déjà obtenu, état ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
@@ -713,6 +715,19 @@ pub async fn acheter_indice(
     }
     if progression::indice_obtenu(&mut tx, joueur, &recette.id, demande.niveau).await? {
         return Err(ErreurApi::Conflit("indice déjà obtenu"));
+    }
+    let sans_silhouette = catalogue
+        .fascicules
+        .iter()
+        .flat_map(|f| &f.manifeste.cartes)
+        .find(|c| c.id == recette.mot_id)
+        .is_some_and(|c| c.silhouette.is_none());
+    // Définition et sens littéral sont toujours là (toute carte résultat en porte) ; seule la silhouette peut manquer.
+    let rang = indice::ORDRE.iter().position(|&n| n == demande.niveau).unwrap_or(0);
+    for &precedent in indice::ORDRE[..rang].iter().filter(|&&n| n != 1 || !sans_silhouette) {
+        if !progression::indice_obtenu(&mut tx, joueur, &recette.id, precedent).await? {
+            return Err(ErreurApi::Interdit("indice précédent pas encore obtenu"));
+        }
     }
     progression::acheter_indice(
         &mut tx,

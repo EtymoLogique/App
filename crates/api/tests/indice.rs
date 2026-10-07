@@ -31,18 +31,23 @@ fn indice(etat: &Value, niveau: u8) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn les_indices_s_achetent_dans_n_importe_quel_ordre_une_fois_chacun(base: PgPool) {
+async fn les_indices_s_achetent_dans_l_ordre_une_fois_chacun(base: PgPool) {
     let banc = banc(base.clone(), Limiteurs::default()).await;
     let jeton = session(&banc.routeur).await;
     let (_, _, mut etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
     donner_encre(&base, 50).await;
-    assert_eq!(etat["prix_indices"], json!([4, 8, 12]));
+    assert_eq!(etat["prix_indices"], json!([8, 16, 4]));
 
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 4))).await;
     assert_eq!(statut, StatusCode::BAD_REQUEST, "indice hors barème");
 
+    // La carte d'essai n'a pas de silhouette : sa suite passe de la définition au sens littéral.
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 2))).await;
+    assert_eq!(statut, StatusCode::FORBIDDEN, "sens littéral avant la définition");
+    assert_eq!(somme_mouvements(&base, "encre").await, 50);
+
     let premier = indice(&etat, 3);
-    for (niveau, prix) in [(3, 12), (1, 4), (2, 8)] {
+    for (niveau, prix) in [(3, 4), (2, 16)] {
         let demande = if niveau == 3 {
             premier.clone()
         } else {
@@ -53,19 +58,19 @@ async fn les_indices_s_achetent_dans_n_importe_quel_ordre_une_fois_chacun(base: 
         assert_eq!(reponse["prix"], prix);
         etat = reponse["etat"].clone();
     }
-    assert_eq!(etat["encre"], 50 - 24);
-    assert_eq!(etat["indices"].as_array().unwrap().len(), 3);
-    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
+    assert_eq!(etat["encre"], 50 - 20);
+    assert_eq!(etat["indices"].as_array().unwrap().len(), 2);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 20);
 
     // Rejouée, la commande ne paie pas deux fois.
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &premier)).await;
     assert_eq!(statut, StatusCode::OK);
-    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 20);
 
     // Une nouvelle commande pour un indice déjà obtenu est refusée, sans débit.
-    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 1))).await;
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 2))).await;
     assert_eq!(statut, StatusCode::CONFLICT, "indice déjà obtenu");
-    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 20);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -74,7 +79,7 @@ async fn refus_encre_recette_inconnue_ou_decouverte(base: PgPool) {
     let jeton = session(&banc.routeur).await;
     let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
 
-    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 1))).await;
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 3))).await;
     assert_eq!(statut, StatusCode::FORBIDDEN, "encre insuffisante");
 
     let inconnue = commande(&etat, json!({ "recette_id": "rct_0000000z", "niveau": 1 }));
