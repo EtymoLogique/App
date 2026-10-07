@@ -15,6 +15,7 @@ import { Table } from './composants/Table'
 import type { ClientApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { construireCodex } from './services/codex'
+import { indiceCourant } from './services/indices'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
@@ -86,6 +87,8 @@ export function App({ api, catalogue }: Props) {
   const prete = bloquee === null && partie.table.length >= TABLE_MIN
   const statut = prete ? 'Hypothèse prête' : partie.table.length === 1 ? 'Une brique posée' : 'En attente'
   const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : null)
+  // Sans silhouette à indicer, l'indice n'afficherait rien : le bouton disparaît.
+  const indiceDisponible = catalogueJeu ? indiceCourant(catalogueJeu, entrees, etat) !== null : false
   const bloque =
     catalogueJeu && etat && partie.table.length === 0
       ? !decouvertePossible(catalogueJeu, etat.reserve, new Set(etat.decouvertes.map((d) => d.mot_id)))
@@ -208,10 +211,12 @@ export function App({ api, catalogue }: Props) {
                           <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
                             Aller aux plis
                           </button>
-                          <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
-                            <Icone nom="indice" />
-                            Indice
-                          </button>
+                          {indiceDisponible && (
+                            <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                              <Icone nom="indice" />
+                              Indice
+                            </button>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -242,10 +247,12 @@ export function App({ api, catalogue }: Props) {
                             <Icone nom="reserve" />
                             Réserve · {exemplaires}
                           </button>
-                          <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
-                            <Icone nom="indice" />
-                            Indice
-                          </button>
+                          {indiceDisponible && (
+                            <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                              <Icone nom="indice" />
+                              Indice
+                            </button>
+                          )}
                         </div>
                         <Resultat
                           retour={partie.retour}
