@@ -24,6 +24,7 @@ import type { Route, TriCodex, VueCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
 import { mouvementReduit } from '../services/animation'
 import { chargerSilhouette } from '../services/silhouettes'
+import { bandeau } from './bandeau'
 import { FormeRarete } from './Rarete'
 import { Filet, Galet } from './Maitrise'
 import { Jaquette, SelecteurFascicules, TitreFascicule } from './Fascicules'
@@ -50,20 +51,6 @@ const VUES: [VueCodex, string][] = [
   ['familles', 'Familles'],
   ['cabinet', 'Cabinet'],
 ]
-
-/** Bandeau : couleur du type de ressource ; Encre pour un mot (identité, « une couleur, un seul sens »). */
-function bandeau(type: TypeCarte): React.CSSProperties {
-  // Bandeau, texte, et teinte de la forme de rareté posée dessus : plus foncée
-  // qu'un bandeau clair, plus claire que le bandeau Encre d'un mot (ADR 0040).
-  const couleurs: Record<TypeCarte, [string, string, string]> = {
-    mot: ['var(--fixed-ink)', '#f3eee3', 'color-mix(in srgb, var(--fixed-ink), #f3eee3 38%)'],
-    prefixe: ['var(--c-prefix)', 'var(--fixed-ink)', 'var(--c-prefix-deep)'],
-    suffixe: ['var(--c-suffix)', 'var(--fixed-ink)', 'var(--c-suffix-deep)'],
-    langue: ['var(--c-lang)', 'var(--fixed-ink)', 'var(--c-lang-deep)'],
-  }
-  const [tc, tt, rd] = couleurs[type]
-  return { '--tc': tc, '--tt': tt, '--rd': rd } as React.CSSProperties
-}
 
 /** Lecture d'un média haché du catalogue, en texte. */
 type LireMedia = (chemin: string) => Promise<string>

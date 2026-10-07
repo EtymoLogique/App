@@ -6,7 +6,7 @@ import { INDICES, contenuIndice, indiceCourant, indicesObtenus } from '../servic
 import type { CatalogueJeu } from '../services/jeu'
 import { useEnLigne } from '../services/reseau'
 import { chargerSilhouette } from '../services/silhouettes'
-import { Icone } from './Icone'
+import { bandeau } from './bandeau'
 import { useDialogue } from './useDialogue'
 
 interface Props {
@@ -19,8 +19,8 @@ interface Props {
   onFermer: () => void
 }
 
-/** La silhouette d'une carte à trouver, insérée dans la page pour prendre la teinte de l'encre. */
-function Silhouette({ chemin, lireMedia }: { chemin: string; lireMedia: Props['lireMedia'] }) {
+/** La carte du codex sans texte ni bouton : même bandeau, mêmes proportions, silhouette en texture (ADR 0023). */
+function CarteSilhouette({ entree, chemin, lireMedia }: { entree: EntreeCodex; chemin: string; lireMedia: Props['lireMedia'] }) {
   const hote = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     let actif = true
@@ -31,7 +31,12 @@ function Silhouette({ chemin, lireMedia }: { chemin: string; lireMedia: Props['l
       actif = false
     }
   }, [chemin, lireMedia])
-  return <span ref={hote} className="indice-art" aria-hidden="true" />
+  return (
+    <div className="mini indice-carte" data-type={entree.type} style={bandeau(entree.type)} aria-hidden="true">
+      <span className="m-top" />
+      <span ref={hote} className="card-art" />
+    </div>
+  )
 }
 
 /**
@@ -89,15 +94,15 @@ export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Pr
                       <span aria-label="Obtenu">✓</span>
                     ) : (
                       cout !== undefined && (
-                        <button type="button" className="btn btn-primary btn-prix" aria-label={`${titre}, ${cout} gouttes`} disabled={!enLigne || envoi || encre < cout} onClick={() => void payer(niveau)}>
+                        <button type="button" className="btn btn-secondary btn-prix" aria-label={`${titre}, ${cout} gouttes`} disabled={!enLigne || envoi || encre < cout} onClick={() => void payer(niveau)}>
                           <span className="prix">{cout}</span>
-                          <Icone nom="goutte" />
+                          <span className="pk-drop" aria-hidden="true" />
                         </button>
                       )
                     )}
                     {obtenu && (
                       <div className="indice-contenu">
-                        {contenu.silhouette && <Silhouette chemin={contenu.silhouette} lireMedia={lireMedia} />}
+                        {contenu.silhouette && <CarteSilhouette entree={cible.entree} chemin={contenu.silhouette} lireMedia={lireMedia} />}
                         {contenu.texte && (niveau === 3 ? <p className="bf-def">{contenu.texte}</p> : <p className="bf-lit">«&nbsp;{contenu.texte}&nbsp;»</p>)}
                       </div>
                     )}

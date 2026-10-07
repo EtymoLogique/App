@@ -783,10 +783,8 @@ button.disc { font: inherit; cursor: pointer; }
 .indices-liste li.is-obtenu { border-color: var(--fixed-ink); background: var(--cream); }
 .indices-liste h3 { font-size: 15px; font-weight: 700; line-height: 1.3; }
 .indice-contenu { grid-column: 1 / -1; display: grid; gap: 8px; justify-items: start; padding-top: 10px; border-top: 1.5px solid var(--line); }
-.indice-art { display: block; justify-self: center; width: 112px; aspect-ratio: 3 / 4; overflow: hidden; color: var(--ink); --art-bg: var(--cream); background: var(--cream); border: 1.5px solid var(--fixed-ink); border-radius: 10px; }
-.indice-art svg { display: block; width: 100%; height: 100%; }
+/* La carte-silhouette reprend `.mini` du codex (codex.css) ; seule sa taille et son inertie changent. */
+.indice-carte { justify-self: center; width: 132px; cursor: default; pointer-events: none; }
 /* Prix en gouttes : la goutte au trait, de la couleur du texte du bouton. */
 .btn-prix { gap: 6px; min-width: 72px; padding: 8px 12px; font-variant-numeric: tabular-nums; }
 .btn-prix .prix { min-width: 2ch; text-align: right; }
-/* Icône sur surface colorée : ton sur ton, teinte profonde du Corail (design système 1.8). */
-.btn-prix .ic { width: 16px; height: 16px; stroke-width: 2.25; color: var(--c-action-deep); fill: var(--c-action-active); }

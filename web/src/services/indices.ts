@@ -7,11 +7,11 @@ import type { EntreeCodex } from './codex'
 import { type CatalogueJeu, type RecetteJeu, realisable } from './jeu'
 import { sensLitteral } from './ricochets'
 
-/** Numéro d'indice attendu par l'API (`niveau`), dans l'ordre du barème `prix_indices`. */
+/** Indices dans l'ordre affiché ; `niveau` est le numéro attendu par l'API, aussi l'indice du barème `prix_indices`. */
 export const INDICES = [
+  { niveau: 3, titre: 'Définition' },
   { niveau: 1, titre: 'Silhouette' },
   { niveau: 2, titre: 'Sens littéral' },
-  { niveau: 3, titre: 'Définition' },
 ] as const
 
 export interface ContenuIndice {
@@ -31,13 +31,18 @@ export function ciblesIndice(jeu: CatalogueJeu, entrees: EntreeCodex[]): { entre
 }
 
 /**
- * Seul indice proposé : la silhouette déjà entamée (au moins un indice acheté) de plus petit n°,
- * sinon la plus petite que la réserve permet de former. Une silhouette entamée reste proposée
- * même quand de nouvelles briques ouvrent un n° plus petit.
+ * Seul indice proposé, toujours faisable avec la réserve : la silhouette déjà entamée (au moins un
+ * indice acheté) de plus petit n°, sinon la plus petite. Une silhouette entamée reste proposée même
+ * quand de nouvelles briques ouvrent un n° plus petit, mais plus dès que la réserve ne permet plus de la former
+ * ou que tous ses indices sont obtenus.
  */
 export function indiceCourant(jeu: CatalogueJeu, entrees: EntreeCodex[], etat: Etat | null): { entree: EntreeCodex; recette: RecetteJeu } | null {
-  const cibles = ciblesIndice(jeu, entrees).sort((a, b) => a.entree.n - b.entree.n)
-  return cibles.find((c) => indicesObtenus(etat, c.recette.id).size > 0) ?? cibles.find((c) => realisable(c.recette, etat?.reserve ?? [])) ?? null
+  const faisables = ciblesIndice(jeu, entrees)
+    .filter((c) => realisable(c.recette, etat?.reserve ?? []))
+    // Plus rien à acheter sur une silhouette dont tous les indices sont obtenus : on passe à la suivante.
+    .filter((c) => indicesDisponibles(jeu, c.entree).some((n) => !indicesObtenus(etat, c.recette.id).has(n)))
+    .sort((a, b) => a.entree.n - b.entree.n)
+  return faisables.find((c) => indicesObtenus(etat, c.recette.id).size > 0) ?? faisables[0] ?? null
 }
 
 /** Indices déjà obtenus pour une recette. */

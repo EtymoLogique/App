@@ -23,7 +23,7 @@ describe('indices', () => {
     expect(contenuIndice(j, entree, 2)).toEqual({ texte: 'étude de la terre' })
     expect(contenuIndice(j, entree, 3)).toEqual({ texte: 'Science de la Terre.' })
     expect(contenuIndice(j, entree, 4)).toBeNull()
-    expect(indicesDisponibles(j, entree)).toEqual([2, 3])
+    expect(indicesDisponibles(j, entree)).toEqual([3, 2])
     expect(indicesDisponibles(j, { ...entree, definition: null })).toEqual([2])
   })
 
@@ -45,6 +45,10 @@ describe('indices', () => {
     const reserve = [ex(GEO, 1), ex(LOGIE, 1)]
     expect(indiceCourant(k, entrees, etat({ reserve }))?.recette.id).toBe('r6')
     expect(indiceCourant(k, entrees, etat({ reserve, indices: [{ recette_id: 'r7', niveau: 2 }] }))?.recette.id).toBe('r7')
+    // Entamée mais plus faisable : on propose la plus petite faisable.
+    expect(indiceCourant(k, entrees, etat({ reserve: [ex(GEO, 1), ex(LOGIE, 1)], indices: [{ recette_id: 'r3', niveau: 1 }] }))?.recette.id).toBe('r6')
+    // Tous les indices obtenus : on passe à la suivante.
+    expect(indiceCourant(k, entrees, etat({ reserve, indices: [{ recette_id: 'r6', niveau: 3 }] }))?.recette.id).toBe('r7')
     expect(indiceCourant(k, entrees, etat({ reserve: [] }))).toBeNull()
   })
 })
