@@ -370,7 +370,7 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
       <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
         Reliez chaque brique à son sens.
       </h2>
-      <div className="rico-paires">
+      <div className="rico-paires" style={{ '--rico-lignes': q.cartes.length } as CSSProperties}>
         <div className="rico-choix" role="group" aria-label="Briques" onKeyDown={naviguerAuClavier}>
           {q.cartes.map((b) => (
             <button
