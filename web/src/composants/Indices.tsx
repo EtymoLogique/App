@@ -41,7 +41,7 @@ function CarteSilhouette({ entree, chemin, lireMedia }: { entree: EntreeCodex; c
 
 /**
  * Indices (I-12, ADR 0051) : une seule silhouette à trouver (indiceCourant), puis trois indices
- * (définition, silhouette, sens littéral), achetés dans cet ordre, chacun une fois contre de l'encre.
+ * (silhouette, définition, sens littéral), achetés dans cet ordre, chacun une fois contre de l'encre.
  */
 export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Props) {
   const enLigne = useEnLigne()

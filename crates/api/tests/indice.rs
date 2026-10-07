@@ -36,14 +36,18 @@ async fn les_indices_s_achetent_dans_l_ordre_une_fois_chacun(base: PgPool) {
     let jeton = session(&banc.routeur).await;
     let (_, _, mut etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
     donner_encre(&base, 50).await;
-    assert_eq!(etat["prix_indices"], json!([8, 16, 4]));
+    assert_eq!(etat["prix_indices"], json!([4, 16, 8]));
 
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 4))).await;
     assert_eq!(statut, StatusCode::BAD_REQUEST, "indice hors barème");
 
     // La carte d'essai n'a pas de silhouette : sa suite passe de la définition au sens littéral.
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 2))).await;
-    assert_eq!(statut, StatusCode::FORBIDDEN, "sens littéral avant la définition");
+    assert_eq!(
+        statut,
+        StatusCode::FORBIDDEN,
+        "sens littéral avant la définition"
+    );
     assert_eq!(somme_mouvements(&base, "encre").await, 50);
 
     let premier = indice(&etat, 3);

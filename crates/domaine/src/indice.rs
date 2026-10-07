@@ -2,12 +2,12 @@
 //! une fois chacun. Le « niveau » identifie l'indice : 1 la
 //! silhouette, 2 le sens littéral, 3 la définition.
 
-/// Ordre d'achat des indices, par niveau : définition, silhouette, sens littéral.
-pub const ORDRE: [u8; 3] = [3, 1, 2];
+/// Ordre d'achat des indices, par niveau : silhouette, définition, sens littéral.
+pub const ORDRE: [u8; 3] = [1, 3, 2];
 
 /// Prix de chaque indice par niveau, en gouttes : dans l'ordre d'achat, chacun double le précédent (4, 8, 16).
 // ponytail: constante ; à déplacer dans l'équilibrage du manifeste si le barème bouge souvent.
-pub const PRIX_INDICE: [u32; 3] = [8, 16, 4];
+pub const PRIX_INDICE: [u32; 3] = [4, 16, 8];
 
 /// Prix d'un indice (1 à 3), ou `None` hors barème.
 #[must_use]

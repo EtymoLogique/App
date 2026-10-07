@@ -9,8 +9,8 @@ import { sensLitteral } from './ricochets'
 
 /** Indices dans l'ordre d'achat et d'affichage ; `niveau` est le numéro attendu par l'API, aussi l'indice du barème `prix_indices`. */
 export const INDICES = [
-  { niveau: 3, titre: 'Définition' },
   { niveau: 1, titre: 'Silhouette' },
+  { niveau: 3, titre: 'Définition' },
   { niveau: 2, titre: 'Sens littéral' },
 ] as const
 

@@ -661,9 +661,9 @@ pub async fn utiliser_sabliers(
 }
 
 /// Achète un indice (ADR 0051) pour une recette encore à découvrir, dans
-/// l'ordre : définition (3), silhouette (1), sens littéral (2). Un indice
+/// l'ordre : silhouette (1), définition (3), sens littéral (2). Un indice
 /// n'est vendu qu'une fois les précédents obtenus ; une carte sans silhouette
-/// passe de la définition au sens littéral. Le contenu se lit dans le
+/// commence à la définition. Le contenu se lit dans le
 /// catalogue public.
 #[utoipa::path(post, path = "/indice", tag = "jeu", security(("session" = [])), request_body = DemandeIndice,
     responses(
@@ -723,8 +723,14 @@ pub async fn acheter_indice(
         .find(|c| c.id == recette.mot_id)
         .is_some_and(|c| c.silhouette.is_none());
     // Définition et sens littéral sont toujours là (toute carte résultat en porte) ; seule la silhouette peut manquer.
-    let rang = indice::ORDRE.iter().position(|&n| n == demande.niveau).unwrap_or(0);
-    for &precedent in indice::ORDRE[..rang].iter().filter(|&&n| n != 1 || !sans_silhouette) {
+    let rang = indice::ORDRE
+        .iter()
+        .position(|&n| n == demande.niveau)
+        .unwrap_or(0);
+    for &precedent in indice::ORDRE[..rang]
+        .iter()
+        .filter(|&&n| n != 1 || !sans_silhouette)
+    {
         if !progression::indice_obtenu(&mut tx, joueur, &recette.id, precedent).await? {
             return Err(ErreurApi::Interdit("indice précédent pas encore obtenu"));
         }
