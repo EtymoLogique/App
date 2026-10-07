@@ -186,7 +186,7 @@
         "tags": [
           "jeu"
         ],
-        "summary": "Achète un indice au choix (ADR 0051) pour une recette encore à découvrir :\n1 silhouette, 2 sens littéral, 3 définition. Le contenu se lit dans le\ncatalogue public.",
+        "summary": "Achète un indice (ADR 0051) pour une recette encore à découvrir, dans\nl'ordre : silhouette (1), définition (3), sens littéral (2). Un indice\nn'est vendu qu'une fois les précédents obtenus ; une carte sans silhouette\ncommence à la définition. Le contenu se lit dans le\ncatalogue public.",
         "operationId": "acheter_indice",
         "requestBody": {
           "content": {
@@ -230,7 +230,7 @@
             }
           },
           "403": {
-            "description": "Encre insuffisante",
+            "description": "Encre insuffisante ou indice précédent pas encore obtenu",
             "content": {
               "application/json": {
                 "schema": {
