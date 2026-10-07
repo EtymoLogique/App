@@ -34,7 +34,7 @@ function exemplaires(n: number): string {
 
 /**
  * Réserve (maquette I-09) : recherche par brique ou par sens, filtres, tri
- * par briques récentes. Un toucher ou un clic pose la brique sur la table
+ * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
 export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [] }: Props) {
@@ -69,14 +69,18 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
     return true
   }
-  const cherchee = normaliser(recherche.trim())
-  const visibles = connues.filter((e) => {
-    const b = briques.get(e.brique_id) as BriqueJeu
-    const texte = normaliser(`${b.libelle} ${b.glose ?? ''}`)
-    return correspond(e, filtre) && (cherchee === '' || texte.includes(cherchee))
-  })
-
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
+
+  const cherchee = normaliser(recherche.trim())
+  // Les briques encore disponibles passent devant ; le tri est stable, donc
+  // l'ordre « récentes d'abord » est conservé dans chaque groupe.
+  const visibles = connues
+    .filter((e) => {
+      const b = briques.get(e.brique_id) as BriqueJeu
+      const texte = normaliser(`${b.libelle} ${b.glose ?? ''}`)
+      return correspond(e, filtre) && (cherchee === '' || texte.includes(cherchee))
+    })
+    .sort((a, b) => Number(disponibles(b.brique_id) > 0) - Number(disponibles(a.brique_id) > 0))
 
   return (
     <>
