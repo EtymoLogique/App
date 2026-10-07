@@ -47,7 +47,7 @@
 .cb-chip[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .cb-sort-wrap { display: inline-flex; align-items: center; gap: 10px; }
 .cb-sort-label { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
-.cb-sort { display: inline-flex; gap: 2px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
+.cb-sort { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
 .cb-sort button {
   padding: 7px 12px; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
   font-family: var(--mono); font-size: 11px; transition: background-color var(--dur-rapide) var(--ease-out), color var(--dur-rapide) var(--ease-out);
