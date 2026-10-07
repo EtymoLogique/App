@@ -38,7 +38,7 @@ function exemplaires(n: number): string {
 
 /**
  * Réserve (maquette I-09) : recherche par brique ou par sens, filtres, tri
- * par briques récentes. Un toucher ou un clic pose la brique sur la table
+ * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
 export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
@@ -74,15 +74,19 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
     return true
   }
-  const visibles = entrelacer(
-    connues.filter((e) => {
-      const b = briques.get(e.brique_id) as BriqueJeu
-      return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
-    }),
-    (e) => encombrement(briques.get(e.brique_id) as BriqueJeu),
-  )
-
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
+
+  // Les briques encore disponibles passent devant ; l'entrelacement long/court
+  // se fait dans chaque groupe, l'ordre « récentes d'abord » départage le reste.
+  const trouvees = connues.filter((e) => {
+    const b = briques.get(e.brique_id) as BriqueJeu
+    return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
+  })
+  const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
+  const visibles = [
+    ...entrelacer(trouvees.filter((e) => disponibles(e.brique_id) > 0), taille),
+    ...entrelacer(trouvees.filter((e) => disponibles(e.brique_id) <= 0), taille),
+  ]
 
   return (
     <>
