@@ -146,15 +146,20 @@
 .rico-briques { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
 .rico-segmente { font-family: var(--serif); font-size: 20px; font-weight: 600; }
 
-/* Paires : deux colonnes de lignes de même hauteur ; le même numéro des deux côtés. */
-.rico-paires { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 12px; }
+/* Paires : deux colonnes de lignes de même hauteur ; le même numéro des deux côtés.
+   Une seule grille (les groupes disparaissent de la mise en page) : la ligne la plus haute,
+   par exemple un sens sur deux lignes, fixe la hauteur des deux côtés. */
+.rico-paires {
+  display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--rico-lignes, 4), auto);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 8px 12px;
+}
+.rico-paires > .rico-choix { display: contents; }
 .rico-option.rico-paire { min-height: 48px; justify-content: space-between; font-size: 16px; }
 .rico-option .brick.s .b-meta { display: none; }
 /* Mobile : la colonne des briques prend sa largeur, celle des sens le reste ; rien ne déborde sur la colonne voisine. */
 .rico-option.rico-paire .rico-option-texte { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 520px) {
-  .rico-paires { grid-template-columns: max-content minmax(0, 1fr); gap: 8px; }
-  .rico-option.rico-paire { gap: 6px; padding: 8px 10px; font-size: 15px; }
+  .rico-paires { grid-template-columns: max-content minmax(0, 1fr); gap: 8px; }  .rico-option.rico-paire { gap: 6px; padding: 8px 10px; font-size: 15px; }
   .rico-option.rico-paire .brick.s .b-label { font-size: 15px; }
   .rico-option.rico-paire .rico-numero { width: 22px; height: 22px; font-size: 11px; }
 }

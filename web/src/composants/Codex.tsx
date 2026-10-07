@@ -11,6 +11,7 @@ import {
   type TypeCarte,
   cabinet,
   completude,
+  tri,
   familles,
   libelleMaitrise,
   recentes,
@@ -35,6 +36,8 @@ const TRIS: [Tri, string][] = [
   ['az', 'A → Z'],
   ['type', 'Type'],
   ['fasc', 'Fascicule'],
+  ['date', 'Découverte'],
+  ['maitrise', 'Maîtrise'],
 ]
 
 const numero = (n: number) => `N°\u00a0${String(n).padStart(3, '0')}`
@@ -91,21 +94,6 @@ function Brique({ libelle, nature, className = 'bchip' }: { libelle: string; nat
  * Comparateur d'un tri. Inversé, seul le critère principal change de sens :
  * les cartes à découvrir restent après les cartes trouvées.
  */
-const tri = (t: Tri, inverse: boolean) => (a: EntreeCodex, b: EntreeCodex) => {
-  const sens = inverse ? -1 : 1
-  const cle = (e: EntreeCodex) => (e.trouvee ? e.libelle.replace(/^-/, '') : '')
-  switch (t) {
-    case 'n':
-      return sens * (a.n - b.n)
-    case 'az':
-      return Number(!a.trouvee) - Number(!b.trouvee) || sens * cle(a).localeCompare(cle(b), 'fr', { sensitivity: 'base' })
-    case 'type':
-      return sens * (ORDRE_TYPES.indexOf(a.type) - ORDRE_TYPES.indexOf(b.type)) || a.n - b.n
-    case 'fasc':
-      return sens * (a.fascicule - b.fascicule) || Number(!a.trouvee) - Number(!b.trouvee) || a.n - b.n
-  }
-}
-
 export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
   entree: EntreeCodex
   nouvelle: boolean
