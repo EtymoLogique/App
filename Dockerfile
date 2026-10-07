@@ -18,6 +18,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=construction /etymo-api /usr/local/bin/etymo-api
+# Commit de l'image, exposé par /sante pour vérifier un déploiement.
+ARG REVISION=
+ENV ETYMO_REVISION=$REVISION
 USER nonroot:nonroot
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/etymo-api"]

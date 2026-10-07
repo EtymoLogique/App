@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeFusion, Erreur, Etat, ReponseFusion, Sante, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -78,6 +78,11 @@ export class ClientApi {
     }
   }
 
+  /** Hors production : remet le joueur à zéro (codex vide, 10 000 gouttes). Route absente (`404`) en production. */
+  reinitialiser(): Promise<Etat> {
+    return this.authentifie('/dev/reset', { method: 'POST' })
+  }
+
   /** Synchronise le joueur : graines des fascicules parus, puis état confirmé. */
   etat(): Promise<Etat> {
     return this.authentifie('/etat')
@@ -86,6 +91,74 @@ export class ClientApi {
   /** Tente une fusion. Un `409` (état ou catalogue périmé) impose une resynchronisation. */
   fusion(demande: DemandeFusion): Promise<ReponseFusion> {
     return this.authentifie('/fusion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Ouvre le pli d'un fascicule : le serveur tire la brique. `403` sans charge, `409` si l'état est périmé. */
+  pli(demande: DemandePli): Promise<ReponsePli> {
+    return this.authentifie('/pli', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Utilise des sabliers détenus : `403` si l'énergie est pleine ou les sabliers insuffisants. */
+  sablier(demande: DemandeSablier): Promise<ReponseSablier> {
+    return this.authentifie('/sablier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Échange de l'encre contre des sabliers, 10 gouttes chacun : `403` sans assez d'encre. */
+  achatSablier(demande: DemandeAchatSablier): Promise<ReponseAchatSablier> {
+    return this.authentifie('/sablier/achat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Achète le niveau suivant d'un indice : `403` sans assez d'encre, `409` si la recette est découverte. */
+  indice(demande: DemandeIndice): Promise<ReponseIndice> {
+    return this.authentifie('/indice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Tire une séance de ricochets : cinq questions au plus, par identifiants. Rien n'est écrit. */
+  seanceRicochets(): Promise<SeanceRicochets> {
+    return this.authentifie('/ricochets/seance')
+  }
+
+  /** Répond à une question de ricochet : `403` carte inconnue ou pas trouvée, `409` si l'état est périmé. */
+  ricochet(demande: DemandeRicochet): Promise<ReponseRicochet> {
+    return this.authentifie('/ricochet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Récupère la récompense d'un jalon atteint : `403` s'il n'est pas atteint, `409` s'il est déjà récupéré. */
+  jalon(demande: DemandeJalon): Promise<ReponseJalon> {
+    return this.authentifie('/jalon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Récupère la récompense d'un palier de quête au long cours : `403` s'il n'est pas atteint, `409` s'il est déjà récupéré. */
+  palier(demande: DemandePalier): Promise<ReponsePalier> {
+    return this.authentifie('/palier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

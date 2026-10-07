@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import type { BriqueJeu } from '../services/jeu'
-import { NATURES } from '../services/jeu'
+import { NATURES, entrelacer } from '../services/jeu'
+import { correspond } from '../services/recherche'
 import { ContenuBrique } from './Brique'
 
 export const TYPE_GLISSE = 'application/x-etymo-brique'
@@ -16,16 +17,19 @@ interface Props {
   reserve: Exemplaires[]
   briques: Map<string, BriqueJeu>
   table: string[]
-  onAjouter: (brique: string) => void
+  /** `depuis` : la brique touchée, d'où l'exemplaire vole jusqu'à sa case. */
+  onAjouter: (brique: string, depuis?: HTMLElement) => void
   /** Message affiché quand on touche une brique indisponible, sans secousse. */
   onIndisponible: (message: string) => void
   /** Briques qui viennent d'être consommées : un « −1 » s'envole au-dessus. */
   consommees?: string[]
+  /** Dernière brique posée ou retirée : sa pastille se contracte (−1) ou gonfle (+1), à chaque nouvelle `cle`. */
+  touchee?: { brique: string; cle: number; sens: 'plus' | 'moins' } | null
 }
 
-/** Sans accents ni casse, pour chercher « geo » comme « géo- ». */
-function normaliser(texte: string): string {
-  return texte.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+/** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
+function encombrement(b: BriqueJeu): number {
+  return Math.max(b.libelle.length * 1.6, `${NATURES[b.nature]} · « ${b.glose ?? ''} »`.length)
 }
 
 function exemplaires(n: number): string {
@@ -37,7 +41,7 @@ function exemplaires(n: number): string {
  * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [] }: Props) {
+export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
   const [recherche, setRecherche] = useState('')
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
@@ -47,7 +51,8 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
       const cible = e.target as HTMLElement | null
-      if (e.key === '/' && cible?.tagName !== 'INPUT') {
+      // Écran caché (autre onglet) : le codex prend le raccourci.
+      if (e.key === '/' && cible?.tagName !== 'INPUT' && champ.current && !champ.current.closest('[hidden]')) {
         e.preventDefault()
         champ.current?.focus()
       }
@@ -63,7 +68,7 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
         .sort((a, b) => Date.parse(b.connue_le) - Date.parse(a.connue_le) || a.brique_id.localeCompare(b.brique_id)),
     [reserve, briques],
   )
-  const correspond = (e: Exemplaires, f: Filtre) => {
+  const dansLeFiltre = (e: Exemplaires, f: Filtre) => {
     const b = briques.get(e.brique_id) as BriqueJeu
     if (f === 'prefixe' || f === 'suffixe') return b.nature === f
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
@@ -71,16 +76,17 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
   }
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
 
-  const cherchee = normaliser(recherche.trim())
-  // Les briques encore disponibles passent devant ; le tri est stable, donc
-  // l'ordre « récentes d'abord » est conservé dans chaque groupe.
-  const visibles = connues
-    .filter((e) => {
-      const b = briques.get(e.brique_id) as BriqueJeu
-      const texte = normaliser(`${b.libelle} ${b.glose ?? ''}`)
-      return correspond(e, filtre) && (cherchee === '' || texte.includes(cherchee))
-    })
-    .sort((a, b) => Number(disponibles(b.brique_id) > 0) - Number(disponibles(a.brique_id) > 0))
+  // Les briques encore disponibles passent devant ; l'entrelacement long/court
+  // se fait dans chaque groupe, l'ordre « récentes d'abord » départage le reste.
+  const trouvees = connues.filter((e) => {
+    const b = briques.get(e.brique_id) as BriqueJeu
+    return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
+  })
+  const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
+  const visibles = [
+    ...entrelacer(trouvees.filter((e) => disponibles(e.brique_id) > 0), taille),
+    ...entrelacer(trouvees.filter((e) => disponibles(e.brique_id) <= 0), taille),
+  ]
 
   return (
     <>
@@ -159,12 +165,18 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
                     e.dataTransfer.setData(TYPE_GLISSE, brique_id)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
-                  onClick={() => (indisponible === null ? onAjouter(brique_id) : onIndisponible(indisponible))}
+                  onClick={(e) => (indisponible === null ? onAjouter(brique_id, e.currentTarget) : onIndisponible(indisponible))}
                 >
                   <ContenuBrique brique={brique} />
-                  <span className={epuisee ? 'b-count zero' : 'b-count'} aria-hidden="true">
-                    {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
-                  </span>
+                  {brique.nature !== 'mot' && (
+                    <span
+                      key={touchee?.brique === brique_id ? touchee.cle : 0}
+                      className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? `rebond ${touchee.sens}` : ''].filter(Boolean).join(' ')}
+                      aria-hidden="true"
+                    >
+                      {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
+                    </span>
+                  )}
                   {consommees.includes(brique_id) && (
                     <span className="b-minus" aria-hidden="true">
                       −1

@@ -1,55 +1,86 @@
-import type { FasciculeParu } from '../services/jeu'
-import type { LecteurCatalogue } from '../services/catalogue'
+import { type EntreeCodex, completude } from '../services/codex'
+import { type CatalogueJeu, type FasciculeParu, libelleFascicule } from '../services/jeu'
 
-const dates = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' })
-
-/** « 1er octobre 2026 » : Intl ne met pas l’ordinal du premier jour. */
-function date(iso: string): string {
-  const texte = dates.format(new Date(iso))
-  return texte.replace(/^1 /, '1er\u00a0')
+/** Miniature de la jaquette d'un fascicule, décorative : son numéro est écrit à côté. */
+export function Jaquette({ chemin, urlMedia, petite = false }: { chemin: string | null | undefined; urlMedia: (chemin: string) => string; petite?: boolean }) {
+  return (
+    <span className={['jk-mini', chemin ? '' : 'is-empty', petite ? 'is-xs' : ''].filter(Boolean).join(' ')} aria-hidden="true">
+      {chemin && (
+        <span className="jk-art">
+          <img src={urlMedia(chemin)} alt="" decoding="async" />
+        </span>
+      )}
+    </span>
+  )
 }
 
-function nombreDeMots(compteurs: unknown): number | undefined {
-  if (typeof compteurs !== 'object' || compteurs === null) return undefined
-  const mots = (compteurs as Record<string, unknown>).mots
-  return typeof mots === 'number' ? mots : undefined
+/** Nom du fascicule mis en avant, son numéro en petit ; sans nom, « Fascicule » et le numéro. */
+export function TitreFascicule({ fascicule }: { fascicule: FasciculeParu }) {
+  return (
+    <span className="fasc-titre">
+      <span className="fasc-nom">{fascicule.manifeste.nom ?? 'Fascicule'}</span>
+      <span className="fasc-num">N°&nbsp;{fascicule.numero}</span>
+    </span>
+  )
 }
 
 interface Props {
-  parus: FasciculeParu[]
-  catalogue: LecteurCatalogue
+  jeu: CatalogueJeu
+  entrees: EntreeCodex[]
+  /** Fascicule filtré, ou tous. */
+  actif: number | 'tous'
+  onChoisir: (fascicule: number | 'tous') => void
+  urlMedia: (chemin: string) => string
+  /** Récompenses qui attendent le joueur dans chaque fascicule : compteur Corail. */
+  aRecuperer?: (fascicule: FasciculeParu) => number
 }
 
-export function Fascicules({ parus, catalogue }: Props) {
-  if (parus.length === 0) return <p>Aucun fascicule n’est encore paru.</p>
-
+/**
+ * Sélecteur de fascicule, commun au codex et aux quêtes : jaquette, nom,
+ * parution et complétude. Toucher un fascicule le filtre ; le toucher à
+ * nouveau affiche tous les fascicules.
+ */
+export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, aRecuperer }: Props) {
   return (
-    <ul className="fascicules">
-      {parus.map(({ numero, parution, manifeste }) => {
-        const mots = nombreDeMots(manifeste.compteurs)
+    <div className="cb-fasc" role="group" aria-label="Complétude par fascicule, touchez pour filtrer">
+      {jeu.fascicules.map((f, rang) => {
+        const c = completude(entrees.filter((e) => e.fascicule === f.numero))
+        const choisi = actif === f.numero
+        const recompenses = aRecuperer?.(f) ?? 0
         return (
-          <li key={numero} className="fascicule">
-            {manifeste.jaquette ? (
-              <img
-                className="jaquette"
-                src={catalogue.url(manifeste.jaquette)}
-                alt=""
-                width={182}
-                height={254}
-                decoding="async"
-              />
-            ) : (
-              <div className="jaquette jaquette-absente" aria-hidden="true" />
+          <button
+            key={f.numero}
+            type="button"
+            className="cb-fasc-btn"
+            aria-pressed={choisi}
+            aria-label={`${libelleFascicule(f)}\u00a0: ${c.trouvees} cartes découvertes sur ${c.total}${recompenses > 0 ? `, ${recompenses} récompense${recompenses > 1 ? 's' : ''} à récupérer` : ''}. ${choisi ? 'Afficher tous les fascicules' : 'Afficher ce fascicule seulement'}`}
+            onClick={() => onChoisir(choisi ? 'tous' : f.numero)}
+          >
+            <Jaquette chemin={f.manifeste.jaquette} urlMedia={urlMedia} />
+            <span className="cb-fasc-info">
+              <span className="cb-fasc-head">
+                <TitreFascicule fascicule={f} />
+                <span>{new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(f.parution))}</span>
+              </span>
+              <span className="cb-fasc-bar">
+                {/* --i : la barre se remplit à l'arrivée, après celle du fascicule précédent (codex.css). */}
+                <i style={{ width: `${c.total ? (c.trouvees / c.total) * 100 : 0}%`, '--i': rang } as React.CSSProperties} />
+              </span>
+              <span className="cb-fasc-count">
+                <b>
+                  {c.trouvees} / {c.total}
+                </b>{' '}
+                cartes{c.trouvees === c.total && c.total > 0 ? ' · complet' : ''}
+              </span>
+            </span>
+            {recompenses > 0 && (
+              <span className="count cb-fasc-pastille" aria-hidden="true">
+                {recompenses}
+              </span>
             )}
-            <h3>Fascicule n°&nbsp;{numero}</h3>
-            <p className="meta">
-              Paru le <time dateTime={parution}>{date(parution)}</time>
-              {mots !== undefined && <> · {mots} mots</>}
-            </p>
-            {manifeste.test && <span className="pastille essai">Essai</span>}
-          </li>
+          </button>
         )
       })}
-    </ul>
+    </div>
   )
 }

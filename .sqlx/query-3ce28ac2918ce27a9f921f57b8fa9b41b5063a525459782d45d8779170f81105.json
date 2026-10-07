@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO encre (joueur_id, gouttes) VALUES ($1, 10000)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3ce28ac2918ce27a9f921f57b8fa9b41b5063a525459782d45d8779170f81105"
+}

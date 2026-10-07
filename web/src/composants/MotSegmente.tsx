@@ -26,7 +26,7 @@ export function MotSegmente({
     <>
       {morceaux.map((m, i) => {
         const noeud = (
-          <span className="seg" style={{ '--c': SEGMENTS[m.nature] } as React.CSSProperties}>
+          <span className="seg" style={{ '--c': SEGMENTS[m.nature], '--i': i } as React.CSSProperties}>
             {lettres.slice(m.debut, m.fin).join('')}
           </span>
         )

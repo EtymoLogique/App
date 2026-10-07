@@ -19,15 +19,17 @@ interface Props {
   brique: BriqueJeu
   /** `m` : table et réserve ; `s` : équation compacte. */
   taille?: 'm' | 's'
+  /** Classe en plus, par exemple la brique révélée d'un pli. */
+  className?: string
 }
 
 /**
  * Une brique n'est jamais affichée en texte brut (game-design) : sa couleur
  * dit sa nature, Étincelle pour un préfixe, Glose pour un suffixe.
  */
-export function Brique({ brique, taille = 'm' }: Props) {
+export function Brique({ brique, taille = 'm', className }: Props) {
   return (
-    <span className={taille === 's' ? 'brick s' : 'brick'} data-kind={NATURES[brique.nature]}>
+    <span className={['brick', taille === 's' ? 's' : '', className ?? ''].filter(Boolean).join(' ')} data-kind={NATURES[brique.nature]}>
       <ContenuBrique brique={brique} />
     </span>
   )

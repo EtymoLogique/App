@@ -607,6 +607,7 @@ dependencies = [
  "etymo-contrat",
  "etymo-domaine",
  "etymo-taches",
+ "getrandom 0.3.4",
  "governor",
  "hex",
  "hmac 0.13.0",
@@ -662,6 +663,7 @@ dependencies = [
 name = "etymo-domaine"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "thiserror",
  "utoipa",

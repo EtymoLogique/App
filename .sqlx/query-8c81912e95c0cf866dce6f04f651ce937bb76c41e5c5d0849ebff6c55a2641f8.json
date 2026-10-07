@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE encre SET gouttes = gouttes + $2 WHERE joueur_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8c81912e95c0cf866dce6f04f651ce937bb76c41e5c5d0849ebff6c55a2641f8"
+}

@@ -10,12 +10,51 @@
     "version": "1"
   },
   "paths": {
+    "/dev/reset": {
+      "post": {
+        "tags": [
+          "hors-production"
+        ],
+        "summary": "Remet le joueur à zéro, pour la recette hors production : codex vide,\nréserve vide (les graines des fascicules parus ne sont pas rendues),\n10 000 gouttes. Route absente (`404`) en production.",
+        "operationId": "reinitialiser",
+        "responses": {
+          "200": {
+            "description": "Joueur remis à zéro, état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Etat"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Production : route absente"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/etat": {
       "get": {
         "tags": [
           "profil"
         ],
-        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.",
+        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une\nparution (ADR 0038), dont la récompense attend d'être récupérée\n(ADR 0042), puis renvoie son état confirmé.",
         "operationId": "etat",
         "responses": {
           "200": {
@@ -96,6 +135,734 @@
           },
           "401": {
             "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/indice": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore\nà découvrir. Le contenu du niveau se lit dans le catalogue public.",
+        "operationId": "acheter_indice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeIndice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Niveau obtenu et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseIndice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide, recette inconnue ou secrète, niveau hors d'ordre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Encre insuffisante",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Recette déjà découverte, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/jalon": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'un jalon atteint (ADR 0038, 0042) : le pli de\njalon, déterministe, et ses sabliers. Rien n'est accordé tant que le joueur\nne vient pas la chercher.",
+        "operationId": "recuperer_jalon",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeJalon"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseJalon"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou jalon inconnu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Jalon pas encore atteint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Récompense déjà récupérée, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/palier": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'un palier de quête au long cours (ADR 0045) :\nde l'encre et des sabliers. Le serveur a mesuré la progression sur le\ncodex ; rien n'est accordé tant que le seuil n'est pas franchi.",
+        "operationId": "recuperer_palier",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandePalier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponsePalier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou palier inconnu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Palier pas encore atteint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Récompense déjà récupérée, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/pli": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Ouvre le pli d'un fascicule paru (ADR 0011, 0012, 0016, 0019, 0020). Le\nserveur fait foi : il consomme une charge, tire la brique avec un aléa\ncryptographique, applique la garantie de nouveauté ou le filet d'utilité,\ncrédite l'exemplaire et l'encre, dans une seule transaction idempotente.",
+        "operationId": "ouvrir_pli",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandePli"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Brique tirée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponsePli"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou fascicule sans pli",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aucune charge d'énergie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/ricochet": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Répond à une question de ricochet (ADR 0044). Le serveur juge sur les\nidentifiants, applique la règle de maîtrise et compte la réponse parmi les\ncinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.\nRien n'est consommé : ni exemplaire, ni énergie, ni encre.",
+        "operationId": "repondre_ricochet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeRicochet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Résultat, carte après la réponse et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseRicochet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide : format, identifiant ou réponse mal formés",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Carte inconnue, légendaire ou pas encore trouvée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/ricochets/seance": {
+      "get": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Tire une séance de ricochets (ADR 0044) : au plus cinq questions, par\nidentifiants. Lecture seule : rien n'est écrit, recharger tire une autre séance.",
+        "operationId": "seance_ricochets",
+        "responses": {
+          "200": {
+            "description": "Séance tirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeanceRicochets"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/sablier": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la\nrecharge en cours d'une heure. Le temps au-delà de deux charges est perdu.",
+        "operationId": "utiliser_sabliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSablier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Recharge avancée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseSablier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Énergie pleine ou sabliers insuffisants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/sablier/achat": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,\nsans plafond.",
+        "operationId": "acheter_sabliers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeAchatSablier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sabliers achetés et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseAchatSablier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Encre insuffisante",
             "content": {
               "application/json": {
                 "schema": {
@@ -350,6 +1117,57 @@
           }
         }
       },
+      "BriquePliManifeste": {
+        "type": "object",
+        "required": [
+          "id",
+          "unite_id",
+          "rarete"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "nature": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NaturePli",
+                "description": "Absente d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rarete": {
+            "$ref": "#/components/schemas/Rarete"
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
+      "BriqueRicochet": {
+        "type": "object",
+        "required": [
+          "id",
+          "sens_id",
+          "classe_sens"
+        ],
+        "properties": {
+          "classe_sens": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Commune à deux briques de même glose : jamais deux leurres de même classe."
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "sens_id": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Sens affiché de la brique : la bonne réponse de « sens d'une brique »."
+          }
+        }
+      },
       "Calendrier": {
         "type": "object",
         "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
@@ -373,6 +1191,13 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "quetes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueteLongCours"
+            },
+            "description": "Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;\nabsentes d'un index antérieur."
           },
           "referentiels": {
             "description": "Langues, systèmes d'écriture et conventions, recopiés tels quels."
@@ -446,6 +1271,19 @@
             "items": {
               "$ref": "#/components/schemas/Sens"
             }
+          },
+          "sources": {
+            "type": "object",
+            "description": "Sources citées par la carte, par identifiant : citées, jamais copiées.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Identifiant opaque du catalogue : `<préfixe>_<8 caractères base32>`.",
+              "example": "brq_2e9chtta",
+              "pattern": "^[a-z]{3}_[0-9a-hjkmnp-tv-z]{8}$"
+            }
           }
         }
       },
@@ -459,6 +1297,17 @@
         "properties": {
           "carte": {
             "$ref": "#/components/schemas/Chemin"
+          },
+          "difficulte": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Difficulte",
+                "description": "Résultats seulement ; absente d'un manifeste antérieur à l'ADR 0047."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
@@ -477,6 +1326,40 @@
             ]
           }
         }
+      },
+      "CarteRicochet": {
+        "type": "object",
+        "description": "Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »).",
+        "required": [
+          "niveau",
+          "maitrisee",
+          "prochaine_revision",
+          "bonnes_niveau_3"
+        ],
+        "properties": {
+          "bonnes_niveau_3": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.",
+            "maximum": 3,
+            "minimum": 0
+          },
+          "maitrisee": {
+            "type": "boolean"
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 3,
+            "minimum": 0
+          },
+          "prochaine_revision": {
+            "type": "string",
+            "format": "date",
+            "description": "Jour GMT du prochain ricochet qui compte."
+          }
+        },
+        "additionalProperties": false
       },
       "Chemin": {
         "type": "string",
@@ -503,6 +1386,16 @@
           "libelles"
         ],
         "properties": {
+          "fait": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Fait"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
@@ -525,6 +1418,32 @@
             }
           }
         }
+      },
+      "CompteurPli": {
+        "type": "object",
+        "required": [
+          "fascicule_id",
+          "plis_sans_nouveaute",
+          "plis_sans_utilite"
+        ],
+        "properties": {
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "plis_sans_nouveaute": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis ouverts depuis la dernière brique nouvelle.",
+            "minimum": 0
+          },
+          "plis_sans_utilite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis consécutifs ouverts sans découverte possible.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "Confiance": {
         "type": "string",
@@ -558,6 +1477,39 @@
           },
           "recette_id": {
             "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeAchatSablier": {
+        "type": "object",
+        "description": "Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes\nchacun, sans plafond.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "nombre"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 1000,
+            "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
           }
         },
         "additionalProperties": false
@@ -599,6 +1551,206 @@
         },
         "additionalProperties": false
       },
+      "DemandeIndice": {
+        "type": "object",
+        "description": "Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "recette_id",
+          "niveau"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 1
+          },
+          "recette_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeJalon": {
+        "type": "object",
+        "description": "Commande de récupération de la récompense d'un jalon atteint (ADR 0042).",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "jalon_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "jalon_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandePalier": {
+        "type": "object",
+        "description": "Commande de récupération de la récompense d'un palier de quête au long cours (ADR 0045).",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "palier_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "palier_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandePli": {
+        "type": "object",
+        "description": "Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "fascicule_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeRicochet": {
+        "type": "object",
+        "description": "Commande de réponse à une question de ricochet : une commande, une carte.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "format",
+          "unite_id",
+          "reponse"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "format": {
+            "$ref": "#/components/schemas/FormatRicochet"
+          },
+          "reponse": {
+            "$ref": "#/components/schemas/ReponseJoueur"
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeSablier": {
+        "type": "object",
+        "description": "Commande d'utilisation de sabliers détenus (ADR 0020, 0039).",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "nombre"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Au plus 24 : ceux qui remplissent une énergie vide.",
+            "maximum": 24,
+            "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
       "DemandeSession": {
         "type": "object",
         "description": "Ouverture ou renouvellement de la session d'un profil invité.\n\nLe client génère une fois pour toutes l'identifiant d'installation et le\nsecret, et les garde dans son stockage local. Le serveur n'en garde que\nl'empreinte. Aucune donnée personnelle n'est demandée.",
@@ -622,6 +1774,15 @@
         },
         "additionalProperties": false
       },
+      "Difficulte": {
+        "type": "string",
+        "description": "Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.",
+        "enum": [
+          "facile",
+          "moyen",
+          "difficile"
+        ]
+      },
       "Emplacement": {
         "type": "object",
         "required": [
@@ -641,6 +1802,43 @@
             "minimum": 0
           }
         }
+      },
+      "EnergieEtat": {
+        "type": "object",
+        "description": "Énergie à l'instant de la réponse.",
+        "required": [
+          "charges",
+          "capacite",
+          "recharge_s"
+        ],
+        "properties": {
+          "capacite": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "charges": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 2,
+            "minimum": 0
+          },
+          "prochaine_charge": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Retour de la prochaine charge ; `null` quand l'énergie est pleine : le temps s'arrête."
+          },
+          "recharge_s": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée d'une recharge, en secondes.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "EntreeFascicule": {
         "type": "object",
@@ -663,6 +1861,139 @@
             "format": "date-time"
           }
         }
+      },
+      "Equilibrage": {
+        "type": "object",
+        "description": "Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009).",
+        "required": [
+          "poids_raretes",
+          "base_encre",
+          "encre_doublon",
+          "encre_reserve_pleine",
+          "garantie_nouveaute",
+          "filet_utilite"
+        ],
+        "properties": {
+          "base_encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes rapportées par tout pli (ADR 0020).",
+            "minimum": 0
+          },
+          "chance_legendaire_pour_mille": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Chance fixe, en pour mille (12 = 1,2 %), qu'un pli donne une légendaire, partagée à\nparts égales entre les légendaires du fascicule ; les poids ne\ns'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :\nzéro, et les légendaires gardent leur poids.",
+            "minimum": 0
+          },
+          "encre_decouverte": {
+            "type": "object",
+            "description": "Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).\nAbsent d'un manifeste antérieur : une découverte ne rapporte rien.",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          },
+          "encre_doublon": {
+            "type": "object",
+            "description": "Gouttes en plus pour un doublon sous le plafond (ADR 0019).",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          },
+          "encre_reserve_pleine": {
+            "type": "object",
+            "description": "Gouttes en plus quand la réserve est pleine (ADR 0011).",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          },
+          "filet_utilite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Une brique utile au plus tard à ce pli consécutif sans découverte possible.",
+            "minimum": 0
+          },
+          "garantie_nouveaute": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Une brique nouvelle au plus tard à ce pli après la dernière nouveauté.",
+            "minimum": 0
+          },
+          "poids_raretes": {
+            "type": "object",
+            "description": "Poids de chaque rareté (62, 26, 10) : la chance d'une brique est\nproportionnelle au poids de sa seule rareté (ADR 0035). Le poids des\nlégendaires ne compte que si `chance_legendaire_pour_mille` est nulle.",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
+              "enum": [
+                "commune",
+                "peu_commune",
+                "rare",
+                "legendaire"
+              ]
+            }
+          }
+        }
+      },
+      "EquilibrageManifeste": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Equilibrage"
+          },
+          {
+            "type": "object",
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "description": "Version des paramètres, inscrite dans l'historique de chaque pli."
+              }
+            }
+          }
+        ]
       },
       "Erreur": {
         "type": "object",
@@ -687,9 +2018,20 @@
         "required": [
           "version_etat",
           "reserve",
-          "decouvertes"
+          "decouvertes",
+          "energie",
+          "encre",
+          "compteurs_plis",
+          "historique_plis"
         ],
         "properties": {
+          "compteurs_plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompteurPli"
+            },
+            "description": "Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro."
+          },
           "decouvertes": {
             "type": "array",
             "items": {
@@ -697,12 +2039,94 @@
             },
             "description": "Mots découverts, dans l'ordre de leur découverte."
           },
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes d'encre détenues.",
+            "minimum": 0
+          },
+          "energie": {
+            "$ref": "#/components/schemas/EnergieEtat",
+            "description": "Charges de pli, à l'horloge du serveur (ADR 0020)."
+          },
+          "historique_plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OuverturePli"
+            },
+            "description": "Derniers plis ouverts, du plus récent au plus ancien."
+          },
+          "indices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IndiceObtenu"
+            },
+            "description": "Niveaux d'indice obtenus, par recette (ADR 0038)."
+          },
+          "jalons_atteints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Jalons atteints (ADR 0038), récompense récupérée ou non."
+          },
+          "jalons_recuperes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint\nabsent de cette liste attend le joueur dans les quêtes."
+          },
+          "jours_de_jeu": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours GMT distincts où le joueur a joué, premier jour compris\n(ADR 0050). Absent des réponses enregistrées avant App#25.",
+            "minimum": 1
+          },
+          "paliers_recuperes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Paliers de quêtes au long cours dont la récompense a été récupérée."
+          },
+          "prix_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Prix de chaque niveau d'indice, en gouttes, du premier à la solution."
+          },
+          "progression_quetes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressionQuete"
+            },
+            "description": "Progression de chaque quête au long cours, calculée par le serveur sur\nle codex (ADR 0045). Un palier est atteint quand elle franchit son seuil."
+          },
           "reserve": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Exemplaires"
             },
             "description": "Briques connues et leurs exemplaires, triées par brique. Une brique à 0\nexemplaire est épuisée mais reste connue."
+          },
+          "ricochets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RicochetEtat"
+            },
+            "description": "Cartes qui ont un historique de ricochets (ADR 0044) ; une carte sans\nligne est au niveau 0, à revoir aujourd'hui. Absent avant App#18."
+          },
+          "ricochets_du_jour": {
+            "$ref": "#/components/schemas/RicochetsDuJour",
+            "description": "Réponses du jour GMT, pour les quêtes ; absent avant App#18."
+          },
+          "sabliers": {
+            "$ref": "#/components/schemas/SabliersEtat",
+            "description": "Sabliers détenus et plafonds (ADR 0020). Absents des réponses\nenregistrées avant J4, comme les champs qui suivent."
           },
           "version_catalogue": {
             "type": [
@@ -814,8 +2238,25 @@
         "properties": {
           "confiance": {
             "$ref": "#/components/schemas/Confiance"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCitee"
+            }
           }
         }
+      },
+      "FormatRicochet": {
+        "type": "string",
+        "description": "Les cinq formats d'une question de ricochet (ADR 0044).",
+        "enum": [
+          "sens_brique",
+          "brique_sens",
+          "mot_sens",
+          "decouper",
+          "paires"
+        ]
       },
       "Forme": {
         "type": "object",
@@ -871,6 +2312,25 @@
         "example": "brq_2e9chtta",
         "pattern": "^[a-z]{3}_[0-9a-hjkmnp-tv-z]{8}$"
       },
+      "IndiceObtenu": {
+        "type": "object",
+        "required": [
+          "recette_id",
+          "niveau"
+        ],
+        "properties": {
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 1
+          },
+          "recette_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
       "IssueFusion": {
         "oneOf": [
           {
@@ -882,6 +2342,12 @@
               "type"
             ],
             "properties": {
+              "gouttes": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).",
+                "minimum": 0
+              },
               "mot_id": {
                 "$ref": "#/components/schemas/IdCatalogue"
               },
@@ -997,6 +2463,36 @@
         ],
         "description": "Issue d'une fusion. Seule une découverte consomme des exemplaires."
       },
+      "Jalon": {
+        "type": "object",
+        "required": [
+          "id",
+          "decouvertes"
+        ],
+        "properties": {
+          "decouvertes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Mots du fascicule découverts qui atteignent le jalon.",
+            "minimum": 0
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "pli": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Briques du pli de jalon : un exemplaire de chacune."
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "LangueManifeste": {
         "type": "object",
         "required": [
@@ -1017,6 +2513,22 @@
             ]
           }
         }
+      },
+      "LibellesQuete": {
+        "type": "object",
+        "required": [
+          "titre",
+          "consigne"
+        ],
+        "properties": {
+          "consigne": {
+            "type": "string"
+          },
+          "titre": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "Manifeste": {
         "type": "object",
@@ -1062,7 +2574,10 @@
           },
           "jalons": {
             "type": "array",
-            "items": {}
+            "items": {
+              "$ref": "#/components/schemas/Jalon"
+            },
+            "description": "Jalons du fascicule, récompenses affichées à l'avance (ADR 0038)."
           },
           "jaquette": {
             "oneOf": [
@@ -1080,6 +2595,20 @@
               "$ref": "#/components/schemas/LangueManifeste"
             }
           },
+          "mots_briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MotBrique"
+            },
+            "description": "Mots posables comme briques : leur découverte en offre un exemplaire."
+          },
+          "nom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens."
+          },
           "numero": {
             "type": "integer",
             "format": "int32",
@@ -1089,15 +2618,68 @@
             "type": "string",
             "format": "date-time"
           },
-          "pli": {},
+          "pli": {
+            "$ref": "#/components/schemas/PliManifeste",
+            "description": "Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011)."
+          },
           "recettes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RecetteManifeste"
             }
           },
+          "ricochets": {
+            "$ref": "#/components/schemas/RicochetsManifeste",
+            "description": "De quoi juger un ricochet sans lire un texte (ADR 0044)."
+          },
           "test": {
             "type": "boolean"
+          }
+        }
+      },
+      "MotBrique": {
+        "type": "object",
+        "required": [
+          "mot_id",
+          "brique_id"
+        ],
+        "properties": {
+          "brique_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "mot_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
+      "MotRicochet": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "classe_litteral": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Commune à deux mots de même sens littéral ; absente si le mot n'en a pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coupes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas."
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
           }
         }
       },
@@ -1115,6 +2697,81 @@
           "prefixe",
           "suffixe"
         ]
+      },
+      "NaturePli": {
+        "type": "string",
+        "description": "Nature d'une brique tirable : préfixe, suffixe ou mot posé tel quel.",
+        "enum": [
+          "prefixe",
+          "suffixe",
+          "mot"
+        ]
+      },
+      "OuverturePli": {
+        "type": "object",
+        "required": [
+          "fascicule_id",
+          "brique_id",
+          "resultat",
+          "regle",
+          "encre",
+          "ouvert_le"
+        ],
+        "properties": {
+          "brique_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes gagnées.",
+            "minimum": 0
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "ouvert_le": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "regle": {
+            "$ref": "#/components/schemas/Regle"
+          },
+          "resultat": {
+            "$ref": "#/components/schemas/Resultat"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Palier": {
+        "type": "object",
+        "description": "Un palier : sa récompense est affichée d'avance et se récupère comme un jalon.",
+        "required": [
+          "id",
+          "seuil"
+        ],
+        "properties": {
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "seuil": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Valeur de la progression qui atteint le palier.",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
       },
       "Partie": {
         "type": "object",
@@ -1158,8 +2815,114 @@
           }
         }
       },
+      "PliManifeste": {
+        "type": "object",
+        "properties": {
+          "briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriquePliManifeste"
+            }
+          },
+          "equilibrage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EquilibrageManifeste",
+                "description": "Absent d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ProgressionQuete": {
+        "type": "object",
+        "required": [
+          "quete_id",
+          "progression"
+        ],
+        "properties": {
+          "progression": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "quete_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuestionRicochet": {
+        "type": "object",
+        "description": "Une question de la séance, par identifiants : le client rend les textes.",
+        "required": [
+          "format",
+          "cartes"
+        ],
+        "properties": {
+          "cartes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "La carte visée ; quatre briques pour les paires."
+          },
+          "choix": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Choix possibles, dans le désordre : des `sns_…`, `brq_…` ou `unt_…`\nselon le format. Vide pour *découper* et *paires*."
+          },
+          "format": {
+            "$ref": "#/components/schemas/FormatRicochet"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QueteLongCours": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Sorte"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "paliers",
+              "libelles"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "libelles": {
+                "type": "object",
+                "description": "Libellés par locale ; `fr` est la locale de référence.",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/LibellesQuete"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              },
+              "paliers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Palier"
+                },
+                "description": "Paliers par seuil croissant."
+              }
+            }
+          }
+        ]
+      },
       "Rarete": {
         "type": "string",
+        "description": "Rareté d'une brique élémentaire : quatre niveaux, quatre formes.",
         "enum": [
           "commune",
           "peu_commune",
@@ -1209,6 +2972,17 @@
           }
         }
       },
+      "Regle": {
+        "type": "string",
+        "description": "Règle qui a décidé de la brique tirée.",
+        "enum": [
+          "tirage",
+          "garantie",
+          "filet",
+          "garantie_legendaire",
+          "deterministe"
+        ]
+      },
       "RelationCarte": {
         "type": "object",
         "required": [
@@ -1227,6 +3001,16 @@
               }
             ]
           },
+          "fait": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Fait"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
@@ -1234,6 +3018,26 @@
             "type": "string"
           }
         }
+      },
+      "ReponseAchatSablier": {
+        "type": "object",
+        "required": [
+          "prix",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "prix": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes payées.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "ReponseFusion": {
         "type": "object",
@@ -1248,9 +3052,225 @@
           },
           "issue": {
             "$ref": "#/components/schemas/IssueFusion"
+          },
+          "jalons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Jalons atteints par cette découverte, à annoncer."
           }
         },
         "additionalProperties": false
+      },
+      "ReponseIndice": {
+        "type": "object",
+        "required": [
+          "prix",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "prix": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes payées.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseJalon": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseJoueur": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Huit positions au plus."
+          }
+        ],
+        "description": "Réponse du joueur : un choix, ou les positions de coupe d'un mot."
+      },
+      "ReponsePalier": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponsePli": {
+        "type": "object",
+        "required": [
+          "ouverture",
+          "exemplaires",
+          "etait_epuisee",
+          "etat"
+        ],
+        "properties": {
+          "etait_epuisee": {
+            "type": "boolean",
+            "description": "Vrai si la brique était épuisée : « De retour ! »."
+          },
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "exemplaires": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Exemplaires de la brique après le pli.",
+            "maximum": 5,
+            "minimum": 0
+          },
+          "ouverture": {
+            "$ref": "#/components/schemas/OuverturePli"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseRicochet": {
+        "type": "object",
+        "required": [
+          "juste",
+          "carte",
+          "etat"
+        ],
+        "properties": {
+          "carte": {
+            "$ref": "#/components/schemas/CarteRicochet"
+          },
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "juste": {
+            "type": "boolean",
+            "description": "Vrai si la réponse est la bonne, que la carte ait été à revoir ou non."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseSablier": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          }
+        },
+        "additionalProperties": false
+      },
+      "Resultat": {
+        "type": "string",
+        "description": "Ce que la brique tirée apporte à la réserve.",
+        "enum": [
+          "nouvelle",
+          "doublon",
+          "reserve_pleine"
+        ]
+      },
+      "RicochetEtat": {
+        "type": "object",
+        "description": "Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.",
+        "required": [
+          "unite_id",
+          "niveau",
+          "maitrisee",
+          "a_revoir"
+        ],
+        "properties": {
+          "a_revoir": {
+            "type": "boolean",
+            "description": "Vrai si une réponse d'aujourd'hui compterait."
+          },
+          "maitrisee": {
+            "type": "boolean",
+            "description": "Définitif : une carte maîtrisée le reste."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 3,
+            "minimum": 0
+          },
+          "unite_id": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Mot (`unt_…`) ou brique (`brq_…`)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "RicochetsDuJour": {
+        "type": "object",
+        "description": "Les cinq premières réponses du jour comptent pour les quêtes (ADR 0045).",
+        "required": [
+          "reponses",
+          "bonnes"
+        ],
+        "properties": {
+          "bonnes": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 0
+          },
+          "reponses": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 5,
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "RicochetsManifeste": {
+        "type": "object",
+        "description": "Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte.",
+        "properties": {
+          "briques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriqueRicochet"
+            }
+          },
+          "mots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MotRicochet"
+            }
+          }
+        }
       },
       "Role": {
         "type": "string",
@@ -1259,13 +3279,44 @@
           "ingredient"
         ]
       },
+      "SabliersEtat": {
+        "type": "object",
+        "required": [
+          "detenus",
+          "prix_gouttes"
+        ],
+        "properties": {
+          "detenus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Sabliers détenus, sans plafond (ADR 0039).",
+            "minimum": 0
+          },
+          "prix_gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Prix d'un sablier, en gouttes.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "Sante": {
         "type": "object",
         "required": [
           "statut",
-          "version_api"
+          "version_api",
+          "reinitialisation"
         ],
         "properties": {
+          "reinitialisation": {
+            "type": "boolean",
+            "description": "`true` hors production : la PWA affiche alors le bouton « Réinitialiser »."
+          },
+          "revision_api": {
+            "type": "string",
+            "description": "Commit à l'origine de l'image de l'API, vide hors déploiement. Sert à\nvérifier qu'un déploiement a bien pris (issue #7)."
+          },
           "statut": {
             "$ref": "#/components/schemas/StatutSante"
           },
@@ -1279,6 +3330,22 @@
               "null"
             ],
             "description": "Version du catalogue chargée en mémoire, `null` si aucun index n'est publié."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SeanceRicochets": {
+        "type": "object",
+        "description": "Séance de ricochets : cinq questions au plus, aucune chronologie, rien n'est écrit.",
+        "required": [
+          "questions"
+        ],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionRicochet"
+            }
           }
         },
         "additionalProperties": false
@@ -1328,6 +3395,171 @@
         },
         "additionalProperties": false
       },
+      "Sorte": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Formes trouvées d'une langue, comme sa carte les compte.",
+            "required": [
+              "langue_id",
+              "sorte"
+            ],
+            "properties": {
+              "langue_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              },
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "langue"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Familles (mots formés sur une même brique) d'au moins `mots_par_famille` mots trouvés.",
+            "required": [
+              "mots_par_famille",
+              "sorte"
+            ],
+            "properties": {
+              "mots_par_famille": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "famille"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Mots trouvés qui portent une transformation de ce type.",
+            "required": [
+              "type_code",
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "transformation"
+                ]
+              },
+              "type_code": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Cartes maîtrisées par les ricochets (ADR 0044).",
+            "required": [
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "ricochets"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Cartes de lecteur remplies (ADR 0045).",
+            "required": [
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "lecteur"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Exception de l'ADR 0045 : trouver sa première légendaire.",
+            "required": [
+              "sorte"
+            ],
+            "properties": {
+              "sorte": {
+                "type": "string",
+                "enum": [
+                  "premiere_legendaire"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Ce qu'une quête compte : la liste fermée de l'ADR 0045."
+      },
+      "Source": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "role",
+          "reference"
+        ],
+        "properties": {
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "`reference` pour une source de référence."
+          },
+          "type": {
+            "type": "string",
+            "description": "Dictionnaire, ouvrage, article…"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SourceCitee": {
+        "type": "object",
+        "description": "Renvoi d'un fait vers une source de la carte.",
+        "required": [
+          "source_id"
+        ],
+        "properties": {
+          "localisation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Page ou entrée dans la source, quand elle est renseignée."
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        }
+      },
       "StatutSante": {
         "type": "string",
         "enum": [
@@ -1353,6 +3585,15 @@
           "ordre": {
             "type": "integer",
             "format": "int32",
+            "minimum": 0
+          },
+          "rang_partie": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Partie de la composition que la transformation touche.",
             "minimum": 0
           },
           "type_code": {
@@ -1394,6 +3635,10 @@
     {
       "name": "jeu",
       "description": "Commandes de jeu : le serveur fait foi"
+    },
+    {
+      "name": "hors-production",
+      "description": "Routes absentes en production"
     }
   ]
 }

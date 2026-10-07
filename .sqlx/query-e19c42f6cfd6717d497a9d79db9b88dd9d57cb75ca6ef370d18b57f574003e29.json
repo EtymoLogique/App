@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT brique_id, connue_le FROM exemplaire WHERE joueur_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "brique_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "connue_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "e19c42f6cfd6717d497a9d79db9b88dd9d57cb75ca6ef370d18b57f574003e29"
+}

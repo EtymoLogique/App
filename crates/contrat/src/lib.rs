@@ -4,9 +4,10 @@
 //!
 //! Toute requête refuse les propriétés inconnues.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::fusion::MotifPresque;
+use etymo_domaine::pli::{Regle, Resultat};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -54,6 +55,356 @@ pub struct Etat {
     pub reserve: Vec<Exemplaires>,
     /// Mots découverts, dans l'ordre de leur découverte.
     pub decouvertes: Vec<Decouverte>,
+    /// Charges de pli, à l'horloge du serveur (ADR 0020).
+    pub energie: EnergieEtat,
+    /// Gouttes d'encre détenues.
+    pub encre: u32,
+    /// Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro.
+    pub compteurs_plis: Vec<CompteurPli>,
+    /// Derniers plis ouverts, du plus récent au plus ancien.
+    pub historique_plis: Vec<OuverturePli>,
+    /// Sabliers détenus et plafonds (ADR 0020). Absents des réponses
+    /// enregistrées avant J4, comme les champs qui suivent.
+    #[serde(default)]
+    pub sabliers: SabliersEtat,
+    /// Niveaux d'indice obtenus, par recette (ADR 0038).
+    #[serde(default)]
+    pub indices: Vec<IndiceObtenu>,
+    /// Jalons atteints (ADR 0038), récompense récupérée ou non.
+    #[serde(default)]
+    pub jalons_atteints: Vec<IdCatalogue>,
+    /// Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint
+    /// absent de cette liste attend le joueur dans les quêtes.
+    #[serde(default)]
+    pub jalons_recuperes: Vec<IdCatalogue>,
+    /// Prix de chaque niveau d'indice, en gouttes, du premier à la solution.
+    #[serde(default)]
+    pub prix_indices: Vec<u32>,
+    /// Jours GMT distincts où le joueur a joué, premier jour compris
+    /// (ADR 0050). Absent des réponses enregistrées avant App#25.
+    #[serde(default)]
+    #[schema(minimum = 1)]
+    pub jours_de_jeu: u32,
+    /// Cartes qui ont un historique de ricochets (ADR 0044) ; une carte sans
+    /// ligne est au niveau 0, à revoir aujourd'hui. Absent avant App#18.
+    #[serde(default)]
+    pub ricochets: Vec<RicochetEtat>,
+    /// Réponses du jour GMT, pour les quêtes ; absent avant App#18.
+    #[serde(default)]
+    pub ricochets_du_jour: RicochetsDuJour,
+    /// Progression de chaque quête au long cours, calculée par le serveur sur
+    /// le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
+    #[serde(default)]
+    pub progression_quetes: Vec<ProgressionQuete>,
+    /// Paliers de quêtes au long cours dont la récompense a été récupérée.
+    #[serde(default)]
+    pub paliers_recuperes: Vec<IdCatalogue>,
+}
+
+/// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RicochetEtat {
+    /// Mot (`unt_…`) ou brique (`brq_…`).
+    pub unite_id: IdCatalogue,
+    #[schema(minimum = 0, maximum = 3)]
+    pub niveau: u8,
+    /// Définitif : une carte maîtrisée le reste.
+    pub maitrisee: bool,
+    /// Vrai si une réponse d'aujourd'hui compterait.
+    pub a_revoir: bool,
+}
+
+/// Les cinq premières réponses du jour comptent pour les quêtes (ADR 0045).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RicochetsDuJour {
+    #[schema(minimum = 0, maximum = 5)]
+    pub reponses: u8,
+    #[schema(minimum = 0, maximum = 5)]
+    pub bonnes: u8,
+}
+
+/// Les cinq formats d'une question de ricochet (ADR 0044).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FormatRicochet {
+    /// Quel sens pour cette brique ? Cible `brq_…`, réponse un `sns_…`.
+    SensBrique,
+    /// Quelle brique pour ce sens ? Cible `brq_…`, réponse un `brq_…`.
+    BriqueSens,
+    /// Quel mot pour ce sens littéral ? Cible `unt_…`, réponse un `unt_…`.
+    MotSens,
+    /// Où couper ce mot ? Cible `unt_…`, réponse les positions de coupe.
+    Decouper,
+    /// Relier une brique à son sens, une commande par brique. Cible `brq_…`,
+    /// réponse le premier `sns_…` essayé pour elle.
+    Paires,
+}
+
+/// Une question de la séance, par identifiants : le client rend les textes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QuestionRicochet {
+    pub format: FormatRicochet,
+    /// La carte visée ; quatre briques pour les paires.
+    pub cartes: Vec<IdCatalogue>,
+    /// Choix possibles, dans le désordre : des `sns_…`, `brq_…` ou `unt_…`
+    /// selon le format. Vide pour *découper* et *paires*.
+    #[serde(default)]
+    pub choix: Vec<IdCatalogue>,
+}
+
+/// Séance de ricochets : cinq questions au plus, aucune chronologie, rien n'est écrit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SeanceRicochets {
+    pub questions: Vec<QuestionRicochet>,
+}
+
+/// Réponse du joueur : un choix, ou les positions de coupe d'un mot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(untagged)]
+pub enum ReponseJoueur {
+    Choix(IdCatalogue),
+    /// Huit positions au plus.
+    Coupes(Vec<u32>),
+}
+
+/// Commande de réponse à une question de ricochet : une commande, une carte.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeRicochet {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub format: FormatRicochet,
+    pub unite_id: IdCatalogue,
+    pub reponse: ReponseJoueur,
+}
+
+/// Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CarteRicochet {
+    #[schema(minimum = 0, maximum = 3)]
+    pub niveau: u8,
+    pub maitrisee: bool,
+    /// Jour GMT du prochain ricochet qui compte.
+    pub prochaine_revision: NaiveDate,
+    /// Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
+    #[schema(minimum = 0, maximum = 3)]
+    pub bonnes_niveau_3: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseRicochet {
+    /// Vrai si la réponse est la bonne, que la carte ait été à revoir ou non.
+    pub juste: bool,
+    pub carte: CarteRicochet,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressionQuete {
+    pub quete_id: IdCatalogue,
+    pub progression: u32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SabliersEtat {
+    /// Sabliers détenus, sans plafond (ADR 0039).
+    #[schema(minimum = 0)]
+    pub detenus: u32,
+    /// Prix d'un sablier, en gouttes.
+    pub prix_gouttes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IndiceObtenu {
+    pub recette_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub niveau: u8,
+}
+
+/// Commande d'utilisation de sabliers détenus (ADR 0020, 0039).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeSablier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    /// Au plus 24 : ceux qui remplissent une énergie vide.
+    #[schema(minimum = 1, maximum = 24)]
+    pub nombre: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseSablier {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes
+/// chacun, sans plafond.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeAchatSablier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    #[schema(minimum = 1, maximum = 1000)]
+    pub nombre: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseAchatSablier {
+    /// Gouttes payées.
+    pub prix: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeIndice {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub recette_id: IdCatalogue,
+    #[schema(minimum = 1, maximum = 5)]
+    pub niveau: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseIndice {
+    /// Gouttes payées.
+    pub prix: u32,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande de récupération de la récompense d'un jalon atteint (ADR 0042).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeJalon {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub jalon_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseJalon {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Commande de récupération de la récompense d'un palier de quête au long cours (ADR 0045).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandePalier {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub palier_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponsePalier {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Énergie à l'instant de la réponse.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnergieEtat {
+    #[schema(minimum = 0, maximum = 2)]
+    pub charges: u8,
+    pub capacite: u8,
+    /// Retour de la prochaine charge ; `null` quand l'énergie est pleine : le temps s'arrête.
+    pub prochaine_charge: Option<DateTime<Utc>>,
+    /// Durée d'une recharge, en secondes.
+    pub recharge_s: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompteurPli {
+    pub fascicule_id: IdCatalogue,
+    /// Plis ouverts depuis la dernière brique nouvelle.
+    pub plis_sans_nouveaute: u32,
+    /// Plis consécutifs ouverts sans découverte possible.
+    pub plis_sans_utilite: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OuverturePli {
+    pub fascicule_id: IdCatalogue,
+    pub brique_id: IdCatalogue,
+    pub resultat: Resultat,
+    pub regle: Regle,
+    /// Gouttes gagnées.
+    pub encre: u32,
+    pub ouvert_le: DateTime<Utc>,
+}
+
+/// Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandePli {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    /// Version du catalogue dont le client a lu les chances.
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub fascicule_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponsePli {
+    pub ouverture: OuverturePli,
+    /// Exemplaires de la brique après le pli.
+    #[schema(minimum = 0, maximum = 5)]
+    pub exemplaires: u8,
+    /// Vrai si la brique était épuisée : « De retour ! ».
+    pub etait_epuisee: bool,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -97,6 +448,9 @@ pub struct DemandeFusion {
 #[serde(deny_unknown_fields)]
 pub struct ReponseFusion {
     pub issue: IssueFusion,
+    /// Jalons atteints par cette découverte, à annoncer.
+    #[serde(default)]
+    pub jalons: Vec<IdCatalogue>,
     /// État confirmé après la commande.
     pub etat: Etat,
 }
@@ -109,6 +463,9 @@ pub enum IssueFusion {
     Decouverte {
         recette_id: IdCatalogue,
         mot_id: IdCatalogue,
+        /// Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).
+        #[serde(default)]
+        gouttes: u32,
     },
     /// Recette d'un mot déjà découvert : rien n'est consommé.
     Connue {
@@ -133,6 +490,12 @@ pub struct Sante {
     pub version_catalogue: Option<String>,
     /// Version du code de l'API.
     pub version_api: String,
+    /// Commit à l'origine de l'image de l'API, vide hors déploiement. Sert à
+    /// vérifier qu'un déploiement a bien pris (issue #7).
+    #[serde(default)]
+    pub revision_api: String,
+    /// `true` hors production : la PWA affiche alors le bouton « Réinitialiser ».
+    pub reinitialisation: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

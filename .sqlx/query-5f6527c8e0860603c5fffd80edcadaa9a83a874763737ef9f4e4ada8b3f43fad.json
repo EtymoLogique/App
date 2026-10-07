@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT mot_id, decouverte_le FROM decouverte WHERE joueur_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mot_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "decouverte_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5f6527c8e0860603c5fffd80edcadaa9a83a874763737ef9f4e4ada8b3f43fad"
+}

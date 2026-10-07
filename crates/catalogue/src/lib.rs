@@ -17,10 +17,11 @@ use std::sync::Arc;
 pub use carte::Carte;
 pub use chemin::{Chemin, ErreurChemin};
 pub use format::{
-    Calendrier, CarteManifeste, Emplacement, EntreeFascicule, Exclusion, Exclusions, Graine,
-    Manifeste, Recette, RecetteManifeste,
+    BriquePliManifeste, BriqueRicochet, Calendrier, CarteManifeste, Difficulte, Emplacement,
+    EntreeFascicule, EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, MotRicochet,
+    PliManifeste, Recette, RecetteManifeste, RicochetsManifeste,
 };
-pub use jeu::Jeu;
+pub use jeu::{JalonsJeu, Jeu, PliJeu, RicochetsJeu};
 pub use lecteur::{Lecteur, LecteurDossier, LecteurHttp};
 
 /// Nom de l'index global, seul fichier modifiable du préfixe `public/`.
@@ -138,12 +139,34 @@ pub async fn charger(
             exclusions,
         });
     }
-    let jeu = Jeu::depuis(&fascicules);
+    let mut jeu = Jeu::depuis(&fascicules);
+    if !index.quetes.is_empty() {
+        let cartes = lire_cartes(lecteur, &fascicules).await?;
+        jeu.mesurer(index.quetes.clone(), &cartes);
+    }
     Ok(Some(Arc::new(CatalogueCharge {
         index,
         fascicules,
         jeu,
     })))
+}
+
+/// Lit les cartes des fascicules parus pour mesurer les quêtes. Une carte qui
+/// n'a pas la forme attendue est ignorée : elle ne compte pour aucune quête.
+async fn lire_cartes(
+    lecteur: &dyn Lecteur,
+    fascicules: &[FasciculeCharge],
+) -> Result<Vec<Carte>, ErreurCatalogue> {
+    let mut cartes = Vec::new();
+    for fascicule in fascicules {
+        for reference in &fascicule.manifeste.cartes {
+            let octets = lire_hache(lecteur, &reference.carte).await?;
+            if let Ok(carte) = serde_json::from_slice::<Carte>(&octets) {
+                cartes.push(carte);
+            }
+        }
+    }
+    Ok(cartes)
 }
 
 /// Lit une ressource JSON hachée et la décode.

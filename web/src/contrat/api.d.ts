@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/dev/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remet le joueur à zéro, pour la recette hors production : codex vide,
+         *     réserve vide (les graines des fascicules parus ne sont pas rendues),
+         *     10 000 gouttes. Route absente (`404`) en production.
+         */
+        post: operations["reinitialiser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/etat": {
         parameters: {
             query?: never;
@@ -13,7 +34,9 @@ export interface paths {
         };
         /**
          * Synchronise le joueur : accorde les graines des fascicules parus qu'il
-         *     n'a pas encore reçues (ADR 0030), puis renvoie son état confirmé.
+         *     n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
+         *     parution (ADR 0038), dont la récompense attend d'être récupérée
+         *     (ADR 0042), puis renvoie son état confirmé.
          */
         get: operations["etat"];
         put?: never;
@@ -41,6 +64,172 @@ export interface paths {
          *     `version_etat` et `version_catalogue` soient à jour (sinon `409`).
          */
         post: operations["fusion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/indice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore
+         *     à découvrir. Le contenu du niveau se lit dans le catalogue public.
+         */
+        post: operations["acheter_indice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jalon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'un jalon atteint (ADR 0038, 0042) : le pli de
+         *     jalon, déterministe, et ses sabliers. Rien n'est accordé tant que le joueur
+         *     ne vient pas la chercher.
+         */
+        post: operations["recuperer_jalon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/palier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'un palier de quête au long cours (ADR 0045) :
+         *     de l'encre et des sabliers. Le serveur a mesuré la progression sur le
+         *     codex ; rien n'est accordé tant que le seuil n'est pas franchi.
+         */
+        post: operations["recuperer_palier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pli": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvre le pli d'un fascicule paru (ADR 0011, 0012, 0016, 0019, 0020). Le
+         *     serveur fait foi : il consomme une charge, tire la brique avec un aléa
+         *     cryptographique, applique la garantie de nouveauté ou le filet d'utilité,
+         *     crédite l'exemplaire et l'encre, dans une seule transaction idempotente.
+         */
+        post: operations["ouvrir_pli"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ricochet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Répond à une question de ricochet (ADR 0044). Le serveur juge sur les
+         *     identifiants, applique la règle de maîtrise et compte la réponse parmi les
+         *     cinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.
+         *     Rien n'est consommé : ni exemplaire, ni énergie, ni encre.
+         */
+        post: operations["repondre_ricochet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ricochets/seance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tire une séance de ricochets (ADR 0044) : au plus cinq questions, par
+         *     identifiants. Lecture seule : rien n'est écrit, recharger tire une autre séance.
+         */
+        get: operations["seance_ricochets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sablier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
+         *     recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+         */
+        post: operations["utiliser_sabliers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sablier/achat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Échange de l'encre contre des sabliers (ADR 0039) : 10 gouttes chacun,
+         *     sans plafond.
+         */
+        post: operations["acheter_sabliers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -112,6 +301,19 @@ export interface components {
             rarete: components["schemas"]["Rarete"];
             sens_affiche_id: components["schemas"]["IdCatalogue"];
         };
+        BriquePliManifeste: {
+            id: components["schemas"]["IdCatalogue"];
+            nature?: components["schemas"]["NaturePli"] | null;
+            rarete: components["schemas"]["Rarete"];
+            unite_id: components["schemas"]["IdCatalogue"];
+        };
+        BriqueRicochet: {
+            /** @description Commune à deux briques de même glose : jamais deux leurres de même classe. */
+            classe_sens: components["schemas"]["IdCatalogue"];
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Sens affiché de la brique : la bonne réponse de « sens d'une brique ». */
+            sens_id: components["schemas"]["IdCatalogue"];
+        };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
@@ -121,6 +323,11 @@ export interface components {
             fascicules: components["schemas"]["EntreeFascicule"][];
             /** Format: int32 */
             format: number;
+            /**
+             * @description Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
+             *     absentes d'un index antérieur.
+             */
+            quetes?: components["schemas"]["QueteLongCours"][];
             /** @description Langues, systèmes d'écriture et conventions, recopiés tels quels. */
             referentiels: unknown;
             version: string;
@@ -135,23 +342,58 @@ export interface components {
             nature: components["schemas"]["Nature"];
             relations?: components["schemas"]["RelationCarte"][];
             sens: components["schemas"]["Sens"][];
+            /** @description Sources citées par la carte, par identifiant : citées, jamais copiées. */
+            sources?: {
+                [key: string]: components["schemas"]["Source"];
+            };
         };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
+            difficulte?: components["schemas"]["Difficulte"] | null;
             id: components["schemas"]["IdCatalogue"];
             role: components["schemas"]["Role"];
             silhouette?: components["schemas"]["Chemin"] | null;
+        };
+        /** @description Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »). */
+        CarteRicochet: {
+            /**
+             * Format: int32
+             * @description Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
+             */
+            bonnes_niveau_3: number;
+            maitrisee: boolean;
+            /** Format: int32 */
+            niveau: number;
+            /**
+             * Format: date
+             * @description Jour GMT du prochain ricochet qui compte.
+             */
+            prochaine_revision: string;
         };
         /** @description Chemin haché d'un fichier de l'artefact, relatif au préfixe publié. */
         Chemin: string;
         /** @enum {string} */
         CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
         CompositionCarte: {
+            fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
             libelles: components["schemas"]["BTreeMap_LibellesComposition"];
             parties: components["schemas"]["Partie"][];
             preferee?: boolean;
             transformations?: components["schemas"]["Transformation"][];
+        };
+        CompteurPli: {
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            /**
+             * Format: int32
+             * @description Plis ouverts depuis la dernière brique nouvelle.
+             */
+            plis_sans_nouveaute: number;
+            /**
+             * Format: int32
+             * @description Plis consécutifs ouverts sans découverte possible.
+             */
+            plis_sans_utilite: number;
         };
         /** @enum {string} */
         Confiance: "etablie" | "probable" | "discutee" | "non_retenue";
@@ -166,6 +408,25 @@ export interface components {
             numero: number;
             recette_id: components["schemas"]["IdCatalogue"];
         };
+        /**
+         * @description Commande d'échange d'encre contre des sabliers (ADR 0039) : 10 gouttes
+         *     chacun, sans plafond.
+         */
+        DemandeAchatSablier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: int32 */
+            nombre: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /** @description Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table. */
         DemandeFusion: {
             /** @description Briques posées sur la table, dans l'ordre. */
@@ -177,6 +438,105 @@ export interface components {
              */
             commande: string;
             /** @description Version du catalogue avec laquelle la proposition a été préparée. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant. */
+        DemandeIndice: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: int32 */
+            niveau: number;
+            recette_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération de la récompense d'un jalon atteint (ADR 0042). */
+        DemandeJalon: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            jalon_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération de la récompense d'un palier de quête au long cours (ADR 0045). */
+        DemandePalier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            palier_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande d'ouverture d'un pli (ADR 0011, 0016) : le fascicule choisi. */
+        DemandePli: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de réponse à une question de ricochet : une commande, une carte. */
+        DemandeRicochet: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            format: components["schemas"]["FormatRicochet"];
+            reponse: components["schemas"]["ReponseJoueur"];
+            unite_id: components["schemas"]["IdCatalogue"];
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande d'utilisation de sabliers détenus (ADR 0020, 0039). */
+        DemandeSablier: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /**
+             * Format: int32
+             * @description Au plus 24 : ceux qui remplissent une énergie vide.
+             */
+            nombre: number;
             version_catalogue: string;
             /**
              * Format: int64
@@ -200,10 +560,32 @@ export interface components {
             /** @description Secret aléatoire de 256 bits, en base64url sans remplissage. */
             secret: string;
         };
+        /**
+         * @description Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.
+         * @enum {string}
+         */
+        Difficulte: "facile" | "moyen" | "difficile";
         Emplacement: {
             briques_acceptees: components["schemas"]["IdCatalogue"][];
             /** Format: int32 */
             rang: number;
+        };
+        /** @description Énergie à l'instant de la réponse. */
+        EnergieEtat: {
+            /** Format: int32 */
+            capacite: number;
+            /** Format: int32 */
+            charges: number;
+            /**
+             * Format: date-time
+             * @description Retour de la prochaine charge ; `null` quand l'énergie est pleine : le temps s'arrête.
+             */
+            prochaine_charge?: string | null;
+            /**
+             * Format: int32
+             * @description Durée d'une recharge, en secondes.
+             */
+            recharge_s: number;
         };
         EntreeFascicule: {
             manifeste: components["schemas"]["Chemin"];
@@ -211,6 +593,59 @@ export interface components {
             numero: number;
             /** Format: date-time */
             parution: string;
+        };
+        /** @description Paramètres d'équilibrage d'un pli, versionnés dans le catalogue (ADR 0009). */
+        Equilibrage: {
+            /**
+             * Format: int32
+             * @description Gouttes rapportées par tout pli (ADR 0020).
+             */
+            base_encre: number;
+            /**
+             * Format: int32
+             * @description Chance fixe, en pour mille (12 = 1,2 %), qu'un pli donne une légendaire, partagée à
+             *     parts égales entre les légendaires du fascicule ; les poids ne
+             *     s'appliquent qu'au reste (ADR 0043). Absente d'un manifeste antérieur :
+             *     zéro, et les légendaires gardent leur poids.
+             */
+            chance_legendaire_pour_mille?: number;
+            /**
+             * @description Gouttes rapportées par la découverte d'un mot, selon sa rareté (ADR 0040).
+             *     Absent d'un manifeste antérieur : une découverte ne rapporte rien.
+             */
+            encre_decouverte?: {
+                [key: string]: number;
+            };
+            /** @description Gouttes en plus pour un doublon sous le plafond (ADR 0019). */
+            encre_doublon: {
+                [key: string]: number;
+            };
+            /** @description Gouttes en plus quand la réserve est pleine (ADR 0011). */
+            encre_reserve_pleine: {
+                [key: string]: number;
+            };
+            /**
+             * Format: int32
+             * @description Une brique utile au plus tard à ce pli consécutif sans découverte possible.
+             */
+            filet_utilite: number;
+            /**
+             * Format: int32
+             * @description Une brique nouvelle au plus tard à ce pli après la dernière nouveauté.
+             */
+            garantie_nouveaute: number;
+            /**
+             * @description Poids de chaque rareté (62, 26, 10) : la chance d'une brique est
+             *     proportionnelle au poids de sa seule rareté (ADR 0035). Le poids des
+             *     légendaires ne compte que si `chance_legendaire_pour_mille` est nulle.
+             */
+            poids_raretes: {
+                [key: string]: number;
+            };
+        };
+        EquilibrageManifeste: components["schemas"]["Equilibrage"] & {
+            /** @description Version des paramètres, inscrite dans l'historique de chaque pli. */
+            version: string;
         };
         /** @description Erreur renvoyée par l'API. Le message est destiné au diagnostic, pas au joueur. */
         Erreur: {
@@ -222,13 +657,60 @@ export interface components {
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
+            compteurs_plis: components["schemas"]["CompteurPli"][];
             /** @description Mots découverts, dans l'ordre de leur découverte. */
             decouvertes: components["schemas"]["Decouverte"][];
+            /**
+             * Format: int32
+             * @description Gouttes d'encre détenues.
+             */
+            encre: number;
+            /** @description Charges de pli, à l'horloge du serveur (ADR 0020). */
+            energie: components["schemas"]["EnergieEtat"];
+            /** @description Derniers plis ouverts, du plus récent au plus ancien. */
+            historique_plis: components["schemas"]["OuverturePli"][];
+            /** @description Niveaux d'indice obtenus, par recette (ADR 0038). */
+            indices?: components["schemas"]["IndiceObtenu"][];
+            /** @description Jalons atteints (ADR 0038), récompense récupérée ou non. */
+            jalons_atteints?: components["schemas"]["IdCatalogue"][];
+            /**
+             * @description Jalons dont la récompense a été récupérée (ADR 0042) ; un jalon atteint
+             *     absent de cette liste attend le joueur dans les quêtes.
+             */
+            jalons_recuperes?: components["schemas"]["IdCatalogue"][];
+            /**
+             * Format: int32
+             * @description Jours GMT distincts où le joueur a joué, premier jour compris
+             *     (ADR 0050). Absent des réponses enregistrées avant App#25.
+             */
+            jours_de_jeu?: number;
+            /** @description Paliers de quêtes au long cours dont la récompense a été récupérée. */
+            paliers_recuperes?: components["schemas"]["IdCatalogue"][];
+            /** @description Prix de chaque niveau d'indice, en gouttes, du premier à la solution. */
+            prix_indices?: number[];
+            /**
+             * @description Progression de chaque quête au long cours, calculée par le serveur sur
+             *     le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
+             */
+            progression_quetes?: components["schemas"]["ProgressionQuete"][];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
              */
             reserve: components["schemas"]["Exemplaires"][];
+            /**
+             * @description Cartes qui ont un historique de ricochets (ADR 0044) ; une carte sans
+             *     ligne est au niveau 0, à revoir aujourd'hui. Absent avant App#18.
+             */
+            ricochets?: components["schemas"]["RicochetEtat"][];
+            /** @description Réponses du jour GMT, pour les quêtes ; absent avant App#18. */
+            ricochets_du_jour?: components["schemas"]["RicochetsDuJour"];
+            /**
+             * @description Sabliers détenus et plafonds (ADR 0020). Absents des réponses
+             *     enregistrées avant J4, comme les champs qui suivent.
+             */
+            sabliers?: components["schemas"]["SabliersEtat"];
             /** @description Version du catalogue active pour ce joueur, `null` avant toute parution. */
             version_catalogue?: string | null;
             /**
@@ -264,7 +746,13 @@ export interface components {
         };
         Fait: {
             confiance: components["schemas"]["Confiance"];
+            sources?: components["schemas"]["SourceCitee"][];
         };
+        /**
+         * @description Les cinq formats d'une question de ricochet (ADR 0044).
+         * @enum {string}
+         */
+        FormatRicochet: "sens_brique" | "brique_sens" | "mot_sens" | "decouper" | "paires";
         Forme: {
             id: components["schemas"]["IdCatalogue"];
             /** @description `canonique` pour la forme de référence. */
@@ -283,8 +771,18 @@ export interface components {
          * @example brq_2e9chtta
          */
         IdCatalogue: string;
+        IndiceObtenu: {
+            /** Format: int32 */
+            niveau: number;
+            recette_id: components["schemas"]["IdCatalogue"];
+        };
         /** @description Issue d'une fusion. Seule une découverte consomme des exemplaires. */
         IssueFusion: {
+            /**
+             * Format: int32
+             * @description Gouttes d'encre gagnées, selon la rareté du mot (ADR 0040).
+             */
+            gouttes?: number;
             mot_id: components["schemas"]["IdCatalogue"];
             recette_id: components["schemas"]["IdCatalogue"];
             /** @enum {string} */
@@ -310,9 +808,25 @@ export interface components {
             /** @enum {string} */
             type: "reserve_insuffisante";
         };
+        Jalon: {
+            /**
+             * Format: int32
+             * @description Mots du fascicule découverts qui atteignent le jalon.
+             */
+            decouvertes: number;
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Briques du pli de jalon : un exemplaire de chacune. */
+            pli?: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
         LangueManifeste: {
             id: components["schemas"]["IdCatalogue"];
             silhouette?: components["schemas"]["Chemin"] | null;
+        };
+        LibellesQuete: {
+            consigne: string;
+            titre: string;
         };
         Manifeste: {
             cartes?: components["schemas"]["CarteManifeste"][];
@@ -324,21 +838,70 @@ export interface components {
             graines?: components["schemas"]["Graine"][];
             /** @description Identifiant opaque du fascicule : les données du joueur le désignent par lui. */
             id: components["schemas"]["IdCatalogue"];
-            jalons?: unknown[];
+            /** @description Jalons du fascicule, récompenses affichées à l'avance (ADR 0038). */
+            jalons?: components["schemas"]["Jalon"][];
             jaquette?: components["schemas"]["Chemin"] | null;
             langues?: components["schemas"]["LangueManifeste"][];
+            /** @description Mots posables comme briques : leur découverte en offre un exemplaire. */
+            mots_briques?: components["schemas"]["MotBrique"][];
+            /** @description Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens. */
+            nom?: string | null;
             /** Format: int32 */
             numero: number;
             /** Format: date-time */
             parution: string;
-            pli?: unknown;
+            /** @description Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011). */
+            pli?: components["schemas"]["PliManifeste"];
             recettes?: components["schemas"]["RecetteManifeste"][];
+            /** @description De quoi juger un ricochet sans lire un texte (ADR 0044). */
+            ricochets?: components["schemas"]["RicochetsManifeste"];
             test?: boolean;
+        };
+        MotBrique: {
+            brique_id: components["schemas"]["IdCatalogue"];
+            mot_id: components["schemas"]["IdCatalogue"];
+        };
+        MotRicochet: {
+            classe_litteral?: components["schemas"]["IdCatalogue"] | null;
+            /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
+            coupes?: number[];
+            id: components["schemas"]["IdCatalogue"];
         };
         /** @enum {string} */
         MotifPresque: "ordre" | "incomplet";
         /** @enum {string} */
         Nature: "mot" | "prefixe" | "suffixe";
+        /**
+         * @description Nature d'une brique tirable : préfixe, suffixe ou mot posé tel quel.
+         * @enum {string}
+         */
+        NaturePli: "prefixe" | "suffixe" | "mot";
+        OuverturePli: {
+            brique_id: components["schemas"]["IdCatalogue"];
+            /**
+             * Format: int32
+             * @description Gouttes gagnées.
+             */
+            encre: number;
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            /** Format: date-time */
+            ouvert_le: string;
+            regle: components["schemas"]["Regle"];
+            resultat: components["schemas"]["Resultat"];
+        };
+        /** @description Un palier : sa récompense est affichée d'avance et se récupère comme un jalon. */
+        Palier: {
+            /** Format: int32 */
+            encre?: number;
+            id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            sabliers?: number;
+            /**
+             * Format: int32
+             * @description Valeur de la progression qui atteint le palier.
+             */
+            seuil: number;
+        };
         Partie: {
             forme_id: components["schemas"]["IdCatalogue"];
             /** Format: int32 */
@@ -353,7 +916,39 @@ export interface components {
             sens_id: components["schemas"]["IdCatalogue"];
             unite_id: components["schemas"]["IdCatalogue"];
         };
-        /** @enum {string} */
+        PliManifeste: {
+            briques?: components["schemas"]["BriquePliManifeste"][];
+            equilibrage?: components["schemas"]["EquilibrageManifeste"] | null;
+        };
+        ProgressionQuete: {
+            /** Format: int32 */
+            progression: number;
+            quete_id: components["schemas"]["IdCatalogue"];
+        };
+        /** @description Une question de la séance, par identifiants : le client rend les textes. */
+        QuestionRicochet: {
+            /** @description La carte visée ; quatre briques pour les paires. */
+            cartes: components["schemas"]["IdCatalogue"][];
+            /**
+             * @description Choix possibles, dans le désordre : des `sns_…`, `brq_…` ou `unt_…`
+             *     selon le format. Vide pour *découper* et *paires*.
+             */
+            choix?: components["schemas"]["IdCatalogue"][];
+            format: components["schemas"]["FormatRicochet"];
+        };
+        QueteLongCours: components["schemas"]["Sorte"] & {
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Libellés par locale ; `fr` est la locale de référence. */
+            libelles: {
+                [key: string]: components["schemas"]["LibellesQuete"];
+            };
+            /** @description Paliers par seuil croissant. */
+            paliers: components["schemas"]["Palier"][];
+        };
+        /**
+         * @description Rareté d'une brique élémentaire : quatre niveaux, quatre formes.
+         * @enum {string}
+         */
         Rarete: "commune" | "peu_commune" | "rare" | "legendaire";
         /** @description Ressource « recette » : la composition jouée et ses emplacements ordonnés. */
         Recette: {
@@ -366,24 +961,134 @@ export interface components {
             chemin: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
         };
+        /**
+         * @description Règle qui a décidé de la brique tirée.
+         * @enum {string}
+         */
+        Regle: "tirage" | "garantie" | "filet" | "garantie_legendaire" | "deterministe";
         RelationCarte: {
             etymon?: components["schemas"]["Etymon"] | null;
+            fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
             type_code: string;
+        };
+        ReponseAchatSablier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Gouttes payées.
+             */
+            prix: number;
         };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
             issue: components["schemas"]["IssueFusion"];
+            /** @description Jalons atteints par cette découverte, à annoncer. */
+            jalons?: components["schemas"]["IdCatalogue"][];
+        };
+        ReponseIndice: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Gouttes payées.
+             */
+            prix: number;
+        };
+        ReponseJalon: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        /** @description Réponse du joueur : un choix, ou les positions de coupe d'un mot. */
+        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[];
+        ReponsePalier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        ReponsePli: {
+            /** @description Vrai si la brique était épuisée : « De retour ! ». */
+            etait_epuisee: boolean;
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /**
+             * Format: int32
+             * @description Exemplaires de la brique après le pli.
+             */
+            exemplaires: number;
+            ouverture: components["schemas"]["OuverturePli"];
+        };
+        ReponseRicochet: {
+            carte: components["schemas"]["CarteRicochet"];
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Vrai si la réponse est la bonne, que la carte ait été à revoir ou non. */
+            juste: boolean;
+        };
+        ReponseSablier: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        /**
+         * @description Ce que la brique tirée apporte à la réserve.
+         * @enum {string}
+         */
+        Resultat: "nouvelle" | "doublon" | "reserve_pleine";
+        /** @description Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise. */
+        RicochetEtat: {
+            /** @description Vrai si une réponse d'aujourd'hui compterait. */
+            a_revoir: boolean;
+            /** @description Définitif : une carte maîtrisée le reste. */
+            maitrisee: boolean;
+            /** Format: int32 */
+            niveau: number;
+            /** @description Mot (`unt_…`) ou brique (`brq_…`). */
+            unite_id: components["schemas"]["IdCatalogue"];
+        };
+        /** @description Les cinq premières réponses du jour comptent pour les quêtes (ADR 0045). */
+        RicochetsDuJour: {
+            /** Format: int32 */
+            bonnes: number;
+            /** Format: int32 */
+            reponses: number;
+        };
+        /** @description Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte. */
+        RicochetsManifeste: {
+            briques?: components["schemas"]["BriqueRicochet"][];
+            mots?: components["schemas"]["MotRicochet"][];
         };
         /** @enum {string} */
         Role: "resultat" | "ingredient";
+        SabliersEtat: {
+            /**
+             * Format: int32
+             * @description Sabliers détenus, sans plafond (ADR 0039).
+             */
+            detenus: number;
+            /**
+             * Format: int32
+             * @description Prix d'un sablier, en gouttes.
+             */
+            prix_gouttes: number;
+        };
         Sante: {
+            /** @description `true` hors production : la PWA affiche alors le bouton « Réinitialiser ». */
+            reinitialisation: boolean;
+            /**
+             * @description Commit à l'origine de l'image de l'API, vide hors déploiement. Sert à
+             *     vérifier qu'un déploiement a bien pris (issue #7).
+             */
+            revision_api?: string;
             statut: components["schemas"]["StatutSante"];
             /** @description Version du code de l'API. */
             version_api: string;
             /** @description Version du catalogue chargée en mémoire, `null` si aucun index n'est publié. */
             version_catalogue?: string | null;
+        };
+        /** @description Séance de ricochets : cinq questions au plus, aucune chronologie, rien n'est écrit. */
+        SeanceRicochets: {
+            questions: components["schemas"]["QuestionRicochet"][];
         };
         Sens: {
             id: components["schemas"]["IdCatalogue"];
@@ -402,6 +1107,46 @@ export interface components {
             /** @description Vrai si le profil vient d'être créé. */
             nouveau: boolean;
         };
+        /** @description Ce qu'une quête compte : la liste fermée de l'ADR 0045. */
+        Sorte: {
+            langue_id: components["schemas"]["IdCatalogue"];
+            /** @enum {string} */
+            sorte: "langue";
+        } | {
+            /** Format: int32 */
+            mots_par_famille: number;
+            /** @enum {string} */
+            sorte: "famille";
+        } | {
+            /** @enum {string} */
+            sorte: "transformation";
+            type_code: string;
+        } | {
+            /** @enum {string} */
+            sorte: "ricochets";
+        } | {
+            /** @enum {string} */
+            sorte: "lecteur";
+        } | {
+            /** @enum {string} */
+            sorte: "premiere_legendaire";
+        };
+        Source: {
+            edition?: string | null;
+            id: components["schemas"]["IdCatalogue"];
+            reference: string;
+            /** @description `reference` pour une source de référence. */
+            role: string;
+            /** @description Dictionnaire, ouvrage, article… */
+            type: string;
+            url?: string | null;
+        };
+        /** @description Renvoi d'un fait vers une source de la carte. */
+        SourceCitee: {
+            /** @description Page ou entrée dans la source, quand elle est renseignée. */
+            localisation?: string | null;
+            source_id: components["schemas"]["IdCatalogue"];
+        };
         /** @enum {string} */
         StatutSante: "ok" | "degrade";
         Transformation: {
@@ -409,6 +1154,11 @@ export interface components {
             libelles: components["schemas"]["BTreeMap_LibelleTexte"];
             /** Format: int32 */
             ordre: number;
+            /**
+             * Format: int32
+             * @description Partie de la composition que la transformation touche.
+             */
+            rang_partie?: number | null;
             type_code: string;
         };
         Translitteration: {
@@ -424,6 +1174,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    reinitialiser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joueur remis à zéro, état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Etat"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Production : route absente */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     etat: {
         parameters: {
             query?: never;
@@ -495,6 +1281,599 @@ export interface operations {
             };
             /** @description Session absente ou expirée */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    acheter_indice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeIndice"];
+            };
+        };
+        responses: {
+            /** @description Niveau obtenu et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseIndice"];
+                };
+            };
+            /** @description Requête invalide, recette inconnue ou secrète, niveau hors d'ordre */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Encre insuffisante */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Recette déjà découverte, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_jalon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeJalon"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseJalon"];
+                };
+            };
+            /** @description Requête invalide ou jalon inconnu */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Jalon pas encore atteint */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Récompense déjà récupérée, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_palier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandePalier"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponsePalier"];
+                };
+            };
+            /** @description Requête invalide ou palier inconnu */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Palier pas encore atteint */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Récompense déjà récupérée, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    ouvrir_pli: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandePli"];
+            };
+        };
+        responses: {
+            /** @description Brique tirée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponsePli"];
+                };
+            };
+            /** @description Requête invalide ou fascicule sans pli */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucune charge d'énergie */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    repondre_ricochet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeRicochet"];
+            };
+        };
+        responses: {
+            /** @description Résultat, carte après la réponse et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseRicochet"];
+                };
+            };
+            /** @description Requête invalide : format, identifiant ou réponse mal formés */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Carte inconnue, légendaire ou pas encore trouvée */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    seance_ricochets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Séance tirée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeanceRicochets"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    utiliser_sabliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeSablier"];
+            };
+        };
+        responses: {
+            /** @description Recharge avancée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseSablier"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Énergie pleine ou sabliers insuffisants */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    acheter_sabliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeAchatSablier"];
+            };
+        };
+        responses: {
+            /** @description Sabliers achetés et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseAchatSablier"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Encre insuffisante */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
