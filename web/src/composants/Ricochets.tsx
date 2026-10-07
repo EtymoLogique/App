@@ -543,11 +543,11 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
         )}
         {phase.t === 'fin' && (
           <>
-            <button type="button" className="btn btn-primary" onClick={encore}>
-              Encore cinq
-            </button>
             <button type="button" className="btn btn-secondary" onClick={onFermer}>
               Fermer
+            </button>
+            <button type="button" className="btn btn-primary" onClick={encore}>
+              Encore cinq
             </button>
           </>
         )}
