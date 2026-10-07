@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import type { BriqueJeu } from '../services/jeu'
-import { NATURES, entrelacer } from '../services/jeu'
+import { NATURES, entrelacer, naturesDeCase } from '../services/jeu'
 import { correspond } from '../services/recherche'
 import { ContenuBrique } from './Brique'
 
@@ -17,6 +17,8 @@ interface Props {
   reserve: Exemplaires[]
   briques: Map<string, BriqueJeu>
   table: string[]
+  /** Case visée sur la table : seuls les mots et les préfixes (gauche) ou les suffixes (droite) s'affichent. */
+  zone?: number | null
   /** `depuis` : la brique touchée, d'où l'exemplaire vole jusqu'à sa case. */
   onAjouter: (brique: string, depuis?: HTMLElement) => void
   /** Message affiché quand on touche une brique indisponible, sans secousse. */
@@ -41,7 +43,7 @@ function exemplaires(n: number): string {
  * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
+export function Reserve({ reserve, briques, table, zone = null, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
   const [recherche, setRecherche] = useState('')
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
@@ -74,13 +76,15 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
     return true
   }
+  // Une case visée choisit déjà les natures : les filtres Préfixes et Suffixes s'effacent devant elle.
+  const filtreActif = zone !== null && (filtre === 'prefixe' || filtre === 'suffixe') ? 'tout' : filtre
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
 
   // Les briques encore disponibles passent devant ; l'entrelacement long/court
   // se fait dans chaque groupe, l'ordre « récentes d'abord » départage le reste.
   const trouvees = connues.filter((e) => {
     const b = briques.get(e.brique_id) as BriqueJeu
-    return dansLeFiltre(e, filtre) && correspond(recherche, b.libelle, b.glose)
+    return (zone === null || naturesDeCase(zone).includes(b.nature)) && dansLeFiltre(e, filtreActif) && correspond(recherche, b.libelle, b.glose)
   })
   const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
   const visibles = [
@@ -113,12 +117,14 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
             ['suffixe', 'Suffixes', 'var(--c-suffix)'],
             ['recentes', 'Récentes', null],
           ] as [Filtre, string, string | null][]
-        ).map(([f, libelle, couleur]) => (
+        )
+          .filter(([f]) => zone === null || (f !== 'prefixe' && f !== 'suffixe'))
+          .map(([f, libelle, couleur]) => (
           <button
             key={f}
             type="button"
             className="cb-chip"
-            aria-pressed={filtre === f}
+            aria-pressed={filtreActif === f}
             onClick={() => setFiltre(f)}
             style={couleur ? ({ '--c': couleur } as React.CSSProperties) : undefined}
           >
