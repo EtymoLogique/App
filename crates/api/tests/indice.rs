@@ -51,7 +51,7 @@ async fn les_indices_s_achetent_dans_l_ordre_une_fois_chacun(base: PgPool) {
     assert_eq!(somme_mouvements(&base, "encre").await, 50);
 
     let premier = indice(&etat, 3);
-    for (niveau, prix) in [(3, 4), (2, 16)] {
+    for (niveau, prix) in [(3, 8), (2, 16)] {
         let demande = if niveau == 3 {
             premier.clone()
         } else {
@@ -62,19 +62,19 @@ async fn les_indices_s_achetent_dans_l_ordre_une_fois_chacun(base: PgPool) {
         assert_eq!(reponse["prix"], prix);
         etat = reponse["etat"].clone();
     }
-    assert_eq!(etat["encre"], 50 - 20);
+    assert_eq!(etat["encre"], 50 - 24);
     assert_eq!(etat["indices"].as_array().unwrap().len(), 2);
-    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 20);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
 
     // Rejouée, la commande ne paie pas deux fois.
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &premier)).await;
     assert_eq!(statut, StatusCode::OK);
-    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 20);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
 
     // Une nouvelle commande pour un indice déjà obtenu est refusée, sans débit.
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 2))).await;
     assert_eq!(statut, StatusCode::CONFLICT, "indice déjà obtenu");
-    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 20);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
