@@ -471,8 +471,6 @@
 .cab-anneau b { font-family: var(--mono); font-size: 10px; }
 .cab-sens { font-family: var(--serif); font-size: 13px; line-height: 1.2; }
 @media (max-width: 900px) { .cab { grid-template-columns: minmax(0, 1fr); } }
-}
-}
 
 /* ---------- Carte agrandie : « En savoir plus » (I-16), au dos de la carte ---------- */
 .bb-tabs { display: flex; flex: none; gap: 2px; padding: 3px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
