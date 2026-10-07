@@ -201,7 +201,8 @@ describe('table de fusion', () => {
     expect(within(carte).getByText('Science de la Terre.')).toBeInTheDocument()
     expect(within(carte).queryByRole('button', { name: 'Carte suivante' })).not.toBeInTheDocument()
     expect(window.location.hash).not.toMatch(/codex/)
-    expect(screen.getByLabelText('1 nouveauté')).toBeInTheDocument()
+    // Le codex est dans le burger : sa nouveauté se lit sur le bouton Menu.
+    expect(within(screen.getByRole('button', { name: /^Menu/ })).getByLabelText('1 nouveauté')).toBeInTheDocument()
     fireEvent.click(within(carte).getByRole('button', { name: 'Fermer la carte' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
