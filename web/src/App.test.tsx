@@ -47,6 +47,26 @@ describe('table de fusion', () => {
     history.replaceState(null, '', '/')
   })
 
+  it('filtre la réserve selon la case choisie : préfixes à gauche, suffixes à droite', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    const r = await reserve()
+    // Aucune case choisie : tout s'affiche.
+    expect(within(r).getByText('géo-')).toBeInTheDocument()
+    expect(within(r).getByText('-logie')).toBeInTheDocument()
+    // Case 2 choisie : mots et suffixes.
+    fireEvent.click(within(r).getByRole('button', { name: 'Case 2 vide. La choisir' }))
+    expect(within(r).queryByText('géo-')).not.toBeInTheDocument()
+    expect(within(r).getByText('-logie')).toBeInTheDocument()
+    expect(within(r).queryByRole('button', { name: /^Préfixes/ })).not.toBeInTheDocument()
+    // Case 1 choisie : mots et préfixes.
+    fireEvent.click(within(r).getByRole('button', { name: /^Case 1 vide/ }))
+    expect(within(r).queryByText('-logie')).not.toBeInTheDocument()
+    expect(within(r).getByText('géo-')).toBeInTheDocument()
+    // La retoucher la désélectionne.
+    fireEvent.click(within(r).getByRole('button', { name: /^Case 1 vide/ }))
+    expect(within(r).getByText('-logie')).toBeInTheDocument()
+  })
+
   it('affiche la réserve de départ, sa recherche et ses filtres', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
@@ -70,18 +90,20 @@ describe('table de fusion', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Emplacement 2 vide. Choisir une brique' }))
     const r = await reserve()
     expect(within(r).getByRole('button', { name: 'Case 2 vide, à remplir' })).toHaveAttribute('aria-current', 'step')
-    fireEvent.click(await brique('géo-'))
-    expect(screen.getByRole('button', { name: 'Emplacement 2 : géo-. Retirer' })).toBeInTheDocument()
+    // La case 2 est choisie : la réserve ne montre que les mots et les suffixes.
+    expect(within(r).queryByText('géo-')).not.toBeInTheDocument()
+    fireEvent.click(await brique('-logie'))
+    expect(screen.getByRole('button', { name: 'Emplacement 2 : -logie. Retirer' })).toBeInTheDocument()
     // La modale reste ouverte et vise la case restante.
     expect(modaleReserve()).toBeInTheDocument()
-    expect(within(r).getByRole('button', { name: 'Case 2 : géo-. Retirer' })).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Case 2 : -logie. Retirer' })).toBeInTheDocument()
     expect(within(r).getByRole('button', { name: 'Case 1 vide, à remplir' })).toBeInTheDocument()
     expect(within(r).getByText('Choisissez la 1ʳᵉ brique')).toBeInTheDocument()
-    expect(within(r).getByText('géo- posée en case 2. Choisissez la 1ʳᵉ brique.')).toBeInTheDocument()
+    expect(within(r).getByText('-logie posée en case 2. Choisissez la 1ʳᵉ brique.')).toBeInTheDocument()
     expect(within(r).getByRole('button', { name: 'Retour à la table' })).toBeInTheDocument()
-    fireEvent.click(await brique('-logie'))
+    fireEvent.click(await brique('géo-'))
     await waitForElementToBeRemoved(modaleReserve)
-    expect(screen.getByRole('button', { name: 'Emplacement 1 : -logie. Retirer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
     expect(fusionner()).toHaveFocus()
   })
 

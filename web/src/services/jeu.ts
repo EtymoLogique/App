@@ -270,6 +270,14 @@ export function totalMots(jeu: CatalogueJeu): number {
 
 export const NATURES: Record<BriqueJeu['nature'], string> = { prefixe: 'préfixe', suffixe: 'suffixe', mot: 'mot' }
 
+/**
+ * Natures qui ont du sens dans une case de la table : à gauche, un mot ou un préfixe ;
+ * à droite, un mot ou un suffixe (l'ordre compte).
+ */
+export function naturesDeCase(rang: number): BriqueJeu['nature'][] {
+  return rang === 0 ? ['mot', 'prefixe'] : ['mot', 'suffixe']
+}
+
 /** Libellé accessible d'une brique : « préfixe géo- (terre) ». */
 export function nomAccessible(brique: BriqueJeu): string {
   return `${NATURES[brique.nature]} ${brique.libelle}${brique.glose ? ` (${brique.glose})` : ''}`

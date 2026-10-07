@@ -85,6 +85,8 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
   // Annonce pour les lecteurs d'écran : ce qui vient de se passer, puis la suite.
   const [annonce, setAnnonce] = useState('')
   const [vise, setVise] = useState(rang)
+  // Case choisie par le joueur (touchée sur la table ou dans la modale) : elle filtre la réserve. Sans choix, tout s'affiche.
+  const [zone, setZone] = useState(rang)
   // Dernière brique touchée : sa pastille rebondit ; dernière case remplie : sa brique y vole depuis la réserve.
   const [touchee, setTouchee] = useState<{ brique: string; rang: number; cle: number; sens: 'plus' | 'moins'; depuis?: DOMRect } | null>(null)
   const [complete, setComplete] = useState(false)
@@ -134,6 +136,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setTouchee({ brique, rang: visee, cle: (touchee?.cle ?? 0) + 1, sens: 'moins', depuis: depuis?.getBoundingClientRect() })
     const suivante = cases.findIndex((b, i) => b === null && i !== visee)
     setVise(suivante < 0 ? null : suivante)
+    setZone(null)
     if (suivante < 0) {
       setAnnonce(`${libelle(brique)} posée en case ${visee + 1}. La table est prête : fusionnez.`)
       setComplete(true)
@@ -148,6 +151,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     const id = cases[i]
     setMessage(null)
     setVise(i)
+    setZone(id ? null : zone === i ? null : i)
     if (!id) return
     onRetirer(i)
     setTouchee({ brique: id, rang: -1, cle: (touchee?.cle ?? 0) + 1, sens: 'plus' })
@@ -231,7 +235,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
             {message}
           </p>
         )}
-        <Reserve reserve={reserve} briques={briques} table={posees} consommees={consommees} touchee={touchee} onAjouter={choisir} onIndisponible={setMessage} />
+        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete || cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} onAjouter={choisir} onIndisponible={setMessage} />
       </section>
     </div>
   )
