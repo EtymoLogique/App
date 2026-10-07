@@ -150,6 +150,14 @@
 .rico-paires { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 12px; }
 .rico-option.rico-paire { min-height: 48px; justify-content: space-between; font-size: 16px; }
 .rico-option .brick.s .b-meta { display: none; }
+/* Mobile : la colonne des briques prend sa largeur, celle des sens le reste ; rien ne déborde sur la colonne voisine. */
+.rico-option.rico-paire .rico-option-texte { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .rico-paires { grid-template-columns: max-content minmax(0, 1fr); gap: 8px; }
+  .rico-option.rico-paire { gap: 6px; padding: 8px 10px; font-size: 15px; }
+  .rico-option.rico-paire .brick.s .b-label { font-size: 15px; }
+  .rico-option.rico-paire .rico-numero { width: 22px; height: 22px; font-size: 11px; }
+}
 /* Trait épais en ombre intérieure, pas en bordure : la taille de la ligne ne bouge pas à la sélection. */
 .rico-option.prise { box-shadow: inset 0 0 0 1px var(--ink); background: var(--paper-2); }
 .rico-option.relie { box-shadow: inset 0 0 0 1px var(--ink); background: var(--paper-2); }
