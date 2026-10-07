@@ -36,6 +36,16 @@ describe('codex', () => {
     expect(entrees.map((e) => e.id)).toEqual(['unt_0000ge00'])
   })
 
+  it('montre en silhouette le mot qui exige une légendaire dès qu’elle est trouvée', () => {
+    const c = catalogue()
+    const logie = c.briques.get(LOGIE)!
+    c.briques.set(LOGIE, { ...logie, rarete: 'legendaire' })
+    const carte = c.cartes.get(logie.uniteId)!
+    c.cartes.set(logie.uniteId, { ...carte, brique: { ...carte.brique!, rarete: 'legendaire' } })
+    const mot = construireCodex(c, etat({ reserve: [ex(GEO, 1), ex(LOGIE, 1)] })).find((e) => e.id === MOT)
+    expect(mot).toMatchObject({ trouvee: false, legendaire: false })
+  })
+
   it('ne trouve que des cartes découvertes, par forme ou par sens', () => {
     const entrees = construireCodex(catalogue(), etat())
     // Le mot inconnu a « terre » dans sa piste : il reste introuvable.
