@@ -80,8 +80,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore
-         *     à découvrir. Le contenu du niveau se lit dans le catalogue public.
+         * Achète un indice au choix (ADR 0051) pour une recette encore à découvrir :
+         *     1 silhouette, 2 sens littéral, 3 définition. Le contenu se lit dans le
+         *     catalogue public.
          */
         post: operations["acheter_indice"];
         delete?: never;
@@ -445,7 +446,10 @@ export interface components {
              */
             version_etat: number;
         };
-        /** @description Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant. */
+        /**
+         * @description Commande d'achat d'un indice à la carte (ADR 0051) : `niveau` identifie
+         *     l'indice, 1 silhouette, 2 sens littéral, 3 définition.
+         */
         DemandeIndice: {
             /**
              * Format: uuid
@@ -670,7 +674,7 @@ export interface components {
             energie: components["schemas"]["EnergieEtat"];
             /** @description Derniers plis ouverts, du plus récent au plus ancien. */
             historique_plis: components["schemas"]["OuverturePli"][];
-            /** @description Niveaux d'indice obtenus, par recette (ADR 0038). */
+            /** @description Indices obtenus, par recette (ADR 0051). */
             indices?: components["schemas"]["IndiceObtenu"][];
             /** @description Jalons atteints (ADR 0038), récompense récupérée ou non. */
             jalons_atteints?: components["schemas"]["IdCatalogue"][];
@@ -687,7 +691,7 @@ export interface components {
             jours_de_jeu?: number;
             /** @description Paliers de quêtes au long cours dont la récompense a été récupérée. */
             paliers_recuperes?: components["schemas"]["IdCatalogue"][];
-            /** @description Prix de chaque niveau d'indice, en gouttes, du premier à la solution. */
+            /** @description Prix de chaque indice, en gouttes : silhouette, sens littéral, définition. */
             prix_indices?: number[];
             /**
              * @description Progression de chaque quête au long cours, calculée par le serveur sur
@@ -1330,7 +1334,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Niveau obtenu et état confirmé */
+            /** @description Indice obtenu et état confirmé */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1339,7 +1343,7 @@ export interface operations {
                     "application/json": components["schemas"]["ReponseIndice"];
                 };
             };
-            /** @description Requête invalide, recette inconnue ou secrète, niveau hors d'ordre */
+            /** @description Requête invalide, recette inconnue ou secrète, indice hors barème */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1366,7 +1370,7 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Recette déjà découverte, état ou catalogue périmé : resynchroniser */
+            /** @description Recette déjà découverte, indice déjà obtenu, état ou catalogue périmé : resynchroniser */
             409: {
                 headers: {
                     [name: string]: unknown;

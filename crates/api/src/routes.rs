@@ -660,15 +660,16 @@ pub async fn utiliser_sabliers(
     Ok(Json(reponse))
 }
 
-/// Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore
-/// à découvrir. Le contenu du niveau se lit dans le catalogue public.
+/// Achète un indice au choix (ADR 0051) pour une recette encore à découvrir :
+/// 1 silhouette, 2 sens littéral, 3 définition. Le contenu se lit dans le
+/// catalogue public.
 #[utoipa::path(post, path = "/indice", tag = "jeu", security(("session" = [])), request_body = DemandeIndice,
     responses(
-        (status = 200, description = "Niveau obtenu et état confirmé", body = ReponseIndice),
-        (status = 400, description = "Requête invalide, recette inconnue ou secrète, niveau hors d'ordre", body = Erreur),
+        (status = 200, description = "Indice obtenu et état confirmé", body = ReponseIndice),
+        (status = 400, description = "Requête invalide, recette inconnue ou secrète, indice hors barème", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
         (status = 403, description = "Encre insuffisante", body = Erreur),
-        (status = 409, description = "Recette déjà découverte, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 409, description = "Recette déjà découverte, indice déjà obtenu, état ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
     ))]
@@ -678,7 +679,7 @@ pub async fn acheter_indice(
     JsonStrict(demande): JsonStrict<DemandeIndice>,
 ) -> Result<Json<ReponseIndice>, ErreurApi> {
     let prix = indice::prix(demande.niveau)
-        .ok_or_else(|| ErreurApi::RequeteInvalide("niveau : de 1 à 5 attendu".into()))?;
+        .ok_or_else(|| ErreurApi::RequeteInvalide("niveau : de 1 à 3 attendu".into()))?;
     let mut tx = match debuter_commande(
         &app,
         joueur,
@@ -710,11 +711,8 @@ pub async fn acheter_indice(
     {
         return Err(ErreurApi::Conflit("recette déjà découverte"));
     }
-    let suivant = progression::niveau_indice(&mut tx, joueur, &recette.id).await? + 1;
-    if demande.niveau != suivant {
-        return Err(ErreurApi::RequeteInvalide(format!(
-            "niveau : {suivant} attendu"
-        )));
+    if progression::indice_obtenu(&mut tx, joueur, &recette.id, demande.niveau).await? {
+        return Err(ErreurApi::Conflit("indice déjà obtenu"));
     }
     progression::acheter_indice(
         &mut tx,

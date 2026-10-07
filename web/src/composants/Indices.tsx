@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { Etat, ReponseIndice } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
-import { TITRES_INDICES, contenuIndice, indiceCourant, niveauObtenu } from '../services/indices'
+import { INDICES, contenuIndice, indiceCourant, indicesObtenus } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
 import { useEnLigne } from '../services/reseau'
+import { chargerSilhouette } from '../services/silhouettes'
 import { Icone } from './Icone'
 import { useDialogue } from './useDialogue'
 
@@ -13,22 +14,39 @@ interface Props {
   etat: Etat | null
   entrees: EntreeCodex[]
   acheter: (recette: string, niveau: number) => Promise<ReponseIndice | { erreur: string }>
+  /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
+  lireMedia: (chemin: string) => Promise<string>
   onFermer: () => void
 }
 
+/** La silhouette d'une carte à trouver, insérée dans la page pour prendre la teinte de l'encre. */
+function Silhouette({ chemin, lireMedia }: { chemin: string; lireMedia: Props['lireMedia'] }) {
+  const hote = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    let actif = true
+    void chargerSilhouette(chemin, lireMedia).then((svg) => {
+      if (actif && svg && hote.current) hote.current.replaceChildren(svg)
+    })
+    return () => {
+      actif = false
+    }
+  }, [chemin, lireMedia])
+  return <span ref={hote} className="indice-art" aria-hidden="true" />
+}
+
 /**
- * Indices (I-12, ADR 0038) : une seule silhouette à trouver (indiceCourant), puis ses cinq niveaux,
- * du plus vague à la solution, achetés dans l'ordre contre de l'encre.
+ * Indices (I-12, ADR 0051) : une seule silhouette à trouver (indiceCourant), puis trois indices au
+ * choix (silhouette, sens littéral, définition), chacun acheté une fois contre de l'encre.
  */
-export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
+export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Props) {
   const enLigne = useEnLigne()
-  // Choisie à l'ouverture : acheter un niveau ne la remplace pas sous les yeux du joueur.
+  // Choisie à l'ouverture : acheter un indice ne la remplace pas sous les yeux du joueur.
   const [cible] = useState(() => indiceCourant(jeu, entrees, etat))
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
 
-  const obtenu = cible ? niveauObtenu(etat, cible.recette.id) : 0
+  const obtenus = cible ? indicesObtenus(etat, cible.recette.id) : new Set<number>()
   const encre = etat?.encre ?? 0
   const prix = etat?.prix_indices ?? []
 
@@ -48,68 +66,51 @@ export function Indices({ jeu, etat, entrees, acheter, onFermer }: Props) {
         <div className="rangee rangee-ecartee">
           <h2 id="indices-titre" className="jk-title">
             Indice
+            {cible && <small className="panel-k">N°&nbsp;{String(cible.entree.n).padStart(3, '0')}</small>}
           </h2>
-          <span className="rangee">
-            <span className="pk-inkbox" aria-label={`${encre} gouttes d’encre`}>
-              <span className="pk-drop" aria-hidden="true" />
-              <strong>{encre}</strong>
-            </span>
-            <button data-focus-initial type="button" className="btn btn-secondary" onClick={fermer}>
-              Fermer
-            </button>
-          </span>
+          <button data-focus-initial type="button" className="btn btn-secondary" onClick={fermer}>
+            Fermer
+          </button>
         </div>
         {!cible ? (
           <p className="pk-note">Aucun mot à former avec vos briques pour l’instant. Ouvrez un pli pour en obtenir d’autres.</p>
         ) : (
           <>
-            <p className="panel-k">Silhouette N°&nbsp;{String(cible.entree.n).padStart(3, '0')}</p>
-            {cible.entree.sens && <p className="pk-note">«&nbsp;{cible.entree.sens}&nbsp;»</p>}
-            <ol className="indices-niveaux">
-              {TITRES_INDICES.map((titre, i) => {
-                const niveau = i + 1
-                const cout = prix[i]
+            <ul className="indices-liste">
+              {INDICES.map(({ niveau, titre }) => {
+                const contenu = contenuIndice(jeu, cible.entree, niveau)
+                if (!contenu) return null
+                const cout = prix[niveau - 1]
+                const obtenu = obtenus.has(niveau)
                 return (
-                  <li key={titre} className={niveau <= obtenu ? 'is-obtenu' : undefined}>
-                    <span>
-                      <b>
-                        {niveau} · {titre}
-                      </b>
-                      {niveau <= obtenu && (
-                        <small>
-                          {contenuIndice(jeu, cible.recette, niveau, etat).map((p, j) =>
-                            typeof p === 'string' ? (
-                              p
-                            ) : (
-                              <span key={j} className="bchip" data-kind={p.nature}>
-                                {p.libelle}
-                              </span>
-                            ),
-                          )}
-                        </small>
-                      )}
-                      {niveau === obtenu + 1 && cout !== undefined && encre < cout && <small>Il vous manque {cout - encre}&nbsp;goutte{cout - encre > 1 ? 's' : ''}.</small>}
-                    </span>
-                    {niveau <= obtenu ? (
+                  <li key={niveau} className={obtenu ? 'is-obtenu' : undefined}>
+                    <h3>{titre}</h3>
+                    {obtenu ? (
                       <span aria-label="Obtenu">✓</span>
-                    ) : niveau === obtenu + 1 && cout !== undefined ? (
-                      <button type="button" className="btn btn-primary btn-prix" aria-label={`${cout} gouttes`} disabled={!enLigne || envoi || encre < cout} onClick={() => void payer(niveau)}>
-                        {cout}
-                        <Icone nom="goutte" />
-                      </button>
                     ) : (
-                      <Icone nom="verrou" />
+                      cout !== undefined && (
+                        <button type="button" className="btn btn-primary btn-prix" aria-label={`${titre}, ${cout} gouttes`} disabled={!enLigne || envoi || encre < cout} onClick={() => void payer(niveau)}>
+                          <span className="prix">{cout}</span>
+                          <Icone nom="goutte" />
+                        </button>
+                      )
+                    )}
+                    {obtenu && (
+                      <div className="indice-contenu">
+                        {contenu.silhouette && <Silhouette chemin={contenu.silhouette} lireMedia={lireMedia} />}
+                        {contenu.texte && (niveau === 3 ? <p className="bf-def">{contenu.texte}</p> : <p className="bf-lit">«&nbsp;{contenu.texte}&nbsp;»</p>)}
+                      </div>
                     )}
                   </li>
                 )
               })}
-            </ol>
+            </ul>
             {erreur && (
               <p className="pk-note" role="alert">
                 {erreur}
               </p>
             )}
-            <p className="pk-note">Un niveau à la fois, du plus vague à la solution. Chacun ne se paie qu’une fois.</p>
+            <p className="pk-note">Chaque indice ne se paie qu’une fois.</p>
           </>
         )}
       </section>

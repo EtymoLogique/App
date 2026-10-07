@@ -1,14 +1,24 @@
-// Indices (ADR 0038) : cinq niveaux par recette, achetés dans l'ordre. Le
-// serveur encaisse ; le contenu de chaque niveau se lit dans le catalogue
-// public, comme la prévisualisation d'une fusion.
+// Indices à la carte (ADR 0051) : trois indices par recette, achetés dans
+// l'ordre voulu, une fois chacun. Le serveur encaisse ; le contenu de chaque
+// indice se lit dans le catalogue public, comme la prévisualisation d'une fusion.
 
 import type { Etat } from '../contrat'
 import type { EntreeCodex } from './codex'
-import { type BriqueJeu, type CatalogueJeu, NATURES, type RecetteJeu, realisable } from './jeu'
+import { type CatalogueJeu, type RecetteJeu, realisable } from './jeu'
+import { sensLitteral } from './ricochets'
 
-export const TITRES_INDICES = ['Langue du résultat', 'Nature des briques', 'Une transformation ?', 'Une brique connue', 'La solution'] as const
+/** Numéro d'indice attendu par l'API (`niveau`), dans l'ordre du barème `prix_indices`. */
+export const INDICES = [
+  { niveau: 1, titre: 'Silhouette' },
+  { niveau: 2, titre: 'Sens littéral' },
+  { niveau: 3, titre: 'Définition' },
+] as const
 
-const RANGS = ['1ʳᵉ', '2ᵉ']
+export interface ContenuIndice {
+  /** Chemin haché de la silhouette, à lire dans le catalogue. */
+  silhouette?: string
+  texte?: string
+}
 
 /** Silhouettes à trouver qui peuvent recevoir un indice : jamais une légendaire (ADR 0015). */
 export function ciblesIndice(jeu: CatalogueJeu, entrees: EntreeCodex[]): { entree: EntreeCodex; recette: RecetteJeu }[] {
@@ -16,50 +26,42 @@ export function ciblesIndice(jeu: CatalogueJeu, entrees: EntreeCodex[]): { entre
     .filter((e) => e.resultat && !e.trouvee && !e.legendaire)
     .flatMap((entree) => {
       const recette = jeu.recettes.find((r) => r.motId === entree.id)
-      return recette ? [{ entree, recette }] : []
+      return recette && indicesDisponibles(jeu, entree).length > 0 ? [{ entree, recette }] : []
     })
 }
 
 /**
- * Seul indice proposé : la silhouette déjà entamée (au moins un niveau acheté) de plus petit n°,
+ * Seul indice proposé : la silhouette déjà entamée (au moins un indice acheté) de plus petit n°,
  * sinon la plus petite que la réserve permet de former. Une silhouette entamée reste proposée
  * même quand de nouvelles briques ouvrent un n° plus petit.
  */
 export function indiceCourant(jeu: CatalogueJeu, entrees: EntreeCodex[], etat: Etat | null): { entree: EntreeCodex; recette: RecetteJeu } | null {
   const cibles = ciblesIndice(jeu, entrees).sort((a, b) => a.entree.n - b.entree.n)
-  return cibles.find((c) => niveauObtenu(etat, c.recette.id) > 0) ?? cibles.find((c) => realisable(c.recette, etat?.reserve ?? [])) ?? null
+  return cibles.find((c) => indicesObtenus(etat, c.recette.id).size > 0) ?? cibles.find((c) => realisable(c.recette, etat?.reserve ?? [])) ?? null
 }
 
-/** Niveau déjà obtenu pour une recette, 0 si aucun. */
-export function niveauObtenu(etat: Etat | null, recette: string): number {
-  return Math.max(0, ...(etat?.indices ?? []).filter((i) => i.recette_id === recette).map((i) => i.niveau))
+/** Indices déjà obtenus pour une recette. */
+export function indicesObtenus(etat: Etat | null, recette: string): Set<number> {
+  return new Set((etat?.indices ?? []).filter((i) => i.recette_id === recette).map((i) => i.niveau))
 }
 
-/** Morceaux d'un indice : du texte, ou une brique à afficher comme brique, jamais en texte brut. */
-export type PartieIndice = string | BriqueJeu
-
-/** Contenu d'un niveau d'indice, lu dans le catalogue. */
-export function contenuIndice(jeu: CatalogueJeu, recette: RecetteJeu, niveau: number, etat: Etat | null): PartieIndice[] {
-  const carte = jeu.cartes.get(recette.motId)
-  const briques = recette.emplacements.map((e) => jeu.briques.get(e[0] ?? ''))
+/** Contenu d'un indice, lu dans le catalogue ; `null` quand la fiche de la carte ne le porte pas. */
+export function contenuIndice(jeu: CatalogueJeu, entree: EntreeCodex, niveau: number): ContenuIndice | null {
   switch (niveau) {
     case 1:
-      return [(carte && jeu.langues.get(carte.langue_id)) ?? 'Langue inconnue']
-    case 2:
-      return [briques.map((b) => (b ? NATURES[b.nature] : '?')).join(' + ')]
-    case 3: {
-      const compositions = carte?.compositions ?? []
-      const composition = compositions.find((c) => c.preferee) ?? compositions[0]
-      const noms = (composition?.transformations ?? []).map((t) => jeu.typesTransformation.get(t.type_code) ?? t.type_code)
-      return [noms.length > 0 ? `Oui : ${noms.join(', ')}` : 'Aucune transformation']
+      return entree.silhouette ? { silhouette: entree.silhouette } : null
+    case 2: {
+      const sens = sensLitteral(jeu, entree.id)
+      return sens ? { texte: sens } : null
     }
-    case 4: {
-      const detenues = new Set((etat?.reserve ?? []).map((e) => e.brique_id))
-      const rang = recette.emplacements.findIndex((e) => e.some((b) => detenues.has(b)))
-      const brique = jeu.briques.get(recette.emplacements[rang]?.find((b) => detenues.has(b)) ?? '')
-      return brique ? [brique, ` en ${RANGS[rang] ?? `${rang + 1}ᵉ`} position`] : ['Aucune brique de votre réserve']
-    }
+    case 3:
+      return entree.definition ? { texte: entree.definition } : null
     default:
-      return briques.flatMap((b, i) => [...(i > 0 ? [' + '] : []), b ?? '?'])
+      return null
   }
+}
+
+/** Numéros des indices qu'une carte peut vendre : on ne vend jamais un indice vide. */
+export function indicesDisponibles(jeu: CatalogueJeu, entree: EntreeCodex): number[] {
+  return INDICES.filter((i) => contenuIndice(jeu, entree, i.niveau) !== null).map((i) => i.niveau)
 }

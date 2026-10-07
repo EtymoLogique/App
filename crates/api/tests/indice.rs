@@ -31,19 +31,19 @@ fn indice(etat: &Value, niveau: u8) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn les_niveaux_s_achetent_dans_l_ordre_a_prix_croissant(base: PgPool) {
+async fn les_indices_s_achetent_dans_n_importe_quel_ordre_une_fois_chacun(base: PgPool) {
     let banc = banc(base.clone(), Limiteurs::default()).await;
     let jeton = session(&banc.routeur).await;
     let (_, _, mut etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
-    donner_encre(&base, 200).await;
-    assert_eq!(etat["prix_indices"], json!([5, 10, 20, 40, 80]));
+    donner_encre(&base, 50).await;
+    assert_eq!(etat["prix_indices"], json!([4, 8, 12]));
 
-    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 2))).await;
-    assert_eq!(statut, StatusCode::BAD_REQUEST, "niveau hors d'ordre");
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 4))).await;
+    assert_eq!(statut, StatusCode::BAD_REQUEST, "indice hors barème");
 
-    let premier = indice(&etat, 1);
-    for (niveau, prix) in [(1, 5), (2, 10), (3, 20), (4, 40), (5, 80)] {
-        let demande = if niveau == 1 {
+    let premier = indice(&etat, 3);
+    for (niveau, prix) in [(3, 12), (1, 4), (2, 8)] {
+        let demande = if niveau == 3 {
             premier.clone()
         } else {
             indice(&etat, niveau)
@@ -53,14 +53,19 @@ async fn les_niveaux_s_achetent_dans_l_ordre_a_prix_croissant(base: PgPool) {
         assert_eq!(reponse["prix"], prix);
         etat = reponse["etat"].clone();
     }
-    assert_eq!(etat["encre"], 200 - 155);
-    assert_eq!(etat["indices"].as_array().unwrap().len(), 5);
-    assert_eq!(somme_mouvements(&base, "encre").await, 200 - 155);
+    assert_eq!(etat["encre"], 50 - 24);
+    assert_eq!(etat["indices"].as_array().unwrap().len(), 3);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
 
     // Rejouée, la commande ne paie pas deux fois.
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &premier)).await;
     assert_eq!(statut, StatusCode::OK);
-    assert_eq!(somme_mouvements(&base, "encre").await, 200 - 155);
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
+
+    // Une nouvelle commande pour un indice déjà obtenu est refusée, sans débit.
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/indice", &indice(&etat, 1))).await;
+    assert_eq!(statut, StatusCode::CONFLICT, "indice déjà obtenu");
+    assert_eq!(somme_mouvements(&base, "encre").await, 50 - 24);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

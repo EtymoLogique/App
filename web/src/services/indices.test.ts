@@ -3,12 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { GEO, LOGIE, RECETTE, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
 import { construireCodex } from './codex'
 import type { EntreeCodex } from './codex'
-import { ciblesIndice, contenuIndice, indiceCourant, niveauObtenu } from './indices'
-
-const texte = (...a: Parameters<typeof contenuIndice>) =>
-  contenuIndice(...a)
-    .map((p) => (typeof p === 'string' ? p : p.libelle))
-    .join('')
+import { ciblesIndice, contenuIndice, indiceCourant, indicesDisponibles, indicesObtenus } from './indices'
 
 describe('indices', () => {
   const j = jeu()
@@ -21,18 +16,21 @@ describe('indices', () => {
     expect(ciblesIndice(j, construireCodex(j, decouvert))).toEqual([])
   })
 
-  it('lit chaque niveau dans le catalogue', () => {
-    expect(texte(j, recette, 1, etat())).toBe('français')
-    expect(texte(j, recette, 2, etat())).toBe('préfixe + suffixe')
-    expect(texte(j, recette, 3, etat())).toBe('Aucune transformation')
-    expect(texte(j, recette, 4, etat({ reserve: [ex(GEO, 1)] }))).toBe('géo- en 1ʳᵉ position')
-    expect(texte(j, recette, 4, etat({ reserve: [] }))).toBe('Aucune brique de votre réserve')
-    expect(texte(j, recette, 5, etat())).toBe('géo- + -logie')
+  it('lit chaque indice dans le catalogue, et ne vend que ceux que la fiche porte', () => {
+    const entree = construireCodex(j, etat()).find((e) => e.id === recette.motId)!
+    expect(contenuIndice(j, entree, 1)).toBeNull()
+    expect(contenuIndice(j, { ...entree, silhouette: 'a/xx.svg' }, 1)).toEqual({ silhouette: 'a/xx.svg' })
+    expect(contenuIndice(j, entree, 2)).toEqual({ texte: 'étude de la terre' })
+    expect(contenuIndice(j, entree, 3)).toEqual({ texte: 'Science de la Terre.' })
+    expect(contenuIndice(j, entree, 4)).toBeNull()
+    expect(indicesDisponibles(j, entree)).toEqual([2, 3])
+    expect(indicesDisponibles(j, { ...entree, definition: null })).toEqual([2])
   })
 
-  it('retient le plus haut niveau obtenu', () => {
-    expect(niveauObtenu(etat(), RECETTE)).toBe(0)
-    expect(niveauObtenu(etat({ indices: [{ recette_id: RECETTE, niveau: 1 }, { recette_id: RECETTE, niveau: 2 }] }), RECETTE)).toBe(2)
+  it('retient les indices obtenus, dans n’importe quel ordre', () => {
+    expect(indicesObtenus(etat(), RECETTE).size).toBe(0)
+    const obtenus = indicesObtenus(etat({ indices: [{ recette_id: RECETTE, niveau: 3 }, { recette_id: RECETTE, niveau: 1 }, { recette_id: 'rct_autre', niveau: 2 }] }), RECETTE)
+    expect([...obtenus].sort()).toEqual([1, 3])
   })
 
   it('propose un seul indice : l’entamé, sinon le plus petit n° formable', () => {
@@ -42,7 +40,7 @@ describe('indices', () => {
       { id: 'r7', motId: 'm7', emplacements: [[LOGIE], [GEO]] },
       { id: 'r3', motId: 'm3', emplacements: [['absente'], [GEO]] },
     ]
-    const silhouette = (id: string, n: number) => ({ id, n, resultat: true, trouvee: false, legendaire: false }) as EntreeCodex
+    const silhouette = (id: string, n: number) => ({ id, n, resultat: true, trouvee: false, legendaire: false, definition: 'une définition' }) as EntreeCodex
     const entrees = [silhouette('m7', 7), silhouette('m6', 6), silhouette('m3', 3)]
     const reserve = [ex(GEO, 1), ex(LOGIE, 1)]
     expect(indiceCourant(k, entrees, etat({ reserve }))?.recette.id).toBe('r6')

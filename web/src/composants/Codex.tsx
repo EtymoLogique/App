@@ -176,7 +176,7 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
       ) : (
         <>
           <span className="m-q">?</span>
-          <span className="m-foot">{entree.sens ? `Piste : « ${entree.sens} »` : 'À découvrir'}</span>
+          <span className="m-foot">{affixe && entree.sens ? `Piste : « ${entree.sens} »` : 'À découvrir'}</span>
         </>
       )}
     </button>
@@ -674,7 +674,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                 <>
                   <p className="bf-q">?</p>
                   <p className="bf-def">Cette carte n’est pas encore découverte.</p>
-                  {entree.sens && <p className="bf-lit">Piste : «&nbsp;{entree.sens}&nbsp;»</p>}
+                  {affixe && entree.sens && <p className="bf-lit">Piste : «&nbsp;{entree.sens}&nbsp;»</p>}
                 </>
               )}
             </div>

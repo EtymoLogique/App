@@ -186,7 +186,7 @@
         "tags": [
           "jeu"
         ],
-        "summary": "Achète le niveau suivant d'un indice (ADR 0038) pour une recette encore\nà découvrir. Le contenu du niveau se lit dans le catalogue public.",
+        "summary": "Achète un indice au choix (ADR 0051) pour une recette encore à découvrir :\n1 silhouette, 2 sens littéral, 3 définition. Le contenu se lit dans le\ncatalogue public.",
         "operationId": "acheter_indice",
         "requestBody": {
           "content": {
@@ -200,7 +200,7 @@
         },
         "responses": {
           "200": {
-            "description": "Niveau obtenu et état confirmé",
+            "description": "Indice obtenu et état confirmé",
             "content": {
               "application/json": {
                 "schema": {
@@ -210,7 +210,7 @@
             }
           },
           "400": {
-            "description": "Requête invalide, recette inconnue ou secrète, niveau hors d'ordre",
+            "description": "Requête invalide, recette inconnue ou secrète, indice hors barème",
             "content": {
               "application/json": {
                 "schema": {
@@ -240,7 +240,7 @@
             }
           },
           "409": {
-            "description": "Recette déjà découverte, état ou catalogue périmé : resynchroniser",
+            "description": "Recette déjà découverte, indice déjà obtenu, état ou catalogue périmé : resynchroniser",
             "content": {
               "application/json": {
                 "schema": {
@@ -1553,7 +1553,7 @@
       },
       "DemandeIndice": {
         "type": "object",
-        "description": "Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.",
+        "description": "Commande d'achat d'un indice à la carte (ADR 0051) : `niveau` identifie\nl'indice, 1 silhouette, 2 sens littéral, 3 définition.",
         "required": [
           "commande",
           "version_etat",
@@ -1570,7 +1570,7 @@
           "niveau": {
             "type": "integer",
             "format": "int32",
-            "maximum": 5,
+            "maximum": 3,
             "minimum": 1
           },
           "recette_id": {
@@ -2061,7 +2061,7 @@
             "items": {
               "$ref": "#/components/schemas/IndiceObtenu"
             },
-            "description": "Niveaux d'indice obtenus, par recette (ADR 0038)."
+            "description": "Indices obtenus, par recette (ADR 0051)."
           },
           "jalons_atteints": {
             "type": "array",
@@ -2097,7 +2097,7 @@
               "format": "int32",
               "minimum": 0
             },
-            "description": "Prix de chaque niveau d'indice, en gouttes, du premier à la solution."
+            "description": "Prix de chaque indice, en gouttes : silhouette, sens littéral, définition."
           },
           "progression_quetes": {
             "type": "array",
@@ -2322,7 +2322,7 @@
           "niveau": {
             "type": "integer",
             "format": "int32",
-            "maximum": 5,
+            "maximum": 3,
             "minimum": 1
           },
           "recette_id": {

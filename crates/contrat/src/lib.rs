@@ -67,7 +67,7 @@ pub struct Etat {
     /// enregistrées avant J4, comme les champs qui suivent.
     #[serde(default)]
     pub sabliers: SabliersEtat,
-    /// Niveaux d'indice obtenus, par recette (ADR 0038).
+    /// Indices obtenus, par recette (ADR 0051).
     #[serde(default)]
     pub indices: Vec<IndiceObtenu>,
     /// Jalons atteints (ADR 0038), récompense récupérée ou non.
@@ -77,7 +77,7 @@ pub struct Etat {
     /// absent de cette liste attend le joueur dans les quêtes.
     #[serde(default)]
     pub jalons_recuperes: Vec<IdCatalogue>,
-    /// Prix de chaque niveau d'indice, en gouttes, du premier à la solution.
+    /// Prix de chaque indice, en gouttes : silhouette, sens littéral, définition.
     #[serde(default)]
     pub prix_indices: Vec<u32>,
     /// Jours GMT distincts où le joueur a joué, premier jour compris
@@ -231,7 +231,7 @@ pub struct SabliersEtat {
 #[serde(deny_unknown_fields)]
 pub struct IndiceObtenu {
     pub recette_id: IdCatalogue,
-    #[schema(minimum = 1, maximum = 5)]
+    #[schema(minimum = 1, maximum = 3)]
     pub niveau: u8,
 }
 
@@ -281,7 +281,8 @@ pub struct ReponseAchatSablier {
     pub etat: Etat,
 }
 
-/// Commande d'achat d'un niveau d'indice (ADR 0038) : le niveau suivant.
+/// Commande d'achat d'un indice à la carte (ADR 0051) : `niveau` identifie
+/// l'indice, 1 silhouette, 2 sens littéral, 3 définition.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DemandeIndice {
@@ -292,7 +293,7 @@ pub struct DemandeIndice {
     #[schema(max_length = 64)]
     pub version_catalogue: String,
     pub recette_id: IdCatalogue,
-    #[schema(minimum = 1, maximum = 5)]
+    #[schema(minimum = 1, maximum = 3)]
     pub niveau: u8,
 }
 

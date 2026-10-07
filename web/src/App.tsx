@@ -192,7 +192,7 @@ export function App({ api, catalogue }: Props) {
                     onFermer={fermerReserve}
                   />
                 )}
-                {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} onFermer={fermerIndices} />}
+                {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} lireMedia={lireMedia} onFermer={fermerIndices} />}
 
                 <div className="jeu">
                   <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">

@@ -592,23 +592,25 @@ async fn ecrire_energie(
     Ok(())
 }
 
-/// Niveaux d'indice déjà obtenus pour une recette.
-pub async fn niveau_indice(
+/// Un indice de cette recette est-il déjà obtenu ?
+pub async fn indice_obtenu(
     tx: &mut PgConnection,
     joueur: Uuid,
     recette: &IdCatalogue,
-) -> Result<u8, ErreurApi> {
-    let niveau = sqlx::query_scalar!(
-        "SELECT COALESCE(MAX(niveau), 0)::smallint FROM indice WHERE joueur_id = $1 AND recette_id = $2",
+    niveau: u8,
+) -> Result<bool, ErreurApi> {
+    let obtenu = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM indice WHERE joueur_id = $1 AND recette_id = $2 AND niveau = $3) AS "obtenu!""#,
         joueur,
         recette.as_str(),
+        i16::from(niveau),
     )
     .fetch_one(tx)
     .await?;
-    Ok(niveau.map_or(0, |n| u8::try_from(n).unwrap_or(0)))
+    Ok(obtenu)
 }
 
-/// Paie un niveau d'indice et l'enregistre.
+/// Paie un indice et l'enregistre.
 pub async fn acheter_indice(
     tx: &mut PgConnection,
     joueur: Uuid,
