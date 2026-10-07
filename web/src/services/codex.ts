@@ -132,8 +132,8 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
       const estTrouvee = trouvee(carte)
       const recettes = jeu.recettes.filter((r) => r.motId === carte.id)
       const legendaire = carte.brique?.rarete === 'legendaire'
-      const dependDUneLegendaire = recettes.some((r) => r.emplacements.some((e) => e.some((b) => legendaires.has(b))))
-      // Rien ne trahit une légendaire inconnue, ni les mots qui en dépendent.
+      const dependDUneLegendaire = recettes.some((r) => r.emplacements.some((e) => e.some((b) => legendaires.has(b) && !connues.has(b))))
+      // Rien ne trahit une légendaire inconnue, ni les mots qui en dépendent : leur silhouette apparaît dès qu'elle est trouvée (ADR 0015).
       if (!estTrouvee && (legendaire || dependDUneLegendaire)) continue
       const affixe = carte.nature !== 'mot'
       // Un mot se révise par son identifiant, même s'il sert aussi de brique ; un affixe, par sa brique.

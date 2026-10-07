@@ -696,6 +696,8 @@ pub async fn acheter_indice(
     };
     let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
     let jeu = &catalogue.jeu;
+    // Une légendaire encore inconnue reste secrète, et les mots qui l'exigent avec elle (ADR 0015, 0051).
+    let connues = progression::stock(&mut tx, joueur).await?;
     let recette = jeu
         .recettes
         .iter()
@@ -704,7 +706,7 @@ pub async fn acheter_indice(
             !r.emplacements
                 .iter()
                 .flatten()
-                .any(|b| jeu.legendaires.contains(b))
+                .any(|b| jeu.legendaires.contains(b) && !connues.contains_key(b))
         })
         .ok_or_else(|| ErreurApi::RequeteInvalide("recette : inconnue".into()))?;
     if progression::mots_decouverts(&mut tx, joueur)
