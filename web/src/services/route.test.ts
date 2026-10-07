@@ -47,3 +47,10 @@ describe('route', () => {
     expect(ecrireRoute({ ...ROUTE_PAR_DEFAUT, onglet: 'ricochets' })).toBe('#/ricochets')
   })
 })
+
+describe('tris du codex', () => {
+  it('relit les tris par découverte et par maîtrise', () => {
+    expect(lireRoute('#/codex?tri=date').tri).toBe('date')
+    expect(lireRoute('#/codex?tri=maitrise&sens=inverse')).toMatchObject({ tri: 'maitrise', inverse: true })
+  })
+})

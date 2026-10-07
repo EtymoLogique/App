@@ -4,6 +4,7 @@
 // légendaire inconnue, et tout mot qui en dépend, n'apparaissent jamais (ADR 0015).
 
 import type { Carte, Confiance, Etat, Forme, Rarete } from '../contrat'
+import type { TriCodex } from './route'
 import { type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
 import { correspond } from './recherche'
 
@@ -485,5 +486,29 @@ export function cabinet(entrees: EntreeCodex[], jeu: CatalogueJeu): Cabinet {
     langues: entrees.filter((e) => e.type === 'langue' && e.trouvee).length,
     legendaires: completude(entrees).legendaires,
     voyage,
+  }
+}
+
+/** Ordre du codex ; ce qui reste à trouver ferme la marche des tris par date et par maîtrise. */
+export const tri = (t: TriCodex, inverse: boolean) => (a: EntreeCodex, b: EntreeCodex) => {
+  const sens = inverse ? -1 : 1
+  const cle = (e: EntreeCodex) => (e.trouvee ? e.libelle.replace(/^-/, '') : '')
+  switch (t) {
+    case 'n':
+      return sens * (a.n - b.n)
+    case 'az':
+      return Number(!a.trouvee) - Number(!b.trouvee) || sens * cle(a).localeCompare(cle(b), 'fr', { sensitivity: 'base' })
+    case 'type':
+      return sens * (ORDRE_TYPES.indexOf(a.type) - ORDRE_TYPES.indexOf(b.type)) || a.n - b.n
+    case 'fasc':
+      return sens * (a.fascicule - b.fascicule) || Number(!a.trouvee) - Number(!b.trouvee) || a.n - b.n
+    // Les plus récentes d'abord ; ce qui reste à trouver ferme toujours la marche.
+    case 'date':
+      return Number(!a.trouveeLe) - Number(!b.trouveeLe) || sens * (Date.parse(b.trouveeLe ?? '') - Date.parse(a.trouveeLe ?? '')) || a.n - b.n
+    // Les plus maîtrisées d'abord : niveau 3, puis maîtrisée en tête ; les cartes sans niveau (à trouver, langues) ferment la marche.
+    case 'maitrise': {
+      const rang = (e: EntreeCodex) => (e.maitrise ? (e.maitrise.maitrisee ? 4 : e.maitrise.niveau) : -1)
+      return Number(!a.maitrise) - Number(!b.maitrise) || sens * (rang(b) - rang(a)) || a.n - b.n
+    }
   }
 }
