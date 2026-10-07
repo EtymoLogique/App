@@ -38,8 +38,10 @@ function fermerEnVol(boite: HTMLElement | null, onFermer: () => void) {
     source.style.visibility = 'hidden'
     const depart = `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${a.width / b.width}, ${a.height / b.height})`
     // Un léger décalage par case : les briques partent l'une après l'autre, comme posées à la main.
-    const options = { duration: VOL_MS, delay: i * 50, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } as const
-    cible.animate([{ opacity: 0 }, { opacity: 0, offset: 0.9 }, { opacity: 1 }], options)
+    const options = { duration: VOL_MS, delay: i * 50, easing: 'cubic-bezier(0.33, 0, 0.15, 1)', fill: 'both' } as const
+    // Annulée à l'arrivée : un remplissage `both` resterait sur la brique et écraserait ses animations CSS (fusion).
+    const arrivee = cible.animate([{ opacity: 0 }, { opacity: 0, offset: 0.9 }, { opacity: 1 }], options)
+    arrivee.finished.then(() => arrivee.cancel(), () => {})
     copie
       .animate([{ transform: depart }, { transform: 'translate(0, -6px) rotate(-1.5deg)', offset: 0.7 }, { transform: 'none' }], options)
       .finished.finally(() => copie.remove())
@@ -108,12 +110,12 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     const depart = `translate(${a.left + a.width / 2 - (b.left + b.width / 2)}px, ${a.top + a.height / 2 - (b.top + b.height / 2)}px) scale(${Math.min(a.width / b.width, a.height / b.height)})`
     brique.animate(
       [
-        { transform: depart, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+        { transform: depart, easing: 'cubic-bezier(0.3, 0, 0.1, 1)' },
         { transform: 'none', offset: 0.75 },
         { transform: 'scaleY(0.94)', offset: 0.87 },
         { transform: 'none' },
       ],
-      { duration: 480 },
+      { duration: 520 },
     )
     // Une fois par pose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,7 +138,9 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setTouchee({ brique, rang: visee, cle: (touchee?.cle ?? 0) + 1, sens: 'moins', depuis: depuis?.getBoundingClientRect() })
     const suivante = cases.findIndex((b, i) => b === null && i !== visee)
     setVise(suivante < 0 ? null : suivante)
-    setZone(null)
+    // Le filtre suit le joueur de case en case ; sans filtre au départ, tout reste affiché (pas de chips qui apparaissent, pas de liste qui saute).
+    // Table complète : le filtre reste figé jusqu'à la fermeture, sinon les puces et la liste sautent avant le vol.
+    setZone(suivante < 0 || zone === null ? zone : suivante)
     if (suivante < 0) {
       setAnnonce(`${libelle(brique)} posée en case ${visee + 1}. La table est prête : fusionnez.`)
       setComplete(true)
@@ -151,7 +155,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     const id = cases[i]
     setMessage(null)
     setVise(i)
-    setZone(id ? null : zone === i ? null : i)
+    setZone(id ? null : i)
     if (!id) return
     onRetirer(i)
     setTouchee({ brique: id, rang: -1, cle: (touchee?.cle ?? 0) + 1, sens: 'plus' })
@@ -235,7 +239,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
             {message}
           </p>
         )}
-        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete || cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} onAjouter={choisir} onIndisponible={setMessage} />
+        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} onAjouter={choisir} onIndisponible={setMessage} />
       </section>
     </div>
   )

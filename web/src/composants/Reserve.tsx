@@ -80,16 +80,17 @@ export function Reserve({ reserve, briques, table, zone = null, onAjouter, onInd
   const filtreActif = zone !== null && (filtre === 'prefixe' || filtre === 'suffixe') ? 'tout' : filtre
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
 
-  // Les briques encore disponibles passent devant ; l'entrelacement long/court
+  // Les briques possédées passent devant, les épuisées ferment la marche ; l'entrelacement long/court
   // se fait dans chaque groupe, l'ordre « récentes d'abord » départage le reste.
+  // Une brique posée sur la table reste à sa place, grisée : rien ne bouge sous les doigts.
   const trouvees = connues.filter((e) => {
     const b = briques.get(e.brique_id) as BriqueJeu
     return (zone === null || naturesDeCase(zone).includes(b.nature)) && dansLeFiltre(e, filtreActif) && correspond(recherche, b.libelle, b.glose)
   })
   const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
   const visibles = [
-    ...entrelacer(trouvees.filter((e) => disponibles(e.brique_id) > 0), taille),
-    ...entrelacer(trouvees.filter((e) => disponibles(e.brique_id) <= 0), taille),
+    ...entrelacer(trouvees.filter((e) => e.exemplaires > 0), taille),
+    ...entrelacer(trouvees.filter((e) => e.exemplaires <= 0), taille),
   ]
 
   return (

@@ -62,9 +62,10 @@ describe('table de fusion', () => {
     fireEvent.click(within(r).getByRole('button', { name: /^Case 1 vide/ }))
     expect(within(r).queryByText('-logie')).not.toBeInTheDocument()
     expect(within(r).getByText('géo-')).toBeInTheDocument()
-    // La retoucher la désélectionne.
+    // La retoucher garde le filtre : il ne se défait pas d'un second clic.
     fireEvent.click(within(r).getByRole('button', { name: /^Case 1 vide/ }))
-    expect(within(r).getByText('-logie')).toBeInTheDocument()
+    expect(within(r).queryByText('-logie')).not.toBeInTheDocument()
+    expect(within(r).getByText('géo-')).toBeInTheDocument()
   })
 
   it('affiche la réserve de départ, sa recherche et ses filtres', async () => {
