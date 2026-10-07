@@ -523,4 +523,5 @@
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-mouvement="reduit"]) .bf-word .seg { animation: surligne 480ms var(--ease-out) calc(300ms + var(--i, 0) * 160ms) backwards; }
 }
-@keyframes surligne { from { background-size: 0 32%; } }
+/* Image d'arrivée explicite : sans elle, Safari iOS peut laisser le surlignage à 0. */
+@keyframes surligne { from { background-size: 0% 32%; } to { background-size: calc(100% - 3px) 32%; } }
