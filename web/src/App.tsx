@@ -346,7 +346,7 @@ export function App({ api, catalogue }: Props) {
 
           <section {...ecran('ricochets')}>
             <EnTete titre="Ricochets" id="titre-ricochets" />
-            <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} />
+            <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} entrees={entrees} lireMedia={lireMedia} onSuivreLien={allerAuCodex} />
           </section>
 
           <section {...ecran('reglages')}>

@@ -191,7 +191,8 @@ function zoomer(carte: HTMLElement, mini: HTMLElement | null, vers: 'ouverte' | 
   if (a.width === 0 || b.width === 0 || a.bottom < 0 || a.top > window.innerHeight) return null
   // Origine 0 0 (.big-wrap) : la carte réduite est centrée sur la miniature.
   // Échelle qui tient dans la source : la table de fusion est plus large que haute.
-  const s = Math.min(a.width / b.width, a.height / b.height)
+  // Plancher : depuis une brique minuscule, la carte partirait d'un point et le vol semblerait plus long qu'au codex.
+  const s = Math.max(0.3, Math.min(a.width / b.width, a.height / b.height))
   const dy = a.top + a.height / 2 - b.top - (s * b.height) / 2
   const duree = ouverture ? DUREE_ZOOM_MS : DUREE_ZOOM_MS * 0.7
   // La miniature n'a pas le ratio de la carte : la carte se fond dans la miniature au bout du trajet.
@@ -266,7 +267,7 @@ interface VisionneuseProps {
 }
 
 /** Carte agrandie seule, hors du codex : celle qu'une fusion réussie vient de former sur la table, d'où elle grossit. */
-export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien }: {
+export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien, origine = '.slots' }: {
   entree: EntreeCodex
   /** Toutes les cartes, pour suivre un lien. */
   entrees: EntreeCodex[]
@@ -275,12 +276,14 @@ export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivre
   onFermer: () => void
   /** Un lien vers une autre carte mène au codex. */
   onSuivreLien: (id: string) => void
+  /** Sélecteur de l'élément d'où la carte grossit et où elle revient. */
+  origine?: string
 }) {
   const [plus, setPlus] = useState(false)
   const rien = () => undefined
   return (
     <LectureMedia.Provider value={lireMedia}>
-      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine=".slots" onZoome={rien} plus={plus} onPlus={setPlus} />
+      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine={origine} onZoome={rien} plus={plus} onPlus={setPlus} />
     </LectureMedia.Provider>
   )
 }

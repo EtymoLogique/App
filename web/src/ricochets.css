@@ -188,3 +188,8 @@
 @media (max-width: 760px) {
   .rico-pied { position: sticky; bottom: 76px; z-index: 30; margin: 0 -16px; padding: 10px 16px; background: var(--cream); border-top: 1px solid var(--line); }
 }
+
+.rico-ouvrir { all: unset; cursor: pointer; display: inline-block; border-radius: 12px; transition: transform var(--dur-rapide) var(--ease-out); }
+.rico-ouvrir:hover { transform: translateY(-1px); }
+.rico-ouvrir:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.rico-ouvrir * { cursor: pointer; }

@@ -1,6 +1,7 @@
-import { type CSSProperties, Fragment, type KeyboardEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, Fragment, createContext, useContext, type KeyboardEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Etat, QuestionRicochet, ReponseRicochet, SeanceRicochets } from '../contrat'
+import type { EntreeCodex } from '../services/codex'
 import { type CatalogueJeu, NATURES } from '../services/jeu'
 import {
   type DonneesRicochets,
@@ -18,6 +19,7 @@ import {
 } from '../services/ricochets'
 import { mouvementReduit } from '../services/animation'
 import { Brique, PetiteBrique } from './Brique'
+import { CarteSeule } from './Codex'
 import { MotSegmente } from './MotSegmente'
 
 type Envoi = Promise<ReponseRicochet | { erreur: string }>
@@ -28,6 +30,33 @@ interface Props {
   enLigne: boolean
   seance: () => Promise<SeanceRicochets | { erreur: string }>
   repondre: (format: FormatRicochet, unite: string, reponse: ReponseJoueur) => Envoi
+  /** Cartes du codex : celles qu'un verdict ou le récapitulatif ouvre. */
+  entrees: EntreeCodex[]
+  lireMedia: (chemin: string) => Promise<string>
+  onSuivreLien: (id: string) => void
+}
+
+/** Ouvre la carte d'une unité (brique ou mot) ; absent hors séance. */
+const OuvrirCarte = createContext<(id: string) => void>(() => undefined)
+
+/** Rend cliquable ce qui nomme une carte déjà trouvée : un toucher l'ouvre. */
+function Ouvrable({ id, children }: { id: string; children: ReactNode }) {
+  const ouvrir = useContext(OuvrirCarte)
+  return (
+    <button
+      type="button"
+      className="rico-ouvrir"
+      aria-label="Ouvrir la carte"
+      onClick={(e) => {
+        // Repère d'où la carte grossit et où elle revient.
+        document.querySelector('[data-rico-origine]')?.removeAttribute('data-rico-origine')
+        e.currentTarget.setAttribute('data-rico-origine', '')
+        ouvrir(id)
+      }}
+    >
+      {children}
+    </button>
+  )
 }
 
 const HORS_LIGNE = 'Hors ligne. Le codex se consulte ; les ricochets reprennent avec le réseau.'
@@ -35,7 +64,7 @@ const HORS_LIGNE = 'Hors ligne. Le codex se consulte ; les ricochets reprennent 
 /** Une carte, telle qu'au codex : la brique en brique (jamais en texte brut), le mot en serif. */
 function Carte({ jeu, id }: { jeu: CatalogueJeu; id: string }) {
   const brique = jeu.briques.get(id)
-  return brique ? <PetiteBrique brique={brique} /> : <span className="rico-mot-court">{motDe(jeu, id)}</span>
+  return <Ouvrable id={brique?.uniteId ?? id}>{brique ? <PetiteBrique brique={brique} /> : <span className="bchip" data-kind={NATURES.mot}>{motDe(jeu, id)}</span>}</Ouvrable>
 }
 
 /** La brique sans sa glose, quand la glose est la réponse. */
@@ -116,7 +145,11 @@ function preparer(q: QuestionRicochet, jeu: CatalogueJeu, d: DonneesRicochets): 
         sujet: <span className="rico-sens">{guillemets(litteral)}</span>,
         consigne: 'Quel mot a ce sens littéral ?',
         choix: options.map((m) => ({ cle: m, contenu: motDe(jeu, m), reponse: m })),
-        lecon: `${motDe(jeu, cible)} veut dire, mot à mot, ${guillemets(litteral)}.`,
+        lecon: (
+          <>
+            <Carte jeu={jeu} id={cible} /> veut dire, mot à mot, {guillemets(litteral)}.
+          </>
+        ),
       }
     }
     default: {
@@ -130,14 +163,18 @@ function preparer(q: QuestionRicochet, jeu: CatalogueJeu, d: DonneesRicochets): 
         lecon: (
           <>
             Le mot se coupe ainsi :{' '}
-            <span className="rico-segmente">
-              <MotSegmente mot={mot} morceaux={parties} />
-            </span>
+            <Ouvrable id={cible}>
+              <span className="rico-segmente">
+                <MotSegmente mot={mot} morceaux={parties} />
+              </span>
+            </Ouvrable>
             {/* Les briques élémentaires et leur sens : de quoi apprendre, juste ou pas. */}
             <ul className="rico-briques">
               {briquesDuMot(jeu, cible).map((b) => (
                 <li key={b.id}>
-                  <Brique brique={b} taille="s" />
+                  <Ouvrable id={b.uniteId}>
+                    <Brique brique={b} taille="s" />
+                  </Ouvrable>
                 </li>
               ))}
             </ul>
@@ -576,7 +613,7 @@ function Ricochet() {
   )
 }
 
-export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
+export function Ricochets({ jeu, etat, enLigne, seance, repondre, entrees, lireMedia, onSuivreLien }: Props) {
   const [questions, setQuestions] = useState<QuestionRicochet[] | null>(null)
   const [tirage, setTirage] = useState(0)
   const [chargement, setChargement] = useState(false)
@@ -585,6 +622,8 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
   const envois = useRef<Envoi[]>([])
   const d = useMemo(() => (jeu ? donneesRicochets(jeu) : null), [jeu])
   const fermer = useCallback(() => setQuestions(null), [])
+  const [ouverte, setOuverte] = useState<string | null>(null)
+  const entree = ouverte ? entrees.find((e) => e.id === ouverte && e.trouvee) : undefined
 
   const commencer = async () => {
     setChargement(true)
@@ -609,7 +648,28 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre }: Props) {
   const trouvees = etat ? cartesTrouvees(d, etat) : []
   const maitrisees = new Set(etat?.ricochets?.filter((r) => r.maitrisee).map((r) => r.unite_id))
   const nMaitrisees = trouvees.filter((c) => maitrisees.has(c)).length
-  if (questions) return <Seance key={tirage} jeu={jeu} d={d} questions={questions} envoyer={envoyer} reponses={reponses} envois={envois} encore={() => void commencer()} onFermer={fermer} />
+  if (questions)
+    return (
+      <OuvrirCarte.Provider value={setOuverte}>
+        <Seance key={tirage} jeu={jeu} d={d} questions={questions} envoyer={envoyer} reponses={reponses} envois={envois} encore={() => void commencer()} onFermer={fermer} />
+        {entree && (
+          <CarteSeule
+            key={entree.id}
+            origine="[data-rico-origine]"
+            entree={entree}
+            entrees={entrees}
+            jeu={jeu}
+            lireMedia={lireMedia}
+            onFermer={() => setOuverte(null)}
+            onSuivreLien={(id) => {
+              setOuverte(null)
+              fermer()
+              onSuivreLien(id)
+            }}
+          />
+        )}
+      </OuvrirCarte.Provider>
+    )
   return (
     <div className="ricochets">
       <Ricochet />
