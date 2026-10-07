@@ -80,8 +80,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Achète un indice au choix (ADR 0051) pour une recette encore à découvrir :
-         *     1 silhouette, 2 sens littéral, 3 définition. Le contenu se lit dans le
+         * Achète un indice (ADR 0051) pour une recette encore à découvrir, dans
+         *     l'ordre : silhouette (1), définition (3), sens littéral (2). Un indice
+         *     n'est vendu qu'une fois les précédents obtenus ; une carte sans silhouette
+         *     commence à la définition. Le contenu se lit dans le
          *     catalogue public.
          */
         post: operations["acheter_indice"];
@@ -1361,7 +1363,7 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Encre insuffisante */
+            /** @description Encre insuffisante ou indice précédent pas encore obtenu */
             403: {
                 headers: {
                     [name: string]: unknown;
