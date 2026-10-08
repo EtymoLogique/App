@@ -115,7 +115,7 @@ export function App({ api, catalogue }: Props) {
   const [indices, setIndices] = useState(false)
   const fermerIndices = useCallback(() => setIndices(false), [])
   // Réserve en modale : `rang` est la case touchée, `null` pour la case vide la plus à gauche.
-  const [reserveOuverte, setReserveOuverte] = useState<{ rang: number | null } | null>(null)
+  const [reserveOuverte, setReserveOuverte] = useState<{ rang: number | null; recherche?: string } | null>(null)
   const fermerReserve = useCallback(() => setReserveOuverte(null), [])
   // Table complétée depuis la réserve : à sa fermeture, le focus va à « Fusionner », la seule suite.
   const boutonFusion = useRef<HTMLButtonElement>(null)
@@ -186,6 +186,7 @@ export function App({ api, catalogue }: Props) {
                     consommees={partie.consommees}
                     exemplaires={exemplaires}
                     rang={reserveOuverte.rang}
+                    recherche={reserveOuverte.recherche}
                     onPoser={partie.poser}
                     onRetirer={partie.retirer}
                     onComplete={versFusion}
@@ -262,6 +263,13 @@ export function App({ api, catalogue }: Props) {
                           onInverser={partie.inverser}
                           aRecuperer={jalonsARecuperer}
                           onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
+                          briquesPosees={partie.table}
+                          decouverts={new Set((etat?.decouvertes ?? []).map((d) => d.mot_id))}
+                          onCarte={allerAuCodex}
+                          onRemplacer={(rang, forme) => {
+                            partie.retirer(rang)
+                            setReserveOuverte({ rang, recherche: forme })
+                          }}
                         />
                       </>
                     )}

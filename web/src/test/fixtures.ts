@@ -105,6 +105,8 @@ export function jeu(): CatalogueJeu {
     briques,
     recettes: [{ id: RECETTE, motId: MOT, emplacements: [[GEO], [LOGIE]] }],
     exclusions: [],
+    trompesLOeil: [],
+    homographes: new Map(),
     langues: new Map([[FR, 'français']]),
     glyphes: new Map([[FR, 'É']]),
     typesRelation: new Map([['forme_de_composition', 'forme de composition']]),

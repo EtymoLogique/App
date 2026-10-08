@@ -27,6 +27,8 @@ interface Props {
   consommees?: string[]
   /** Dernière brique posée ou retirée : sa pastille se contracte (−1) ou gonfle (+1), à chaque nouvelle `cle`. */
   touchee?: { brique: string; cle: number; sens: 'plus' | 'moins' } | null
+  /** Recherche saisie à l'ouverture, par exemple la forme d'une brique à remplacer (ADR 0052). */
+  rechercheInitiale?: string
 }
 
 /** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
@@ -43,8 +45,8 @@ function exemplaires(n: number): string {
  * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, zone = null, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
-  const [recherche, setRecherche] = useState('')
+export function Reserve({ reserve, briques, table, zone = null, onAjouter, onIndisponible, consommees = [], touchee = null, rechercheInitiale = '' }: Props) {
+  const [recherche, setRecherche] = useState(rechercheInitiale)
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
   const [maintenant] = useState(() => Date.now())

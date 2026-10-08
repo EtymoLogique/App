@@ -17,6 +17,30 @@ describe('prévisualisation d’une fusion', () => {
     expect(prevoir([LOGIE, LOGIE], catalogue, aucun)).toEqual({ type: 'presque', motif: 'incomplet' })
     expect(prevoir([LOGIE, GEO], catalogue, new Set([MOT, 'unt_0000000b']))).toEqual({ type: 'echec' })
   })
+
+  it('dit « bonne forme, autre brique » quand un homographe donnerait la recette (ADR 0052)', () => {
+    const catalogue = jeu()
+    const GEO_AUTRE = 'brq_0000ge99'
+    catalogue.homographes.set(GEO_AUTRE, [GEO])
+    catalogue.homographes.set(GEO, [GEO_AUTRE])
+    expect(prevoir([GEO_AUTRE, LOGIE], catalogue, new Set())).toEqual({ type: 'homographe', rang: 0 })
+    // Le mot est déjà au codex : on ne le rappelle pas.
+    expect(prevoir([GEO_AUTRE, LOGIE], catalogue, new Set([MOT]))).toEqual({ type: 'echec' })
+    // Pas de fausse lueur : l'homographe ne mène à aucune recette.
+    expect(prevoir([GEO_AUTRE, GEO_AUTRE], catalogue, new Set())).toEqual({ type: 'echec' })
+    // La bonne brique reste une découverte normale.
+    expect(prevoir([GEO, LOGIE], catalogue, new Set())).toMatchObject({ type: 'decouverte' })
+  })
+
+  it('reconnaît un trompe-l’œil sur sa seule paire ordonnée, avant le « presque » (ADR 0052)', () => {
+    const catalogue = jeu()
+    const GEO_AUTRE = 'brq_0000ge99'
+    catalogue.homographes.set(GEO_AUTRE, [GEO])
+    catalogue.trompesLOeil.push({ id: 'tpl_0000000a', combinaison: [GEO_AUTRE, LOGIE], motId: null, courte: 'c', complete: 'd' })
+    expect(prevoir([GEO_AUTRE, LOGIE], catalogue, new Set())).toEqual({ type: 'trompe_l_oeil', id: 'tpl_0000000a' })
+    expect(prevoir([LOGIE, GEO_AUTRE], catalogue, new Set())).toEqual({ type: 'echec' })
+    expect(prevoir([GEO, LOGIE], catalogue, new Set())).toMatchObject({ type: 'decouverte' })
+  })
 })
 
 describe('rareté d’un mot', () => {

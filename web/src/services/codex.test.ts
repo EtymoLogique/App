@@ -143,7 +143,16 @@ describe('codex', () => {
       confiance: 'probable',
       // Une adresse qui n'est pas en https n'est jamais un lien.
       sources: [{ id: 'src_0000000a', reference: 'TLFi', detail: 'Référence · dictionnaire', url: null }],
+      aNePasConfondre: [],
     })
+
+    // Une fausse piste vers ce mot se lit au verso, une fois le mot trouvé (ADR 0052).
+    c.trompesLOeil.push({ id: 'tpl_0000000a', combinaison: [GEO, LOGIE], motId: MOT, courte: 'Courte.', complete: 'Complète.' })
+    c.trompesLOeil.push({ id: 'tpl_0000000b', combinaison: [LOGIE, GEO], motId: 'unt_0000000z', courte: 'Autre mot.', complete: '' })
+    const avecPiege = savoirPlus(trouvee, c)!
+    expect(avecPiege.aNePasConfondre.map((t) => ({ id: t.id, texte: t.texte, briques: t.briques.map((b) => b.id) }))).toEqual([
+      { id: 'tpl_0000000a', texte: 'Complète.', briques: [GEO, LOGIE] },
+    ])
 
     // Le cabinet : sans mot trouvé, pas de voyage ; ensuite, la filiation du mot.
     expect(cabinet(construireCodex(c, etat()), c)).toEqual({ mots: 0, langues: 0, legendaires: 0, voyage: null })

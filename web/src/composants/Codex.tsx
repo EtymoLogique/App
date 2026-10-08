@@ -492,6 +492,28 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                 </ul>
               </>
             )}
+            {savoir.aNePasConfondre.length > 0 && (
+              <>
+                <p className="more-k">À ne pas confondre</p>
+                <ul className="more-list">
+                  {savoir.aNePasConfondre.map((t) => (
+                    <li key={t.id}>
+                      <span className="bformula">
+                        {t.briques.map((b, i) => (
+                          <Fragment key={b.id}>
+                            {i > 0 && <span className="bplus">+</span>}
+                            <span className="bchip" data-kind={NATURES[b.nature]}>
+                              {b.libelle}
+                            </span>
+                          </Fragment>
+                        ))}
+                      </span>
+                      <span>{t.texte}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
             {savoir.confiance && (
               <>
                 <p className="more-k">Certitude</p>

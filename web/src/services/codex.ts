@@ -5,7 +5,7 @@
 
 import type { Carte, Confiance, Etat, Forme, Rarete } from '../contrat'
 import type { TriCodex } from './route'
-import { type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
+import { type BriqueJeu, type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
 import { correspond } from './recherche'
 
 export type TypeCarte = 'mot' | 'prefixe' | 'suffixe' | 'langue'
@@ -373,6 +373,8 @@ export interface SavoirPlus {
   transformations: { type: string; texte: string; partie: string | null }[]
   confiance: Confiance | null
   sources: SourceAffichee[]
+  /** Fausses pistes qui ressemblent à ce mot, avec leur explication complète : le mot est trouvé (ADR 0052). */
+  aNePasConfondre: { id: string; briques: BriqueJeu[]; texte: string }[]
 }
 
 function nomDeLangue(jeu: CatalogueJeu, id: string): string | null {
@@ -451,6 +453,13 @@ export function savoirPlus(entree: EntreeCodex, jeu: CatalogueJeu): SavoirPlus |
     transformations,
     confiance: composition?.fait?.confiance ?? carte.fait?.confiance ?? null,
     sources,
+    aNePasConfondre: jeu.trompesLOeil
+      .filter((t) => t.motId === carte.id && (t.complete || t.courte))
+      .map((t) => ({
+        id: t.id,
+        briques: t.combinaison.flatMap((b) => jeu.briques.get(b) ?? []),
+        texte: t.complete || t.courte,
+      })),
   }
 }
 

@@ -63,6 +63,8 @@ interface Props {
   exemplaires: number
   /** Case visée à l'ouverture ; `null` : la case vide la plus à gauche. */
   rang: number | null
+  /** Recherche saisie à l'ouverture de la réserve (ADR 0052). */
+  recherche?: string
   onPoser: (brique: string, rang: number) => void
   onRetirer: (rang: number) => void
   /** La table vient d'être complétée depuis la modale, qui va se fermer. */
@@ -80,7 +82,7 @@ function ordinal(rang: number): string {
  * la table en petit : on voit où va chaque brique, et on la retire d'un toucher.
  * Table complète, elle se ferme d'elle-même : il ne reste qu'à fusionner.
  */
-export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, onPoser, onRetirer, onComplete, onFermer }: Props) {
+export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, recherche, onPoser, onRetirer, onComplete, onFermer }: Props) {
   const [boite, fermer] = useDialogue<HTMLElement>(onFermer, fermerEnVol)
   // Le message reste dans la modale : un message de la table s'afficherait derrière le voile.
   const [message, setMessage] = useState<string | null>(null)
@@ -239,7 +241,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
             {message}
           </p>
         )}
-        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} onAjouter={choisir} onIndisponible={setMessage} />
+        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} rechercheInitiale={recherche} onAjouter={choisir} onIndisponible={setMessage} />
       </section>
     </div>
   )

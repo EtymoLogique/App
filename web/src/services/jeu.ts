@@ -2,7 +2,7 @@
 // prévisualisation d'une fusion. Le serveur fait foi (ADR 0007, ADR 0027) :
 // la prévisualisation n'est qu'une réponse immédiate, démentie au besoin.
 
-import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, QueteLongCours, Rarete, Recette } from '../contrat'
+import type { Calendrier, Carte, Exclusions, Forme, Manifeste, MotifPresque, QueteLongCours, Rarete, Recette, TrompesLOeil } from '../contrat'
 import type { LecteurCatalogue } from './catalogue'
 
 /** La table accepte exactement deux briques, comme `TABLE_MIN` et `TABLE_MAX` de l'API. */
@@ -45,6 +45,18 @@ export interface RecetteJeu {
   emplacements: string[][]
 }
 
+/** Fausse fusion expliquée (ADR 0052) : une paire de briques qui s'écrit comme un mot sans en venir. */
+export interface TrompeJeu {
+  id: string
+  combinaison: string[]
+  /** Le mot que les lettres épellent, quand il est dans le catalogue : l'explication complète attend sa découverte. */
+  motId: string | null
+  /** Une phrase qui ne nomme jamais le mot. */
+  courte: string
+  /** Le mot et sa vraie origine. */
+  complete: string
+}
+
 export interface CatalogueJeu {
   version: string
   fascicules: FasciculeParu[]
@@ -52,6 +64,9 @@ export interface CatalogueJeu {
   briques: Map<string, BriqueJeu>
   recettes: RecetteJeu[]
   exclusions: { combinaison: string[]; raison: string }[]
+  trompesLOeil: TrompeJeu[]
+  /** Autres briques de même forme, par brique (ADR 0052). */
+  homographes: Map<string, string[]>
   langues: Map<string, string>
   /** Lettre emblème de chaque carte de langue (É, Æ, Ω…), éditée dans Content. */
   glyphes: Map<string, string>
@@ -66,6 +81,8 @@ export type Prevision =
   | { type: 'decouverte' | 'connue'; recette_id: string; mot_id: string }
   | { type: 'exclue'; raison: string }
   | { type: 'presque'; motif: MotifPresque }
+  | { type: 'homographe'; rang: number }
+  | { type: 'trompe_l_oeil'; id: string }
   | { type: 'echec' }
 
 function decoder<T>(octets: ArrayBuffer): T {
@@ -166,6 +183,8 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
     briques: new Map(),
     recettes: [],
     exclusions: [],
+    trompesLOeil: [],
+    homographes: new Map(),
     langues,
     glyphes: glyphesDesLangues(index),
     typesRelation: nomsDesTypes(index, 'types_relation'),
@@ -175,10 +194,11 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
   for (const entree of index.fascicules) {
     const manifeste = await lecteur.manifeste(entree.manifeste)
     jeu.fascicules.push({ numero: entree.numero, parution: entree.parution, manifeste })
-    const [cartes, recettes, exclusions] = await Promise.all([
+    const [cartes, recettes, exclusions, trompes] = await Promise.all([
       Promise.all((manifeste.cartes ?? []).map(async (c) => decoder<Carte>(await lecteur.fichierHache(c.carte)))),
       Promise.all((manifeste.recettes ?? []).map(async (r) => decoder<Recette>(await lecteur.fichierHache(r.chemin)))),
       manifeste.exclusions ? lecteur.fichierHache(manifeste.exclusions).then((o) => decoder<Exclusions>(o)) : null,
+      manifeste.trompes_l_oeil ? lecteur.fichierHache(manifeste.trompes_l_oeil).then((o) => decoder<TrompesLOeil>(o)) : null,
     ])
     for (const carte of cartes) {
       jeu.cartes.set(carte.id, carte)
@@ -190,6 +210,22 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
       jeu.recettes.push({ id: recette.id, motId: recette.resultat_id, emplacements })
     }
     for (const e of exclusions?.exclusions ?? []) jeu.exclusions.push({ combinaison: e.combinaison, raison: e.raison })
+    for (const t of trompes?.trompes_l_oeil ?? []) {
+      jeu.trompesLOeil.push({
+        id: t.id,
+        combinaison: t.combinaison,
+        motId: t.mot_id ?? null,
+        courte: t.explication_courte?.fr ?? '',
+        complete: t.explication?.fr ?? '',
+      })
+    }
+    for (const groupe of manifeste.homographes ?? []) {
+      for (const brique of groupe) {
+        const autres = jeu.homographes.get(brique) ?? []
+        for (const autre of groupe) if (autre !== brique && !autres.includes(autre)) autres.push(autre)
+        jeu.homographes.set(brique, autres)
+      }
+    }
   }
   return jeu
 }
@@ -250,6 +286,8 @@ export function prevoir(proposition: string[], jeu: CatalogueJeu, decouverts: Se
     (e) => e.combinaison.length === proposition.length && e.combinaison.every((b, i) => b === proposition[i]),
   )
   if (exclusion) return { type: 'exclue', raison: exclusion.raison }
+  const piege = jeu.trompesLOeil.find((t) => t.combinaison.length === proposition.length && t.combinaison.every((b, i) => b === proposition[i]))
+  if (piege) return { type: 'trompe_l_oeil', id: piege.id }
   const aDecouvrir = jeu.recettes.filter((r) => !decouverts.has(r.motId))
   if (aDecouvrir.some((r) => r.emplacements.length === proposition.length && couvre(proposition, r))) {
     return { type: 'presque', motif: 'ordre' }
@@ -257,7 +295,23 @@ export function prevoir(proposition: string[], jeu: CatalogueJeu, decouverts: Se
   if (aDecouvrir.some((r) => r.emplacements.length > proposition.length && couvre(proposition, r))) {
     return { type: 'presque', motif: 'incomplet' }
   }
+  const rang = mauvaisHomographe(proposition, aDecouvrir, jeu.homographes)
+  if (rang !== null) return { type: 'homographe', rang }
   return { type: 'echec' }
+}
+
+/**
+ * Miroir de `mauvais_homographe` : rang de la brique qu'il suffirait de remplacer par un
+ * homographe pour obtenir la recette exacte d'un mot encore à découvrir. Un seul remplacement.
+ */
+function mauvaisHomographe(proposition: string[], aDecouvrir: RecetteJeu[], homographes: Map<string, string[]>): number | null {
+  for (let rang = 0; rang < proposition.length; rang++) {
+    for (const autre of homographes.get(proposition[rang] as string) ?? []) {
+      const essai = proposition.map((b, i) => (i === rang ? autre : b))
+      if (aDecouvrir.some((r) => exacte(essai, r))) return rang
+    }
+  }
+  return null
 }
 
 /** Mots des fascicules parus, d'après leurs compteurs : hors légendaires, qui ne se trahissent jamais (ADR 0015). */

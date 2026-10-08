@@ -403,6 +403,12 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .bchip[data-kind="suffixe"] { background: var(--c-suffix); }
 .bchip[data-kind="mot"] { background: #fffbf3; }
 .bchip.missing { border-style: dashed; background: transparent; color: var(--ink-3); box-shadow: none; letter-spacing: 0.08em; }
+/* Petite brique cliquable d'un retour de la table : ouvre sa carte (ADR 0052). La zone tactile dépasse la brique. */
+.bchip-btn { position: relative; margin-inline: 1px 4px; cursor: pointer; transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out); }
+.bchip-btn::before { content: ""; position: absolute; inset: -12px -4px; }
+.bchip-btn:hover, .bchip-btn:focus-visible { transform: translateY(-2px); box-shadow: 2px 4px 0 var(--pop-shadow); }
+.bchip-btn:active { transform: none; box-shadow: 1px 1px 0 var(--pop-shadow); }
+@media (prefers-reduced-motion: reduce) { .bchip-btn { transition: none; } }
 .bformula { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .bplus { color: var(--ink-3); font-family: var(--serif); font-size: 16px; line-height: 1; }
 .d-formula { color: var(--ink-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
