@@ -1,0 +1,495 @@
+/*
+ * Plis (plis.html, maquettes I-19 à I-21) : repris d'etymo.css du dossier de
+ * conception, sections « Plis », « Rituel d'ouverture » et « Choix du
+ * fascicule ». Palette du pli : neutres et Ambre seulement (ADR 0016).
+ */
+
+.energy { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.energy svg { width: 60px; height: 60px; flex: none; overflow: visible; rotate: -90deg; }
+.ring-track { fill: none; stroke: var(--paper-2); stroke-width: 6; }
+.ring-edge { fill: none; stroke: var(--ink); stroke-width: 1; }
+.ring-fill { fill: none; stroke: var(--c-pli); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 163.36; stroke-dashoffset: 0; }
+/*
+ * Lueur de la jauge pendant que des sabliers l'avancent : une copie floue du
+ * trait Ambre qui pulse, et une tête lumineuse au bout. Pas d'ombre colorée :
+ * ce sont des tracés, visibles seulement pendant l'avance.
+ */
+.ring-halo { fill: none; stroke: var(--c-pli); stroke-width: 10; stroke-linecap: round; opacity: 0; transition: opacity 0.25s var(--ease-out); }
+.ring-tete, .ring-tete-halo { opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity 0.25s var(--ease-out); }
+.ring-tete { fill: var(--c-pli-tint); stroke: var(--c-pli); stroke-width: 1.5; }
+.ring-tete-halo { fill: var(--c-pli); }
+/* Avance au cran : la jauge glisse sans rebond (animation.ts) ; la tête laisse une traînée qui s'efface en 300 ms. Pas de boucle. */
+.is-avance .ring-halo { opacity: 0.6; }
+.is-avance .ring-tete { opacity: 1; }
+.ring-halo, .ring-tete, .ring-tete-halo { transition-duration: 0.3s; }
+.energy strong { display: block; font-family: var(--mono); font-size: 18px; }
+.energy small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
+.pk-layout { display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr) minmax(220px, 0.8fr); gap: 20px; align-items: start; }
+.pk-side { display: grid; gap: 20px; }
+.pk-card { padding: 20px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
+.pk-label { margin-bottom: 14px; color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+.pk-note { margin-top: 12px; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+.pk-pool { display: flex; flex-wrap: wrap; gap: 8px; min-height: 30px; }
+/* Briques inconnues : immobiles ; une seule scintille à la fois, à son tour (--i), une toutes les 0,5 s, 3 s au moins par tour (--n). */
+.pk-pool .pk-unknown { animation: scintille max(3s, calc(var(--n, 6) * 0.5s)) infinite; animation-delay: calc(var(--i, 0) * 0.5s); }
+.pk-history { display: grid; gap: 8px; }
+.pk-hist-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+/* Seule la nouvelle ligne entre ; les autres descendent d'un rang (Plis.tsx). */
+.pk-hist-item.nouveau { animation: eqIn 0.4s var(--ease-spring) both; }
+.pk-hist-item.descend { animation: descend 0.4s var(--ease-out); }
+.pk-hist-item small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.pk-empty { color: var(--ink-3); font-size: 13px; }
+.pk-rules { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 13px; }
+.pk-rules li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+.pk-rules li::before { width: 8px; height: 8px; margin-top: 6px; background: var(--c-pli-deep); content: ""; rotate: 45deg; }
+.pk-stage {
+  position: relative; isolation: isolate;
+  display: grid; grid-template-areas: "main" "scribe" "status" "actions"; grid-template-rows: minmax(310px, 1fr) auto auto auto;
+  justify-items: center; align-items: center; gap: 10px;
+  min-height: 600px; padding: 32px 24px 28px; overflow: hidden;
+  border: 1.5px solid var(--line-strong); border-radius: 24px;
+  background: radial-gradient(circle at 50% 40%, rgba(244, 183, 64, 0.26), transparent 58%), var(--cream);
+  cursor: default;
+}
+.pk-stage[data-state="opening"] { cursor: pointer; }
+.pk-rays {
+  position: absolute; z-index: -1; top: 38%; left: 50%;
+  width: 980px; height: 980px; translate: -50% -50%;
+  background: repeating-conic-gradient(rgba(244, 183, 64, 0.3) 0deg 7deg, transparent 7deg 36deg);
+  -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  opacity: 0; transition: opacity 0.6s ease;
+  animation: spin 22s linear infinite;
+}
+/* Un rayon sur deux est une ligne écrite qui part du centre : étymons et alphabet grec. Le tout tourne d'un bloc. */
+.pk-rays span {
+  position: absolute; top: 50%; left: 50%; padding-left: 64px;
+  transform-origin: 0 50%; transform: translateY(-50%) rotate(calc(var(--a) - 90deg));
+  color: var(--c-pli-deep); font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: 0.06em; white-space: nowrap;
+  /* En filigrane : la révélation s'écrit par-dessus. */
+  opacity: 0.16;
+}
+.pk-stage.pk-writing .pk-rays { opacity: 0.35; animation-duration: 6s; }
+/* Rare ou légendaire : dès l'écriture, les rayons et la fenêtre de la plume virent à la couleur de la rareté. */
+.pk-stage.pk-anticipe .pk-rays { background: repeating-conic-gradient(rgba(143, 123, 240, 0.4) 0deg 7deg, transparent 7deg 36deg); opacity: 0.5; } /* identite: ok — Palimpseste du rituel rare (animations-propositions, 40A) */
+.pk-stage.pk-anticipe .pk-rays span { color: var(--c-lang-deep); }
+.pk-stage.pk-anticipe.pk-writing .pk-scribe { animation-name: scribeChargeRare; }
+.pk-stage.pk-revealed .pk-rays { opacity: 1; }
+.pk-flash {
+  position: absolute; z-index: 3; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 38%, #fffbf3 0 12%, rgba(244, 183, 64, 0.85) 28%, rgba(252, 236, 198, 0.6) 45%, transparent 65%);
+  opacity: 0;
+}
+.pk-stage.pk-burst .pk-flash { animation: pkFlash 0.7s ease-out; }
+.pk-pack {
+  grid-area: main; position: relative;
+  width: 200px; height: 272px; padding: 0; border: 0;
+  background: none; cursor: pointer;
+  filter: drop-shadow(0 26px 30px rgba(15, 31, 25, 0.22));
+  /* Entrée : il descend de 12 px et se pose, puis le sceau s'imprime. */
+  animation: pose 0.3s var(--ease-out) both;
+  transition: filter 0.4s, scale 0.4s var(--ease-spring), transform var(--dur-base) var(--ease-out);
+}
+\.pk-pack::before {
+  content: ""; position: absolute; z-index: -1; inset: -70px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 226, 150, 0.7), rgba(244, 183, 64, 0.38) 38%, rgba(244, 183, 64, 0.12) 68%, transparent); /* identite: ok — halo Ambre, comme le sceau */
+  transition: opacity 0.6s var(--ease-out);
+}
+/* Paquet en attente d'ouverture : halo jaune derrière. */
+.pk-stage[data-state="ready"] .pk-pack::before { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) .pk-stage[data-state="ready"] .pk-pack::before { animation: halo 4.5s ease-in-out infinite; }
+}
+@keyframes halo { 50% { opacity: 0.6; scale: 0.94; } }
+/* Survol : léger zoom, comme les cartes du codex. */
+.pk-stage[data-state="ready"] .pk-pack:not(:disabled):hover { scale: 1.04; }
+.pk-pack:disabled { cursor: default; pointer-events: none; }
+.pk-half { position: absolute; inset: 0; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease 0.1s; }
+.pk-half.top { clip-path: inset(0 0 50% 0); }
+.pk-half.bottom { clip-path: inset(50% 0 0 0); }
+.pk-face {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 22px 12px;
+  border: 2px solid #0f1f19; border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(244, 183, 64, 0.35), transparent 52%),
+    repeating-linear-gradient(135deg, #fcecc6 0 12px, #fffbf3 12px 24px);
+  box-shadow: inset 0 0 0 7px #fffbf3, inset 0 0 0 8.5px #0f1f19;
+  color: #0f1f19; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.pk-top b { color: var(--c-pli-deep); font-weight: 700; }
+.pk-seal {
+  position: absolute; top: 50%; left: 50%; translate: -50% -50%;
+  display: grid; place-items: center;
+  width: 78px; height: 78px; border: 1.5px solid #0f1f19; border-radius: 50%;
+  background: var(--c-pli); color: #0f1f19;
+  box-shadow: 0 0 0 8px rgba(244, 183, 64, 0.18), 0 0 34px rgba(244, 183, 64, 0.5); /* identite: ok — halo Ambre du rituel, repris de plis.html */
+  font-family: var(--serif); font-size: 28px; font-weight: 700;
+  /* Le sceau s'imprime à l'entrée, puis reste immobile : il ne pulse qu'après 3 s sans action. */
+  animation: cachet 0.22s ease-in 0.35s both, sealPulse 2.4s ease-in-out 3.6s infinite;
+  transition: transform 0.35s ease-out, opacity 0.35s ease-out;
+}
+.pk-stage.pk-charging .pk-pack { animation: pkShake 0.32s linear infinite; }
+/* Charge : le sceau chauffe comme de la cire, il se déforme et grossit, sans changer de couleur. */
+.pk-stage.pk-charging .pk-seal { animation: cire 1.3s ease-in forwards; }
+.pk-stage.pk-writing .pk-pack { scale: 1.14; animation: pkTremble 0.09s linear infinite; filter: drop-shadow(0 0 34px rgba(244, 183, 64, 0.8)); } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+.pk-stage:is(.pk-flip, .pk-burst) .pk-pack { animation: none; pointer-events: none; }
+/* Retournement : le paquet se met sur la tranche (.pk-flip), puis la révélation se retourne à sa place (.pk-reveal, `retourne`). */
+.pk-stage.pk-flip .pk-pack, .pk-stage.pk-burst .pk-pack { scale: 1.14; transform: perspective(900px) rotateY(90deg); transition: transform 0.42s cubic-bezier(0.45, 0, 0.75, 0.5); }
+.pk-stage.pk-flip .pk-seal { opacity: 0; animation: none; }
+.pk-stage.pk-flip .pk-scribe { opacity: 0; transition-duration: 0.12s; }
+.pk-stage[data-state="recharging"] .pk-pack { opacity: 0.5; filter: grayscale(1) drop-shadow(0 26px 30px rgba(15, 31, 25, 0.15)); animation-play-state: paused; }
+.pk-stage[data-state="recharging"] .pk-seal { animation: none; box-shadow: none; }
+.pk-stage.pk-no-trans .pk-half, .pk-stage.pk-no-trans .pk-seal { transition: none; }
+.pk-scribe {
+  position: absolute; z-index: 2; top: 50%; left: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0;
+  width: 164px; height: 156px; padding: 8px 6px 14px; overflow: hidden;
+  border: 1.5px solid #0f1f19; border-radius: 12px;
+  background: radial-gradient(circle at 50% 80%, rgba(244, 183, 64, 0.22), transparent 70%), #fffbf3;
+  box-shadow: 0 0 0 5px rgba(255, 251, 243, 0.75), 0 0 24px rgba(244, 183, 64, 0.45); /* identite: ok — halo Ambre du rituel, repris de plis.html */
+  opacity: 0; transform: translate(-50%, -50%) scale(0.4);
+  pointer-events: none;
+  transition: opacity 0.18s ease-out, transform 0.32s var(--ease-spring);
+}
+.pk-scribe::before {
+  position: absolute; z-index: 1; inset: 0 0 auto; height: 34%;
+  background: linear-gradient(#fffbf3 10%, rgba(255, 251, 243, 0));
+  content: ""; pointer-events: none;
+}
+.pk-stage.pk-writing .pk-scribe { opacity: 1; transform: translate(-50%, -50%); animation: scribeCharge 1.4s ease-in forwards; }
+.pk-stage.pk-burst .pk-scribe { opacity: 0; transform: translate(-50%, -50%) scale(1.25); transition-duration: 0.22s; }
+.pk-stage.pk-writing .pk-seal { animation: none; opacity: 0; transform: scale(0.5); }
+.pk-tagline {
+  grid-area: scribe; z-index: 2; min-height: 36px;
+  color: var(--ink-3);
+  font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", "Brush Script MT", cursive;
+  font-size: 22px; line-height: 1.5; text-align: center;
+  transition: opacity 0.25s;
+}
+/* Points de suspension écrits à la plume, l'un après l'autre, en boucle lente. */
+.pk-tagline .dt { display: inline-block; animation: point 2.4s steps(1, end) infinite; animation-delay: calc(var(--i) * 400ms); }
+.pk-stage:is(.pk-charging, .pk-writing, .pk-flip, .pk-burst, .pk-revealed) .pk-tagline { opacity: 0; animation: none; }
+.pk-stage.pk-revealed .pk-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } /* annoncé aux lecteurs d'écran, plus affiché */
+.pk-status { grid-area: status; z-index: 2; min-height: 22px; color: var(--ink-2); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+/* « Touchez pour passer » n'apparaît qu'après 600 ms, en fondu, puis reste fixe. */
+.pk-stage[data-state="opening"] .pk-status { color: var(--ink-3); animation: eqFade 0.4s ease-out 0.6s both; }
+.pk-actions { grid-area: actions; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.pk-odds { display: grid; gap: 6px; }
+.pk-odd { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.pk-odd b, .pk-brickodd b { color: var(--ink); font-family: var(--mono); font-size: 12px; }
+.pk-pity { display: flex; gap: 3px; height: 10px; padding: 1px; overflow: hidden; border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-2); }
+/* Jauge en crans : un cran par pli sans nouveauté ; chaque gain en remplit un d'un rebond,  */
+.pk-pity i { flex: 1; background: var(--cream); }
+.pk-pity i:first-child { border-radius: 999px 0 0 999px; }
+.pk-pity i:last-child { border-radius: 0 999px 999px 0; }
+.pk-pity i.plein { background: var(--c-pli); animation: cran 0.3s var(--ease-ressort) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.pk-inkbox { display: flex; align-items: baseline; gap: 8px; }
+.pk-inkbox strong { font-family: var(--serif); font-size: 34px; line-height: 1; }
+.pk-inkbox small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; }
+.pk-drop { width: 14px; height: 14px; border: 1.5px solid #0f1f19; border-radius: 50% 0 50% 50%; background: var(--c-pli); rotate: -45deg; align-self: center; }
+.pk-hintbtn { width: 100%; margin-top: 14px; min-height: 40px; }
+.pk-glass { width: 16px; height: 20px; align-self: center; fill: var(--c-pli); stroke: var(--fixed-ink); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.pk-sandbtn { min-height: 44px; }
+.pk-pool { display: grid; gap: 6px; }
+.pk-brickodd { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 10px; }
+.pk-brickodd small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.pk-history { grid-template-columns: max-content max-content 1fr; column-gap: 0; }
+.pk-hist-item { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 14px; }
+.pk-hist-brique { position: relative; justify-self: start; }
+.pk-hist-plus { position: absolute; top: -9px; right: -10px; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--cream); color: var(--ink); font-family: var(--mono); font-size: 10px; font-weight: 700; line-height: 16px; }
+.pk-hist-item small { text-align: right; }
+.pk-hist-item.dup { opacity: 0.85; border-style: dashed; }
+.pk-rarity { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.pk-rarity .rar { width: 22px; height: 22px; stroke-width: 1.2; animation: eqFade 0.3s ease-out calc(var(--t0, 0) * 18ms + 0.15s) both; }
+/* Légendaire : le contour de la forme se trace, puis elle se remplit. */
+.pk-stage[data-rarity="legendaire"] .pk-rarity .rar { animation: none; }
+.pk-stage[data-rarity="legendaire"] .pk-rarity .rar > * { fill-opacity: 0; stroke-dasharray: 100; animation: trace 0.8s ease-out calc(var(--t0, 0) * 18ms + 0.15s) both, remplit 0.3s calc(var(--t0, 0) * 18ms + 0.95s) forwards; }
+.pk-ink { color: var(--c-pli-deep); font-family: var(--serif); font-size: 20px; font-style: italic; }
+/* Textes de la révélation : chacun s'écrit lettre à lettre, l'un après l'autre (--i, Plis.tsx). */
+.pk-reveal .l { display: inline-block; white-space: pre; animation: inkIn 0.16s ease-out both; animation-delay: calc(var(--i) * 18ms + 0.15s); }
+/* « +3 gouttes » : le nombre compte de 0 à 3 au moment où il s'écrit. */
+@property --n { syntax: "<integer>"; inherits: false; initial-value: 0; }
+.pk-reveal .cn { --n: var(--n-fin); display: inline-block; counter-reset: n var(--n); animation: inkIn 0.16s ease-out both, compte 0.5s linear both; animation-delay: calc(var(--i) * 18ms + 0.15s); }
+.pk-reveal .cn::after { content: counter(n); }
+/* Double : la brique se pose sur la silhouette de l'exemplaire déjà possédé, puis la pastille ×N apparaît d'un rebond. */
+.pk-double { position: relative; display: grid; }
+.pk-double > * { grid-area: 1 / 1; }
+.pk-double .pk-silhouette { border-style: dashed; box-shadow: none; background: transparent; color: var(--ink-3); animation: eqFade 0.3s ease-out both; }
+.pk-double .pk-silhouette .b-label, .pk-double .pk-silhouette .b-meta { color: var(--ink-3); }
+.pk-brick.is-dup { animation: dupPose 0.5s var(--ease-out) 0.2s both; }
+.pk-brick.is-dup .b-count { animation: gonfle 0.4s var(--ease-spring) 0.75s both; }
+.pk-stage[data-rarity="rare"].pk-revealed .pk-rays { animation-duration: 10s; }
+.pk-stage[data-rarity="legendaire"].pk-revealed .pk-rays { animation-duration: 5s; opacity: 1; filter: saturate(1.6); }
+.pk-stage[data-rarity="legendaire"].pk-burst .pk-flash { animation-duration: 1.1s; }
+.pk-stage[data-rarity="legendaire"] .pk-kicker, .pk-stage[data-rarity="rare"] .pk-kicker { font-size: 18px; }
+.pk-reveal { animation: retourne 0.52s cubic-bezier(0.2, 0.8, 0.3, 1) both; grid-area: main; position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 34px; text-align: center; }
+.pk-reveal[hidden] { display: none; }
+.pk-kicker { color: var(--c-pli-deep); font-family: var(--mono); font-size: 16px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+/* Atterrissage au tampon : grande ombre qui se resserre, impression avec un écrasement (vibration de 20 ms, Plis.tsx). */
+.pk-brick { padding: 18px 26px; cursor: default; box-shadow: 6px 6px 0 #0f1f19; animation: imprime 0.5s var(--ease-out) both; }
+.pk-brick .b-label { font-size: clamp(44px, 6vw, 64px); line-height: 1; }
+.pk-brick .b-meta { font-size: 12px; }
+.pk-origin { color: var(--ink-2); font-family: var(--serif); font-size: 18px; font-style: italic; }
+@media (max-width: 1100px) {
+  .pk-layout { grid-template-columns: 1fr 1fr; }
+  .pk-centre { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 760px) {
+  .pk-layout { grid-template-columns: 1fr; }
+  .pk-stage { min-height: 540px; padding: 24px 14px; }
+  .pk-rays { width: 640px; height: 640px; }
+}
+.pk-pack { width: 236px; height: 320px; }
+.pk-face { padding: 20px 12px; background: #fffbf3; }
+.pk-top { letter-spacing: 0.08em; }
+.pk-art {
+  position: absolute; inset: 9px; overflow: hidden;
+  border-radius: 10px; background: #fcecc6;
+}
+.pk-art svg, .jk-art svg { display: block; width: 100%; height: 100%; }
+.pk-top, .pk-bottom {
+  position: relative; z-index: 1; max-width: calc(100% - 12px);
+  padding: 3px 8px; border: 1px solid #0f1f19; border-radius: 999px;
+  background: #fffbf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pk-bottom { font-size: 8px; }
+.pk-brand {
+  display: inline-grid; place-items: center; width: 13px; height: 13px; margin: -2px 5px 0 0;
+  border: 1px solid #0f1f19; border-radius: 3.5px; background: #fffbf3; color: #0f1f19;
+  font-family: var(--serif); font-size: 6px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+  vertical-align: middle; rotate: -6deg;
+}
+.pk-stage[data-state="recharging"] .pk-pack { opacity: 1; filter: none; animation: none; transform: rotate(-2deg); }
+.pk-stage[data-state="recharging"] .pk-face {
+  border-style: dashed; border-color: var(--ink-3);
+  background: repeating-linear-gradient(135deg, #e8dfcc 0 8px, #fffbf3 8px 16px);
+  box-shadow: none;
+}
+.pk-stage[data-state="recharging"] .pk-art { opacity: 0; }
+.pk-stage[data-state="recharging"] .pk-top, .pk-stage[data-state="recharging"] .pk-bottom { border-style: dashed; color: #5c6b62; }
+.pk-stage[data-state="recharging"] .pk-seal { border-style: dashed; background: #fffbf3; color: #5c6b62; }
+.pk-chooser[hidden], .pk-current[hidden], .pk-layout[hidden] { display: none; }
+.pk-chooser-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 32px; align-items: end; margin-bottom: 24px; }
+.pk-chooser-head .pk-label { margin-bottom: 8px; }
+.pk-fasc-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.pk-fasc {
+  display: grid; grid-template-columns: 112px 1fr; gap: 18px; align-items: center; padding: 18px;
+  border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); color: var(--ink);
+  cursor: pointer; font: inherit; text-align: left;
+  transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out);
+}
+button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--pop-shadow); }
+.pk-fasc:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.pk-fasc.is-next { border-style: dashed; background: transparent; cursor: default; }
+.pk-fasc .jk-mini { max-width: 112px; }
+.pk-fasc-info { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.pk-fasc-info b { color: var(--ink); font-family: var(--serif); font-size: 24px; line-height: 1.1; }
+.pk-fasc-k { color: var(--c-pli-deep); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+:root[data-theme="nocturne"] .pk-fasc-k { color: var(--c-pli); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pk-fasc-k { color: var(--c-pli); } }
+.pk-fasc-go { margin-top: 6px; color: var(--c-action-deep); font-weight: 700; }
+:root[data-theme="nocturne"] .pk-fasc-go { color: var(--c-action); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pk-fasc-go { color: var(--c-action); } }
+.pk-current { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding: 12px 16px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.pk-current p { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.pk-current .pk-label { margin: 0; }
+.pk-current b { font-family: var(--serif); font-size: 20px; }
+@media (max-width: 760px) {
+  .pk-chooser-head { grid-template-columns: 1fr; gap: 12px; }
+  .pk-fasc-list { grid-template-columns: 1fr; }
+  .pk-fasc { grid-template-columns: 84px 1fr; gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .pk-fasc { transition: none; } }
+.sc-line {
+  position: relative; display: block; flex: none;
+  color: var(--ink);
+  font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", "Brush Script MT", cursive;
+  font-size: 24px; line-height: 1.3; white-space: nowrap;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.sc-line.old { opacity: 0.45; transform: scale(0.84); }
+/* Rature tracée à la main : deux traits qui se dessinent (Plis.tsx, .sc-rature). */
+.sc-rature { position: absolute; top: 0; left: -6px; width: calc(100% + 12px); height: 100%; overflow: visible; pointer-events: none; }
+.sc-rature path { fill: none; stroke: var(--c-action); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 100; animation: trace 0.2s ease-out both; }
+.sc-line.final { color: var(--ink); font-family: var(--serif); font-size: 26px; font-weight: 700; }
+.sc-line.inked { text-shadow: 0 0 18px rgba(244, 183, 64, 0.9); } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+.sc-line.sc-brick {
+  margin-top: 6px; padding: 0 10px 2px;
+  border: 2px solid #0f1f19; border-radius: 9px;
+  background: var(--c-prefix); color: #0f1f19;
+  box-shadow: 3px 3px 0 #0f1f19;
+  font-size: 24px; text-shadow: none;
+}
+.sc-line.sc-brick[data-kind="suffixe"] { background: var(--c-suffix); }
+.sc-line.sc-brick.inked { box-shadow: 3px 3px 0 #0f1f19, 0 0 30px rgba(244, 183, 64, 0.85); } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+.sc-brick .sc-ch.flick { color: #0f1f19; opacity: 0.35; }
+.sc-brick .sc-caret { background: #0f1f19; }
+.sc-ch { display: inline-block; animation: inkIn 0.16s ease-out; }
+.sc-ch.flick { color: var(--c-pli-deep); opacity: 0.85; }
+@keyframes inkIn { from { opacity: 0; transform: translateY(-6px) scale(1.4); filter: blur(2px); } }
+.sc-caret { display: inline-block; width: 2px; height: 0.9em; margin-left: 3px; background: var(--c-pli-deep); vertical-align: -0.08em; animation: clignote 1s ease-in-out infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes scintille { 0%, 14% { color: var(--c-pli-deep); text-shadow: 0 0 6px var(--c-pli); } 20%, 100% { color: var(--ink-3); } } /* identite: ok — lueur Ambre, comme le halo du sceau */
+@keyframes descend { from { translate: 0 -46px; } }
+@keyframes pose { from { opacity: 0; translate: 0 -12px; } }
+@keyframes cachet { from { opacity: 0; scale: 1.2; } }
+@keyframes cire { to { scale: 1.3; border-radius: 46% 54% 52% 48% / 56% 44% 56% 44%; box-shadow: 0 0 0 14px rgba(244, 183, 64, 0.2), 0 0 48px rgba(244, 183, 64, 0.6); } } /* identite: ok — halo Ambre du rituel */
+@keyframes scribeChargeRare { to { box-shadow: 0 0 0 7px rgba(255, 251, 243, 0.8), 0 0 70px var(--c-lang); } } /* identite: ok — halo Palimpseste du rituel rare */
+@keyframes retourne { from { opacity: 0; transform: perspective(900px) rotateY(-90deg) scale(0.96); } 35% { opacity: 1; } }
+@keyframes point { 0% { opacity: 0; } 10%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes clignote { 50% { opacity: 0.2; } }
+@keyframes cran { from { background: var(--paper-2); transform: scaleY(1.7); } }
+@keyframes remplit { to { fill-opacity: 1; } }
+@keyframes compte { from { --n: 0; } }
+@keyframes imprime {
+  0% { opacity: 0; transform: translateY(-34px) scale(1.18); box-shadow: 20px 30px 0 rgba(15, 31, 25, 0.22); }
+  55% { opacity: 1; transform: none; box-shadow: 6px 6px 0 #0f1f19; }
+  72% { transform: scaleY(0.92) translateY(2px); }
+  100% { transform: rotate(-2deg); box-shadow: 6px 6px 0 #0f1f19; }
+}
+@keyframes dupPose { 0% { opacity: 0; transform: translateY(-40px) scale(0.9) rotate(4deg); } 100% { opacity: 1; transform: rotate(-2deg); } }
+@keyframes pkFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes sealPulse { 50% { box-shadow: 0 0 0 14px rgba(244, 183, 64, 0.1), 0 0 48px rgba(244, 183, 64, 0.7); } } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+@keyframes pkShake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-5px, 2px) rotate(-3deg); }
+  40% { transform: translate(5px, -2px) rotate(3deg); }
+  60% { transform: translate(-4px, -1px) rotate(-2deg); }
+  80% { transform: translate(4px, 1px) rotate(2deg); }
+}
+@keyframes pkTremble { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-1.5px, 1px); } 75% { transform: translate(1.5px, -1px); } }
+@keyframes scribeCharge { to { box-shadow: 0 0 0 7px rgba(255, 251, 243, 0.8), 0 0 70px var(--c-pli); } } /* identite: ok — halo Ambre du rituel, repris de plis.html */
+
+/* ---------- Ajustements de l'application ---------- */
+.pk-ecran { display: grid; gap: 20px; }
+.pk-fasc-list { margin-top: 4px; }
+.pk-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pk-odd .rar, .pk-brickodd .rar { width: 14px; height: 14px; }
+.pk-type { width: 11px; height: 11px; border: 1px solid var(--fixed-ink); border-radius: 3px; background: var(--c); }
+.pk-unknown { color: var(--ink-3); font-family: var(--mono); letter-spacing: 0.2em; }
+.pk-energy-count { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+/*
+ * Mouvement réduit : rien ne bouge ni ne boucle. La révélation devient un fondu en trois temps
+ * (styles.css : .pk-reveal > *, 120 ms) : la brique, puis sa rareté et son origine, puis l'encre.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pk-pack, .pk-seal, .pk-rays, .pk-tagline .dt, .pk-hist-item, .pk-pool .pk-unknown, .pk-status,
+  .pk-brick, .pk-reveal .l, .pk-reveal .cn, .pk-rarity .rar, .pk-rarity .rar > *, .pk-pity i, .sc-caret, .sc-rature path { animation: none; }
+  .pk-pack, .pk-art { transform: none; translate: none; }
+  .pk-reveal > :is(.pk-rarity, .pk-origin) { animation-delay: 120ms; }
+  .pk-reveal > :is(.pk-ink, .pk-actions) { animation-delay: 240ms; }
+}
+:root[data-mouvement="reduit"] :is(.pk-pack, .pk-seal, .pk-rays, .pk-tagline .dt, .pk-hist-item, .pk-pool .pk-unknown, .pk-status, .pk-brick, .pk-reveal .l, .pk-reveal .cn, .pk-rarity .rar, .pk-rarity .rar > *, .pk-pity i, .sc-caret, .sc-rature path) { animation: none; }
+:root[data-mouvement="reduit"] :is(.pk-pack, .pk-art) { transform: none; translate: none; }
+:root[data-mouvement="reduit"] .pk-reveal > :is(.pk-rarity, .pk-origin) { animation-delay: 120ms; }
+:root[data-mouvement="reduit"] .pk-reveal > :is(.pk-ink, .pk-actions) { animation-delay: 240ms; }
+
+/* Sections repliables de l'atelier : le libellé sert de bouton. */
+.pk-card > summary.pk-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; cursor: pointer; list-style: none; }
+.pk-card > summary.pk-label::-webkit-details-marker { display: none; }
+.pk-card > summary.pk-label::after { content: "›"; font-size: 16px; line-height: 1; rotate: 90deg; }
+.pk-card:not([open]) > summary.pk-label { margin-bottom: 0; }
+.pk-card:not([open]) > summary.pk-label::after { rotate: 0deg; }
+.pk-card > summary.pk-label::after { transition: rotate var(--dur-rapide) var(--ease-out); }
+/* Fermeture en cours (basculer, animation.ts) : le chevron repart tout de suite. */
+.pk-card[data-ferme] > summary.pk-label::after { rotate: 0deg; }
+.pk-card > summary.pk-label:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* Plis en attente, en petit, à côté du compteur d'énergie. */
+.pk-ready { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pk-waiting { display: inline-flex; gap: 6px; }
+.pk-waiting .jk-mini.is-xs { width: 28px; rotate: none; }
+.pk-waiting.is-grand { gap: 12px; }
+.pk-waiting.is-grand .jk-mini.is-xs { width: 64px; border-width: 2px; border-radius: 8px; box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19; }
+.pk-waiting.is-grand .jk-mini.is-xs .jk-art { inset: 5px; border-radius: 5px; }
+.pk-waiting.is-grand .jk-mini.is-empty { box-shadow: none; }
+/* Pli en recharge : fond uni Crème sous ses pointillés. */
+.pk-waiting .jk-mini.is-empty { background: var(--cream); }
+/* Recharge en cours : un petit anneau au cœur du premier pli en pointillés. */
+.pk-recharge { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.pk-recharge svg { width: 62%; overflow: visible; rotate: -90deg; }
+.pk-recharge .ring-track, .pk-recharge .ring-fill { stroke-width: 7; }
+.pk-recharge .ring-track { stroke: var(--line); }
+.pk-restant { color: var(--ink-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; line-height: 1; }
+.pk-attente { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.pk-attente small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
+.pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }
+
+/* Colonne centrale : le pli, puis les derniers tirages. */
+.pk-centre { display: grid; gap: 20px; min-width: 0; }
+/* Mobile : les plis en chargement au-dessus du pli, le reste de l'atelier dessous. */
+@media (max-width: 760px) {
+  .pk-layout .pk-side { display: contents; }
+  .pk-layout .pk-centre { order: -1; }
+  .pk-layout .pk-energie { order: -2; }
+  /* Plis en chargement : les plis gardent leur taille, à gauche ; les textes passent à droite, la carte est moins haute. */
+  .pk-energie { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "label label" "plis texte" "plis note" "btn btn"; align-items: start; column-gap: 16px; }
+  .pk-energie > .pk-label { grid-area: label; }
+  .pk-energie .pk-attente { display: contents; }
+  .pk-energie .pk-waiting { grid-area: plis; }
+  .pk-energie .pk-attente small { grid-area: texte; }
+  .pk-energie > .pk-note { grid-area: note; margin-top: 6px; font-size: 12px; line-height: 1.4; }
+  .pk-energie > .pk-sandbtn { grid-area: btn; }
+}
+
+/* En-tête du choix posé sur une surface Crème, comme la barre de l'atelier (.pk-current). */
+.pk-chooser-head { padding: 16px 20px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.pk-chooser-head { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 20px; }
+.pk-chooser-head .pk-note { margin-top: 0; }
+/* Atelier : l’écart vient de la grille (20 px), pas des marges. */
+.pk-ecran > .pk-current { margin-bottom: 0; }
+/* Raccourci des sabliers sous les plis en chargement : remplir, ou échanger de l’encre (ADR 0039). */
+.pk-energie > .pk-sandbtn { width: 100%; margin-top: 14px; }
+.pk-sandbtn .ic { width: 18px; height: 18px; }
+
+
+/*
+ * Boutique (ADR 0018, 0039) : échanges de ressources du jeu, puis achats en
+ * euros, fermés. Palette du pli : l’encre et les sabliers sont en Ambre ; le
+ * Corail reste à l’action principale.
+ */
+.bq { display: grid; gap: 32px; }
+.bq-soldes { display: flex; flex-wrap: wrap; gap: 10px; }
+.bq-solde { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--cream); font-family: var(--mono); font-size: 13px; font-weight: 700; }
+.bq-solde small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+.bq-section { display: grid; gap: 16px; }
+.bq-tete { display: grid; gap: 6px; max-width: 640px; }
+.bq-tete .pk-label { display: flex; align-items: center; gap: 10px; margin: 0; }
+.bq-tete h2 em { color: var(--c-action-deep); }
+:root[data-theme="nocturne"] .bq-tete h2 em { color: var(--c-action); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .bq-tete h2 em { color: var(--c-action); } }
+.bq-tete p { color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.bq-offres { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.bq-offre { display: grid; gap: 12px; align-content: start; }
+.bq-offre h3 { font-family: var(--serif); font-size: 22px; line-height: 1.1; }
+.bq-offre p { color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+.bq-offre .btn { width: 100%; }
+/* Le troc : ce qu’on donne, puis ce qu’on reçoit. */
+.bq-troc { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 10px; background: var(--c-pli-tint); color: var(--fixed-ink); }
+.bq-troc b { font-family: var(--serif); font-size: 28px; line-height: 1; }
+.bq-troc .pk-drop, .bq-troc .pk-glass { flex: none; }
+.bq-troc .bq-fleche { color: var(--fixed-ink); font-size: 20px; }
+/* Feuille d'achat des sabliers : un lot par ligne, choisi d'un clic. */
+.pk-lots { display: grid; gap: 10px; margin: 8px 0 0; list-style: none; padding: 0; }
+.btn.pk-lot { width: 100%; flex-direction: column; gap: 6px; padding: 8px; }
+/* L'échange de valeur prend toute la largeur du lot. */
+.pk-lot .bq-troc { width: 100%; justify-content: center; padding: 10px 12px; }
+.pk-lot .bq-troc b { font-size: 22px; }
+.pk-lot-reco { color: var(--c-pli-deep); font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.btn.pk-lot.is-reco { border-color: var(--c-pli-deep); border-width: 2px; }
+.pk-lot-texte { font-size: 11px; }
+.bq-manque { color: var(--ink-3); font-family: var(--mono); font-size: 11px; text-align: center; }
+/* Achats en euros : fermés, en pointillés (interfaces, « plus tard »). */
+.bq-bientot { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border: 1px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+.bq-bientot .ic { width: 12px; height: 12px; }
+.bq-ferme { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 20px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-2); }
+.bq-ferme > .ic { width: 32px; height: 32px; color: var(--ink-3); }
+.bq-ferme p { font-size: 14px; line-height: 1.5; }
+.bq-ferme b { color: var(--ink); }
+
+/* Mouvement réduit : la révélation apparaît sans se retourner. */
+@media (prefers-reduced-motion: reduce) { .pk-reveal { animation: none; } }
+:root[data-mouvement="reduit"] .pk-reveal { animation: none; }

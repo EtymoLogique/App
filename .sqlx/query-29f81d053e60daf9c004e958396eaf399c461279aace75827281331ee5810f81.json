@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT brique_id, nombre FROM exemplaire WHERE joueur_id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "brique_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "nombre",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "29f81d053e60daf9c004e958396eaf399c461279aace75827281331ee5810f81"
+}

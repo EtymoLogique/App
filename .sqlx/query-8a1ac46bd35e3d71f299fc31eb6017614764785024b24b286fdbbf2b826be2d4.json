@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM palier_recupere WHERE joueur_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8a1ac46bd35e3d71f299fc31eb6017614764785024b24b286fdbbf2b826be2d4"
+}

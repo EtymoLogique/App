@@ -39,6 +39,59 @@ const TRACES = {
       <path d="M12 11v6M12 7.5h.01" />
     </>
   ),
+  // Goutte d'encre au trait : elle prend la couleur du texte, jamais le jaune du pli sur une couleur vive.
+  goutte: <path d="M12 3.5c3.6 4.3 6 7.6 6 10.6a6 6 0 0 1-12 0c0-3 2.4-6.3 6-10.6z" />,
+  // Ampoule : un indice éclaire une recette.
+  indice: (
+    <>
+      <path d="M9 17.5h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2v1.5h5V16c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" />
+    </>
+  ),
+  // Plateau de briques : la réserve.
+  reserve: (
+    <>
+      <rect x="3" y="4" width="7.5" height="7" rx="2" />
+      <rect x="13.5" y="4" width="7.5" height="7" rx="2" />
+      <rect x="3" y="13.5" width="7.5" height="7" rx="2" />
+      <rect x="13.5" y="13.5" width="7.5" height="7" rx="2" />
+    </>
+  ),
+  boutique: (
+    <>
+      <path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z" />
+      <path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" />
+    </>
+  ),
+  // Fanion planté : un jalon, une quête à mener.
+  quete: (
+    <>
+      <path d="M6 21V3.5" />
+      <path d="M6 4.5h11.5l-2.8 4.25 2.8 4.25H6" />
+    </>
+  ),
+  // Trois traits séparés : ouverts, ils pivotent en croix (styles.css, .navigation-burger).
+  menu: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </>
+  ),
+  // Galet qui rebondit : un ricochet.
+  ricochet: (
+    <>
+      <ellipse cx="17" cy="8" rx="3.5" ry="2" />
+      <path d="M3 18c2.5 0 3.5-3 5-3s2 3 4 3 2.5-5 2.5-5" />
+    </>
+  ),
+  coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  verrou: (
+    <>
+      <rect x="5" y="11" width="14" height="9.5" rx="2" />
+      <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
+    </>
+  ),
 } as const
 
 export type NomIcone = keyof typeof TRACES

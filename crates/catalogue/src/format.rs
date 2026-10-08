@@ -7,9 +7,13 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset};
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::jalon::Jalon;
+use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
+use etymo_domaine::quete::QueteLongCours;
 use serde::{Deserialize, Serialize};
 
 use crate::Chemin;
+use crate::carte::ParLocale;
 
 /// Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
 /// même forme, seuls les fascicules listés diffèrent.
@@ -22,6 +26,10 @@ pub struct Calendrier {
     /// Langues, systèmes d'écriture et conventions, recopiés tels quels.
     #[schema(value_type = Value)]
     pub referentiels: serde_json::Value,
+    /// Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
+    /// absentes d'un index antérieur.
+    #[serde(default)]
+    pub quetes: Vec<QueteLongCours>,
     pub fascicules: Vec<EntreeFascicule>,
 }
 
@@ -39,12 +47,21 @@ pub struct Manifeste {
     /// Identifiant opaque du fascicule : les données du joueur le désignent par lui.
     pub id: IdCatalogue,
     pub numero: u32,
+    /// Nom du fascicule, celui de sa jaquette (ADR 0016) ; absent des manifestes plus anciens.
+    #[serde(default)]
+    pub nom: Option<String>,
     #[schema(value_type = String, format = DateTime)]
     pub parution: DateTime<FixedOffset>,
     #[serde(default)]
     pub test: bool,
     pub jaquette: Option<Chemin>,
     pub exclusions: Option<Chemin>,
+    /// Fausses fusions expliquées du fascicule (ADR 0052) ; absente d'un manifeste plus ancien.
+    #[serde(default)]
+    pub trompes_l_oeil: Option<Chemin>,
+    /// Groupes de briques de même forme (ADR 0052) : des identifiants, jamais de texte.
+    #[serde(default)]
+    pub homographes: Vec<Vec<IdCatalogue>>,
     #[serde(default)]
     pub cartes: Vec<CarteManifeste>,
     #[serde(default)]
@@ -54,15 +71,56 @@ pub struct Manifeste {
     #[serde(default)]
     #[schema(value_type = Value)]
     pub compteurs: serde_json::Value,
+    /// Briques tirables et paramètres d'équilibrage du pli (ADR 0009, 0011).
     #[serde(default)]
-    #[schema(value_type = Value)]
-    pub pli: serde_json::Value,
+    pub pli: PliManifeste,
+    /// Jalons du fascicule, récompenses affichées à l'avance (ADR 0038).
     #[serde(default)]
-    #[schema(value_type = Vec<Value>)]
-    pub jalons: serde_json::Value,
+    pub jalons: Vec<Jalon>,
     /// Réserve de départ du fascicule (ADR 0030).
     #[serde(default)]
     pub graines: Vec<Graine>,
+    /// Mots posables comme briques : leur découverte en offre un exemplaire.
+    #[serde(default)]
+    pub mots_briques: Vec<MotBrique>,
+    /// De quoi juger un ricochet sans lire un texte (ADR 0044).
+    #[serde(default)]
+    pub ricochets: RicochetsManifeste,
+}
+
+/// Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RicochetsManifeste {
+    #[serde(default)]
+    pub briques: Vec<BriqueRicochet>,
+    #[serde(default)]
+    pub mots: Vec<MotRicochet>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BriqueRicochet {
+    pub id: IdCatalogue,
+    /// Sens affiché de la brique : la bonne réponse de « sens d'une brique ».
+    pub sens_id: IdCatalogue,
+    /// Commune à deux briques de même glose : jamais deux leurres de même classe.
+    pub classe_sens: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MotRicochet {
+    pub id: IdCatalogue,
+    /// Commune à deux mots de même sens littéral ; absente si le mot n'en a pas.
+    #[serde(default)]
+    pub classe_litteral: Option<IdCatalogue>,
+    /// Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas.
+    #[serde(default)]
+    pub coupes: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MotBrique {
+    pub mot_id: IdCatalogue,
+    pub brique_id: IdCatalogue,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -100,11 +158,78 @@ pub struct Exclusion {
     pub raison: String,
 }
 
+/// Ressource « trompe-l'œil » d'un fascicule (ADR 0052).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TrompesLOeil {
+    pub trompes_l_oeil: Vec<TrompeLOeil>,
+}
+
+/// Une paire ordonnée de briques qui s'écrit comme un mot sans en venir.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TrompeLOeil {
+    pub id: IdCatalogue,
+    pub combinaison: Vec<IdCatalogue>,
+    /// Le mot que les lettres épellent, quand il est dans le catalogue.
+    #[serde(default)]
+    pub mot_id: Option<IdCatalogue>,
+    pub motif: MotifTrompeLOeil,
+    /// Une phrase qui ne nomme jamais le mot : lisible tout de suite.
+    #[serde(default)]
+    pub explication_courte: ParLocale<String>,
+    /// Le mot et sa vraie origine : lisible une fois le mot au codex.
+    #[serde(default)]
+    pub explication: ParLocale<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MotifTrompeLOeil {
+    AutreOrigine,
+    MotSimple,
+    AutreDecoupage,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
     Resultat,
     Ingredient,
+}
+
+/// Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Difficulte {
+    Facile,
+    Moyen,
+    Difficile,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct PliManifeste {
+    #[serde(default)]
+    pub briques: Vec<BriquePliManifeste>,
+    /// Absent d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas.
+    #[serde(default)]
+    pub equilibrage: Option<EquilibrageManifeste>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BriquePliManifeste {
+    pub id: IdCatalogue,
+    pub unite_id: IdCatalogue,
+    /// Absente d'un manifeste antérieur à l'équilibrage : son pli ne s'ouvre pas.
+    #[serde(default)]
+    pub nature: Option<NaturePli>,
+    pub rarete: Rarete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct EquilibrageManifeste {
+    /// Version des paramètres, inscrite dans l'historique de chaque pli.
+    pub version: String,
+    #[serde(flatten)]
+    pub parametres: Equilibrage,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -113,6 +238,9 @@ pub struct CarteManifeste {
     pub role: Role,
     pub carte: Chemin,
     pub silhouette: Option<Chemin>,
+    /// Résultats seulement ; absente d'un manifeste antérieur à l'ADR 0047.
+    #[serde(default)]
+    pub difficulte: Option<Difficulte>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -133,7 +261,12 @@ impl Manifeste {
     #[must_use]
     pub fn ressources(&self) -> Vec<Chemin> {
         let mut chemins: BTreeSet<&Chemin> = BTreeSet::new();
-        chemins.extend(self.jaquette.iter().chain(self.exclusions.iter()));
+        chemins.extend(
+            self.jaquette
+                .iter()
+                .chain(self.exclusions.iter())
+                .chain(self.trompes_l_oeil.iter()),
+        );
         for carte in &self.cartes {
             chemins.insert(&carte.carte);
             chemins.extend(carte.silhouette.iter());

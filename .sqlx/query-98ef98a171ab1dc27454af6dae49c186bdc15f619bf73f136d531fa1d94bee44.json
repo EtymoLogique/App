@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO jalon_atteint (joueur_id, jalon_id, atteint_le) VALUES ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "98ef98a171ab1dc27454af6dae49c186bdc15f619bf73f136d531fa1d94bee44"
+}

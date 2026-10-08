@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE jalon_atteint SET recupere_le = $3\n         WHERE joueur_id = $1 AND jalon_id = $2 AND recupere_le IS NULL\n         RETURNING jalon_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "jalon_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b854fd6d263c48c223a53e1d9c56c7c4b0d0d7634aea5a94dcae6adb05e7808b"
+}

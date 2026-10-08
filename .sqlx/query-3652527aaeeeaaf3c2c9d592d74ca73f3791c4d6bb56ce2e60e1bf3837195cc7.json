@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO energie (joueur_id, charges, prochaine_charge) VALUES ($1, $2, $3)\n         ON CONFLICT (joueur_id) DO UPDATE SET charges = EXCLUDED.charges, prochaine_charge = EXCLUDED.prochaine_charge",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3652527aaeeeaaf3c2c9d592d74ca73f3791c4d6bb56ce2e60e1bf3837195cc7"
+}

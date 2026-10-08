@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ricochet_jour (joueur_id, jour, reponses, bonnes) VALUES ($1, $2, 1, $3)\n         ON CONFLICT (joueur_id, jour) DO UPDATE SET\n             reponses = LEAST(ricochet_jour.reponses + 1, 5),\n             bonnes = ricochet_jour.bonnes + $3\n         WHERE ricochet_jour.reponses < 5",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8ca169746b7cafb8e0d640ff4c1a8f09d37a8d8d8b59b74f7e608c4871bfc780"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM indice WHERE joueur_id = $1 AND recette_id = $2 AND niveau = $3) AS \"obtenu!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "obtenu!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "02fc9b9bf51e1ff8b225b7ffad4cfbed8b7bc30a7067371a614a8749a14ec180"
+}

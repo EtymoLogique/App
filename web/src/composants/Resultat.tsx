@@ -1,20 +1,19 @@
+import { Fragment, useLayoutEffect, useRef, useState } from 'react'
+
 import type { IssueFusion } from '../contrat'
-import type { EntreeCodex } from '../services/codex'
-import type { CatalogueJeu, Prevision } from '../services/jeu'
+import { mouvementReduit } from '../services/animation'
+import type { BriqueJeu, CatalogueJeu, Prevision, TrompeJeu } from '../services/jeu'
 import { texteDuMot } from '../services/jeu'
 import { PetiteBrique } from './Brique'
-import { MotSegmente } from './MotSegmente'
 
 const RAISONS: Record<string, string> = {
   archaique: 'le mot est archaïque',
-  rare: 'le mot est trop rare',
   offensant: 'le mot est offensant',
-  analyse_non_etablie: 'son analyse n’est pas établie',
 }
 
 export type Retour =
   | { etat: 'prevision'; prevision: Prevision }
-  | { etat: 'confirme'; issue: IssueFusion }
+  | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */ jalons?: string[] }
   | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' }
 
 type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
@@ -24,14 +23,23 @@ const NOMBRES = ['', 'Une', 'Deux', 'Trois']
 interface Props {
   retour: Retour | null
   jeu: CatalogueJeu
-  entrees: EntreeCodex[]
   /** Briques posées : le message d'attente en dépend. */
   posees: number
   /** Raison pour laquelle la fusion est impossible maintenant, sinon `null`. */
   bloquee: string | null
   onInverser: () => void
-  onVoirCarte: (motId: string) => void
-  onVider: () => void
+  /** Jalons dont la récompense attend encore d'être récupérée (état confirmé du serveur). */
+  aRecuperer: ReadonlySet<string>
+  /** Mène aux quêtes, où attend la récompense d'un jalon atteint. */
+  onQuetes: () => void
+  /** Briques posées sur la table, dans l'ordre : l'explication d'un homographe en désigne une par son rang. */
+  briquesPosees: string[]
+  /** Mots au codex : l'explication complète d'un trompe-l'œil attend la découverte du mot (ADR 0052). */
+  decouverts: ReadonlySet<string>
+  /** Ouvre la carte d'une unité dans le codex. */
+  onCarte: (uniteId: string) => void
+  /** Retire la brique de ce rang et ouvre la réserve sur sa forme. */
+  onRemplacer: (rang: number, forme: string) => void
 }
 
 function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
@@ -45,10 +53,13 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
 /**
  * Retours d'une tentative (maquette I-10) : en ligne, à l'endroit de l'action,
  * aucun ne consomme d'exemplaire. Échec neutre, jamais de secousse punitive ;
- * « presque » propose un geste ; « déjà découvert » rappelle la fiche.
+ * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
+ * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, onVoirCarte, onVider }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes, briquesPosees, decouverts, onCarte, onRemplacer }: Props) {
   let contenu: React.ReactNode
+  // Ce que dit le retour : quand elle change, l'ancien message sort et le nouveau entre.
+  const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}${retour.issue.type === 'echec' && retour.issue.explication ? `:${retour.issue.explication.nature}` : ''}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : (retour?.etat ?? `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`)
   if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
   } else if (retour?.etat === 'prevision') {
@@ -57,9 +68,29 @@ export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, on
   } else if (retour?.etat === 'confirme') {
     const issue = retour.issue
     switch (issue.type) {
-      case 'decouverte':
-        contenu = <Ligne ton="win">Nouvelle découverte : {texteDuMot(jeu.cartes.get(issue.mot_id))}&nbsp;!</Ligne>
+      case 'decouverte': {
+        const gouttes = issue.gouttes ?? 0
+        const jalon = (retour.jalons ?? []).some((id) => aRecuperer.has(id))
+        contenu = (
+          <div className="retour">
+            <Ligne ton="win">
+              Nouvelle découverte : {texteDuMot(jeu.cartes.get(issue.mot_id))}&nbsp;!
+              {gouttes > 0 && ` +${gouttes}\u00a0goutte${gouttes > 1 ? 's' : ''} d’encre.`}
+            </Ligne>
+            {jalon && (
+              <>
+                <p className="panel-tip">Jalon atteint&nbsp;! Sa récompense vous attend dans les quêtes.</p>
+                <div className="rangee">
+                  <button type="button" className="btn btn-primary btn-s" onClick={onQuetes}>
+                    Récupérer la récompense
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )
         break
+      }
       case 'presque':
         contenu = (
           <div className="retour">
@@ -81,42 +112,13 @@ export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, on
           </div>
         )
         break
-      case 'connue': {
-        const entree = entrees.find((e) => e.id === issue.mot_id)
-        const carte = jeu.cartes.get(issue.mot_id)
-        const composition = carte?.compositions?.find((c) => c.preferee) ?? carte?.compositions?.[0]
-        const morceaux = [...(composition?.parties ?? [])]
-          .sort((a, b) => a.rang - b.rang)
-          .flatMap((p) => {
-            const nature = jeu.cartes.get(p.unite_id)?.nature
-            return p.segment_debut != null && p.segment_fin != null && nature ? [{ debut: p.segment_debut, fin: p.segment_fin, nature }] : []
-          })
+      case 'connue':
         contenu = (
-          <>
-            <Ligne ton="known">
-              <b>Déjà découvert.</b> Rien n’est consommé.
-            </Ligne>
-            <div className="retour">
-              <div className="rangee rangee-ecartee">
-                <span className="retour-mot">
-                  <MotSegmente mot={texteDuMot(carte)} morceaux={morceaux} />
-                </span>
-                {entree && <span className="mono">N°&nbsp;{String(entree.n).padStart(3, '0')}</span>}
-              </div>
-              {entree?.definition && <p className="panel-tip">{entree.definition}</p>}
-              <div className="rangee">
-                <button type="button" className="btn btn-secondary btn-s" onClick={() => onVoirCarte(issue.mot_id)}>
-                  Voir la carte
-                </button>
-                <button type="button" className="btn-texte" onClick={onVider}>
-                  Vider la table
-                </button>
-              </div>
-            </div>
-          </>
+          <Ligne ton="known">
+            <b>Déjà découvert.</b> Rien n’est consommé.
+          </Ligne>
         )
         break
-      }
       case 'exclue':
         contenu = (
           <Ligne ton="fail">
@@ -136,9 +138,19 @@ export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, on
           </Ligne>
         )
         break
-      case 'echec':
-        contenu = <Ligne ton="fail">Aucune recette connue. Rien n’est perdu : essayez autre chose.</Ligne>
+      case 'echec': {
+        const explication = issue.explication
+        const homographe = explication?.nature === 'homographe' ? jeu.briques.get(briquesPosees[explication.rang] ?? '') : undefined
+        const piege = explication?.nature === 'trompe_l_oeil' ? jeu.trompesLOeil.find((t) => t.id === explication.trompe_l_oeil_id) : undefined
+        if (explication?.nature === 'homographe' && homographe) {
+          contenu = <MauvaisHomographe brique={homographe} rang={explication.rang} onCarte={onCarte} onRemplacer={onRemplacer} />
+        } else if (piege) {
+          contenu = <FaussePiste piege={piege} jeu={jeu} lisible={piege.motId === null || decouverts.has(piege.motId)} onCarte={onCarte} />
+        } else {
+          contenu = <Ligne ton="fail">Aucune recette connue. Rien n’est perdu : essayez autre chose.</Ligne>
+        }
         break
+      }
     }
   } else if (bloquee && posees > 0) {
     contenu = <Ligne>{bloquee}</Ligne>
@@ -153,9 +165,98 @@ export function Resultat({ retour, jeu, entrees, posees, bloquee, onInverser, on
       </Ligne>
     )
   }
+  return <Releve cle={cle} contenu={contenu} />
+}
+
+/**
+ * « Bonne forme, autre brique » (ADR 0052) : la brique posée a un homographe qui donnerait une
+ * recette. On ne nomme pas la bonne ; on propose de remplacer celle-ci, la réserve ouverte sur sa forme.
+ */
+function MauvaisHomographe({ brique, rang, onCarte, onRemplacer }: { brique: BriqueJeu; rang: number; onCarte: (uniteId: string) => void; onRemplacer: (rang: number, forme: string) => void }) {
+  return (
+    <div className="retour">
+      <Ligne ton="hint">
+        <b>Bonne forme, autre brique.</b>
+      </Ligne>
+      <p className="panel-tip">
+        <PetiteBrique brique={brique} onOuvrir={() => onCarte(brique.uniteId)} />
+        {brique.glose && <> «&nbsp;{brique.glose}&nbsp;»</>} ne convient pas ici. Une autre brique s’écrit aussi{' '}
+        <PetiteBrique brique={brique} onOuvrir={() => onRemplacer(rang, brique.libelle)} titre={`Voir les briques ${brique.libelle}`} />, avec un autre sens. Rien n’est perdu.
+      </p>
+      <div className="rangee">
+        <button type="button" className="btn btn-secondary btn-s" onClick={() => onRemplacer(rang, brique.libelle)}>
+          Voir les briques {brique.libelle}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * « Fausse piste » (ADR 0052) : les lettres se suivent, le mot n'en vient pas. L'explication
+ * courte ne nomme jamais le mot ; la complète se lit une fois le mot au codex.
+ */
+function FaussePiste({ piege, jeu, lisible, onCarte }: { piege: TrompeJeu; jeu: CatalogueJeu; lisible: boolean; onCarte: (uniteId: string) => void }) {
+  const [ouverte, setOuverte] = useState(false)
+  const briques = piege.combinaison.map((id) => jeu.briques.get(id))
+  return (
+    <div className="retour">
+      <Ligne ton="hint">
+        <b>Fausse piste.</b>
+      </Ligne>
+      <p className="panel-tip">
+        {briques.map((b, i) =>
+          b ? (
+            <Fragment key={b.id}>
+              {i > 0 && <span className="bplus"> + </span>}
+              <PetiteBrique brique={b} onOuvrir={() => onCarte(b.uniteId)} />
+            </Fragment>
+          ) : null,
+        )}
+        {piege.courte && <>&nbsp;: {piege.courte}</>} Rien n’est perdu.
+      </p>
+      {lisible && piege.complete ? (
+        <>
+          <div className="rangee">
+            <button type="button" className="btn btn-secondary btn-s" aria-expanded={ouverte} onClick={() => setOuverte((o) => !o)}>
+              Pourquoi&nbsp;?
+            </button>
+          </div>
+          {ouverte && <p className="panel-tip">{piege.complete}</p>}
+        </>
+      ) : (
+        <p className="panel-tip">L’explication complète se lira une fois ce mot trouvé.</p>
+      )}
+    </div>
+  )
+}
+
+/** Relève de message : l'ancien retour sort par le haut pendant que le nouveau entre par le bas (240 ms). */
+function Releve({ cle, contenu }: { cle: string; contenu: React.ReactNode }) {
+  const dernier = useRef({ cle, contenu })
+  const [sortant, setSortant] = useState<{ cle: string; contenu: React.ReactNode } | null>(null)
+  useLayoutEffect(() => {
+    const avant = dernier.current
+    if (avant.cle === cle || mouvementReduit()) return
+    setSortant(avant)
+    const minuteur = setTimeout(() => setSortant(null), 240)
+    return () => clearTimeout(minuteur)
+  }, [cle])
+  // Après l'effet de relève : il lit le message précédent avant qu'il ne soit remplacé.
+  useLayoutEffect(() => {
+    dernier.current = { cle, contenu }
+  })
+  const releve = sortant !== null && sortant.cle !== cle
   return (
     <div className="retours" role="status" aria-live="polite">
-      {contenu}
+      {releve && (
+        <div key={`sort-${sortant.cle}`} className="sort" aria-hidden="true" inert>
+          {sortant.contenu}
+        </div>
+      )}
+      <div key={cle} className={releve ? 'entre' : undefined}>
+        {contenu}
+      </div>
     </div>
   )
 }

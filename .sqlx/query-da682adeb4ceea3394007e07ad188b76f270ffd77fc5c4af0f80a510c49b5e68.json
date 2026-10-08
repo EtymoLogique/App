@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO indice (joueur_id, recette_id, niveau) VALUES ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "da682adeb4ceea3394007e07ad188b76f270ffd77fc5c4af0f80a510c49b5e68"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO exemplaire (joueur_id, brique_id, nombre) VALUES ($1, $2, 1)\n                 ON CONFLICT (joueur_id, brique_id) DO UPDATE SET nombre = 1 WHERE exemplaire.nombre = 0\n                 RETURNING nombre",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nombre",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "41ab5eeed272978067fa9fc61f3b9d29844c45e4d7ba174e5cd1251f9147da23"
+}

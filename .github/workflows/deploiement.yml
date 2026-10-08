@@ -3,10 +3,22 @@ name: Deploy
 # ADR 0028 : develop déploie en hors-prod, un tag v*.*.* en prod. Une branche
 # de feature ne déploie rien. Les environnements GitHub, leurs clés et leurs
 # variables sont posés par le dépôt Infra.
+#
+# Étiquettes de l'image de l'API :
+#   develop → :develop (registre horsprod)
+#   master  → :nightly (registre prod), sans redéploiement
+#   vX.Y.Z  → l'image :<sha12> déjà construite sur master, ré-étiquetée
+#             :latest et :vX.Y.Z (registre prod), puis redéployée
+# Infra suit :develop en horsprod et :latest en prod, sans rien appliquer :
+# après un push sur develop ou un tag, ce workflow redéploie le conteneur de
+# l'API, qui tire alors la nouvelle étiquette, puis vérifie via /sante que la
+# révision en ligne est la bonne. La PWA ne se publie qu'ensuite, sur develop
+# et sur un tag : API et PWA restent donc du même commit (issue #7).
 on:
   push:
     branches:
       - develop
+      - master
     tags:
       - "v*.*.*"
   workflow_dispatch:
@@ -19,20 +31,22 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ENVIRONNEMENT: ${{ startsWith(github.ref, 'refs/tags/v') && 'prod' || 'horsprod' }}
+  ENVIRONNEMENT: ${{ github.ref == 'refs/heads/develop' && 'horsprod' || 'prod' }}
 
 jobs:
   image:
     name: Publish the API image
-    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'prod' || 'horsprod' }}
+    environment: ${{ github.ref == 'refs/heads/develop' && 'horsprod' || 'prod' }}
     outputs:
       image: ${{ steps.publication.outputs.image }}
     env:
       REGISTRE: ${{ vars.ETYMO_REGISTRE }}
       SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      CONTENEUR: ${{ vars.ETYMO_CONTENEUR_API }}
+      REGION: ${{ vars.SCW_DEFAULT_REGION }}
+      URL_API: ${{ vars.ETYMO_URL_API }}
     steps:
       - name: Check the configuration
         run: |
@@ -46,29 +60,141 @@ jobs:
         with:
           persist-credentials: false
 
+      # La référence désigne la branche ou le tag, jamais autre chose : un tag
+      # « v1.2 » ou « vfoo.bar.baz » n'a pas de version à publier.
+      - name: Choose the image tags
+        id: etiquettes
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          case "$REF" in
+            refs/heads/develop) etiquettes="develop" ;;
+            refs/heads/master) etiquettes="nightly" ;;
+            refs/tags/v*)
+              version="${REF#refs/tags/}"
+              if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::Le tag « $version » n’est pas de la forme vX.Y.Z."
+                exit 1
+              fi
+              etiquettes="latest $version"
+              ;;
+            *) echo "::error::Rien à publier pour $REF."; exit 1 ;;
+          esac
+          echo "liste=$etiquettes" >> "$GITHUB_OUTPUT"
+
+      # Un tag ne reconstruit rien : il ré-étiquette l'image du même commit,
+      # construite sur master. Sans elle, le tag n'a rien à publier.
       - name: Build and push
         id: publication
+        env:
+          ETIQUETTES: ${{ steps.etiquettes.outputs.liste }}
         run: |
           echo "$SCW_SECRET_KEY" | docker login "${REGISTRE%%/*}" --username nologin --password-stdin
           etiquette="$REGISTRE/api:${GITHUB_SHA::12}"
-          docker build --tag "$etiquette" --label "org.opencontainers.image.revision=$GITHUB_SHA" .
-          docker push "$etiquette"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            docker pull "$etiquette" || {
+              echo "::error::Image :${GITHUB_SHA::12} absente : le commit du tag doit d’abord passer par master."
+              exit 1
+            }
+          else
+            docker build --build-arg "REVISION=$GITHUB_SHA" --tag "$etiquette" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" .
+            docker push "$etiquette"
+          fi
+          for nom in $ETIQUETTES; do
+            docker tag "$etiquette" "$REGISTRE/api:$nom"
+            docker push "$REGISTRE/api:$nom"
+          done
           image="$(docker inspect --format '{{index .RepoDigests 0}}' "$etiquette")"
           echo "image=$image" >> "$GITHUB_OUTPUT"
           {
             echo "### Image de l’API ($ENVIRONNEMENT)"
             echo
-            echo "À épingler dans le dépôt Infra (\`api.image\`, \`taches.image\`) :"
+            echo "Étiquettes : \`$ETIQUETTES\`. Infra épingle l’empreinte de l’étiquette au prochain plan :"
             echo
             echo "\`$image\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # L'étiquette a bougé, pas la configuration : Infra ne verrait rien. On
+      # demande donc à Scaleway de redéployer le conteneur, qui tire l'image.
+      # Un push sur master ne redéploie rien : la prod suit :latest, posée
+      # par un tag.
+      - name: Redeploy the API container
+        if: github.ref != 'refs/heads/master' && env.CONTENEUR != ''
+        run: |
+          api="https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/${CONTENEUR##*/}"
+          curl -sSf -X POST "$api/deploy" -H "X-Auth-Token: $SCW_SECRET_KEY" \
+            -H "Content-Type: application/json" -d '{}' > /dev/null
+          for _ in $(seq 60); do
+            statut="$(curl -sSf "$api" -H "X-Auth-Token: $SCW_SECRET_KEY" | jq -r .status)"
+            case "$statut" in
+              ready) echo "API redéployée ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+              # Le statut reste « error » si la sonde de démarrage a expiré
+              # (réveil de la base) alors que l'API sert déjà : l'étape
+              # suivante tranche, sur la révision réellement en ligne.
+              error) echo "::warning::Scaleway annonce l’API en erreur ($(curl -sSf "$api" -H "X-Auth-Token: $SCW_SECRET_KEY" | jq -r .error_message)) ; la révision en ligne tranche."; exit 0 ;;
+            esac
+            sleep 5
+          done
+          echo "::error::API toujours « $statut » après 5 minutes."
+          exit 1
+
+      # /sante répond avec le commit de l'image en service. Le premier appel
+      # peut réveiller le conteneur (scale à zéro) : on réessaie. Un
+      # désalignement échoue ici, donc le job pwa ne part pas.
+      - name: Check the deployed revision
+        if: github.ref != 'refs/heads/master' && env.CONTENEUR != ''
+        run: |
+          for _ in $(seq 12); do
+            revision="$(curl -sS --max-time 20 "$URL_API/sante" | jq -r '.revision_api // empty' || true)"
+            if [ "$revision" = "$GITHUB_SHA" ]; then
+              echo "Révision en ligne : \`${GITHUB_SHA::12}\` ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::/sante annonce « ${revision:-rien} », attendu $GITHUB_SHA."
+          exit 1
+
+      # Chaque publication ajoute une étiquette :<sha>. On ne garde que les
+      # plus récentes. Sans « force », Scaleway refuse de supprimer une
+      # étiquette dont l'empreinte est aussi portée par une autre (:nightly,
+      # :latest…) : l'image en service ne part donc jamais. Un échec de
+      # nettoyage n'empêche pas le déploiement.
+      - name: Prune old image tags
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GARDER: "20"
+        run: |
+          api="https://api.scaleway.com/registry/v1/regions/$REGION"
+          curl_scw() { curl -sSf -H "X-Auth-Token: $SCW_SECRET_KEY" "$@"; }
+          espace="$(curl_scw "$api/namespaces?name=${REGISTRE#*/}" | jq -r '.namespaces[0].id // empty')"
+          image="$(curl_scw "$api/images?namespace_id=$espace&name=api" | jq -r '.images[0].id // empty')"
+          if [ -z "$espace" ] || [ -z "$image" ]; then
+            echo "::warning::Espace de noms ou image introuvable, rien à nettoyer."
+            exit 0
+          fi
+          supprimees=0
+          for id in $(curl_scw "$api/images/$image/tags?order_by=created_at_desc&page_size=100" \
+            | jq -r --argjson n "$GARDER" '[.tags[] | select(.name | test("^[0-9a-f]{12}$"))] | .[$n:][].id'); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "X-Auth-Token: $SCW_SECRET_KEY" "$api/tags/$id")"
+            case "$code" in
+              2*) supprimees=$((supprimees + 1)) ;;
+              *) echo "::warning::Étiquette $id conservée (HTTP $code)." ;;
+            esac
+          done
+          echo "Registre : $supprimees anciennes étiquettes supprimées ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
+
   pwa:
     name: Publish the PWA
+    # L'API d'abord : la PWA ne part qu'une fois le conteneur redéployé et
+    # « ready », et pas du tout si le job image échoue (issue #7).
+    needs: image
     if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'prod' || 'horsprod' }}
+    environment: ${{ github.ref == 'refs/heads/develop' && 'horsprod' || 'prod' }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
@@ -111,14 +237,37 @@ jobs:
           npm run build
 
       # Les fichiers hachés d'abord, immuables ; puis la coque, jamais mise en
-      # cache par HTTP (ADR 0024), pour qu'elle ne désigne jamais un fichier absent.
+      # cache par le navigateur (ADR 0024), pour qu'elle ne désigne jamais un
+      # fichier absent. Le CDN la garde une heure (s-maxage) : l'étape suivante
+      # le purge.
       - name: Upload to the PWA bucket
         working-directory: web/dist
         run: |
+          coque="public, max-age=0, must-revalidate, s-maxage=3600"
           aws s3 sync assets/ "s3://$BUCKET/assets/" --size-only --no-progress \
             --cache-control "public, max-age=31536000, immutable"
           aws s3 sync . "s3://$BUCKET/" --exclude "assets/*" --exclude "manifest.webmanifest" --no-progress \
-            --cache-control "no-cache"
+            --cache-control "$coque"
           aws s3 cp manifest.webmanifest "s3://$BUCKET/manifest.webmanifest" --no-progress \
-            --content-type application/manifest+json --cache-control "no-cache"
+            --content-type application/manifest+json --cache-control "$coque"
           echo "PWA ${GITHUB_SHA::12} déposée dans s3://$BUCKET/ ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
+
+      # Sans purge, le CDN servirait l'ancienne coque jusqu'à une heure.
+      - name: Purge the CDN cache
+        if: vars.ETYMO_PIPELINE_CDN != ''
+        env:
+          PIPELINE: ${{ vars.ETYMO_PIPELINE_CDN }}
+          API: https://api.scaleway.com/edge-services/v1beta1
+        run: |
+          id="$(curl -sSf -X POST "$API/purge-requests" -H "X-Auth-Token: $AWS_SECRET_ACCESS_KEY" \
+            -H "Content-Type: application/json" -d "{\"pipeline_id\": \"$PIPELINE\", \"all\": true}" | jq -r .id)"
+          for _ in $(seq 60); do
+            statut="$(curl -sSf "$API/purge-requests/$id" -H "X-Auth-Token: $AWS_SECRET_ACCESS_KEY" | jq -r .status)"
+            case "$statut" in
+              done) echo "Cache du CDN purgé." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+              error) echo "::error::Purge $id en erreur."; exit 1 ;;
+            esac
+            sleep 5
+          done
+          echo "::error::Purge $id toujours « $statut » après 5 minutes."
+          exit 1

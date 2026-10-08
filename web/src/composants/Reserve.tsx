@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import type { BriqueJeu } from '../services/jeu'
-import { NATURES } from '../services/jeu'
+import { NATURES, entrelacer, naturesDeCase } from '../services/jeu'
+import { correspond } from '../services/recherche'
 import { ContenuBrique } from './Brique'
 
 export const TYPE_GLISSE = 'application/x-etymo-brique'
@@ -16,16 +17,23 @@ interface Props {
   reserve: Exemplaires[]
   briques: Map<string, BriqueJeu>
   table: string[]
-  onAjouter: (brique: string) => void
+  /** Case visée sur la table : seuls les mots et les préfixes (gauche) ou les suffixes (droite) s'affichent. */
+  zone?: number | null
+  /** `depuis` : la brique touchée, d'où l'exemplaire vole jusqu'à sa case. */
+  onAjouter: (brique: string, depuis?: HTMLElement) => void
   /** Message affiché quand on touche une brique indisponible, sans secousse. */
   onIndisponible: (message: string) => void
   /** Briques qui viennent d'être consommées : un « −1 » s'envole au-dessus. */
   consommees?: string[]
+  /** Dernière brique posée ou retirée : sa pastille se contracte (−1) ou gonfle (+1), à chaque nouvelle `cle`. */
+  touchee?: { brique: string; cle: number; sens: 'plus' | 'moins' } | null
+  /** Recherche saisie à l'ouverture, par exemple la forme d'une brique à remplacer (ADR 0052). */
+  rechercheInitiale?: string
 }
 
-/** Sans accents ni casse, pour chercher « geo » comme « géo- ». */
-function normaliser(texte: string): string {
-  return texte.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+/** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
+function encombrement(b: BriqueJeu): number {
+  return Math.max(b.libelle.length * 1.6, `${NATURES[b.nature]} · « ${b.glose ?? ''} »`.length)
 }
 
 function exemplaires(n: number): string {
@@ -34,11 +42,11 @@ function exemplaires(n: number): string {
 
 /**
  * Réserve (maquette I-09) : recherche par brique ou par sens, filtres, tri
- * par briques récentes. Un toucher ou un clic pose la brique sur la table
+ * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, consommees = [] }: Props) {
-  const [recherche, setRecherche] = useState('')
+export function Reserve({ reserve, briques, table, zone = null, onAjouter, onIndisponible, consommees = [], touchee = null, rechercheInitiale = '' }: Props) {
+  const [recherche, setRecherche] = useState(rechercheInitiale)
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
   const [maintenant] = useState(() => Date.now())
@@ -47,7 +55,8 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
       const cible = e.target as HTMLElement | null
-      if (e.key === '/' && cible?.tagName !== 'INPUT') {
+      // Écran caché (autre onglet) : le codex prend le raccourci.
+      if (e.key === '/' && cible?.tagName !== 'INPUT' && champ.current && !champ.current.closest('[hidden]')) {
         e.preventDefault()
         champ.current?.focus()
       }
@@ -63,20 +72,28 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
         .sort((a, b) => Date.parse(b.connue_le) - Date.parse(a.connue_le) || a.brique_id.localeCompare(b.brique_id)),
     [reserve, briques],
   )
-  const correspond = (e: Exemplaires, f: Filtre) => {
+  const dansLeFiltre = (e: Exemplaires, f: Filtre) => {
     const b = briques.get(e.brique_id) as BriqueJeu
     if (f === 'prefixe' || f === 'suffixe') return b.nature === f
     if (f === 'recentes') return maintenant - Date.parse(e.connue_le) < RECENTE_MS
     return true
   }
-  const cherchee = normaliser(recherche.trim())
-  const visibles = connues.filter((e) => {
-    const b = briques.get(e.brique_id) as BriqueJeu
-    const texte = normaliser(`${b.libelle} ${b.glose ?? ''}`)
-    return correspond(e, filtre) && (cherchee === '' || texte.includes(cherchee))
-  })
-
+  // Une case visée choisit déjà les natures : les filtres Préfixes et Suffixes s'effacent devant elle.
+  const filtreActif = zone !== null && (filtre === 'prefixe' || filtre === 'suffixe') ? 'tout' : filtre
   const disponibles = (id: string) => (reserve.find((e) => e.brique_id === id)?.exemplaires ?? 0) - table.filter((b) => b === id).length
+
+  // Les briques possédées passent devant, les épuisées ferment la marche ; l'entrelacement long/court
+  // se fait dans chaque groupe, l'ordre « récentes d'abord » départage le reste.
+  // Une brique posée sur la table reste à sa place, grisée : rien ne bouge sous les doigts.
+  const trouvees = connues.filter((e) => {
+    const b = briques.get(e.brique_id) as BriqueJeu
+    return (zone === null || naturesDeCase(zone).includes(b.nature)) && dansLeFiltre(e, filtreActif) && correspond(recherche, b.libelle, b.glose)
+  })
+  const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
+  const visibles = [
+    ...entrelacer(trouvees.filter((e) => e.exemplaires > 0), taille),
+    ...entrelacer(trouvees.filter((e) => e.exemplaires <= 0), taille),
+  ]
 
   return (
     <>
@@ -103,12 +120,14 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
             ['suffixe', 'Suffixes', 'var(--c-suffix)'],
             ['recentes', 'Récentes', null],
           ] as [Filtre, string, string | null][]
-        ).map(([f, libelle, couleur]) => (
+        )
+          .filter(([f]) => zone === null || (f !== 'prefixe' && f !== 'suffixe'))
+          .map(([f, libelle, couleur]) => (
           <button
             key={f}
             type="button"
             className="cb-chip"
-            aria-pressed={filtre === f}
+            aria-pressed={filtreActif === f}
             onClick={() => setFiltre(f)}
             style={couleur ? ({ '--c': couleur } as React.CSSProperties) : undefined}
           >
@@ -155,12 +174,18 @@ export function Reserve({ reserve, briques, table, onAjouter, onIndisponible, co
                     e.dataTransfer.setData(TYPE_GLISSE, brique_id)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
-                  onClick={() => (indisponible === null ? onAjouter(brique_id) : onIndisponible(indisponible))}
+                  onClick={(e) => (indisponible === null ? onAjouter(brique_id, e.currentTarget) : onIndisponible(indisponible))}
                 >
                   <ContenuBrique brique={brique} />
-                  <span className={epuisee ? 'b-count zero' : 'b-count'} aria-hidden="true">
-                    {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
-                  </span>
+                  {brique.nature !== 'mot' && (
+                    <span
+                      key={touchee?.brique === brique_id ? touchee.cle : 0}
+                      className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? `rebond ${touchee.sens}` : ''].filter(Boolean).join(' ')}
+                      aria-hidden="true"
+                    >
+                      {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
+                    </span>
+                  )}
                   {consommees.includes(brique_id) && (
                     <span className="b-minus" aria-hidden="true">
                       −1

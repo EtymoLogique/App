@@ -1,6 +1,7 @@
 //! Ressource « carte » d'une unité (ADR 0027) : ce que la PWA lit pour
-//! afficher une brique, la table et la fiche d'une découverte. Les champs
-//! qu'elle n'utilise pas encore (faits, sources détaillées) sont tolérés.
+//! afficher une brique, la table, la fiche d'une découverte et sa section
+//! « En savoir plus » (faits et sources citées). Les champs qu'elle n'utilise
+//! pas sont tolérés.
 
 use std::collections::BTreeMap;
 
@@ -19,14 +20,8 @@ pub enum Nature {
     Suffixe,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Rarete {
-    Commune,
-    PeuCommune,
-    Rare,
-    Legendaire,
-}
+/// La rareté est une règle de jeu : elle vit dans le domaine.
+pub use etymo_domaine::pli::Rarete;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Carte {
@@ -45,6 +40,9 @@ pub struct Carte {
     /// Socle éditorial de l'unité : son niveau de confiance.
     #[serde(default)]
     pub fait: Option<Fait>,
+    /// Sources citées par la carte, par identifiant : citées, jamais copiées.
+    #[serde(default)]
+    pub sources: BTreeMap<IdCatalogue, Source>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -59,6 +57,32 @@ pub enum Confiance {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Fait {
     pub confiance: Confiance,
+    #[serde(default)]
+    pub sources: Vec<SourceCitee>,
+}
+
+/// Renvoi d'un fait vers une source de la carte.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct SourceCitee {
+    pub source_id: IdCatalogue,
+    /// Page ou entrée dans la source, quand elle est renseignée.
+    #[serde(default)]
+    pub localisation: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct Source {
+    pub id: IdCatalogue,
+    /// Dictionnaire, ouvrage, article…
+    #[serde(rename = "type")]
+    pub type_source: String,
+    /// `reference` pour une source de référence.
+    pub role: String,
+    pub reference: String,
+    #[serde(default)]
+    pub edition: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -110,6 +134,8 @@ pub struct CompositionCarte {
     #[serde(default)]
     pub transformations: Vec<Transformation>,
     pub libelles: ParLocale<LibellesComposition>,
+    #[serde(default)]
+    pub fait: Option<Fait>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -130,6 +156,9 @@ pub struct Transformation {
     pub id: IdCatalogue,
     pub type_code: String,
     pub ordre: u32,
+    /// Partie de la composition que la transformation touche.
+    #[serde(default)]
+    pub rang_partie: Option<u32>,
     pub libelles: ParLocale<LibelleTexte>,
 }
 
@@ -153,6 +182,8 @@ pub struct RelationCarte {
     /// L'étymon : l'unité d'origine, recopiée dans la carte.
     #[serde(default)]
     pub etymon: Option<Etymon>,
+    #[serde(default)]
+    pub fait: Option<Fait>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -200,5 +231,41 @@ mod tests {
                 .texte,
             "gê"
         );
+    }
+
+    #[test]
+    fn lit_les_faits_et_les_sources_citees() {
+        let carte: Carte = serde_json::from_str(
+            r#"{
+                "id": "unt_28vwxz4h", "nature": "mot", "langue_id": "lng_wa90y54n",
+                "fait": { "confiance": "etablie",
+                          "sources": [{ "source_id": "src_6zfwd3mp", "localisation": null }] },
+                "formes": [], "sens": [],
+                "compositions": [{ "id": "cmp_25pks50z", "preferee": true, "parties": [],
+                                   "fait": { "confiance": "probable", "sources": [{ "source_id": "src_6zfwd3mp" }] },
+                                   "transformations": [{ "id": "trf_xh53ckqh", "type_code": "elision", "ordre": 1,
+                                                         "rang_partie": 1,
+                                                         "libelles": { "fr": { "texte": "Le e final tombe." } } }],
+                                   "libelles": {} }],
+                "sources": { "src_6zfwd3mp": { "id": "src_6zfwd3mp", "type": "dictionnaire", "role": "reference",
+                                               "reference": "TLFi", "edition": "version en ligne",
+                                               "url": "https://www.cnrtl.fr/etymologie/",
+                                               "licence": "Consultation seulement" } }
+            }"#,
+        )
+        .unwrap();
+        let composition = &carte.compositions[0];
+        assert_eq!(
+            composition.fait.as_ref().unwrap().confiance,
+            Confiance::Probable
+        );
+        assert_eq!(composition.transformations[0].rang_partie, Some(1));
+        assert_eq!(
+            carte.fait.unwrap().sources[0].source_id.as_str(),
+            "src_6zfwd3mp"
+        );
+        let source = &carte.sources[&composition.fait.as_ref().unwrap().sources[0].source_id];
+        assert_eq!(source.type_source, "dictionnaire");
+        assert_eq!(source.reference, "TLFi");
     }
 }

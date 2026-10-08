@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO compteur_pli (joueur_id, fascicule_id, plis_sans_nouveaute, plis_sans_utilite, plis_sans_legendaire)\n         VALUES ($1, $2, $3, $4, $5)\n         ON CONFLICT (joueur_id, fascicule_id) DO UPDATE\n         SET plis_sans_nouveaute = EXCLUDED.plis_sans_nouveaute, plis_sans_utilite = EXCLUDED.plis_sans_utilite,\n             plis_sans_legendaire = EXCLUDED.plis_sans_legendaire",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b32ebe08762d814bb2d935070ba3dd184c3fa6bebec8d1071bdd332048d86cc7"
+}

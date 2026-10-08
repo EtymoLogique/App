@@ -27,8 +27,8 @@ async fn charge_l_index_et_ses_manifestes() {
     assert_eq!(catalogue.fascicules.len(), 1);
     let charge = &catalogue.fascicules[0].manifeste;
     assert_eq!(charge.numero, 0);
-    // jaquette, carte, recette, exclusions
-    assert_eq!(charge.ressources().len(), 4);
+    // jaquette, carte, recette, exclusions, trompe-l'œil
+    assert_eq!(charge.ressources().len(), 5);
     assert_eq!(charge.graines.len(), 2);
 
     let jeu = &catalogue.jeu;
@@ -39,9 +39,27 @@ async fn charge_l_index_et_ses_manifestes() {
         vec![essai::LOGIE.parse().unwrap()],
     ];
     assert_eq!(jeu.recettes[0].emplacements, attendus);
+    assert_eq!(
+        jeu.difficultes.get(&essai::MOT.parse().unwrap()),
+        Some(&Difficulte::Moyen)
+    );
     assert_eq!(jeu.exclusions.len(), 1);
+    assert_eq!(jeu.trompes_l_oeil.len(), 1);
+    assert_eq!(
+        jeu.homographes.get(&essai::GEO.parse().unwrap()),
+        Some(&vec![essai::GEO_AUTRE.parse().unwrap()])
+    );
+    assert_eq!(
+        jeu.homographes.get(&essai::GEO_AUTRE.parse().unwrap()),
+        Some(&vec![essai::GEO.parse().unwrap()]),
+        "la relation est symétrique"
+    );
     assert!(jeu.briques.contains(&essai::GEO.parse().unwrap()));
     assert_eq!(jeu.graines[0].0.as_str(), "fsc_00000000");
+    assert_eq!(
+        jeu.briques_de_mot.get(&essai::MOT.parse().unwrap()),
+        Some(&essai::BIO.parse().unwrap())
+    );
 }
 
 #[tokio::test]

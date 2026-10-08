@@ -51,6 +51,7 @@ export const manifeste: Manifeste = {
   format: 1,
   id: 'fsc_00000000',
   numero: 0,
+  nom: 'Essai',
   parution: '2026-10-01T08:00:00+02:00',
   test: true,
   jaquette: null,
@@ -59,7 +60,21 @@ export const manifeste: Manifeste = {
   langues: [],
   recettes: [],
   compteurs: { mots: 1 },
-  pli: {},
+  pli: {
+    briques: [
+      { id: GEO, unite_id: 'unt_0000ge00', nature: 'prefixe', rarete: 'commune' },
+      { id: LOGIE, unite_id: 'unt_000109e0', nature: 'suffixe', rarete: 'commune' },
+    ],
+    equilibrage: {
+      version: 'essai',
+      poids_raretes: { commune: 62, peu_commune: 26, rare: 10, legendaire: 2 },
+      base_encre: 2,
+      encre_doublon: { commune: 1, peu_commune: 2, rare: 4, legendaire: 10 },
+      encre_reserve_pleine: { commune: 2, peu_commune: 4, rare: 8, legendaire: 20 },
+      garantie_nouveaute: 6,
+      filet_utilite: 5,
+    },
+  },
   jalons: [],
   graines: [],
 }
@@ -90,8 +105,13 @@ export function jeu(): CatalogueJeu {
     briques,
     recettes: [{ id: RECETTE, motId: MOT, emplacements: [[GEO], [LOGIE]] }],
     exclusions: [],
+    trompesLOeil: [],
+    homographes: new Map(),
     langues: new Map([[FR, 'français']]),
     glyphes: new Map([[FR, 'É']]),
+    typesRelation: new Map([['forme_de_composition', 'forme de composition']]),
+    typesTransformation: new Map([['elision', 'élision']]),
+    quetes: [],
   }
 }
 
@@ -109,6 +129,10 @@ export function etat(partiel: Partial<Etat> = {}): Etat {
       ex(LOGIE, 1),
     ],
     decouvertes: [],
+    energie: { charges: 2, capacite: 2, prochaine_charge: null, recharge_s: 43_200 },
+    encre: 0,
+    compteurs_plis: [],
+    historique_plis: [],
     ...partiel,
   }
 }

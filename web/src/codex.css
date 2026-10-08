@@ -13,7 +13,8 @@
 .conf.p2 i:nth-child(3), .conf.p1 i:nth-child(n + 2) { background: transparent; }
 .rar { flex: none; width: 1.15em; height: 1.15em; fill: var(--c-pli); stroke: var(--fixed-ink); stroke-width: 1.4; stroke-linejoin: round; overflow: visible; vertical-align: -0.2em; }
 .m-brick { align-self: flex-start; font-size: clamp(14px, 11cqi, 19px); }
-.bf-brick { align-self: flex-start; padding: 14px 20px; cursor: default; box-shadow: 5px 5px 0 var(--pop-shadow); rotate: -2deg; }
+/* Brique penchée, ombre de 5 px : la langue en dessous garde de l'air. */
+.bf-brick { align-self: flex-start; margin-bottom: 10px; padding: 14px 20px; cursor: default; box-shadow: 5px 5px 0 var(--pop-shadow); rotate: -2deg; }
 .bf-brick .b-label { font-size: clamp(34px, 5vw, 48px); line-height: 1; }
 .bf-brick .b-meta { font-size: 11px; }
 /* ---------- Codex : vue globale ---------- */
@@ -33,24 +34,26 @@
 }
 .cb-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .cb-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 8px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px;
   background: transparent; cursor: pointer;
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-  transition: transform 0.25s var(--ease-spring), background-color 0.25s, color 0.25s;
+  transition: background-color var(--dur-rapide) var(--ease-out), color var(--dur-rapide) var(--ease-out);
 }
-.cb-chip:hover { transform: translateY(-2px); }
+/* Survols du codex : trois gestes, une durée, une courbe. Soulever (cartes), souligner (liens), teinter (pastilles et boutons). */
+.cb-chip:not([aria-pressed="true"]):hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
 .cb-chip i { width: 11px; height: 11px; border: 1px solid var(--fixed-ink); border-radius: 3px; background: var(--c); }
 .cb-chip b { font-weight: 700; opacity: 0.55; }
 .cb-chip[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .cb-sort-wrap { display: inline-flex; align-items: center; gap: 10px; }
 .cb-sort-label { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
-.cb-sort { display: inline-flex; gap: 2px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
+.cb-sort { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
 .cb-sort button {
   padding: 7px 12px; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
-  font-family: var(--mono); font-size: 11px; transition: background-color 0.25s, color 0.25s;
+  font-family: var(--mono); font-size: 11px; transition: background-color var(--dur-rapide) var(--ease-out), color var(--dur-rapide) var(--ease-out);
 }
 .cb-sort button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.cb-sort-dir { margin-left: 6px; }
 .cb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px; }
 
 .mini {
@@ -61,7 +64,7 @@
   background: var(--paper); color: var(--ink);
   cursor: pointer; text-align: left;
   container-type: inline-size;
-  transition: transform 0.3s var(--ease-spring), box-shadow 0.3s var(--ease-out);
+  transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out);
 }
 .mini[hidden] { display: none; }
 .mini::before {
@@ -69,7 +72,7 @@
   border-bottom: 1.5px solid var(--line-strong); background: var(--tc);
   content: "";
 }
-.mini:hover, .mini:focus-visible { transform: translateY(-5px) rotate(-1.2deg); box-shadow: 5px 6px 0 var(--pop-shadow); }
+.mini:hover, .mini:focus-visible { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--pop-shadow); }
 .mini.away { visibility: hidden; }
 .m-top {
   position: absolute; z-index: 1; top: 5px; right: 10px; left: 10px;
@@ -82,22 +85,17 @@
 .m-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--ink-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; }
 .m-lang { display: inline-flex; align-items: center; gap: 5px; }
 .m-lang i { width: 8px; height: 8px; flex: none; border-radius: 50%; }
-.m-dots { display: inline-flex; gap: 3px; }
-.m-dots i { width: 6px; height: 6px; border: 1px solid var(--ink-2); border-radius: 50%; }
-.m-dots i.on { border-color: var(--ink); background: var(--ink); }
 .mini.locked { background: repeating-linear-gradient(-45deg, var(--paper) 0 8px, var(--paper-2) 8px 16px); }
 .m-q { color: var(--ink-3); font-family: var(--serif); font-size: 52px; font-style: italic; line-height: 1; text-align: center; }
-/* Carte nouvelle : une pastille Corail cernée d’Encre dans le bandeau, après le N°, jusqu’à la première consultation. */
-.new-dot { display: inline-block; flex: none; width: 8px; height: 8px; margin-left: 6px; border: 1.5px solid var(--fixed-ink); border-radius: 50%; background: var(--c-action); vertical-align: 0; }
-.bf-top .new-dot { width: 10px; height: 10px; margin-left: 8px; vertical-align: -1px; }
+/* Carte nouvelle : un halo Corail diffus, jusqu’à la première consultation. */
 .mini.is-new { --new-halo: 0 0 30px 8px color-mix(in srgb, var(--c-action) 60%, transparent); box-shadow: var(--new-halo); }
-.mini.is-new:hover, .mini.is-new:focus-visible { box-shadow: 5px 6px 0 var(--pop-shadow), var(--new-halo); }
+.mini.is-new:hover, .mini.is-new:focus-visible { box-shadow: 3px 4px 0 var(--pop-shadow), var(--new-halo); }
 /* Texture de carte (ADR 0023) : silhouette d'une seule teinte, sous le contenu, jamais sous le bandeau. */
 .card-art { position: absolute; z-index: 0; inset: 25px 0 0; overflow: hidden; color: var(--ink); opacity: 0.1; pointer-events: none; --art-bg: var(--paper); }
 .card-art svg { display: block; width: 100%; height: 100%; }
-.mini > :not(.card-art):not(.cv-art):not(.m-top) { position: relative; z-index: 1; }
+.mini > :not(.card-art):not(.cv-art):not(.m-top):not(.m-filet) { position: relative; z-index: 1; }
 .big-face .card-art { inset: 0; opacity: 0.085; --art-bg: var(--cream); }
-.big-face .bf-top, .big-face .bf-body, .big-face .bf-foot { position: relative; z-index: 1; }
+.big-face .bf-top, .big-face .bf-body, .big-face .bf-maitrise, .big-face .bf-foot { position: relative; z-index: 1; }
 /* Sur une texture, le sens littéral passe en Crème cerné de Gris encre pour rester une pastille distincte. */
 .big-face:has(.card-art) .bf-lit { border: 1px solid var(--ink-3); background: var(--cream); }
 /* Gris encre et Corail profond tombent sous 4,5:1 sur la texture : texte secondaire et liens passent en Encre secondaire, le lien reste souligné. */
@@ -127,25 +125,21 @@
   display: grid; place-items: center; width: 32px; height: 32px; margin-right: 4px;
   border: 1.5px solid rgba(243, 238, 227, 0.4); border-radius: 50%;
   background: transparent; color: #f3eee3; cursor: pointer; font-size: 15px;
-  transition: background-color 0.2s, transform 0.25s var(--ease-spring);
+  transition: background-color var(--dur-rapide) var(--ease-out);
 }
-.trail-back:hover { background: rgba(243, 238, 227, 0.12); transform: translateX(-2px); }
+.trail-back:hover { background: rgba(243, 238, 227, 0.12); }
 .trail-sep { color: rgba(243, 238, 227, 0.4); }
 .crumb { padding: 2px 4px; border: 0; border-radius: 6px; background: none; color: rgba(243, 238, 227, 0.7); cursor: pointer; font: inherit; }
 .crumb:hover { color: #f3eee3; text-decoration: underline; text-underline-offset: 3px; }
 .crumb[aria-current] { color: #f3eee3; font-weight: 700; cursor: default; text-decoration: none; }
 .crumb .bchip { font-size: 14px; }
 .big-face .is-link { cursor: pointer; }
-.big-face .brick.is-link, .big-face .bchip.is-link { transition: transform 0.2s var(--ease-spring), box-shadow 0.2s; }
-.big-face .brick.is-link:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--pop-shadow); }
-.big-face .bchip.is-link:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--pop-shadow); }
-.big-face .brick.is-link:active, .big-face .bchip.is-link:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--pop-shadow); }
-.big-face .seg.is-link { transition: background-size 0.25s var(--ease-out); }
+.big-face .seg.is-link { transition: background-size var(--dur-rapide) var(--ease-out); }
 .big-face .seg.is-link:hover { background-size: calc(100% - 3px) 100%; }
 .bf-lang.is-link, .f-lang.is-link, .f-from.is-link, .bb-link.is-link { color: var(--c-action-deep); }
 .bf-lang.is-link::after, .bb-link.is-link::after { content: " →"; }
 .bf-lang.is-link:hover, .f-lang.is-link:hover, .f-from.is-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-.bb-link.is-link { transition: background-color 0.2s; }
+.bb-link.is-link { transition: background-color var(--dur-rapide) var(--ease-out), border-color var(--dur-rapide) var(--ease-out); }
 .bb-link.is-link:hover { background: var(--c-action-tint); border-color: var(--c-action-deep); }
 .viewer-backdrop {
   position: absolute; inset: 0;
@@ -156,17 +150,17 @@
   position: absolute; z-index: 2; top: 18px; right: 18px;
   width: 48px; height: 48px; border: 1.5px solid rgba(243, 238, 227, 0.5); border-radius: 50%;
   background: transparent; color: #f3eee3; cursor: pointer; font-size: 26px; line-height: 1;
-  transition: transform 0.4s var(--ease-spring), background-color 0.2s;
+  transition: background-color var(--dur-rapide) var(--ease-out);
 }
-.viewer-close:hover { transform: rotate(90deg); background: rgba(243, 238, 227, 0.1); }
+.viewer-close:hover { background: rgba(243, 238, 227, 0.1); }
 .viewer-nav {
   width: 52px; height: 52px; border: 1.5px solid rgba(243, 238, 227, 0.4); border-radius: 50%;
   background: rgba(243, 238, 227, 0.06); color: #f3eee3; cursor: pointer; font-size: 20px;
-  transition: transform 0.25s var(--ease-spring), background-color 0.2s, color 0.2s, border-color 0.2s;
+  transition: background-color var(--dur-rapide) var(--ease-out), color var(--dur-rapide) var(--ease-out), border-color var(--dur-rapide) var(--ease-out);
 }
 .viewer-nav.prev { grid-area: prev; }
 .viewer-nav.next { grid-area: next; }
-.viewer-nav:hover { border-color: #f3eee3; background: #f3eee3; color: var(--fixed-ink); transform: scale(1.08); }
+.viewer-nav:hover { border-color: #f3eee3; background: #f3eee3; color: var(--fixed-ink); }
 .viewer-hint { grid-area: hint; color: rgba(243, 238, 227, 0.6); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-align: center; }
 @media (pointer: coarse) { .kbd-hint { display: none; } }
 .big-wrap {
@@ -178,15 +172,17 @@
 .big-card {
   position: relative; width: 100%; height: 100%;
   transform-style: preserve-3d; cursor: pointer;
-  transition: transform 0.85s var(--ease-spring);
+  transition: transform var(--dur-rapide) var(--ease-ressort);
 }
+/* Le retournement lui-même est joué par Codex.tsx (retournement physique, 600 ms) . */
+/* Ombre portée de la carte : à part, sous la carte, pour se resserrer quand la carte passe sur la tranche. */
+.big-ombre { position: absolute; inset: 0; border-radius: 22px; box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.65); pointer-events: none; }
 .big-card.flipped { transform: rotateY(180deg); }
 .big-face {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; overflow: hidden;
   border: 2px solid #0f1f19; border-radius: 22px;
   background: var(--cream); color: var(--ink);
-  box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.65);
   -webkit-backface-visibility: hidden; backface-visibility: hidden;
 }
 .big-back { transform: rotateY(180deg); }
@@ -196,7 +192,9 @@
   background: var(--tc); color: var(--tt);
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
 }
-.bf-type { padding: 4px 10px; border: 1.5px solid currentColor; border-radius: 999px; }
+/* Même bandeau que la mini-carte : le type en texte, puis la forme de rareté. */
+.bf-side { display: inline-flex; align-items: center; gap: 6px; }
+.bf-rar { width: 16px; height: 16px; }
 .bf-body { display: flex; flex: 1; flex-direction: column; justify-content: safe center; gap: 12px; padding: 22px 26px; overflow-y: auto; }
 .bb-body { justify-content: flex-start; }
 .bf-glyph { color: var(--tc); font-family: var(--serif); font-size: clamp(80px, 12vw, 120px); line-height: 0.85; -webkit-text-stroke: 1.5px #0f1f19; }
@@ -207,19 +205,19 @@
 .bf-lit { align-self: flex-start; padding: 6px 12px; border-radius: 10px; background: var(--paper-2); font-family: var(--mono); font-size: 12px; line-height: 1.5; }
 .bf-note { color: var(--ink-3); font-size: 13px; line-height: 1.45; }
 .bf-q { color: var(--ink-3); font-family: var(--serif); font-size: 120px; font-style: italic; line-height: 0.9; }
-.bf-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; }
+.bf-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; padding: 12px 22px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12px; }
 .flip-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border: 1.5px solid #0f1f19; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 8px 14px; border: 1.5px solid #0f1f19; border-radius: 10px;
   background: var(--c-action); color: #0f1f19;
   box-shadow: 3px 3px 0 #0f1f19; cursor: pointer;
   font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-  transition: transform 0.2s var(--ease-spring), box-shadow 0.2s;
+  transition: transform var(--dur-base) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out), background-color var(--dur-rapide);
 }
+/* Touche mécanique (styles.css, .btn) : l'appui descend de la longueur de l'ombre. Le ↻ reste fixe : c'est la carte qui s'annonce. */
 .flip-btn:hover { background: var(--c-action-hover); transform: translate(-1px, -1px); box-shadow: 4px 4px 0 #0f1f19; }
-.flip-btn:active { background: var(--c-action-active); transform: translate(2px, 2px); box-shadow: 1px 1px 0 #0f1f19; }
-.flip-btn em { display: inline-block; font-size: 16px; font-style: normal; transition: transform 0.6s var(--ease-spring); }
-.flip-btn:hover em { transform: rotate(180deg); }
+.flip-btn:active { background: var(--c-action-active); transform: translate(3px, 3px); box-shadow: 0 0 0 #0f1f19; transition-duration: var(--dur-instant); transition-timing-function: ease-out; }
+.flip-btn em { display: inline-block; font-size: 16px; font-style: normal; }
 .bb-title { font-family: var(--serif); font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
 .bb-progress { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; }
 .bb-bar { flex: 1; height: 6px; overflow: hidden; border-radius: 999px; background: var(--paper-2); }
@@ -251,29 +249,28 @@
   .m-lit { font-size: clamp(10px, 12cqi, 13px); }
   .m-q { font-size: 38px; }
   .m-kind { display: none; }
-  .m-foot .m-dots { display: none; }
   .viewer { grid-template-areas: "trail trail" "card card" "prev next" "hint hint"; gap: 12px; padding: 16px; }
   .viewer-nav.prev { justify-self: end; }
   .viewer-nav.next { justify-self: start; }
   .big-wrap { width: min(410px, 88vw, calc((100svh - 240px) * 0.714)); }
   .bf-body { padding: 18px; }
-  .bf-top, .bf-foot { padding-inline: 16px; }
+  .bf-top, .bf-maitrise, .bf-foot { padding-inline: 16px; }
   .viewer-close { top: 10px; right: 10px; width: 42px; height: 42px; }
 }
 
 /* ---------- Codex : fascicules, complétude et rareté ---------- */
-.cb-fasc { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.cb-fasc { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr)); gap: 12px; margin-bottom: 18px; }
 .cb-fasc-btn {
   display: grid; gap: 8px; min-height: 44px; padding: 14px 16px;
   border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink);
   cursor: pointer; text-align: left;
-  transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out);
+  transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out);
 }
-.cb-fasc-btn:hover { transform: translateY(-2px); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.cb-fasc-btn:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--pop-shadow); }
 .cb-fasc-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .cb-fasc-btn[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
-.cb-fasc-head { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-.cb-fasc-head span { opacity: 0.7; }
+.cb-fasc-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.cb-fasc-head > span:last-child { opacity: 0.7; }
 .cb-fasc-bar { height: 8px; overflow: hidden; border: 1px solid currentColor; border-radius: 999px; }
 .cb-fasc-bar i { display: block; height: 100%; background: currentColor; transition: width 0.6s var(--ease-out); }
 .cb-fasc-count { font-size: 13px; }
@@ -285,14 +282,46 @@
 .cb-group[hidden] { display: none; }
 .cb-group span { color: var(--ink-3); }
 .cb-group:not(:first-child) { margin-top: 10px; }
+/* Tri par fascicule : chaque groupe se replie. */
+.cb-group-btn {
+  width: 100%; min-height: 44px; border-width: 0 0 1.5px; border-style: solid; border-color: var(--line-strong);
+  background: none; color: var(--ink); cursor: pointer; text-align: left;
+}
+.cb-group-btn b { display: inline-flex; align-items: center; gap: 8px; }
+.cb-chev { display: inline-block; font-size: 16px; line-height: 1; rotate: 90deg; }
+.cb-group-btn[aria-expanded="false"] .cb-chev { rotate: 0deg; }
+.cb-group-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) .cb-chev { transition: rotate 0.25s var(--ease-out); }
+}
 .m-side { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
 .m-kind { overflow: hidden; text-overflow: ellipsis; }
 /* Dans le bandeau, la rareté prend la teinte profonde du bandeau, sans contour : jamais d'Ambre sur une couleur vive.
-   Le trait prend la couleur du bandeau, pour garder les facettes du diamant sans cerner la forme. */
-.mini .m-rar { width: 12px; height: 12px; margin-right: -4px; fill: var(--rd, var(--c-pli)); stroke: var(--tc); }
-.mini[data-type="prefixe"] { --rd: var(--c-prefix-deep); }
-.mini[data-type="suffixe"] { --rd: var(--c-suffix-deep); }
+   Le trait prend la couleur du bandeau, pour garder les facettes du diamant sans cerner la forme.
+   La teinte `--rd` vient de `bandeau()` : plus claire que le bandeau Encre d'un mot (ADR 0040). */
+.mini .m-rar, .bf-rar { fill: var(--rd); stroke: var(--tc); }
+.mini .m-rar { width: 12px; height: 12px; margin-right: -4px; }
 .mini.is-legend { border-color: var(--ink); }
+
+/* ---------- Maîtrise (ADR 0044) : galet dans le bandeau, filet de quatre segments ---------- */
+/* Quatre segments, jamais trois : trois traits disent la confiance éditoriale. */
+.filet-maitrise { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+.filet-maitrise i { height: 3px; border-radius: 2px; background: var(--line); }
+.filet-maitrise i.on { background: var(--ink); }
+.galet { flex: none; color: var(--tt); }
+.m-galet { width: 11px; height: 11px; }
+.bf-galet { width: 16px; height: 16px; }
+.mini:has(.m-filet) { padding-bottom: 16px; }
+.m-filet { position: absolute; z-index: 1; right: 12px; bottom: 6px; left: 12px; }
+.bf-maitrise { display: grid; gap: 5px; padding: 8px 22px 7px; border-top: 1px solid var(--line); }
+.bf-maitrise p { display: flex; justify-content: space-between; gap: 8px; margin: 0; color: var(--ink-2); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.bf-maitrise b { color: var(--ink); font-weight: 600; }
+.bf-maitrise .filet-maitrise { gap: 3px; }
+.bf-maitrise .filet-maitrise i { height: 5px; }
+@media (max-width: 760px) {
+  .mini:has(.m-filet) { padding-bottom: 13px; }
+  .m-filet { right: 8px; bottom: 4px; left: 8px; }
+}
 @media (prefers-reduced-motion: reduce) { .cb-fasc-btn, .cb-fasc-bar i { transition: none; } }
 
 /* ---------- Ajustements de l'application ---------- */
@@ -305,29 +334,52 @@
  * Face cachée de la carte agrandie : backface-visibility ne masque pas les
  * éléments composés à part (briques animées, texture), qui transparaissent en
  * miroir. La face cachée passe donc en visibility: hidden quand la carte est
- * sur la tranche : avec le ressort de .big-card (0,85 s), la rotation atteint
- * 90° dès 0,11 s, et non à mi-durée.
+ * sur la tranche : à mi-course du retournement (600 ms, ease-in-out), soit 0,3 s.
+ * La fin de cette transition donne le focus à la face révélée (Codex.tsx).
  */
-.big-face { transition: visibility 0s linear 0.11s; }
+.big-face { transition: visibility 0s linear 0.3s; }
 .big-card:not(.flipped) .big-back, .big-card.flipped .big-front { visibility: hidden; }
-@media (prefers-reduced-motion: reduce) { .big-face { transition: none; } }
-:root[data-mouvement="reduit"] .big-face { transition: none; }
+@media (prefers-reduced-motion: reduce) { .big-face, .big-card { transition: none; } .big-card.flipped { transform: none; } .big-back { transform: none; } }
+:root[data-mouvement="reduit"] .big-face, :root[data-mouvement="reduit"] .big-card { transition: none; }
+:root[data-mouvement="reduit"] .big-card.flipped, :root[data-mouvement="reduit"] .big-back { transform: none; }
 
-/* Jaquette du fascicule dans son filtre (même miniature que le choix du fascicule des plis, etymo.css .jk-mini) : inclinée au repos, elle se redresse au survol. */
+/* Jaquette du fascicule dans son filtre (même miniature que le choix du fascicule des plis, etymo.css .jk-mini) : droite au repos, elle se soulève et s'incline au survol, comme une petite carte (.mini). */
 .cb-fasc-btn { grid-template-columns: 64px 1fr; align-items: center; gap: 14px; }
 .cb-fasc-info { display: grid; gap: 8px; min-width: 0; }
 .jk-mini {
   position: relative; width: 100%; max-width: 64px; aspect-ratio: 200 / 272;
   border: 2px solid #0f1f19; border-radius: 9px; background: #fffbf3;
   box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19;
-  rotate: -2deg;
 }
 .jk-art { position: absolute; inset: 5px; overflow: hidden; border-radius: 5px; }
 .jk-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Dans l'en-tête d'un groupe du tri par fascicule. */
+.jk-mini.is-xs { width: 22px; border-width: 1.5px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px #fffbf3, inset 0 0 0 2px #0f1f19; }
+.jk-mini.is-xs .jk-art { inset: 2.5px; border-radius: 2px; }
 .jk-mini.is-empty { border-style: dashed; border-color: var(--line-strong); background: transparent; box-shadow: none; }
+/* Sceau ÉL au centre (même rendu que .pk-seal sur la grande carte, halo compris), à l'échelle de la miniature. Pseudo-élément : il ne dépend pas du chargement de l'image. */
+.jk-mini { container-type: inline-size; }
+.jk-mini:not(.is-empty)::after {
+  content: "ÉL"; position: absolute; top: 50%; left: 50%; translate: -50% -50%;
+  display: grid; place-items: center; width: 40%; aspect-ratio: 1;
+  border: 1px solid var(--fixed-ink); border-radius: 50%; background: var(--c-pli); color: var(--fixed-ink);
+  box-shadow: 0 0 0 max(1px, 4cqw) rgba(244, 183, 64, 0.18), 0 0 max(4px, 17cqw) rgba(244, 183, 64, 0.5); /* identite: ok — halo Ambre de .pk-seal, à l'échelle de la miniature */
+  font-family: var(--serif); font-size: max(5px, 13cqw); font-weight: 700; line-height: 1;
+  pointer-events: none;
+}
+/* Sous 28 px les lettres seraient illisibles : rond Ambre seul. */
+@container (max-width: 28px) { .jk-mini:not(.is-empty)::after { font-size: 0; } }
 @media (prefers-reduced-motion: no-preference) {
-  :root:not([data-mouvement="reduit"]) .jk-mini { transition: rotate 0.35s var(--ease-spring); }
-  :root:not([data-mouvement="reduit"]) .cb-fasc-btn:hover .jk-mini { rotate: 0deg; }
+  :root:not([data-mouvement="reduit"]) .jk-mini { transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) :is(.cb-fasc-btn, button.pk-fasc):hover .jk-mini:not(.is-empty) {
+    transform: translateY(-3px);
+    box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19, 3px 4px 0 var(--pop-shadow);
+  }
+  /* La miniature d'un en-tête de groupe fait un tiers de la taille : même geste, à son échelle. */
+  :root:not([data-mouvement="reduit"]) .cb-group-btn:hover .jk-mini.is-xs:not(.is-empty) {
+    transform: translateY(-2px);
+    box-shadow: inset 0 0 0 1.5px #fffbf3, inset 0 0 0 2px #0f1f19, 2px 2px 0 var(--pop-shadow);
+  }
 }
 
 /* Composition sur la carte agrandie (etymo.css, .bf-body .r-eq) : les morceaux restent sur une ligne,
@@ -338,12 +390,138 @@
 .bf-body .r-eq .b-meta { white-space: normal; }
 .bf-body .r-eq .b-kind { display: none; }
 
-/* Survol d'un lien de la carte agrandie : seules les briques zooment et penchent. */
-.big-face .brick.is-link, .big-face .bchip.is-link { transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-out); }
-.big-face .brick.is-link:hover, .big-face .brick.is-link:focus-visible { transform: scale(1.06) rotate(-2deg); box-shadow: 6px 6px 0 var(--pop-shadow); }
-.big-face .bchip.is-link:hover, .big-face .bchip.is-link:focus-visible { transform: scale(1.08) rotate(-2deg); box-shadow: 3px 3px 0 var(--pop-shadow); }
-/* Pastille d'un mot (élément d'interface) : jamais d'inclinaison ni de zoom, seulement la teinte du lien (etymo.css). */
+/* Survol d'un lien de la carte agrandie : les briques se soulèvent, comme les cartes. */
+.big-face .brick.is-link, .big-face .bchip.is-link { transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out); }
+.big-face .brick.is-link:hover, .big-face .brick.is-link:focus-visible { transform: translateY(-3px); box-shadow: 5px 7px 0 var(--pop-shadow); }
+.big-face .bchip.is-link:hover, .big-face .bchip.is-link:focus-visible { transform: translateY(-3px); box-shadow: 2px 4px 0 var(--pop-shadow); }
+/* Pastille d'un mot (élément d'interface) : jamais soulevée, seulement la teinte du lien (etymo.css). */
 .big-face .bb-link.is-link:hover, .big-face .bb-link.is-link:focus-visible { transform: none; box-shadow: none; }
-.big-face .brick.is-link:active, .big-face .bchip.is-link:active { transform: scale(0.98); box-shadow: 1px 1px 0 var(--pop-shadow); }
+.big-face .brick.is-link:active, .big-face .bchip.is-link:active { transform: none; box-shadow: 1px 1px 0 var(--pop-shadow); }
 @media (prefers-reduced-motion: reduce) { .big-face .is-link { transition: none; } }
 :root[data-mouvement="reduit"] .big-face .is-link { transition: none; }
+
+/* ---------- Codex : recherche et vues (I-14, I-17) ---------- */
+.cb-search { margin-bottom: 14px; }
+.cb-search .champ { max-width: 520px; }
+.cb-views {
+  display: flex; gap: 18px; margin-bottom: 20px; overflow-x: auto;
+  border-bottom: 1.5px solid var(--line); scrollbar-width: none;
+}
+.cb-views button {
+  position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 8px 0; border: 0; background: none; color: var(--ink-3); cursor: pointer;
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+}
+.cb-views button:hover { color: var(--ink); }
+.cb-views button[aria-pressed="true"] { color: var(--ink); }
+.cb-views button[aria-pressed="true"]::after {
+  position: absolute; right: 0; bottom: -1.5px; left: 0; height: 3px;
+  border-radius: 3px 3px 0 0; background: var(--ink); content: "";
+}
+.cb-views b { font-family: var(--mono); font-size: 11px; opacity: 0.6; }
+.cb-note { margin: 0 0 14px; color: var(--ink-2); font-size: 14px; }
+.cb-results .cb-note { margin-top: 16px; }
+.cb-empty {
+  display: grid; justify-items: center; gap: 10px; padding: 36px 16px;
+  border: 2px dashed var(--line-strong); border-radius: 14px; color: var(--ink-2); text-align: center;
+}
+.cb-empty p { max-width: 44ch; margin: 0; }
+.cb-empty .cb-empty-k { color: var(--ink); font-family: var(--serif); font-size: 22px; font-weight: 600; }
+
+/* ---------- Codex : familles et cabinet (I-18, I-30) — Rose dans la seule barre de progression ; jamais de bande latérale (boussole) ---------- */
+.fam-list { display: grid; gap: 28px; }
+.fam {
+  display: grid; gap: 10px; padding: 14px 16px;
+  border: 1.5px solid var(--line-strong); border-radius: 12px;
+  background: var(--cream); color: var(--ink);
+}
+.fam-list .fam { gap: 12px; }
+.fam-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.fam-name { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.fam-name .bchip { font-size: 18px; }
+.fam-word { font-family: var(--serif); font-size: 20px; font-weight: 600; }
+.fam-gloss { color: var(--ink-2); font-size: 14px; }
+.fam-count { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.fam-bar { display: block; height: 8px; overflow: hidden; border: 1px solid var(--ink); border-radius: 999px; background: var(--paper-2); }
+.fam-bar i { display: block; height: 100%; border-radius: 999px; background: var(--c-family); }
+/* Jalon : il donne un pli, il prend la couleur des plis. */
+.fam-bar.is-jalon i { background: var(--c-pli); }
+.cab { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+.cab > section { display: grid; gap: 10px; }
+.cab .cb-note { margin: 0; }
+/* Des nombres seuls : ni rang, ni jauge (ADR 0050). */
+.cab-nombres { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.cab-nombre { display: grid; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.cab-nombre dd { margin: 0; font-family: var(--serif); font-size: 28px; font-weight: 600; line-height: 1; }
+.cab-nombre dt { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+/* La valeur avant son libellé à l'écran ; l'ordre du DOM reste dt puis dd pour les lecteurs d'écran. */
+.cab-nombre dt { order: 2; }
+.cab-voyage .more-k { margin: 0; }
+/* Badges de famille (I-30) : un anneau Rose, un segment par mot. */
+.cab-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; }
+.cab-badge {
+  display: grid; justify-items: center; gap: 3px; min-height: 44px; padding: 4px 2px;
+  border: 0; border-radius: 12px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; text-align: center;
+}
+.cab-badge:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.cab-anneau { position: relative; display: grid; place-items: center; width: 60px; height: 60px; }
+.cab-anneau svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; fill: none; stroke-width: 4.5; }
+.cab-anneau circle { stroke: var(--paper-2); }
+.cab-anneau circle.on { stroke: var(--c-family); }
+.cab-anneau b { font-family: var(--mono); font-size: 10px; }
+.cab-sens { font-family: var(--serif); font-size: 13px; line-height: 1.2; }
+@media (max-width: 900px) { .cab { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Carte agrandie : « En savoir plus » (I-16), au dos de la carte ---------- */
+.bb-tabs { display: flex; flex: none; gap: 2px; padding: 3px; border: 1.5px solid var(--line-strong); border-radius: 12px; }
+.bb-tabs [role="tab"] {
+  flex: 1 1 auto; min-height: 30px; padding: 0 10px; border: 0; white-space: nowrap; border-radius: 8px; background: transparent; color: var(--ink-2);
+  cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  transition: background-color var(--dur-rapide) var(--ease-out), color var(--dur-rapide) var(--ease-out);
+}
+.bb-tabs [role="tab"][aria-selected="false"]:hover { color: var(--ink); }
+.bb-tabs [role="tab"][aria-selected="true"] { background: var(--ink); color: var(--paper); }
+.bb-panel[hidden] { display: none; }
+.bb-savoir { display: flex; flex-direction: column; gap: 10px; }
+.more-k { margin: 6px 0 0; color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.more-path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; }
+.more-arrow { color: var(--ink-3); }
+.more-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.more-list li { font-size: 14px; line-height: 1.5; }
+.more-list .bchip, .more-tag { margin-right: 8px; }
+.more-list .bchip { font-size: 15px; }
+.more-etymon { font-family: var(--serif); font-size: 16px; font-weight: 600; }
+.more-tag { display: inline-block; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.more-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; }
+.more-p { color: var(--ink-2); font-size: 13px; }
+.more-sources { display: grid; margin: 0; padding: 0; list-style: none; }
+.more-sources li > * {
+  display: grid; grid-template-columns: 1fr auto; column-gap: 10px; min-height: 44px; padding: 6px 0;
+  border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none;
+}
+.more-sources b { font-size: 14px; }
+.more-sources small { grid-column: 1; color: var(--ink-3); font-size: 12px; }
+.more-chev { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--ink-3); font-size: 18px; }
+.more-sources a:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.more-mono { margin: auto 0 0; padding-top: 8px; color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
+/* Dans le filtre sélectionné (fond Encre), le numéro suit la couleur du texte. */
+.cb-fasc-btn[aria-pressed="true"] .fasc-num { color: inherit; opacity: 0.7; }
+.cb-fasc-head { align-items: baseline; }
+.cb-group-btn .fasc-nom { font-size: 17px; }
+
+/* ---------- Mouvement du codex ---------- */
+/* Barres de progression : elles se remplissent à l'arrivée, en cascade d'un fascicule à l'autre (--i). */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) :is(.cb-fasc-bar, .bb-bar, .fam-bar) i { animation: remplir 0.8s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 150ms); }
+  /* Groupe déplié dans le tri par fascicule : ses cartes entrent en cascade (30 ms d'écart, 12 au plus), au rythme du chevron. */
+  :root:not([data-mouvement="reduit"]) .mini.deplie { animation: deplie var(--dur-rapide) var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 12) * 30ms); }
+}
+@keyframes remplir { from { width: 0; } }
+@keyframes deplie { from { opacity: 0; transform: translateY(6px); } }
+
+/* Ouverture d'une carte : le surlignage du mot se trace, morceau après morceau, une fois le zoom posé. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-mouvement="reduit"]) .bf-word .seg { animation: surligne 480ms var(--ease-out) calc(300ms + var(--i, 0) * 160ms) backwards; }
+}
+/* Image d'arrivée explicite : sans elle, Safari iOS peut laisser le surlignage à 0. */
+@keyframes surligne { from { background-size: 0% 32%; } to { background-size: calc(100% - 3px) 32%; } }

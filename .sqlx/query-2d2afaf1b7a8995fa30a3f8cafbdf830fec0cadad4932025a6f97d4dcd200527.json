@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE joueur SET version_catalogue = $2 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2d2afaf1b7a8995fa30a3f8cafbdf830fec0cadad4932025a6f97d4dcd200527"
+}

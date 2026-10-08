@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT unite_id, niveau, bonnes_niveau_3, prochaine_revision, maitrisee_le\n         FROM ricochet WHERE joueur_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unite_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "niveau",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "bonnes_niveau_3",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "prochaine_revision",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 4,
+        "name": "maitrisee_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "b5c71d2756375d0ec818d110bb23bc9ab1e9d4dcb76979470df27d0defbfcb69"
+}
