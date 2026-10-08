@@ -15,12 +15,12 @@ export function Galet({ className = 'galet', cache = false }: { className?: stri
   )
 }
 
-/** Filet de maîtrise : quatre segments, un par niveau, le dernier pour la maîtrise. Jamais trois traits (confiance). */
+/** Filet de maîtrise : trois segments, un par niveau, tous pleins une fois la carte maîtrisée (le galet porte la maîtrise). */
 export function Filet({ maitrise, className = 'filet-maitrise' }: { maitrise: Maitrise; className?: string }) {
-  const crans = maitrise.maitrisee ? 4 : maitrise.niveau
+  const crans = maitrise.maitrisee ? 3 : maitrise.niveau
   return (
     <span className={className} aria-hidden="true">
-      {[0, 1, 2, 3].map((i) => (
+      {[0, 1, 2].map((i) => (
         <i key={i} className={i < crans ? 'on' : undefined} />
       ))}
     </span>
