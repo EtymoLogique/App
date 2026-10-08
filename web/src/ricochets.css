@@ -72,7 +72,9 @@
 .rico-lettre.apres { position: relative; margin-left: 0.4em; }
 .rico-lettre.apres::before { content: ""; position: absolute; left: -0.2em; top: 0.12em; bottom: 0.06em; width: 2.5px; margin-left: -1.25px; border-radius: 2px; background: var(--ink); }
 .rico-lame { position: absolute; top: 14px; bottom: 0; width: 0; pointer-events: none; }
-.rico-trait { position: absolute; left: -1.25px; top: 0; bottom: 48px; border-left: 2.5px dashed var(--ink); }
+/* Un tracé SVG et non une bordure pointillée : sur iOS, la bordure d'un élément sans largeur ne montre qu'un point. */
+.rico-trait { position: absolute; left: -1.25px; top: 0; bottom: 48px; width: 2.5px; overflow: visible; }
+.rico-trait line { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: 6 5; }
 .rico-zone.souris .rico-trait { bottom: 0; }
 /* La poignée est une brique (elle se manipule), en Corail (l'action) ; tenue, elle s'enfonce comme un bouton pressé. */
 .rico-poignee { position: absolute; left: -22px; bottom: 0; display: grid; place-items: center; width: 44px; height: 44px; border: 1.5px solid var(--fixed-ink); border-radius: 10px; background: var(--c-action); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
