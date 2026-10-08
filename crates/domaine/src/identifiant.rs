@@ -9,9 +9,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 const ALPHABET: &str = "0123456789abcdefghjkmnpqrstvwxyz";
 const LONGUEUR: usize = 8;
-const PREFIXES: [&str; 18] = [
+const PREFIXES: [&str; 19] = [
     "lng", "ecr", "cnv", "src", "unt", "frm", "sns", "cmp", "trf", "rel", "brq", "rct", "fsc",
-    "exc", "med", "jal", "qlc", "pal",
+    "exc", "med", "jal", "qlc", "pal", "tpl",
 ];
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]

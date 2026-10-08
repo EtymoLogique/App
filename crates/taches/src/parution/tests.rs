@@ -135,8 +135,8 @@ async fn est_idempotente() {
         .await
         .unwrap();
     assert_eq!(
-        premier.copies, 5,
-        "jaquette, carte, recette, exclusions, manifeste"
+        premier.copies, 6,
+        "jaquette, carte, recette, exclusions, trompe-l'œil, manifeste"
     );
     let second = publier_fascicules(&bucket, Cible::Bucket, maintenant())
         .await

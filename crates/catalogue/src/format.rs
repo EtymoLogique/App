@@ -13,6 +13,7 @@ use etymo_domaine::quete::QueteLongCours;
 use serde::{Deserialize, Serialize};
 
 use crate::Chemin;
+use crate::carte::ParLocale;
 
 /// Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
 /// même forme, seuls les fascicules listés diffèrent.
@@ -55,6 +56,12 @@ pub struct Manifeste {
     pub test: bool,
     pub jaquette: Option<Chemin>,
     pub exclusions: Option<Chemin>,
+    /// Fausses fusions expliquées du fascicule (ADR 0052) ; absente d'un manifeste plus ancien.
+    #[serde(default)]
+    pub trompes_l_oeil: Option<Chemin>,
+    /// Groupes de briques de même forme (ADR 0052) : des identifiants, jamais de texte.
+    #[serde(default)]
+    pub homographes: Vec<Vec<IdCatalogue>>,
     #[serde(default)]
     pub cartes: Vec<CarteManifeste>,
     #[serde(default)]
@@ -151,6 +158,37 @@ pub struct Exclusion {
     pub raison: String,
 }
 
+/// Ressource « trompe-l'œil » d'un fascicule (ADR 0052).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TrompesLOeil {
+    pub trompes_l_oeil: Vec<TrompeLOeil>,
+}
+
+/// Une paire ordonnée de briques qui s'écrit comme un mot sans en venir.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct TrompeLOeil {
+    pub id: IdCatalogue,
+    pub combinaison: Vec<IdCatalogue>,
+    /// Le mot que les lettres épellent, quand il est dans le catalogue.
+    #[serde(default)]
+    pub mot_id: Option<IdCatalogue>,
+    pub motif: MotifTrompeLOeil,
+    /// Une phrase qui ne nomme jamais le mot : lisible tout de suite.
+    #[serde(default)]
+    pub explication_courte: ParLocale<String>,
+    /// Le mot et sa vraie origine : lisible une fois le mot au codex.
+    #[serde(default)]
+    pub explication: ParLocale<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MotifTrompeLOeil {
+    AutreOrigine,
+    MotSimple,
+    AutreDecoupage,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
@@ -223,7 +261,12 @@ impl Manifeste {
     #[must_use]
     pub fn ressources(&self) -> Vec<Chemin> {
         let mut chemins: BTreeSet<&Chemin> = BTreeSet::new();
-        chemins.extend(self.jaquette.iter().chain(self.exclusions.iter()));
+        chemins.extend(
+            self.jaquette
+                .iter()
+                .chain(self.exclusions.iter())
+                .chain(self.trompes_l_oeil.iter()),
+        );
         for carte in &self.cartes {
             chemins.insert(&carte.carte);
             chemins.extend(carte.silhouette.iter());

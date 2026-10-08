@@ -477,10 +477,27 @@ pub enum IssueFusion {
     Exclue { raison: String },
     /// Pertinente, mais mal ordonnée ou incomplète.
     Presque { motif: MotifPresque },
-    /// Aucune correspondance.
-    Echec,
+    /// Aucune correspondance. Une explication facultative dit pourquoi (ADR 0052) ;
+    /// un client qui l'ignore affiche l'échec neutre.
+    Echec {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        explication: Option<Explication>,
+    },
     /// Recette exacte, mais la réserve ne contient pas un exemplaire de chaque brique.
     ReserveInsuffisante { briques: Vec<IdCatalogue> },
+}
+
+/// Pourquoi une fusion ne marche pas, quand le catalogue peut le dire (ADR 0052).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "nature", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Explication {
+    /// Bonne forme, autre brique : `rang` est l'emplacement (0 ou 1) de la brique à changer.
+    Homographe {
+        #[schema(minimum = 0, maximum = 1)]
+        rang: u8,
+    },
+    /// Fausse piste déclarée par le catalogue : les lettres se suivent, le mot n'en vient pas.
+    TrompeLOeil { trompe_l_oeil_id: IdCatalogue },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

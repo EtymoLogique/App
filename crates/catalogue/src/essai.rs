@@ -28,6 +28,9 @@ pub fn deposer(racine: &Path, dossier: &str, extension: &str, octets: &[u8]) -> 
 pub const GEO: &str = "brq_0000ge00";
 pub const LOGIE: &str = "brq_000109e0";
 pub const BIO: &str = "brq_0000b100";
+/// Autre brique qui s'écrit comme `GEO` (homographe).
+pub const GEO_AUTRE: &str = "brq_0000ge99";
+pub const TROMPE_L_OEIL: &str = "tpl_0000000a";
 pub const MOT: &str = "unt_0000000a";
 pub const RECETTE: &str = "rct_0000000a";
 /// Sens affichés de `GEO` et `LOGIE`, pour les ricochets.
@@ -41,6 +44,22 @@ pub const PALIER_LANGUE_1: &str = "pal_0000000a";
 pub const PALIER_LANGUE_3: &str = "pal_0000000b";
 pub const PALIER_ELISION: &str = "pal_0000000c";
 pub const PALIER_RICOCHETS: &str = "pal_0000000d";
+
+/// Dépose la ressource « trompe-l'œil » de l'essai (ADR 0052).
+fn trompes_l_oeil(racine: &Path) -> String {
+    deposer(
+        racine,
+        "r",
+        "json",
+        &canonique(&json!({ "trompes_l_oeil": [{
+            "id": TROMPE_L_OEIL,
+            "combinaison": [BIO, LOGIE],
+            "motif": "autre_origine",
+            "explication_courte": { "fr": "Les lettres se suivent, mais le mot n’en vient pas." },
+            "explication": { "fr": "Exemple d’essai." }
+        }] })),
+    )
+}
 
 /// Écrit un fascicule minimal (une carte, une recette, des exclusions, une
 /// jaquette, des graines) et renvoie le chemin de son manifeste.
@@ -89,6 +108,7 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
             &json!({ "exclusions": [{ "id": "exc_0000000a", "combinaison": [BIO, GEO], "raison": "rare" }] }),
         ),
     );
+    let trompes_l_oeil = trompes_l_oeil(racine);
     let manifeste = json!({
         "format": 1,
         "id": format!("fsc_{numero:08}"),
@@ -97,6 +117,8 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "test": true,
         "jaquette": jaquette,
         "exclusions": exclusions,
+        "trompes_l_oeil": trompes_l_oeil,
+        "homographes": [[GEO, GEO_AUTRE]],
         "cartes": [{ "id": MOT, "role": "resultat", "carte": carte, "silhouette": null, "difficulte": "moyen" }],
         "langues": [],
         "recettes": [{ "id": RECETTE, "chemin": recette }],

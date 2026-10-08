@@ -15,6 +15,7 @@ use crate::routes;
         etymo_catalogue::Manifeste,
         etymo_catalogue::Recette,
         etymo_catalogue::Exclusions,
+        etymo_catalogue::TrompesLOeil,
         etymo_catalogue::Carte,
     )),
     modifiers(&Session),

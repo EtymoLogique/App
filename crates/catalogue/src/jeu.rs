@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use etymo_domaine::IdCatalogue;
-use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
+use etymo_domaine::fusion::{ExclusionJeu, Explications, Homographes, RecetteJeu, TrompeLOeilJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
 use etymo_domaine::quete::{CarteQuete, Famille, Mesures, QueteLongCours};
@@ -17,6 +17,10 @@ use crate::{Carte, EquilibrageManifeste, FasciculeCharge, Graine};
 pub struct Jeu {
     pub recettes: Vec<RecetteJeu>,
     pub exclusions: Vec<ExclusionJeu>,
+    /// Fausses fusions expliquées (ADR 0052).
+    pub trompes_l_oeil: Vec<TrompeLOeilJeu>,
+    /// Briques de même forme, par brique (ADR 0052).
+    pub homographes: Homographes,
     /// Briques publiées : tirables par un pli ou semées par un fascicule paru.
     pub briques: HashSet<IdCatalogue>,
     /// Graines de chaque fascicule paru, par identifiant de fascicule.
@@ -64,6 +68,15 @@ pub struct PliJeu {
 }
 
 impl Jeu {
+    /// Ce que `resoudre` sait de plus que les recettes : fausses pistes et homographes.
+    #[must_use]
+    pub fn explications(&self) -> Explications<'_> {
+        Explications {
+            trompes_l_oeil: &self.trompes_l_oeil,
+            homographes: Some(&self.homographes),
+        }
+    }
+
     /// Rareté d'une brique tirable, si un pli paru la connaît.
     #[must_use]
     pub fn rarete(&self, brique: &IdCatalogue) -> Option<pli::Rarete> {
@@ -213,6 +226,26 @@ impl Jeu {
         self.mesures = mesures;
     }
 
+    /// Retient les fausses pistes et les groupes d'homographes d'un fascicule (ADR 0052).
+    /// La relation est symétrique : chaque brique du groupe connaît toutes les autres.
+    fn retenir_explications(&mut self, fascicule: &FasciculeCharge) {
+        self.trompes_l_oeil
+            .extend(fascicule.trompes_l_oeil.iter().map(|t| TrompeLOeilJeu {
+                id: t.id.clone(),
+                combinaison: t.combinaison.clone(),
+            }));
+        for groupe in &fascicule.manifeste.homographes {
+            for brique in groupe {
+                let autres = self.homographes.entry(brique.clone()).or_default();
+                for autre in groupe.iter().filter(|a| *a != brique) {
+                    if !autres.contains(autre) {
+                        autres.push(autre.clone());
+                    }
+                }
+            }
+        }
+    }
+
     #[must_use]
     pub fn depuis(fascicules: &[FasciculeCharge]) -> Self {
         let mut jeu = Self::default();
@@ -236,6 +269,7 @@ impl Jeu {
                     combinaison: e.combinaison.clone(),
                     raison: e.raison.clone(),
                 }));
+            jeu.retenir_explications(fascicule);
             let pli = &fascicule.manifeste.pli;
             jeu.legendaires.extend(
                 pli.briques

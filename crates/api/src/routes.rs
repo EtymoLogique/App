@@ -8,9 +8,10 @@ use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
     CarteRicochet, DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier,
-    DemandePli, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat, IssueFusion,
-    OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier,
-    ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
+    DemandePli, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat, Explication,
+    IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon,
+    ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session,
+    StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -186,6 +187,18 @@ pub async fn etat(
     Ok(Json(etat))
 }
 
+/// Échec de la fusion, avec pourquoi quand le catalogue peut le dire (ADR 0052).
+fn echec_explique(issue: Issue) -> IssueFusion {
+    let explication = match issue {
+        Issue::Homographe { rang } => Some(Explication::Homographe { rang }),
+        Issue::TrompeLOeil { id } => Some(Explication::TrompeLOeil {
+            trompe_l_oeil_id: id,
+        }),
+        _ => None,
+    };
+    IssueFusion::Echec { explication }
+}
+
 /// Tente une fusion. Le serveur fait foi (ADR 0007, ADR 0027) : il valide la
 /// recette, vérifie la réserve, consomme les exemplaires et ajoute le mot au
 /// codex dans une seule transaction. Seule une découverte modifie l'état ;
@@ -230,6 +243,7 @@ pub async fn fusion(
         &demande.briques,
         &jeu.recettes,
         &jeu.exclusions,
+        jeu.explications(),
         &decouverts,
     ) {
         Issue::Decouverte { recette_id, mot_id } => {
@@ -279,7 +293,9 @@ pub async fn fusion(
         Issue::Connue { recette_id, mot_id } => IssueFusion::Connue { recette_id, mot_id },
         Issue::Exclue { raison } => IssueFusion::Exclue { raison },
         Issue::Presque { motif } => IssueFusion::Presque { motif },
-        Issue::Echec => IssueFusion::Echec,
+        explique @ (Issue::Homographe { .. } | Issue::TrompeLOeil { .. } | Issue::Echec) => {
+            echec_explique(explique)
+        }
     };
     let reponse = ReponseFusion {
         etat: etat_courant(&app, &mut tx, joueur).await?,

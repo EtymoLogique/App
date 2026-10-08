@@ -3,7 +3,7 @@
 //! rien et n'écrit rien : le serveur l'appelle dans sa transaction, la PWA en
 //! a le miroir pour prévisualiser.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::BuildHasher;
 
 use serde::{Deserialize, Serialize};
@@ -29,6 +29,16 @@ pub struct ExclusionJeu {
     pub combinaison: Vec<IdCatalogue>,
     pub raison: String,
 }
+
+/// Une paire de briques qui s'écrit comme un mot sans en venir (ADR 0052).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrompeLOeilJeu {
+    pub id: IdCatalogue,
+    pub combinaison: Vec<IdCatalogue>,
+}
+
+/// Briques de même forme, par brique : les autres briques qui s'écrivent comme elle (ADR 0052).
+pub type Homographes = HashMap<IdCatalogue, Vec<IdCatalogue>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -56,17 +66,33 @@ pub enum Issue {
     Exclue { raison: String },
     /// Pertinente mais incomplète ou mal ordonnée.
     Presque { motif: MotifPresque },
+    /// Une brique posée a un homographe qui donnerait une recette : bonne forme,
+    /// autre brique. `rang` est l'emplacement (0 ou 1) de la brique à changer.
+    Homographe { rang: u8 },
+    /// Paire déclarée comme fausse piste : les lettres se suivent, le mot n'en vient pas.
+    TrompeLOeil { id: IdCatalogue },
     /// Aucune correspondance.
     Echec,
 }
 
+/// Ce que le catalogue sait d'une proposition qui n'est pas une recette.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Explications<'a> {
+    pub trompes_l_oeil: &'a [TrompeLOeilJeu],
+    pub homographes: Option<&'a Homographes>,
+}
+
 /// Compare une proposition aux recettes. `decouverts` contient les mots déjà
 /// au codex du joueur : un « presque » ne renvoie jamais vers eux.
+///
+/// Ordre (ADR 0003, 0052) : recette exacte, exclusion, trompe-l'œil, « presque »
+/// d'ordre, mauvais homographe, échec neutre.
 #[must_use]
 pub fn resoudre<S: BuildHasher>(
     proposition: &[IdCatalogue],
     recettes: &[RecetteJeu],
     exclusions: &[ExclusionJeu],
+    explications: Explications<'_>,
     decouverts: &HashSet<IdCatalogue, S>,
 ) -> Issue {
     if let Some(recette) = recettes.iter().find(|r| exacte(proposition, r)) {
@@ -82,6 +108,15 @@ pub fn resoudre<S: BuildHasher>(
             raison: exclusion.raison.clone(),
         };
     }
+    if let Some(piege) = explications
+        .trompes_l_oeil
+        .iter()
+        .find(|t| t.combinaison == proposition)
+    {
+        return Issue::TrompeLOeil {
+            id: piege.id.clone(),
+        };
+    }
     let a_decouvrir = || recettes.iter().filter(|r| !decouverts.contains(&r.mot_id));
     if a_decouvrir().any(|r| r.emplacements.len() == proposition.len() && couvre(proposition, r)) {
         return Issue::Presque {
@@ -93,7 +128,38 @@ pub fn resoudre<S: BuildHasher>(
             motif: MotifPresque::Incomplet,
         };
     }
+    if let Some(rang) =
+        mauvais_homographe(proposition, recettes, explications.homographes, decouverts)
+    {
+        return Issue::Homographe { rang };
+    }
     Issue::Echec
+}
+
+/// Rang de la brique qu'il suffirait de remplacer par un homographe pour obtenir
+/// la recette exacte d'un mot encore à découvrir. Un seul remplacement : le jeu
+/// ne dit « autre brique » que s'il peut le justifier.
+fn mauvais_homographe<S: BuildHasher>(
+    proposition: &[IdCatalogue],
+    recettes: &[RecetteJeu],
+    homographes: Option<&Homographes>,
+    decouverts: &HashSet<IdCatalogue, S>,
+) -> Option<u8> {
+    let homographes = homographes?;
+    let mut essai = proposition.to_vec();
+    for (rang, brique) in proposition.iter().enumerate() {
+        for autre in homographes.get(brique).into_iter().flatten() {
+            essai[rang] = autre.clone();
+            let trouvee = recettes
+                .iter()
+                .any(|r| !decouverts.contains(&r.mot_id) && exacte(&essai, r));
+            if trouvee {
+                return u8::try_from(rang).ok();
+            }
+        }
+        essai[rang] = brique.clone();
+    }
+    None
 }
 
 /// Exemplaires qu'une découverte consomme : un par brique posée.
@@ -181,7 +247,13 @@ mod tests {
         let proposition = briques(&["brq_0000ge00", "brq_000109e0"]);
         let attendu = (id("rct_0000000g"), id("unt_0000000g"));
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &HashSet::new()),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &HashSet::new()
+            ),
             Issue::Decouverte {
                 recette_id: attendu.0.clone(),
                 mot_id: attendu.1.clone()
@@ -189,7 +261,13 @@ mod tests {
         );
         let connus = HashSet::from([id("unt_0000000g")]);
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &connus),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &connus
+            ),
             Issue::Connue {
                 recette_id: attendu.0,
                 mot_id: attendu.1
@@ -201,7 +279,13 @@ mod tests {
     fn presque_quand_l_ordre_est_faux() {
         let proposition = briques(&["brq_000109e0", "brq_0000ge00"]);
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &HashSet::new()),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &HashSet::new()
+            ),
             Issue::Presque {
                 motif: MotifPresque::Ordre
             }
@@ -212,7 +296,13 @@ mod tests {
     fn presque_quand_il_manque_une_brique() {
         let proposition = briques(&["brq_00000s7e", "brq_0000b100"]);
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &HashSet::new()),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &HashSet::new()
+            ),
             Issue::Presque {
                 motif: MotifPresque::Incomplet
             }
@@ -224,7 +314,13 @@ mod tests {
         let proposition = briques(&["brq_000109e0", "brq_0000ge00"]);
         let connus = HashSet::from([id("unt_0000000g")]);
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &connus),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &connus
+            ),
             Issue::Echec
         );
     }
@@ -237,7 +333,13 @@ mod tests {
             raison: "rare".into(),
         }];
         assert_eq!(
-            resoudre(&proposition, &recettes(), &exclusions, &HashSet::new()),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &exclusions,
+                Explications::default(),
+                &HashSet::new()
+            ),
             Issue::Exclue {
                 raison: "rare".into()
             }
@@ -248,7 +350,13 @@ mod tests {
     fn echec_sans_correspondance() {
         let proposition = briques(&["brq_0000ge00", "brq_0000b100"]);
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &HashSet::new()),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &HashSet::new()
+            ),
             Issue::Echec
         );
     }
@@ -257,7 +365,13 @@ mod tests {
     fn une_brique_ne_couvre_qu_un_emplacement() {
         let proposition = briques(&["brq_000109e0", "brq_000109e0"]);
         assert_eq!(
-            resoudre(&proposition, &recettes(), &[], &HashSet::new()),
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                Explications::default(),
+                &HashSet::new()
+            ),
             Issue::Echec
         );
     }
@@ -268,5 +382,144 @@ mod tests {
         let besoins = consommation(&proposition);
         assert_eq!(besoins[&id("brq_000109e0")], 2);
         assert_eq!(besoins[&id("brq_0000ge00")], 1);
+    }
+
+    fn homographes() -> Homographes {
+        HashMap::from([(id("brq_0000ge99"), vec![id("brq_0000ge00")])])
+    }
+
+    fn avec_homographes(h: &Homographes) -> Explications<'_> {
+        Explications {
+            trompes_l_oeil: &[],
+            homographes: Some(h),
+        }
+    }
+
+    #[test]
+    fn mauvais_homographe_quand_une_autre_brique_de_meme_forme_donnerait_la_recette() {
+        let h = homographes();
+        let proposition = briques(&["brq_0000ge99", "brq_000109e0"]);
+        assert_eq!(
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                avec_homographes(&h),
+                &HashSet::new()
+            ),
+            Issue::Homographe { rang: 0 }
+        );
+    }
+
+    #[test]
+    fn pas_de_homographe_sans_recette_au_bout() {
+        let h = homographes();
+        let proposition = briques(&["brq_0000ge99", "brq_0000b100"]);
+        assert_eq!(
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                avec_homographes(&h),
+                &HashSet::new()
+            ),
+            Issue::Echec
+        );
+    }
+
+    #[test]
+    fn pas_de_homographe_vers_un_mot_deja_decouvert() {
+        let h = homographes();
+        let proposition = briques(&["brq_0000ge99", "brq_000109e0"]);
+        let connus = HashSet::from([id("unt_0000000g")]);
+        assert_eq!(
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                avec_homographes(&h),
+                &connus
+            ),
+            Issue::Echec
+        );
+    }
+
+    #[test]
+    fn la_recette_exacte_l_emporte_sur_un_homographe() {
+        let h = homographes();
+        let proposition = briques(&["brq_0000ge00", "brq_000109e0"]);
+        assert!(matches!(
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                avec_homographes(&h),
+                &HashSet::new()
+            ),
+            Issue::Decouverte { .. }
+        ));
+    }
+
+    #[test]
+    fn un_trompe_l_oeil_ne_vise_que_sa_paire_ordonnee() {
+        let pieges = [TrompeLOeilJeu {
+            id: id("tpl_0000000a"),
+            combinaison: briques(&["brq_0000ge99", "brq_000109e0"]),
+        }];
+        let explications = Explications {
+            trompes_l_oeil: &pieges,
+            homographes: None,
+        };
+        let piege = briques(&["brq_0000ge99", "brq_000109e0"]);
+        assert_eq!(
+            resoudre(&piege, &recettes(), &[], explications, &HashSet::new()),
+            Issue::TrompeLOeil {
+                id: id("tpl_0000000a")
+            }
+        );
+        // Le même mot avec l'autre brique reste une découverte normale.
+        let bonne = briques(&["brq_0000ge00", "brq_000109e0"]);
+        assert!(matches!(
+            resoudre(&bonne, &recettes(), &[], explications, &HashSet::new()),
+            Issue::Decouverte { .. }
+        ));
+    }
+
+    #[test]
+    fn un_trompe_l_oeil_passe_avant_le_homographe_et_apres_l_exclusion() {
+        let h = homographes();
+        let pieges = [TrompeLOeilJeu {
+            id: id("tpl_0000000a"),
+            combinaison: briques(&["brq_0000ge99", "brq_000109e0"]),
+        }];
+        let explications = Explications {
+            trompes_l_oeil: &pieges,
+            homographes: Some(&h),
+        };
+        let proposition = briques(&["brq_0000ge99", "brq_000109e0"]);
+        assert!(matches!(
+            resoudre(
+                &proposition,
+                &recettes(),
+                &[],
+                explications,
+                &HashSet::new()
+            ),
+            Issue::TrompeLOeil { .. }
+        ));
+        let exclusions = vec![ExclusionJeu {
+            combinaison: proposition.clone(),
+            raison: "rare".into(),
+        }];
+        assert!(matches!(
+            resoudre(
+                &proposition,
+                &recettes(),
+                &exclusions,
+                explications,
+                &HashSet::new()
+            ),
+            Issue::Exclue { .. }
+        ));
     }
 }

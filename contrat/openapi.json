@@ -1094,6 +1094,15 @@
           }
         }
       },
+      "BTreeMap_String": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "propertyNames": {
+          "type": "string"
+        }
+      },
       "BriqueCarte": {
         "type": "object",
         "required": [
@@ -2230,6 +2239,52 @@
         },
         "additionalProperties": false
       },
+      "Explication": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Bonne forme, autre brique : `rang` est l'emplacement (0 ou 1) de la brique à changer.",
+            "required": [
+              "rang",
+              "nature"
+            ],
+            "properties": {
+              "nature": {
+                "type": "string",
+                "enum": [
+                  "homographe"
+                ]
+              },
+              "rang": {
+                "type": "integer",
+                "format": "int32",
+                "maximum": 1,
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Fausse piste déclarée par le catalogue : les lettres se suivent, le mot n'en vient pas.",
+            "required": [
+              "trompe_l_oeil_id",
+              "nature"
+            ],
+            "properties": {
+              "nature": {
+                "type": "string",
+                "enum": [
+                  "trompe_l_oeil"
+                ]
+              },
+              "trompe_l_oeil_id": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              }
+            }
+          }
+        ],
+        "description": "Pourquoi une fusion ne marche pas, quand le catalogue peut le dire (ADR 0052)."
+      },
       "Fait": {
         "type": "object",
         "required": [
@@ -2425,11 +2480,21 @@
           },
           {
             "type": "object",
-            "description": "Aucune correspondance.",
+            "description": "Aucune correspondance. Une explication facultative dit pourquoi (ADR 0052) ;\nun client qui l'ignore affiche l'échec neutre.",
             "required": [
               "type"
             ],
             "properties": {
+              "explication": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Explication"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "type": {
                 "type": "string",
                 "enum": [
@@ -2568,6 +2633,16 @@
             },
             "description": "Réserve de départ du fascicule (ADR 0030)."
           },
+          "homographes": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/IdCatalogue"
+              }
+            },
+            "description": "Groupes de briques de même forme (ADR 0052) : des identifiants, jamais de texte."
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue",
             "description": "Identifiant opaque du fascicule : les données du joueur le désignent par lui."
@@ -2634,6 +2709,17 @@
           },
           "test": {
             "type": "boolean"
+          },
+          "trompes_l_oeil": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Chemin",
+                "description": "Fausses fusions expliquées du fascicule (ADR 0052) ; absente d'un manifeste plus ancien."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -2688,6 +2774,14 @@
         "enum": [
           "ordre",
           "incomplet"
+        ]
+      },
+      "MotifTrompeLOeil": {
+        "type": "string",
+        "enum": [
+          "autre_origine",
+          "mot_simple",
+          "autre_decoupage"
         ]
       },
       "Nature": {
@@ -3613,6 +3707,63 @@
           },
           "texte": {
             "type": "string"
+          }
+        }
+      },
+      "TrompeLOeil": {
+        "type": "object",
+        "description": "Une paire ordonnée de briques qui s'écrit comme un mot sans en venir.",
+        "required": [
+          "id",
+          "combinaison",
+          "motif"
+        ],
+        "properties": {
+          "combinaison": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            }
+          },
+          "explication": {
+            "$ref": "#/components/schemas/BTreeMap_String",
+            "description": "Le mot et sa vraie origine : lisible une fois le mot au codex."
+          },
+          "explication_courte": {
+            "$ref": "#/components/schemas/BTreeMap_String",
+            "description": "Une phrase qui ne nomme jamais le mot : lisible tout de suite."
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "mot_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Le mot que les lettres épellent, quand il est dans le catalogue."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "motif": {
+            "$ref": "#/components/schemas/MotifTrompeLOeil"
+          }
+        }
+      },
+      "TrompesLOeil": {
+        "type": "object",
+        "description": "Ressource « trompe-l'œil » d'un fascicule (ADR 0052).",
+        "required": [
+          "trompes_l_oeil"
+        ],
+        "properties": {
+          "trompes_l_oeil": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrompeLOeil"
+            }
           }
         }
       }

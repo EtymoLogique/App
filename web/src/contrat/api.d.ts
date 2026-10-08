@@ -298,6 +298,9 @@ export interface components {
                 glose?: string | null;
             };
         };
+        BTreeMap_String: {
+            [key: string]: string;
+        };
         BriqueCarte: {
             forme_affichee_id: components["schemas"]["IdCatalogue"];
             id: components["schemas"]["IdCatalogue"];
@@ -750,6 +753,17 @@ export interface components {
             /** Format: int32 */
             exemplaires: number;
         };
+        /** @description Pourquoi une fusion ne marche pas, quand le catalogue peut le dire (ADR 0052). */
+        Explication: {
+            /** @enum {string} */
+            nature: "homographe";
+            /** Format: int32 */
+            rang: number;
+        } | {
+            /** @enum {string} */
+            nature: "trompe_l_oeil";
+            trompe_l_oeil_id: components["schemas"]["IdCatalogue"];
+        };
         Fait: {
             confiance: components["schemas"]["Confiance"];
             sources?: components["schemas"]["SourceCitee"][];
@@ -807,6 +821,7 @@ export interface components {
             /** @enum {string} */
             type: "presque";
         } | {
+            explication?: components["schemas"]["Explication"] | null;
             /** @enum {string} */
             type: "echec";
         } | {
@@ -842,6 +857,8 @@ export interface components {
             format: number;
             /** @description Réserve de départ du fascicule (ADR 0030). */
             graines?: components["schemas"]["Graine"][];
+            /** @description Groupes de briques de même forme (ADR 0052) : des identifiants, jamais de texte. */
+            homographes?: components["schemas"]["IdCatalogue"][][];
             /** @description Identifiant opaque du fascicule : les données du joueur le désignent par lui. */
             id: components["schemas"]["IdCatalogue"];
             /** @description Jalons du fascicule, récompenses affichées à l'avance (ADR 0038). */
@@ -862,6 +879,7 @@ export interface components {
             /** @description De quoi juger un ricochet sans lire un texte (ADR 0044). */
             ricochets?: components["schemas"]["RicochetsManifeste"];
             test?: boolean;
+            trompes_l_oeil?: components["schemas"]["Chemin"] | null;
         };
         MotBrique: {
             brique_id: components["schemas"]["IdCatalogue"];
@@ -875,6 +893,8 @@ export interface components {
         };
         /** @enum {string} */
         MotifPresque: "ordre" | "incomplet";
+        /** @enum {string} */
+        MotifTrompeLOeil: "autre_origine" | "mot_simple" | "autre_decoupage";
         /** @enum {string} */
         Nature: "mot" | "prefixe" | "suffixe";
         /**
@@ -1170,6 +1190,21 @@ export interface components {
         Translitteration: {
             convention_id: components["schemas"]["IdCatalogue"];
             texte: string;
+        };
+        /** @description Une paire ordonnée de briques qui s'écrit comme un mot sans en venir. */
+        TrompeLOeil: {
+            combinaison: components["schemas"]["IdCatalogue"][];
+            /** @description Le mot et sa vraie origine : lisible une fois le mot au codex. */
+            explication?: components["schemas"]["BTreeMap_String"];
+            /** @description Une phrase qui ne nomme jamais le mot : lisible tout de suite. */
+            explication_courte?: components["schemas"]["BTreeMap_String"];
+            id: components["schemas"]["IdCatalogue"];
+            mot_id?: components["schemas"]["IdCatalogue"] | null;
+            motif: components["schemas"]["MotifTrompeLOeil"];
+        };
+        /** @description Ressource « trompe-l'œil » d'un fascicule (ADR 0052). */
+        TrompesLOeil: {
+            trompes_l_oeil: components["schemas"]["TrompeLOeil"][];
         };
     };
     responses: never;

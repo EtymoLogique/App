@@ -19,7 +19,8 @@ pub use chemin::{Chemin, ErreurChemin};
 pub use format::{
     BriquePliManifeste, BriqueRicochet, Calendrier, CarteManifeste, Difficulte, Emplacement,
     EntreeFascicule, EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, MotRicochet,
-    PliManifeste, Recette, RecetteManifeste, RicochetsManifeste,
+    MotifTrompeLOeil, PliManifeste, Recette, RecetteManifeste, RicochetsManifeste, TrompeLOeil,
+    TrompesLOeil,
 };
 pub use jeu::{JalonsJeu, Jeu, PliJeu, RicochetsJeu};
 pub use lecteur::{Lecteur, LecteurDossier, LecteurHttp};
@@ -55,6 +56,7 @@ pub struct FasciculeCharge {
     pub manifeste: Manifeste,
     pub recettes: Vec<Recette>,
     pub exclusions: Vec<Exclusion>,
+    pub trompes_l_oeil: Vec<TrompeLOeil>,
 }
 
 /// Catalogue publié, tel que l'API le garde en mémoire.
@@ -132,11 +134,20 @@ pub async fn charger(
             Some(chemin) => lire_json::<Exclusions>(lecteur, chemin).await?.exclusions,
             None => Vec::new(),
         };
+        let trompes_l_oeil = match &manifeste.trompes_l_oeil {
+            Some(chemin) => {
+                lire_json::<TrompesLOeil>(lecteur, chemin)
+                    .await?
+                    .trompes_l_oeil
+            }
+            None => Vec::new(),
+        };
         fascicules.push(FasciculeCharge {
             entree: entree.clone(),
             manifeste,
             recettes,
             exclusions,
+            trompes_l_oeil,
         });
     }
     let mut jeu = Jeu::depuis(&fascicules);

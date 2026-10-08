@@ -4,7 +4,7 @@ mod commun;
 
 use axum::http::StatusCode;
 use etymo_api::Limiteurs;
-use etymo_catalogue::essai::{BIO, GEO, LOGIE, MOT, RECETTE};
+use etymo_catalogue::essai::{BIO, GEO, GEO_AUTRE, LOGIE, MOT, RECETTE, TROMPE_L_OEIL};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -138,6 +138,14 @@ async fn les_essais_rates_ne_coutent_rien(base: PgPool) {
             json!({ "type": "exclue", "raison": "rare" }),
         ),
         (vec![GEO, GEO], json!({ "type": "echec" })),
+        (
+            vec![GEO_AUTRE, LOGIE],
+            json!({ "type": "echec", "explication": { "nature": "homographe", "rang": 0 } }),
+        ),
+        (
+            vec![BIO, LOGIE],
+            json!({ "type": "echec", "explication": { "nature": "trompe_l_oeil", "trompe_l_oeil_id": TROMPE_L_OEIL } }),
+        ),
     ] {
         let (statut, _, reponse) =
             appeler(&banc.routeur, post_fusion(&jeton, &fusion(&etat, &briques))).await;
