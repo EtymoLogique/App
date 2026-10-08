@@ -256,7 +256,9 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
             </span>
             {ouvert && curseur !== null && positions[curseur] !== undefined && (
               <span className="rico-lame" style={{ left: positions[curseur] }} aria-hidden="true">
-                <span className="rico-trait" />
+                <svg className="rico-trait" aria-hidden="true" focusable="false">
+                  <line x1="50%" x2="50%" y1="0" y2="100%" />
+                </svg>
                 <span className="rico-poignee">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path d="M8 7l-4 5 4 5M16 7l4 5-4 5" />
