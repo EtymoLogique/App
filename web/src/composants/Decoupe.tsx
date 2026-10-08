@@ -15,7 +15,7 @@ interface Props {
   lecon: ReactNode
   /** Verdict d'une réponse validée ; `null` : la donnée manque. */
   juger: (coupes: number[]) => boolean | null
-  /** Une seule fois, au « Valider » : la commande part. */
+  /** Une seule fois, à la dernière coupe posée : la commande part. */
   onValider: (coupes: number[]) => void
   /** Signale que la question a reçu sa réponse : « Suivant » apparaît. */
   repondu: () => void
@@ -47,7 +47,7 @@ const Chevron = ({ sens }: { sens: 'g' | 'd' }) => (
 
 /**
  * Découper (ADR 0053) : une lame se cale sur les jointures du mot, le mot s'écarte à son niveau, « Couper ici » pose la coupe,
- * « Valider » envoie la réponse. Rien n'est jugé avant. Le verdict déroule les morceaux comme avant.
+ * la dernière coupe posée valide la réponse. Rien n'est jugé avant. Le verdict déroule les morceaux comme avant.
  */
 export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider, repondu, pied }: Props) {
   const lettres = Array.from(mot)
@@ -64,8 +64,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
   const motRef = useRef<HTMLSpanElement>(null)
 
   const coupes = [...posees].sort((a, b) => a - b)
-  const pret = nombre > 0 && posees.length === nombre
-  const ouvert = !pret && !valide && curseur !== null
+  const ouvert = !valide && curseur !== null
 
   // Position de chaque jointure : au milieu de l'espace entre deux lettres. offsetLeft ignore les transformations (l'écart sous la lame).
   const mesurer = useCallback(() => {
@@ -97,11 +96,18 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     if (!souris) navigator.vibrate?.(8)
   }
   const poser = () => {
-    if (curseur === null || pret || valide) return
-    const suite = [...posees, curseur]
+    if (curseur === null || valide) return
+    ajouter(curseur)
+  }
+  // La dernière coupe attendue valide la réponse ; les précédentes en demandent une autre.
+  const ajouter = (j: number) => {
+    const suite = [...posees, j]
     setPosees(suite)
-    setCurseur(jointureLibreProche(curseur, n, suite))
     setAppuye(false)
+    if (suite.length < nombre) return setCurseur(jointureLibreProche(j, n, suite))
+    setValide(true)
+    onValider([...suite].sort((a, b) => a - b))
+    repondu()
   }
   const reprendre = () => {
     const derniere = posees[posees.length - 1]
@@ -109,17 +115,10 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     setPosees(posees.slice(0, -1))
     setCurseur(derniere)
   }
-  const validerLaReponse = () => {
-    if (!pret || valide) return
-    setValide(true)
-    setAppuye(false)
-    onValider(coupes)
-    repondu()
-  }
   const avancer = (sens: 1 | -1) => curseur !== null && setCurseur(jointureVoisine(curseur, sens, n, posees))
 
   const surAppui = (e: PointerEvent<HTMLDivElement>) => {
-    if (pret || valide) return
+    if (valide) return
     if (souris) return poserAuClic(e.clientX)
     setAppuye(true)
     try {
@@ -134,12 +133,10 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     const gauche = zone.current?.getBoundingClientRect().left ?? 0
     const j = jointureLaPlusProche(positions, clientX - gauche, coupes)
     if (j === null) return
-    const suite = [...posees, j]
-    setPosees(suite)
-    setCurseur(jointureLibreProche(j, n, suite))
+    ajouter(j)
   }
   const surMouvement = (e: PointerEvent<HTMLDivElement>) => {
-    if (pret || valide) return
+    if (valide) return
     if (souris || appuye) viser(e.clientX)
   }
   const relacher = () => setAppuye(false)
@@ -148,8 +145,8 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     const action: Record<string, () => void> = {
       ArrowLeft: () => avancer(-1),
       ArrowRight: () => avancer(1),
-      Enter: () => (pret ? validerLaReponse() : poser()),
-      ' ': () => (pret ? validerLaReponse() : poser()),
+      Enter: poser,
+      ' ': poser,
       Backspace: reprendre,
     }
     const faire = action[e.key]
@@ -166,40 +163,38 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     return { nature, texte: lettres.slice(bornes[i], fin).join('') }
   })
 
-  const statut = pret
-    ? `${posees.length > 1 ? `${posees.length} coupes posées.` : '1 coupe posée.'} Validez-${posees.length > 1 ? 'les' : 'la'}.`
-    : souris
-      ? 'Survolez le mot, cliquez là où il se coupe.'
-      : nombre === 1
-        ? 'Glissez sur le mot, puis touchez « Couper ici ».'
-        : `Coupe ${posees.length + 1} sur ${nombre}. Glissez sur le mot.`
+  const statut = souris
+    ? nombre > 1
+      ? `Coupe ${posees.length + 1} sur ${nombre}. Survolez le mot, cliquez là où il se coupe.`
+      : 'Survolez le mot, cliquez là où il se coupe.'
+    : nombre === 1
+      ? 'Glissez sur le mot, puis touchez « Couper ici ».'
+      : `Coupe ${posees.length + 1} sur ${nombre}. Glissez sur le mot.`
   const commandes = (
     <>
       <p className="rico-statut" role="status" aria-live="polite">
         {statut}
       </p>
-      <button type="button" className="btn btn-secondary rico-reprendre" disabled={posees.length === 0} aria-label="Reprendre la dernière coupe" onClick={reprendre}>
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M9 14L4 9l5-5" />
-          <path d="M4 9h10a6 6 0 010 12h-3" />
-        </svg>
-        Reprendre
-      </button>
-      {(!souris || pret) && (
+      {nombre > 1 && (
+        <button type="button" className="btn btn-secondary rico-reprendre" disabled={posees.length === 0} aria-label="Reprendre la dernière coupe" onClick={reprendre}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 14L4 9l5-5" />
+            <path d="M4 9h10a6 6 0 010 12h-3" />
+          </svg>
+          Reprendre
+        </button>
+      )}
+      {!souris && (
         <div className="rico-commandes">
-          {!souris && (
-            <button type="button" className="btn btn-secondary rico-pas" disabled={pret} aria-label="Une lettre vers la gauche" onClick={() => avancer(-1)}>
-              <Chevron sens="g" />
-            </button>
-          )}
-          <button type="button" className="btn btn-primary" onClick={pret ? validerLaReponse : poser}>
-            {pret ? 'Valider' : 'Couper ici'}
+          <button type="button" className="btn btn-secondary rico-pas" aria-label="Une lettre vers la gauche" onClick={() => avancer(-1)}>
+            <Chevron sens="g" />
           </button>
-          {!souris && (
-            <button type="button" className="btn btn-secondary rico-pas" disabled={pret} aria-label="Une lettre vers la droite" onClick={() => avancer(1)}>
-              <Chevron sens="d" />
-            </button>
-          )}
+          <button type="button" className="btn btn-primary" onClick={poser}>
+            Couper ici
+          </button>
+          <button type="button" className="btn btn-secondary rico-pas" aria-label="Une lettre vers la droite" onClick={() => avancer(1)}>
+            <Chevron sens="d" />
+          </button>
         </div>
       )}
     </>
@@ -235,7 +230,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
             aria-valuemin={1}
             aria-valuemax={Math.max(1, n - 1)}
             aria-valuenow={curseur ?? 1}
-            aria-valuetext={pret || curseur === null ? 'Toutes les coupes sont posées' : `Entre « ${lettres.slice(0, curseur).join('')} » et « ${lettres.slice(curseur).join('')} »`}
+            aria-valuetext={curseur === null ? 'Toutes les coupes sont posées' : `Entre « ${lettres.slice(0, curseur).join('')} » et « ${lettres.slice(curseur).join('')} »`}
             onPointerDown={surAppui}
             onPointerMove={surMouvement}
             onPointerUp={relacher}
