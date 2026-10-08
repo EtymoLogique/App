@@ -303,9 +303,8 @@
 .mini .m-rar { width: 12px; height: 12px; margin-right: -4px; }
 .mini.is-legend { border-color: var(--ink); }
 
-/* ---------- Maîtrise (ADR 0044) : galet dans le bandeau, filet de quatre segments ---------- */
-/* Quatre segments, jamais trois : trois traits disent la confiance éditoriale. */
-.filet-maitrise { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+/* ---------- Maîtrise (ADR 0044) : galet dans le bandeau, filet de trois segments, comme « Niveau n sur 3 » ---------- */
+.filet-maitrise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
 .filet-maitrise i { height: 3px; border-radius: 2px; background: var(--line); }
 .filet-maitrise i.on { background: var(--ink); }
 .galet { flex: none; color: var(--tt); }
