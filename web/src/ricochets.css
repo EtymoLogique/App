@@ -58,30 +58,47 @@
 .rico-seance .rico-consigne { margin: 0; text-align: center; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--ink-2); }
 .rico-seance .rico-consigne:focus { outline: none; }
 
-/* Découper : chaque jointure est un bouton invisible ; survolée ou coupée, elle s'ouvre et écarte le mot. */
-.rico-decoupe { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; font-size: clamp(36px, 10vw, 56px); padding: 8px 0; }
-.rico-coupe { position: relative; width: 0; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
-/* Zone de toucher plus large que la jointure, à cheval sur les lettres voisines. */
-.rico-coupe::after { content: ""; position: absolute; inset: -6px -10px; }
-/* Le trait de coupe est un élément plein, pas une bordure. */
-.rico-coupe::before { content: ""; position: absolute; inset: 0.1em auto 0.05em 50%; translate: -50% 0; width: 2.5px; border-radius: 2px; background: var(--ink); opacity: 0; }
-.rico-coupe:is(:hover, :focus-visible, .coupee, .demo) { width: 0.4em; }
-.rico-coupe:is(:hover, :focus-visible, .coupee, .demo)::before { opacity: 1; }
-.rico-coupe:is(:hover, .demo):not(.coupee)::before { background: var(--ink-3); }
-.rico-coupe:focus-visible { outline: none; }
-.rico-coupe:focus-visible::before { width: 4px; }
+/*
+ * Découper (ADR 0053) : une lame en pointillé se cale sur les jointures et suit le doigt sur toute la largeur du mot ;
+ * le mot s'écarte à son niveau (transform : les jointures ne bougent pas sous le doigt) ; la poignée de 44 px est sous le mot,
+ * pour que le doigt ne cache aucune lettre. Le pointillé dit « ce qui manque » : la coupe n'existe pas encore.
+ */
+.rico-zone { position: relative; width: 100%; padding: 18px 0 70px; border-radius: 12px; outline: none; cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.rico-zone:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.rico-zone.souris { padding-bottom: 28px; }
+.rico-decoupe { display: flex; justify-content: center; white-space: nowrap; font-size: clamp(30px, 11vw, 52px); }
+.rico-lettre { display: inline-block; transform: translateX(var(--dx, 0px)); }
+/* Une coupe posée : un écart franc et un trait plein, en Encre, comme un fait. */
+.rico-lettre.apres { position: relative; margin-left: 0.4em; }
+.rico-lettre.apres::before { content: ""; position: absolute; left: -0.2em; top: 0.12em; bottom: 0.06em; width: 2.5px; margin-left: -1.25px; border-radius: 2px; background: var(--ink); }
+.rico-lame { position: absolute; top: 14px; bottom: 0; width: 0; pointer-events: none; }
+.rico-trait { position: absolute; left: -1.25px; top: 0; bottom: 48px; border-left: 2.5px dashed var(--ink); }
+.rico-zone.souris .rico-trait { bottom: 0; }
+/* La poignée est une brique (elle se manipule), en Corail (l'action) ; tenue, elle s'enfonce comme un bouton pressé. */
+.rico-poignee { position: absolute; left: -22px; bottom: 0; display: grid; place-items: center; width: 44px; height: 44px; border: 1.5px solid var(--fixed-ink); border-radius: 10px; background: var(--c-action); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.rico-poignee svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.rico-zone.appuye .rico-poignee { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); background: var(--c-action-active); }
+.rico-zone.souris .rico-poignee { display: none; }
 @media (prefers-reduced-motion: no-preference) {
-  :root:not([data-mouvement="reduit"]) .rico-coupe { transition: width var(--dur-base) var(--ease-ressort); }
-  :root:not([data-mouvement="reduit"]) .rico-coupe::before { transition: opacity var(--dur-rapide); }
-  /* Invite (.demo) : rapide et sans rebond ; la suivante s'ouvre pendant que la précédente se referme. */
-  :root:not([data-mouvement="reduit"]) .rico-decoupe.invite .rico-coupe { transition: width 0.28s var(--ease-out); }
-  :root:not([data-mouvement="reduit"]) .rico-decoupe.invite .rico-coupe::before { transition: opacity 0.2s var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .rico-lettre { transition: transform var(--dur-base) var(--ease-ressort); }
+  :root:not([data-mouvement="reduit"]) .rico-zone.appuye .rico-lettre { transition: transform var(--dur-rapide) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .rico-lame { transition: left var(--dur-rapide) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .rico-zone.appuye .rico-lame { transition: left 0.12s var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .rico-poignee { transition: transform var(--dur-instant), box-shadow var(--dur-instant), background-color var(--dur-instant); }
 }
+
+/* Commandes de Découper, dans le pied de séance : l'état et « Reprendre » sur une ligne, puis ‹ « Couper ici » ›. */
+.rico-statut { flex: 1 1 0; min-width: 0; margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.4; }
+.rico-pied .rico-reprendre { flex: none; min-height: 44px; padding: 0 14px; font-size: 12px; }
+.rico-reprendre svg, .rico-pas svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.rico-commandes { display: grid; flex-basis: 100%; grid-template-columns: 52px 1fr 52px; gap: 8px; }
+.rico-commandes:has(> .btn:only-child) { grid-template-columns: 1fr; }
+.rico-pied .rico-pas { padding: 0; }
 
 /*
  * Verdict de découpe, en trois temps : le mot s'écarte à la coupe, un contour de brique se trace autour
- * de chaque morceau, puis la brique se remplit de sa couleur. Fausses, elles sont rouges et tremblent
- * comme une fusion ratée. Sans mouvement, l'état final s'affiche directement.
+ * de chaque morceau, puis la brique se remplit de sa couleur. Fausses, elles restent en Sable, au contour pointillé,
+ * et tremblent comme une fusion ratée : jamais de rouge (ADR 0044, 0053). Sans mouvement, l'état final s'affiche directement.
  */
 .rico-morceaux { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; padding: 8px 0; }
 .rico-morceau {
@@ -92,10 +109,12 @@
 .rico-morceau[data-kind="suffixe"] { --fond: var(--c-suffix); }
 /* Comme les cartes de mot (styles.css, .brick[data-kind="mot"]) : Crème fixe, de jour comme de nuit. */
 .rico-morceau[data-kind="mot"] { --fond: #fffbf3; }
-.rico-morceaux.faux .rico-morceau { --fond: var(--c-action-tint); --trait: var(--c-action-deep); color: var(--c-action-deep); }
+.rico-morceaux.faux .rico-morceau { --fond: var(--paper-2); --trait: var(--ink-2); color: var(--ink); box-shadow: none; }
 .rico-morceau::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--fond); }
 .rico-contour { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .rico-contour rect { fill: none; stroke: var(--trait); stroke-width: 1.75; stroke-dasharray: 1; }
+/* Faux : contour pointillé, sans tracé animé. */
+.rico-morceaux.faux .rico-contour rect { stroke-dasharray: 0.03 0.02; animation: none !important; }
 /* Écart à combler par coupe : le gap (16 px), deux marges internes (2 × 14 px) et les tirets encore invisibles (≈ 0,6 em). */
 @keyframes rico-ecarte { from { translate: calc(var(--d, 0) * (44px + 0.6em)) 0; } }
 @keyframes rico-trace { from { stroke-dashoffset: 1; } }
@@ -141,7 +160,7 @@
 .rico-verdict { display: grid; gap: 4px; padding: 10px 14px; border-radius: 12px; background: var(--paper); line-height: 1.45; }
 /* Vide : sans hauteur, mais présent pour que la région live annonce le verdict. */
 .rico-verdict:empty { padding: 0; }
-.rico-verdict strong { font-family: var(--serif); font-size: 17px; }
+.rico-verdict strong { display: inline-flex; align-items: center; gap: 8px; font-family: var(--serif); font-size: 17px; }
 .rico-verdict .bchip, .rico-annonce .bchip { margin-inline-end: 6px; vertical-align: middle; }
 .rico-briques { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
 .rico-segmente { font-family: var(--serif); font-size: 20px; font-weight: 600; }

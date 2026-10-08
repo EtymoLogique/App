@@ -1,0 +1,104 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
+import { Decoupe } from './Decoupe'
+
+function monter(mot: string, attendu: number[], reels: { nature: 'prefixe' | 'mot' | 'suffixe' }[]) {
+  const pied = document.body.appendChild(document.createElement('footer'))
+  const onValider = vi.fn()
+  const repondu = vi.fn()
+  render(
+    <Decoupe
+      mot={mot}
+      attendu={attendu}
+      reels={reels}
+      consigne="Où ce mot se coupe-t-il ?"
+      lecon="Leçon."
+      juger={(c) => c.length === attendu.length && c.every((x, i) => x === attendu[i])}
+      onValider={onValider}
+      repondu={repondu}
+      pied={pied}
+    />,
+  )
+  return { onValider, repondu, pied }
+}
+
+const GEO = [{ nature: 'prefixe' as const }, { nature: 'suffixe' as const }]
+const AUTO = [{ nature: 'prefixe' as const }, { nature: 'mot' as const }, { nature: 'suffixe' as const }]
+const curseur = () => screen.getByRole('slider').getAttribute('aria-valuenow')
+
+describe('Decoupe', () => {
+  it('place la lame à l’arrivée et rien n’est envoyé avant « Valider »', () => {
+    const { onValider } = monter('géographie', [3], GEO)
+    expect(curseur()).toBe('4')
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuetext', 'Entre « géog » et « raphie »')
+    fireEvent.click(screen.getByRole('button', { name: 'Une lettre vers la gauche' }))
+    expect(curseur()).toBe('3')
+    fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
+    expect(onValider).not.toHaveBeenCalled()
+    expect(screen.getByText('1 coupe posée. Validez-la.')).toBeInTheDocument()
+  })
+
+  it('« Valider » envoie les coupes une seule fois et montre le verdict', () => {
+    const { onValider, repondu } = monter('géographie', [3], GEO)
+    fireEvent.click(screen.getByRole('button', { name: 'Une lettre vers la gauche' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+    expect(onValider).toHaveBeenCalledExactlyOnceWith([3])
+    expect(repondu).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Bien vu.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Valider' })).toBeNull()
+  })
+
+  it('« Reprendre » retire la dernière coupe, sans rien envoyer', () => {
+    const { onValider } = monter('géographie', [3], GEO)
+    const reprendre = screen.getByRole('button', { name: 'Reprendre la dernière coupe' })
+    expect(reprendre).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
+    expect(reprendre).toBeEnabled()
+    fireEvent.click(reprendre)
+    expect(curseur()).toBe('4')
+    expect(screen.getByRole('button', { name: 'Couper ici' })).toBeInTheDocument()
+    expect(onValider).not.toHaveBeenCalled()
+  })
+
+  it('un mot en trois morceaux demande deux coupes, jamais au même endroit', () => {
+    const { onValider } = monter('autobiographie', [4, 7], AUTO)
+    expect(screen.getByText('Coupe 1 sur 2. Glissez sur le mot.')).toBeInTheDocument()
+    const lame = screen.getByRole('slider')
+    lame.focus()
+    // Au clavier : ← ×2 vers la jointure 4, Entrée pose la coupe.
+    fireEvent.keyDown(lame, { key: 'ArrowLeft' })
+    fireEvent.keyDown(lame, { key: 'ArrowLeft' })
+    expect(curseur()).toBe('4')
+    fireEvent.keyDown(lame, { key: 'Enter' })
+    expect(screen.getByText('Coupe 2 sur 2. Glissez sur le mot.')).toBeInTheDocument()
+    expect(curseur()).not.toBe('4')
+    for (let i = 0; i < 10 && curseur() !== '7'; i++) fireEvent.keyDown(lame, { key: 'ArrowRight' })
+    expect(curseur()).toBe('7')
+    fireEvent.keyDown(lame, { key: 'Enter' })
+    expect(screen.getByText('2 coupes posées. Validez-les.')).toBeInTheDocument()
+    expect(onValider).not.toHaveBeenCalled()
+    fireEvent.keyDown(lame, { key: 'Enter' })
+    expect(onValider).toHaveBeenCalledExactlyOnceWith([4, 7])
+  })
+
+  it('Retour arrière reprend la dernière coupe posée', () => {
+    monter('autobiographie', [4, 7], AUTO)
+    const lame = screen.getByRole('slider')
+    fireEvent.keyDown(lame, { key: ' ' })
+    expect(screen.getByText('Coupe 2 sur 2. Glissez sur le mot.')).toBeInTheDocument()
+    fireEvent.keyDown(lame, { key: 'Backspace' })
+    expect(screen.getByText('Coupe 1 sur 2. Glissez sur le mot.')).toBeInTheDocument()
+  })
+
+  it('une mauvaise découpe se lit sans nouvelle teinte : texte et rond barré, jamais de rouge', () => {
+    const { onValider, pied } = monter('géographie', [3], GEO)
+    fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Valider' }))
+    expect(onValider).toHaveBeenCalledWith([4])
+    expect(screen.getByText('Pas cette fois.')).toBeInTheDocument()
+    expect(document.querySelector('.rico-morceaux.faux')).not.toBeNull()
+    expect(pied).toBeEmptyDOMElement()
+  })
+})
