@@ -239,7 +239,7 @@ function Qcm({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   )
 }
 
-/** Découper : le mot en grand ; une lame se cale sur les jointures, « Couper ici » pose la coupe, « Valider » envoie la réponse (ADR 0053). */
+/** Découper : le mot en grand ; une lame se cale sur les jointures, « Couper ici » pose la coupe, la dernière envoie la réponse (ADR 0053). */
 function DecoupeQuestion({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & { pied: HTMLElement | null }) {
   const question = useMemo(() => preparer(q, jeu, d), [q, jeu, d])
   const unite = q.cartes[0] ?? ''
