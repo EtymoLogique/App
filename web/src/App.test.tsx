@@ -105,7 +105,8 @@ describe('table de fusion', () => {
     fireEvent.click(await brique('géo-'))
     await waitForElementToBeRemoved(modaleReserve)
     expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
-    expect(fusionner()).toHaveFocus()
+    // Le focus passe à « Fusionner » dans un effet, après le retrait de la modale : on l’attend.
+    await waitFor(() => expect(fusionner()).toHaveFocus())
   })
 
   it('retire une brique depuis la table de la réserve, et pose la suivante à sa place', async () => {
