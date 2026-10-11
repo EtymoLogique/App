@@ -23,12 +23,6 @@ interface Props {
   pied: HTMLElement | null
 }
 
-/** Pointeur fin (souris) : le survol déplace la lame, un clic pose la coupe. Au toucher, on glisse puis « Couper ici ». */
-function pointeurFin(): boolean {
-  if (typeof window.matchMedia !== 'function') return false
-  return window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(pointer: coarse)').matches
-}
-
 /** Rond de verdict : coché (juste) ou barré (pas celui-ci). La couleur ne dit jamais seule. */
 function Rond({ juste }: { juste: boolean }) {
   return (
@@ -53,7 +47,6 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
   const lettres = Array.from(mot)
   const n = lettres.length
   const nombre = attendu.length
-  const souris = useState(pointeurFin)[0]
   // Les coupes dans l'ordre où le joueur les a posées : « Reprendre » retire la dernière.
   const [posees, setPosees] = useState<number[]>([])
   const [curseur, setCurseur] = useState<number | null>(() => jointureInitiale(n, []))
@@ -93,7 +86,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     const j = jointureLaPlusProche(positions, clientX - gauche, coupes)
     if (j === null || j === curseur) return
     setCurseur(j)
-    if (!souris) navigator.vibrate?.(8)
+    navigator.vibrate?.(8)
   }
   const poser = () => {
     if (curseur === null || valide) return
@@ -119,7 +112,6 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
 
   const surAppui = (e: PointerEvent<HTMLDivElement>) => {
     if (valide) return
-    if (souris) return poserAuClic(e.clientX)
     setAppuye(true)
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -128,16 +120,9 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     }
     viser(e.clientX)
   }
-  // À la souris, le clic vise puis pose : on vise sans attendre le rendu.
-  const poserAuClic = (clientX: number) => {
-    const gauche = zone.current?.getBoundingClientRect().left ?? 0
-    const j = jointureLaPlusProche(positions, clientX - gauche, coupes)
-    if (j === null) return
-    ajouter(j)
-  }
   const surMouvement = (e: PointerEvent<HTMLDivElement>) => {
     if (valide) return
-    if (souris || appuye) viser(e.clientX)
+    if (appuye) viser(e.clientX)
   }
   const relacher = () => setAppuye(false)
   const surTouche = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -163,13 +148,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     return { nature, texte: lettres.slice(bornes[i], fin).join('') }
   })
 
-  const statut = souris
-    ? nombre > 1
-      ? `Coupe ${posees.length + 1} sur ${nombre}. Survolez le mot, cliquez là où il se coupe.`
-      : 'Survolez le mot, cliquez là où il se coupe.'
-    : nombre === 1
-      ? 'Glissez sur le mot, puis touchez « Couper ici ».'
-      : `Coupe ${posees.length + 1} sur ${nombre}. Glissez sur le mot.`
+  const statut = nombre === 1 ? 'Glissez sur le mot, puis touchez « Couper ici ».' : `Coupe ${posees.length + 1} sur ${nombre}. Glissez sur le mot.`
   const commandes = (
     <>
       <p className="rico-statut" role="status" aria-live="polite">
@@ -184,19 +163,17 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
           Reprendre
         </button>
       )}
-      {!souris && (
-        <div className="rico-commandes">
-          <button type="button" className="btn btn-secondary rico-pas" aria-label="Une lettre vers la gauche" onClick={() => avancer(-1)}>
-            <Chevron sens="g" />
-          </button>
-          <button type="button" className="btn btn-primary" onClick={poser}>
-            Couper ici
-          </button>
-          <button type="button" className="btn btn-secondary rico-pas" aria-label="Une lettre vers la droite" onClick={() => avancer(1)}>
-            <Chevron sens="d" />
-          </button>
-        </div>
-      )}
+      <div className="rico-commandes">
+        <button type="button" className="btn btn-secondary rico-pas" aria-label="Une lettre vers la gauche" onClick={() => avancer(-1)}>
+          <Chevron sens="g" />
+        </button>
+        <button type="button" className="btn btn-primary" onClick={poser}>
+          Couper ici
+        </button>
+        <button type="button" className="btn btn-secondary rico-pas" aria-label="Une lettre vers la droite" onClick={() => avancer(1)}>
+          <Chevron sens="d" />
+        </button>
+      </div>
     </>
   )
 
@@ -223,7 +200,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
         ) : (
           <div
             ref={zone}
-            className={`rico-zone ${appuye ? 'appuye' : ''} ${souris ? 'souris' : ''}`}
+            className={`rico-zone ${appuye ? 'appuye' : ''} `}
             role="slider"
             tabIndex={0}
             aria-label="Position de la coupe"

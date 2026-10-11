@@ -65,7 +65,6 @@
  */
 .rico-zone { position: relative; width: 100%; padding: 18px 0 70px; border-radius: 12px; outline: none; cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .rico-zone:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.rico-zone.souris { padding-bottom: 28px; }
 .rico-decoupe { display: flex; justify-content: center; white-space: nowrap; font-size: clamp(30px, 11vw, 52px); }
 .rico-lettre { display: inline-block; transform: translateX(var(--dx, 0px)); }
 /* Une coupe posée : un écart franc et un trait plein, en Encre, comme un fait. */
@@ -75,12 +74,10 @@
 /* Un tracé SVG et non une bordure pointillée : sur iOS, la bordure d'un élément sans largeur ne montre qu'un point. */
 .rico-trait { position: absolute; left: -1.25px; top: 0; bottom: 48px; width: 2.5px; overflow: visible; }
 .rico-trait line { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: 6 5; }
-.rico-zone.souris .rico-trait { bottom: 0; }
 /* La poignée est une brique (elle se manipule), en Corail (l'action) ; tenue, elle s'enfonce comme un bouton pressé. */
 .rico-poignee { position: absolute; left: -22px; bottom: 0; display: grid; place-items: center; width: 44px; height: 44px; border: 1.5px solid var(--fixed-ink); border-radius: 10px; background: var(--c-action); color: var(--fixed-ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
 .rico-poignee svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .rico-zone.appuye .rico-poignee { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); background: var(--c-action-active); }
-.rico-zone.souris .rico-poignee { display: none; }
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-mouvement="reduit"]) .rico-lettre { transition: transform var(--dur-base) var(--ease-ressort); }
   :root:not([data-mouvement="reduit"]) .rico-zone.appuye .rico-lettre { transition: transform var(--dur-rapide) var(--ease-out); }
