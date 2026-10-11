@@ -10,7 +10,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use commun::{ORIGINE, appeler, banc, get_etat, post_pli, post_session, secret};
+use commun::{ORIGINE, appeler, banc, get_etat, post_pli, post_session, secret, session};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn sante_donne_la_version_du_catalogue(base: PgPool) {
@@ -187,6 +187,7 @@ async fn purge_les_commandes_de_plus_de_30_jours(base: PgPool) {
     }
     let rapport = etymo_taches::purger(&base).await.unwrap();
     assert_eq!(rapport.commandes, 1);
+    assert_eq!(rapport.quetes_du_jour, 0);
     let restantes: i64 = sqlx::query_scalar("SELECT count(*) FROM commande")
         .fetch_one(&base)
         .await
@@ -237,4 +238,37 @@ async fn compte_les_jours_de_jeu_en_jours_gmt(base: PgPool) {
     reculer().await;
     let (_, _, rejeu) = appeler(&banc.routeur, post_pli(&jeton, &pli)).await;
     assert_eq!(rejeu["etat"]["jours_de_jeu"], 3);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn purge_les_donnees_du_jour_de_plus_de_trente_jours(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    appeler(&banc.routeur, get_etat(&jeton)).await;
+    for jours in [1, 29, 31, 90] {
+        sqlx::query(
+            "INSERT INTO quete_jour (joueur_id, jour, rang, code) SELECT id, current_date - $1::int, 0, 'memoire_sans_faute' FROM joueur",
+        )
+        .bind(jours)
+        .execute(&base)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO ricochet_jour (joueur_id, jour, reponses, bonnes) SELECT id, current_date - $1::int, 5, 5 FROM joueur",
+        )
+        .bind(jours)
+        .execute(&base)
+        .await
+        .unwrap();
+    }
+    let rapport = etymo_taches::purger(&base).await.unwrap();
+    assert_eq!(rapport.quetes_du_jour, 2);
+    assert_eq!(rapport.ricochets_du_jour, 2);
+    // Les quêtes du jour tirées aujourd'hui, elles, restent.
+    let restantes: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM quete_jour WHERE jour >= current_date - 30")
+            .fetch_one(&base)
+            .await
+            .unwrap();
+    assert!(restantes >= 2);
 }

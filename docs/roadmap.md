@@ -228,6 +228,16 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Relancer la tâche à tout changement du calendrier (`staging/parutions.json`) | **à faire dans Infra / Content** (déclencheur) ; sinon le prochain passage planifié suffit |
 | Schéma de l'index global (`prochaine_parution`) | **à faire dans Content / Design** |
 
+### Purges et journaux sans donnée personnelle (App#29, [ADR 0010](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0010-observabilite-et-vie-privee.md))
+
+| Tâche | État |
+|---|---|
+| `purger` : commandes (30 jours), quêtes du jour et réponses de ricochets du jour (30 jours) ; durées documentées dans `crates/taches/src/purges.rs` et le README ; test d'intégration | fait |
+| Télémétrie brute (90 jours) et agrégats : aucune table n'existe encore, la purge viendra avec elles (J7) | en attente |
+| Audit des journaux : seuls les `tracing::` de `catalogue.rs`, `main.rs`, `erreur.rs`, `parution.rs` et `purges.rs` écrivent ; ils ne portent que des nombres, des versions et des causes internes ; pas de couche HTTP qui trace les requêtes. Test `journaux.rs` : un secret, un jeton, un identifiant d'installation et une adresse réseau envoyés en requête (et en erreur) n'apparaissent jamais dans le journal | fait |
+| Planifier `etymo-api purger` chaque jour (Serverless Job) | **à faire dans Infra** |
+| Durée de conservation d'un profil invité inactif | question ouverte du modèle de données, non tranchée |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.

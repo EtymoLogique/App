@@ -36,7 +36,12 @@ async fn main() -> anyhow::Result<()> {
         Some(Commande::PublierFascicules(config)) => publier(config).await,
         Some(Commande::Purger(config)) => {
             let rapport = etymo_taches::purger(&connecter(&config)?).await?;
-            tracing::info!(commandes = rapport.commandes, "purges terminées");
+            tracing::info!(
+                commandes = rapport.commandes,
+                quetes_du_jour = rapport.quetes_du_jour,
+                ricochets_du_jour = rapport.ricochets_du_jour,
+                "purges terminées"
+            );
             Ok(())
         }
         Some(Commande::Migrer(config)) => {
