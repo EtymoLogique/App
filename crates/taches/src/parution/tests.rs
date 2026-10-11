@@ -99,6 +99,11 @@ async fn promeut_les_fascicules_dus_et_seulement_eux() {
     assert_eq!(index.version, "v1");
     assert_eq!(index.fascicules.len(), 1);
     assert_eq!(index.fascicules[0].manifeste.as_str(), paru);
+    // Seule la date du prochain fascicule sort du calendrier (ADR 0049).
+    assert_eq!(
+        index.prochaine_parution,
+        Some(Utc.with_ymd_and_hms(2026, 11, 1, 7, 0, 0).unwrap())
+    );
 
     // Chaque ressource du fascicule paru est promue, avec son type exact.
     let octets = std::fs::read(dossier.path().join(&paru)).unwrap();
@@ -121,6 +126,57 @@ async fn promeut_les_fascicules_dus_et_seulement_eux() {
             Some(IMMUABLE)
         );
     }
+}
+
+#[tokio::test]
+async fn la_date_du_prochain_fascicule_suit_le_calendrier_et_disparait_sans_fascicule_a_venir() {
+    let dossier = tempfile::tempdir().unwrap();
+    let paru = essai::fascicule(dossier.path(), 0, PASSE);
+    let a_venir = essai::fascicule(dossier.path(), 1, FUTUR);
+    essai::calendrier(
+        dossier.path(),
+        CALENDRIER,
+        "v1",
+        &[(0, PASSE, &paru), (1, FUTUR, &a_venir)],
+    );
+    let bucket = InMemory::new();
+    deposer_staging(&bucket, dossier.path()).await;
+    publier_fascicules(&bucket, Cible::Bucket, maintenant())
+        .await
+        .unwrap();
+    assert!(index(&bucket).await.prochaine_parution.is_some());
+
+    // Un report change la date publiée : l'index est réécrit.
+    let reporte = "2026-11-15T08:00:00+01:00";
+    essai::calendrier(
+        dossier.path(),
+        CALENDRIER,
+        "v1",
+        &[(0, PASSE, &paru), (1, reporte, &a_venir)],
+    );
+    deposer_staging(&bucket, dossier.path()).await;
+    let rapport = publier_fascicules(&bucket, Cible::Bucket, maintenant())
+        .await
+        .unwrap();
+    assert!(rapport.index_ecrit);
+    assert_eq!(
+        index(&bucket).await.prochaine_parution,
+        Some(Utc.with_ymd_and_hms(2026, 11, 15, 7, 0, 0).unwrap())
+    );
+
+    // Plus rien à venir : le champ disparaît de l'index.
+    let apres = Utc.with_ymd_and_hms(2026, 12, 1, 0, 0, 0).unwrap();
+    publier_fascicules(&bucket, Cible::Bucket, apres)
+        .await
+        .unwrap();
+    let octets = bucket
+        .get(&Path::from("public/index.json"))
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap();
+    assert!(!String::from_utf8_lossy(&octets).contains("prochaine_parution"));
 }
 
 #[tokio::test]

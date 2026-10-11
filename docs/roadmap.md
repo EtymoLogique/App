@@ -219,6 +219,15 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Écart assumé : la liste fermée des quatre quêtes et leurs récompenses sont écrites dans `etymo-api`, pas dans l'équilibrage du catalogue | écart |
 | Écart assumé : « cinq ricochets sans faute » se lit sur les cinq premières réponses du jour (`ricochet_jour`) ; la quête n'est pas indexée sur les ricochets de la première semaine seulement | écart |
 
+### Date du prochain fascicule (App#26, [ADR 0049](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0049-date-du-prochain-fascicule-publique.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Tâche `publier-fascicules` : écrit `prochaine_parution` (UTC, rien d'autre du fascicule) dans `public/index.json` à chaque passage ; champ absent sans fascicule à venir ; un report change la date et réécrit l'index | fait |
+| Catalogue : `Calendrier.prochaine_parution` ; PWA : « Prochain fascicule : 1ᵉʳ novembre » sur le choix du fascicule des plis et en tête du codex ; rien ne s'affiche passée la date | fait |
+| Relancer la tâche à tout changement du calendrier (`staging/parutions.json`) | **à faire dans Infra / Content** (déclencheur) ; sinon le prochain passage planifié suffit |
+| Schéma de l'index global (`prochaine_parution`) | **à faire dans Content / Design** |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.

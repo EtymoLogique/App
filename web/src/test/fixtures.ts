@@ -110,6 +110,7 @@ export function jeu(): CatalogueJeu {
     typesRelation: new Map([['forme_de_composition', 'forme de composition']]),
     typesTransformation: new Map([['elision', 'élision']]),
     quetes: [],
+    prochaineParution: null,
   }
 }
 

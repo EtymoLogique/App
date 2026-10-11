@@ -4,7 +4,7 @@ import type { Etat, OuverturePli, Rarete, ReponseAchatSablier, ReponsePli, Repon
 import { accordLegendaire, basculer, mouvementReduit, useEnergieAnimee, vibrer } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
 import { useEnLigne } from '../services/reseau'
-import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule } from '../services/jeu'
+import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule, prochainFascicule } from '../services/jeu'
 import {
   LIBELLES_RARETES,
   ORDRE_RARETES,
@@ -206,6 +206,7 @@ function Choix({
 }) {
   if (jeu.fascicules.length === 0) return <p className="pk-empty">Aucun fascicule n’est encore paru.</p>
   const parus = [...jeu.fascicules].sort((a, b) => b.numero - a.numero)
+  const prochain = prochainFascicule(jeu)
   return (
     <div className="pk-chooser">
       <div className="pk-chooser-head">
@@ -215,6 +216,7 @@ function Choix({
           </h2>
         </div>
         <p className="pk-note">Chaque pli tire une brique parmi celles de son fascicule. Vous pourrez revenir à ce choix à tout moment.</p>
+        {prochain && <p className="pk-note prochain-fascicule">{prochain}</p>}
       </div>
       <div className="pk-fasc-list">
         {parus.map((f) => {

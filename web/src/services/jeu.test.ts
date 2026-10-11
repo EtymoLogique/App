@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, jeu } from '../test/fixtures'
-import { entrelacer, prevoir, rareteMot } from './jeu'
+import { entrelacer, prevoir, prochainFascicule, rareteMot } from './jeu'
 
 describe('prévisualisation d’une fusion', () => {
   it('suit les mêmes règles que le serveur', () => {
@@ -42,5 +42,19 @@ describe('entrelacer', () => {
   it('alterne la plus longue et la plus courte restantes', () => {
     expect(entrelacer([3, 9, 1, 7, 5], (n) => n)).toEqual([9, 1, 7, 3, 5])
     expect(entrelacer([], (n: number) => n)).toEqual([])
+  })
+})
+
+describe('prochainFascicule', () => {
+  const maintenant = new Date('2026-10-20T10:00:00Z')
+
+  it('annonce le jour du prochain fascicule, « 1ᵉʳ » pour le premier du mois', () => {
+    expect(prochainFascicule({ prochaineParution: '2026-11-01T07:00:00Z' }, maintenant)).toBe('Prochain fascicule : 1ᵉʳ novembre')
+    expect(prochainFascicule({ prochaineParution: '2026-11-15T07:00:00Z' }, maintenant)).toBe('Prochain fascicule : 15 novembre')
+  })
+
+  it('ne dit rien sans date, ou une fois la date passée', () => {
+    expect(prochainFascicule({ prochaineParution: null }, maintenant)).toBeNull()
+    expect(prochainFascicule({ prochaineParution: '2026-10-01T07:00:00Z' }, maintenant)).toBeNull()
   })
 })

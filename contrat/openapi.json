@@ -1551,6 +1551,14 @@
             "format": "int32",
             "minimum": 0
           },
+          "prochaine_parution": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre\nde ce fascicule (ADR 0049) ; absente s'il n'y en a plus."
+          },
           "quetes": {
             "type": "array",
             "items": {

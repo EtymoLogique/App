@@ -110,6 +110,7 @@ pub async fn publier_fascicules(
         referentiels: calendrier.referentiels.clone(),
         quetes: calendrier.quetes.clone(),
         cadeau_de_bienvenue: calendrier.cadeau_de_bienvenue.clone(),
+        prochaine_parution: a_venir.iter().map(|f| f.parution.to_utc()).min(),
         fascicules: parus.into_values().collect(),
     };
     if actuel.as_ref() != Some(&index) {

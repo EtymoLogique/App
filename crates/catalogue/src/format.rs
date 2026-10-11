@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Utc};
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::cadeau::CadeauDeBienvenue;
 use etymo_domaine::jalon::Jalon;
@@ -33,6 +33,11 @@ pub struct Calendrier {
     /// Cadeau de bienvenue, unique par profil (ADR 0046) ; absent d'un index antérieur.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cadeau_de_bienvenue: Option<CadeauDeBienvenue>,
+    /// Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre
+    /// de ce fascicule (ADR 0049) ; absente s'il n'y en a plus.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub prochaine_parution: Option<DateTime<Utc>>,
     pub fascicules: Vec<EntreeFascicule>,
 }
 

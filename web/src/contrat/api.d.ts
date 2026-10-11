@@ -413,6 +413,12 @@ export interface components {
             /** Format: int32 */
             format: number;
             /**
+             * Format: date-time
+             * @description Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre
+             *     de ce fascicule (ADR 0049) ; absente s'il n'y en a plus.
+             */
+            prochaine_parution?: string | null;
+            /**
              * @description Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
              *     absentes d'un index antérieur.
              */

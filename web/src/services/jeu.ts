@@ -19,6 +19,18 @@ export interface FasciculeParu {
 
 export type { Rarete }
 
+/**
+ * « Prochain fascicule : 1ᵉʳ novembre » (ADR 0049), ou `null` s'il n'y en a pas
+ * ou si sa date est passée (l'index n'est pas encore relu). Le jour est celui de l'heure UTC publiée.
+ */
+export function prochainFascicule(jeu: Pick<CatalogueJeu, 'prochaineParution'>, maintenant = new Date()): string | null {
+  const date = jeu.prochaineParution ? new Date(jeu.prochaineParution) : null
+  if (!date || Number.isNaN(date.getTime()) || date <= maintenant) return null
+  const mois = date.toLocaleDateString('fr-FR', { month: 'long', timeZone: 'UTC' })
+  const jour = date.getUTCDate()
+  return `Prochain fascicule\u00a0: ${jour === 1 ? '1ᵉʳ' : jour}\u00a0${mois}`
+}
+
 /** « Fascicule Rosette, n° 1 » pour un lecteur d'écran ; « Fascicule n° 1 » s'il n'a pas de nom. */
 export function libelleFascicule(fascicule: { numero: number; manifeste: Manifeste }): string {
   const nom = fascicule.manifeste.nom
@@ -60,6 +72,8 @@ export interface CatalogueJeu {
   typesTransformation: Map<string, string>
   /** Quêtes au long cours déclarées par l'index (ADR 0045). */
   quetes: QueteLongCours[]
+  /** Date (UTC) du prochain fascicule du calendrier, rien d'autre de lui (ADR 0049). */
+  prochaineParution: string | null
 }
 
 export type Prevision =
@@ -171,6 +185,7 @@ export async function chargerJeu(lecteur: LecteurCatalogue): Promise<CatalogueJe
     typesRelation: nomsDesTypes(index, 'types_relation'),
     typesTransformation: nomsDesTypes(index, 'types_transformation'),
     quetes: index.quetes ?? [],
+    prochaineParution: index.prochaine_parution ?? null,
   }
   for (const entree of index.fascicules) {
     const manifeste = await lecteur.manifeste(entree.manifeste)
