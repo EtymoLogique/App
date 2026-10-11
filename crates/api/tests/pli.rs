@@ -23,13 +23,13 @@ fn pli(etat: &Value) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn un_nouveau_joueur_a_deux_plis_prets(base: PgPool) {
+async fn un_nouveau_joueur_a_dix_plis_prets(base: PgPool) {
     let banc = banc(base, Limiteurs::default()).await;
     let jeton = session(&banc.routeur).await;
     let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
     assert_eq!(
         etat["energie"],
-        json!({ "charges": 2, "capacite": 2, "prochaine_charge": null, "recharge_s": 43_200 })
+        json!({ "charges": 10, "capacite": 10, "prochaine_charge": null, "recharge_s": 43_200 })
     );
     assert_eq!(etat["encre"], 0);
 }
@@ -53,7 +53,7 @@ async fn un_pli_consomme_une_charge_et_se_rejoue(base: PgPool) {
     // Au moins la base de 2 gouttes ; un doublon commun en rapporte une de plus.
     assert_eq!(reponse["ouverture"]["encre"], if nouvelle { 2 } else { 3 });
     let etat = &reponse["etat"];
-    assert_eq!(etat["energie"]["charges"], 1);
+    assert_eq!(etat["energie"]["charges"], 9);
     assert!(etat["energie"]["prochaine_charge"].is_string());
     assert_eq!(etat["encre"], reponse["ouverture"]["encre"]);
     assert_eq!(etat["historique_plis"].as_array().unwrap().len(), 1);
@@ -74,7 +74,7 @@ async fn sans_charge_le_pli_est_refuse(base: PgPool) {
     let banc = banc(base, Limiteurs::default()).await;
     let jeton = session(&banc.routeur).await;
     let (_, _, mut etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
-    for _ in 0..2 {
+    for _ in 0..10 {
         let (statut, _, reponse) = appeler(&banc.routeur, post_pli(&jeton, &pli(&etat))).await;
         assert_eq!(statut, StatusCode::OK, "{reponse}");
         etat = reponse["etat"].clone();

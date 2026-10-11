@@ -36,19 +36,22 @@ const VOYELLES = /[aeiouyàâäéèêëîïôöùûüœæαεηιουωάέήί�
 const coupe = (lettres: string[], i: number) =>
   i > 1 && i < lettres.length - 1 && VOYELLES.test(lettres[i - 1] ?? '') && !VOYELLES.test(lettres[i] ?? '') && VOYELLES.test(lettres[i + 1] ?? '')
 
-/** « 1 / 2 » et le temps restant ; arrêté à 2 / 2 (ADR 0020). */
+/** Plis dessinés dans la pile ; au-delà, un chiffre sur fond noir donne le compte. */
+const PILE_MAX = 3
+
+/** « 1 / 10 » et le temps restant ; arrêté à 10 / 10 (ADR 0020, 0062). */
 function useEnergie(etat: Etat | null) {
   const maintenant = useMaintenant()
   // Des sabliers utilisés font défiler le temps restant au lieu de le faire sauter.
   const { energie: energieEtat, avance } = useEnergieAnimee(etat?.energie, maintenant)
-  if (!energieEtat) return { charges: 0, capacite: 2, texte: 'Plis en attente du serveur', progression: 0, restant: undefined, avance: false }
+  if (!energieEtat) return { charges: 0, capacite: 10, texte: 'Plis en attente du serveur', progression: 0, restant: undefined, avance: false }
   const { capacite, recharge_s } = energieEtat
   const { charges, prochaine } = energieA(energieEtat, maintenant)
   const reste = prochaine === null ? 0 : prochaine - maintenant
   return {
     charges,
     capacite,
-    texte: prochaine === null ? 'Deux plis prêts à être ouverts' : `+1 dans ${duree(reste)}`,
+    texte: prochaine === null ? 'Dix plis prêts à être ouverts' : `+1 dans ${duree(reste)}`,
     progression: prochaine === null ? 1 : 1 - reste / (recharge_s * 1000),
     restant: prochaine === null ? undefined : duree(reste),
     avance,
@@ -81,8 +84,31 @@ function PlisEnAttente({
   /** Des sabliers font avancer la recharge : la jauge s'entoure d'un halo. */
   avance?: boolean
 }) {
+  if (grand) {
+    // Grand format : les plis prêts s'empilent, suivis d'un pli en pointillés qui porte l'anneau de recharge.
+    return (
+      <span className="pk-waiting is-grand is-pile" role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
+        {Array.from({ length: Math.min(charges, PILE_MAX) }, (_, i) => (
+          <span key={i} className="jk-mini is-xs">
+            {jaquette && (
+              <span className="jk-art">
+                <img src={urlMedia(jaquette)} alt="" decoding="async" />
+              </span>
+            )}
+            {charges > PILE_MAX && i === PILE_MAX - 1 && <span className="pk-pile-nb" aria-hidden="true">{charges}</span>}
+          </span>
+        ))}
+        <span className="jk-mini is-xs is-empty">
+          <span className="pk-recharge">
+            <Anneau progression={progression} avance={avance} />
+            {restant && <span className="pk-restant">{restant}</span>}
+          </span>
+        </span>
+      </span>
+    )
+  }
   return (
-    <span className={grand ? 'pk-waiting is-grand' : 'pk-waiting'} role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
+    <span className="pk-waiting" role="img" aria-label={`${charges} pli${charges > 1 ? 's' : ''} prêt${charges > 1 ? 's' : ''} sur ${capacite}`}>
       {Array.from({ length: capacite }, (_, i) =>
         i < charges ? (
           <span key={i} className="jk-mini is-xs">
@@ -120,6 +146,8 @@ function CartePlisEnAttente({
   /** Raccourci des sabliers, quand le temps manque. */
   children?: ReactNode
 }) {
+  // Dix plis prêts : rien ne charge, la carte disparaît.
+  if (energie.charges >= energie.capacite) return null
   return (
     <div className="pk-card pk-energie">
       <p className="pk-label">Plis en chargement</p>
@@ -134,10 +162,9 @@ function CartePlisEnAttente({
           avance={energie.avance}
           grand
         />
-        {/* Le compte à rebours vit dans le pli en pointillés ; plein, le temps s'arrête. */}
-        <small className={energie.charges < energie.capacite ? 'sr-only' : undefined}>{energie.texte}</small>
+        <small>{energie.charges} / {energie.capacite} plis prêts</small>
       </div>
-      <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand deux plis vous attendent. Les plis ne limitent jamais les fusions.</p>
+      <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand dix plis vous attendent. Les plis ne limitent jamais les fusions.</p>
       {children}
     </div>
   )
@@ -715,7 +742,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
           <li>Chances affichées pour chaque rareté, chaque type et chaque brique. {fixe ? 'Les légendaires ont une seule ligne, à chance fixe : leur nombre reste secret.' : 'Les légendaires inconnues forment une seule ligne : leur nombre reste secret.'}</li>
           <li>Une brique nouvelle garantie au moins tous les {garantie} plis{fixe ? ', jamais une légendaire' : ''}.</li>
           <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli{fixe ? ', jamais une légendaire' : ''}.</li>
-          <li>Deux plis au plus en attente, un toutes les 12&nbsp;h.</li>
+          <li>Dix plis au plus en attente, un toutes les 12&nbsp;h.</li>
           <li>Un sablier avance la recharge d’une heure. L’encre en achète sans limite, à la boutique.</li>
           <li>La garantie de nouveauté et le filet se comptent par fascicule.</li>
         </ul>

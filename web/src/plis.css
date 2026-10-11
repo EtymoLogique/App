@@ -405,12 +405,17 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 
 /* Plis en attente, en petit, à côté du compteur d'énergie. */
 .pk-ready { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.pk-waiting { display: inline-flex; gap: 6px; }
+.pk-waiting { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .pk-waiting .jk-mini.is-xs { width: 28px; rotate: none; }
 .pk-waiting.is-grand { gap: 12px; }
 .pk-waiting.is-grand .jk-mini.is-xs { width: 64px; border-width: 2px; border-radius: 8px; box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19; }
 .pk-waiting.is-grand .jk-mini.is-xs .jk-art { inset: 5px; border-radius: 5px; }
 .pk-waiting.is-grand .jk-mini.is-empty { box-shadow: none; }
+/* Pile : chaque pli recouvre en partie le précédent, la carte ne déborde plus. */
+.pk-waiting.is-pile { flex-wrap: nowrap; gap: 0; padding: 0 0 0 4px; }
+.pk-waiting.is-pile .jk-mini.is-xs + .jk-mini.is-xs { margin-left: -48px; }
+.pk-pile-nb { position: absolute; right: -8px; bottom: -8px; min-width: 24px; padding: 2px 6px; border-radius: 12px; background: var(--ink); color: var(--cream); font: 700 13px/1.3 var(--mono); text-align: center; }
+.pk-waiting.is-pile .jk-mini.is-xs + .jk-mini.is-xs.is-empty { margin-left: 12px; }
 /* Pli en recharge : fond uni Crème sous ses pointillés. */
 .pk-waiting .jk-mini.is-empty { background: var(--cream); }
 /* Recharge en cours : un petit anneau au cœur du premier pli en pointillés. */
