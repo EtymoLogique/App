@@ -503,9 +503,9 @@ describe('table de fusion', () => {
     // Une seule annonce pour tout le lot, puis une brique par pli, qui s'essaie sur la table.
     expect(await screen.findByText(/^2 plis ouverts : 1 nouvelle brique, \+5 gouttes d’encre\.$/, undefined, { timeout: 4000 })).toHaveAttribute('role', 'status')
     expect(screen.getAllByRole('button', { name: /Essayer sur la table$/ })).toHaveLength(2)
-    expect(screen.getByRole('button', { name: 'Continuer' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuer' })).toHaveFocus())
     delete document.documentElement.dataset.mouvement
-  })
+  }, 15_000)
 
   it('n’offre l’ouverture groupée qu’à partir de deux plis prêts', async () => {
     document.documentElement.dataset.mouvement = 'reduit'

@@ -327,7 +327,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
   /** Ouverture groupée en cours ou terminée : les plis s'affichent avant les réponses (`reponses: null`). */
   const [groupe, setGroupe] = useState<{ nombre: number; reponses: ReponsePli[] | null } | null>(null)
   const bilanGroupe = useRef<{ reponses: ReponsePli[]; erreur?: string }>({ reponses: [] })
-  const continuerGroupe = useRef<HTMLButtonElement>(null)
+  /** Le bouton « Continuer » prend le focus dès qu'il apparaît, sans le reprendre aux rendus suivants. */
+  const focaliserContinuer = useCallback((el: HTMLButtonElement | null) => el?.focus({ preventScroll: true }), [])
   const passer = useRef(false)
   const occupe = useRef(false)
   const scene = useRef<HTMLDivElement>(null)
@@ -432,9 +433,6 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
     setStatut([annonce, resumeGroupe(reponses).texte, erreur].filter(Boolean).join(' '))
     occupe.current = false
   }, [onGeler, raretes])
-  useEffect(() => {
-    if (etape === 'revealed' && groupe) continuerGroupe.current?.focus({ preventScroll: true })
-  }, [etape, groupe])
   // Quitter l'atelier pendant le rituel ne laisse rien de gelé.
   useEffect(() => () => onGeler(false), [onGeler])
 
@@ -617,7 +615,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
             )}
             {etape === 'revealed' && groupe && (
               <div className="pk-actions">
-                <button ref={continuerGroupe} type="button" className="btn btn-secondary" onClick={continuer}>
+                <button ref={focaliserContinuer} type="button" className="btn btn-secondary" onClick={continuer}>
                   Continuer
                 </button>
               </div>
