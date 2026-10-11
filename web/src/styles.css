@@ -252,13 +252,13 @@ button { font: inherit; }
 /* État vide (design système 2.8). */
 .empty { display: grid; justify-items: center; gap: 10px; max-width: 320px; margin: 0 auto; padding: 24px 16px; text-align: center; }
 .empty .ill { display: grid; place-items: center; width: 72px; height: 72px; border: 2px dashed var(--line-strong); border-radius: 16px; color: var(--ink-3); font-family: var(--serif); font-size: 34px; font-style: italic; }
-.empty h3 { font-family: var(--serif); font-size: 20px; }
+.empty h2 { font-family: var(--serif); font-size: 20px; }
 .empty p { color: var(--ink-2); font-size: 13px; }
 
 /* ---------- Réglages (I-24) ---------- */
 .reglages { display: grid; gap: 16px; max-width: 560px; }
 .reglage { display: grid; gap: 10px; margin: 0; padding: 18px 20px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
-.reglage h3 { padding: 0; font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
+.reglage h2 { padding: 0; font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
 .segments { display: flex; flex-wrap: wrap; gap: 8px; clear: both; }
 .segments label {
   display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px;

@@ -8,7 +8,7 @@ use crate::routes;
 #[derive(OpenApi)]
 #[openapi(
     info(title = "API de jeu d'ÉtymoLogique", description = "Commandes de la PWA. Le serveur fait foi (ADR 0007)."),
-    paths(routes::sante, routes::session, routes::etat, routes::fusion, routes::ouvrir_pli, routes::utiliser_sabliers, routes::acheter_sabliers, routes::acheter_indice, routes::recuperer_jalon, routes::seance_ricochets, routes::repondre_ricochet, routes::recuperer_palier, routes::reinitialiser),
+    paths(routes::sante, routes::session, routes::etat, routes::fusion, routes::ouvrir_pli, routes::utiliser_sabliers, routes::acheter_sabliers, routes::acheter_indice, routes::recuperer_jalon, routes::seance_ricochets, routes::repondre_ricochet, routes::recuperer_palier, routes::recuperer_carte_de_lecteur, routes::recuperer_cadeau, routes::recuperer_quete_initiale, routes::reinitialiser),
     // Formats de l'artefact du catalogue, lus par la PWA sur le CDN (ADR 0027).
     components(schemas(
         etymo_catalogue::Calendrier,

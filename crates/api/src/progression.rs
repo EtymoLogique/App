@@ -7,10 +7,11 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
 use etymo_contrat::{
-    CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, IndiceObtenu, OuverturePli,
-    ProgressionQuete, SabliersEtat,
+    CadeauEtat, CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, IndiceObtenu,
+    OuverturePli, ProgressionQuete, SabliersEtat,
 };
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::carte_de_lecteur;
 use etymo_domaine::energie::{self, Energie};
 use etymo_domaine::pli::{self, Compteurs, Regle, Resultat};
 use etymo_domaine::quete::{self, Codex};
@@ -20,7 +21,7 @@ use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
-use crate::ricochets;
+use crate::{carte_lecteur, quetes_initiales, quetes_jour, ricochets};
 
 pub type Tx<'a> = Transaction<'a, Postgres>;
 
@@ -139,6 +140,13 @@ pub async fn etat(
             None => Vec::new(),
         },
         paliers_recuperes: paliers_recuperes(&mut *tx, joueur).await?,
+        quetes_du_jour: quetes_jour::du_jour(&mut *tx, joueur, jeu, maintenant.date_naive())
+            .await?,
+        // Après les quêtes : le tampon du jour se pose quand la dernière est faite.
+        cadeau_de_bienvenue: cadeau_etat(&mut *tx, joueur, jeu).await?,
+        carte_de_lecteur: Some(carte_lecteur::etat(&mut *tx, joueur).await?),
+        // En dernier : elles lisent la carte de lecteur et les ricochets du jour.
+        quetes_initiales: quetes_initiales::etat(&mut *tx, joueur, jeu, maintenant).await?,
     })
 }
 
@@ -356,7 +364,7 @@ pub async fn ouvrir_pli(
     historiser_pli(&mut *tx, joueur, effets, "energie", gouttes).await
 }
 
-async fn historiser_pli(
+pub(crate) async fn historiser_pli(
     tx: &mut PgConnection,
     joueur: Uuid,
     effets: &EffetsPli<'_>,
@@ -383,7 +391,7 @@ async fn historiser_pli(
 }
 
 /// Un exemplaire de plus, tracé dans `mouvement`.
-async fn crediter_exemplaire(
+pub(crate) async fn crediter_exemplaire(
     tx: &mut PgConnection,
     joueur: Uuid,
     commande: Option<Uuid>,
@@ -415,7 +423,7 @@ async fn crediter_exemplaire(
 }
 
 /// Ajoute (ou retire, `gouttes` négatif) de l'encre, tracée dans `mouvement`.
-async fn crediter_encre(
+pub(crate) async fn crediter_encre(
     tx: &mut PgConnection,
     joueur: Uuid,
     commande: Option<Uuid>,
@@ -460,7 +468,7 @@ async fn crediter_encre(
 }
 
 /// Ajoute (ou retire) des sabliers détenus, tracés dans `mouvement`.
-async fn crediter_sabliers(
+pub(crate) async fn crediter_sabliers(
     tx: &mut PgConnection,
     joueur: Uuid,
     commande: Option<Uuid>,
@@ -687,6 +695,68 @@ pub async fn atteindre_jalons(
     Ok(atteints)
 }
 
+/// Accorde des briques de plis au contenu fixé (jalon, cadeau, quête initiale) :
+/// un exemplaire de chacune, de l'encre si la réserve est pleine, une ligne
+/// d'historique d'origine `origine`. Sans énergie, hors garanties.
+pub(crate) async fn accorder_plis_fixes<'a>(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+    commande: Uuid,
+    briques: impl Iterator<Item = (&'a IdCatalogue, &'a IdCatalogue)>,
+    origine: &str,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    let mut stock = stock(&mut *tx, joueur).await?;
+    for (brique, fascicule) in briques {
+        let equilibrage = jeu.equilibrage(fascicule);
+        let resultat = pli::resultat(stock.get(brique).copied());
+        let gouttes = match (resultat, equilibrage, jeu.rarete(brique)) {
+            (Resultat::ReservePleine, Some(e), Some(rarete)) => {
+                *e.parametres.encre_reserve_pleine.get(&rarete).unwrap_or(&0)
+            }
+            _ => 0,
+        };
+        let gouttes = i32::try_from(gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+        if resultat == Resultat::ReservePleine {
+            crediter_encre(
+                &mut *tx,
+                joueur,
+                Some(commande),
+                gouttes,
+                origine,
+                maintenant,
+            )
+            .await?;
+        } else {
+            crediter_exemplaire(
+                &mut *tx,
+                joueur,
+                Some(commande),
+                brique.as_str(),
+                origine,
+                maintenant,
+            )
+            .await?;
+            *stock.entry(brique.clone()).or_default() += 1;
+        }
+        let effets = EffetsPli {
+            commande,
+            fascicule,
+            brique,
+            resultat,
+            regle: Regle::Deterministe,
+            gouttes: 0,
+            energie: Energie::pleine(),
+            compteurs: Compteurs::default(),
+            version_equilibrage: equilibrage.map_or(origine, |e| e.version.as_str()),
+            maintenant,
+        };
+        historiser_pli(&mut *tx, joueur, &effets, origine, gouttes).await?;
+    }
+    Ok(())
+}
+
 /// Récupère la récompense d'un jalon atteint (ADR 0042) : un pli
 /// déterministe (un exemplaire de chaque brique, de l'encre si la réserve est
 /// pleine) et des sabliers. Refuse un jalon inconnu (`400`), pas encore
@@ -723,56 +793,196 @@ pub async fn recuperer_jalon(
             },
         );
     }
-    let equilibrage = jeu.equilibrage(&fascicule.fascicule_id);
-    let mut stock = stock(&mut *tx, joueur).await?;
-    for brique in &jalon.pli {
-        let resultat = pli::resultat(stock.get(brique).copied());
-        let gouttes = match (resultat, equilibrage, jeu.rarete(brique)) {
-            (Resultat::ReservePleine, Some(e), Some(rarete)) => {
-                *e.parametres.encre_reserve_pleine.get(&rarete).unwrap_or(&0)
-            }
-            _ => 0,
-        };
-        let gouttes = i32::try_from(gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
-        if resultat == Resultat::ReservePleine {
-            crediter_encre(
-                &mut *tx,
-                joueur,
-                Some(commande),
-                gouttes,
-                "jalon",
-                maintenant,
-            )
-            .await?;
-        } else {
-            crediter_exemplaire(
-                &mut *tx,
-                joueur,
-                Some(commande),
-                brique.as_str(),
-                "jalon",
-                maintenant,
-            )
-            .await?;
-            *stock.entry(brique.clone()).or_default() += 1;
-        }
-        let effets = EffetsPli {
-            commande,
-            fascicule: &fascicule.fascicule_id,
-            brique,
-            resultat,
-            regle: Regle::Deterministe,
-            gouttes: 0,
-            energie: Energie::pleine(),
-            compteurs: Compteurs::default(),
-            version_equilibrage: equilibrage.map_or("jalon", |e| e.version.as_str()),
-            maintenant,
-        };
-        historiser_pli(&mut *tx, joueur, &effets, "jalon", gouttes).await?;
-    }
+    accorder_plis_fixes(
+        &mut *tx,
+        joueur,
+        jeu,
+        commande,
+        jalon.pli.iter().map(|b| (b, &fascicule.fascicule_id)),
+        "jalon",
+        maintenant,
+    )
+    .await?;
     let ajout = i32::try_from(jalon.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
     crediter_sabliers(&mut *tx, joueur, Some(commande), ajout, "jalon", maintenant).await?;
     Ok(())
+}
+
+/// Accorde une brique tirée par un pli sans énergie (lecteur, offert) : un
+/// exemplaire, ou de l'encre si la réserve est pleine, et une ligne d'historique
+/// d'origine `origine`.
+pub(crate) async fn accorder_brique_tiree(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    effets: &EffetsPli<'_>,
+    origine: &str,
+) -> Result<(), ErreurApi> {
+    let gouttes = i32::try_from(effets.gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    if effets.resultat == Resultat::ReservePleine {
+        crediter_encre(
+            &mut *tx,
+            joueur,
+            Some(effets.commande),
+            gouttes,
+            origine,
+            effets.maintenant,
+        )
+        .await?;
+    } else {
+        crediter_exemplaire(
+            &mut *tx,
+            joueur,
+            Some(effets.commande),
+            effets.brique.as_str(),
+            origine,
+            effets.maintenant,
+        )
+        .await?;
+    }
+    historiser_pli(&mut *tx, joueur, effets, origine, gouttes).await
+}
+
+/// Accorde des sabliers et de l'encre d'une récompense, sous le motif `motif`.
+pub(crate) async fn accorder_sabliers_et_encre(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Uuid,
+    sabliers: u32,
+    gouttes: u32,
+    motif: &str,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    let entier = |n: u32| i32::try_from(n).map_err(|e| ErreurApi::Interne(e.to_string()));
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        entier(gouttes)?,
+        motif,
+        maintenant,
+    )
+    .await?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        entier(sabliers)?,
+        motif,
+        maintenant,
+    )
+    .await
+}
+
+/// Accorde la récompense d'une carte de lecteur pleine (ADR 0045) : de
+/// l'encre, des sabliers et la brique du pli de lecteur, déjà tirée. Comme un
+/// pli de jalon, il ne consomme pas d'énergie et ne compte pour aucune garantie.
+pub async fn accorder_carte_de_lecteur(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    effets: &EffetsPli<'_>,
+) -> Result<(), ErreurApi> {
+    accorder_brique_tiree(&mut *tx, joueur, effets, "lecteur").await?;
+    accorder_sabliers_et_encre(
+        &mut *tx,
+        joueur,
+        effets.commande,
+        carte_de_lecteur::SABLIERS,
+        carte_de_lecteur::GOUTTES,
+        "lecteur",
+        effets.maintenant,
+    )
+    .await
+}
+
+/// Cadeau de bienvenue du catalogue et s'il est déjà récupéré (ADR 0046).
+async fn cadeau_etat(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: Option<&Jeu>,
+) -> Result<Option<CadeauEtat>, ErreurApi> {
+    let Some(cadeau) = jeu.and_then(|j| j.cadeau.as_ref()) else {
+        return Ok(None);
+    };
+    let recupere = sqlx::query_scalar!(
+        "SELECT true FROM cadeau_recupere WHERE joueur_id = $1",
+        joueur
+    )
+    .fetch_optional(tx)
+    .await?
+    .is_some();
+    Ok(Some(CadeauEtat {
+        plis: cadeau.plis.clone(),
+        sabliers: cadeau.sabliers,
+        encre: cadeau.encre,
+        recupere,
+    }))
+}
+
+/// Récupère le cadeau de bienvenue, une fois par profil (ADR 0046) : des plis
+/// au contenu fixé, des sabliers et de l'encre. `403` : aucun cadeau déclaré ;
+/// `409` : déjà récupéré.
+pub async fn recuperer_cadeau(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+    commande: Uuid,
+) -> Result<(), ErreurApi> {
+    let cadeau = jeu
+        .cadeau
+        .as_ref()
+        .ok_or(ErreurApi::Interdit("aucun cadeau de bienvenue"))?;
+    let maintenant = Utc::now();
+    let inseree = sqlx::query_scalar!(
+        "INSERT INTO cadeau_recupere (joueur_id, recupere_le) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING RETURNING true",
+        joueur,
+        maintenant
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if inseree.is_none() {
+        return Err(ErreurApi::Conflit("cadeau déjà récupéré"));
+    }
+    let plis: Vec<_> = cadeau
+        .plis
+        .iter()
+        .filter_map(|b| {
+            jeu.plis
+                .iter()
+                .find(|p| p.briques.iter().any(|x| &x.id == b))
+                .map(|p| (b, &p.fascicule_id))
+        })
+        .collect();
+    accorder_plis_fixes(
+        &mut *tx,
+        joueur,
+        jeu,
+        commande,
+        plis.into_iter(),
+        "cadeau",
+        maintenant,
+    )
+    .await?;
+    let sabliers = i32::try_from(cadeau.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        sabliers,
+        "cadeau",
+        maintenant,
+    )
+    .await?;
+    let encre = i32::try_from(cadeau.encre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        Some(commande),
+        encre,
+        "cadeau",
+        maintenant,
+    )
+    .await
 }
 
 async fn jalons_recuperes(
@@ -807,7 +1017,7 @@ async fn paliers_recuperes(
 }
 
 /// Briques connues du joueur : sa réserve, dont la carte se montre au codex.
-async fn briques_connues(
+pub(crate) async fn briques_connues(
     tx: &mut PgConnection,
     joueur: Uuid,
 ) -> Result<HashSet<IdCatalogue>, ErreurApi> {
@@ -837,12 +1047,26 @@ async fn progression_quetes(
         mots: &mots,
         briques: &briques,
     };
+    let maitrisees = sqlx::query_scalar!(
+        "SELECT count(*) FROM ricochet WHERE joueur_id = $1 AND maitrisee_le IS NOT NULL",
+        joueur
+    )
+    .fetch_one(&mut *tx)
+    .await?
+    .unwrap_or(0);
+    let maitrisees = u32::try_from(maitrisees).unwrap_or(u32::MAX);
+    let cartes = carte_lecteur::remplies(&mut *tx, joueur).await?;
     Ok(jeu
         .quetes
         .iter()
         .map(|q| ProgressionQuete {
             quete_id: q.id.clone(),
-            progression: jeu.mesures.progression(&q.sorte, &codex),
+            progression: match q.sorte {
+                // Une carte légendaire n'est jamais un ricochet : aucune n'est comptée.
+                quete::Sorte::Ricochets => maitrisees,
+                quete::Sorte::Lecteur => cartes,
+                _ => jeu.mesures.progression(&q.sorte, &codex),
+            },
         })
         .collect())
 }
@@ -1170,6 +1394,24 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
     sqlx::query!("DELETE FROM ricochet_jour WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
+    sqlx::query!("DELETE FROM quete_jour WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM quete_initiale WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM cadeau_recupere WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM tampon WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!(
+        "DELETE FROM carte_lecteur_recuperee WHERE joueur_id = $1",
+        joueur
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!("DELETE FROM palier_recupere WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
@@ -1214,7 +1456,10 @@ pub async fn graines_sans_exemplaire(
 pub async fn incrementer_version(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
     sqlx::query!(
         "UPDATE joueur SET version_etat = version_etat + 1,
-             jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int, derniere_activite = now()
+             jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,
+             mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')
+                 THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,
+             derniere_activite = now()
          WHERE id = $1",
         joueur
     )

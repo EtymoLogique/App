@@ -205,7 +205,7 @@ export function App({ api, catalogue }: Props) {
                         <span className="ill" aria-hidden="true">
                           ?
                         </span>
-                        <h3>Aucun mot possible pour l’instant</h3>
+                        <h2>Aucun mot possible pour l’instant</h2>
                         <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
                         <div className="rangee rangee-centree">
                           <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
@@ -320,6 +320,9 @@ export function App({ api, catalogue }: Props) {
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   recuperer={partie.recupererJalon}
                   recupererPalier={partie.recupererPalier}
+                  recupererCarte={partie.recupererCarte}
+                  recupererCadeau={partie.recupererCadeau}
+                  recupererQueteInitiale={partie.recupererQueteInitiale}
                   inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
                 />
               </section>

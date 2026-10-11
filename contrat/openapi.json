@@ -10,6 +10,198 @@
     "version": "1"
   },
   "paths": {
+    "/cadeau": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis\nau contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.",
+        "operationId": "recuperer_cadeau",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCadeau"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Cadeau récupéré et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseCadeau"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aucun cadeau de bienvenue déclaré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/carte-de-lecteur": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de\nl'encre, un sablier et un pli de lecteur dont le joueur choisit le\nfascicule. Le pli tire parmi les briques peu communes et rares, les\nlégendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne\ncompte pour aucune garantie.",
+        "operationId": "recuperer_carte_de_lecteur",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCarteDeLecteur"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseCarteDeLecteur"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou fascicule sans pli de lecteur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aucune carte de lecteur pleine",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/dev/reset": {
       "post": {
         "tags": [
@@ -529,6 +721,102 @@
           },
           "409": {
             "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/quete-initiale": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'une quête initiale faite pendant la première\nsemaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,\nsabliers, encre. Sans énergie, hors garanties.",
+        "operationId": "recuperer_quete_initiale",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeQueteInitiale"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseQueteInitiale"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide, fascicule manquant ou sans pli",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Quête initiale pas faite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déjà récupérée, état ou catalogue périmé : resynchroniser",
             "content": {
               "application/json": {
                 "schema": {
@@ -1168,6 +1456,66 @@
           }
         }
       },
+      "CadeauDeBienvenue": {
+        "type": "object",
+        "required": [
+          "plis"
+        ],
+        "properties": {
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes d'encre.",
+            "minimum": 0
+          },
+          "plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Une brique par pli de bienvenue, choisie pour ouvrir des recettes ; jamais une légendaire."
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CadeauEtat": {
+        "type": "object",
+        "description": "Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance.",
+        "required": [
+          "plis",
+          "sabliers",
+          "encre",
+          "recupere"
+        ],
+        "properties": {
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Une brique par pli de bienvenue."
+          },
+          "recupere": {
+            "type": "boolean"
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "Calendrier": {
         "type": "object",
         "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
@@ -1178,6 +1526,17 @@
           "fascicules"
         ],
         "properties": {
+          "cadeau_de_bienvenue": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CadeauDeBienvenue",
+                "description": "Cadeau de bienvenue, unique par profil (ADR 0046) ; absent d'un index antérieur."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "essai": {
             "type": "boolean"
           },
@@ -1191,6 +1550,14 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "prochaine_parution": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre\nde ce fascicule (ADR 0049) ; absente s'il n'y en a plus."
           },
           "quetes": {
             "type": "array",
@@ -1287,6 +1654,49 @@
           }
         }
       },
+      "CarteDeLecteurEtat": {
+        "type": "object",
+        "description": "Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,\nsans série ni expiration.",
+        "required": [
+          "tampons",
+          "taille",
+          "a_recuperer",
+          "remplies",
+          "recompense"
+        ],
+        "properties": {
+          "a_recuperer": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cartes pleines dont la récompense attend.",
+            "minimum": 0
+          },
+          "recompense": {
+            "$ref": "#/components/schemas/RecompenseCarte"
+          },
+          "remplies": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cartes pleines, récupérées ou non.",
+            "minimum": 0
+          },
+          "taille": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Tampons d'une carte pleine.",
+            "minimum": 1
+          },
+          "tampons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Jours des tampons de la carte affichée, du plus ancien au plus récent :\nla plus ancienne carte pleine à récupérer, sinon la carte en cours."
+          }
+        },
+        "additionalProperties": false
+      },
       "CarteManifeste": {
         "type": "object",
         "required": [
@@ -1376,6 +1786,28 @@
           "trop_de_requetes",
           "indisponible",
           "interne"
+        ]
+      },
+      "CodeQueteDuJour": {
+        "type": "string",
+        "description": "Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.",
+        "enum": [
+          "table_sens",
+          "memoire_sans_faute",
+          "memoire_litteral",
+          "memoire_maitrise",
+          "adresse_decouper",
+          "adresse_paires"
+        ]
+      },
+      "CodeQueteInitiale": {
+        "type": "string",
+        "description": "Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.",
+        "enum": [
+          "trois_mots",
+          "transformation",
+          "premiers_ricochets",
+          "premiere_carte"
         ]
       },
       "CompositionCarte": {
@@ -1501,6 +1933,62 @@
             "format": "int32",
             "maximum": 1000,
             "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeCadeau": {
+        "type": "object",
+        "description": "Commande de récupération du cadeau de bienvenue.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeCarteDeLecteur": {
+        "type": "object",
+        "description": "Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "fascicule_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
           },
           "version_catalogue": {
             "type": "string",
@@ -1669,6 +2157,47 @@
           "version_catalogue": {
             "type": "string",
             "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeQueteInitiale": {
+        "type": "object",
+        "description": "Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CodeQueteInitiale"
+          },
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "fascicule_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Obligatoire si la récompense contient des plis."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version_catalogue": {
+            "type": "string",
             "maxLength": 64
           },
           "version_etat": {
@@ -2025,6 +2554,28 @@
           "historique_plis"
         ],
         "properties": {
+          "cadeau_de_bienvenue": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CadeauEtat",
+                "description": "Cadeau de bienvenue déclaré par le catalogue (ADR 0046) ; absent s'il n'y en a pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carte_de_lecteur": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CarteDeLecteurEtat",
+                "description": "Carte de lecteur (ADR 0045) ; absente avant App#21."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "compteurs_plis": {
             "type": "array",
             "items": {
@@ -2105,6 +2656,20 @@
               "$ref": "#/components/schemas/ProgressionQuete"
             },
             "description": "Progression de chaque quête au long cours, calculée par le serveur sur\nle codex (ADR 0045). Un palier est atteint quand elle franchit son seuil."
+          },
+          "quetes_du_jour": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueteDuJour"
+            },
+            "description": "Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première\nvisite du jour ; vide avant App#20 ou sans catalogue."
+          },
+          "quetes_initiales": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueteInitialeEtat"
+            },
+            "description": "Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées."
           },
           "reserve": {
             "type": "array",
@@ -2883,6 +3448,95 @@
         },
         "additionalProperties": false
       },
+      "QueteDuJour": {
+        "type": "object",
+        "required": [
+          "rang",
+          "sorte",
+          "code",
+          "cible",
+          "progres",
+          "faite"
+        ],
+        "properties": {
+          "cible": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ce qu'il faut atteindre.",
+            "minimum": 1
+          },
+          "code": {
+            "$ref": "#/components/schemas/CodeQueteDuJour"
+          },
+          "faite": {
+            "type": "boolean"
+          },
+          "mot_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Le mot à trouver, pour la quête de table."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progres": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.",
+            "minimum": 0
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 2,
+            "minimum": 0
+          },
+          "sorte": {
+            "$ref": "#/components/schemas/SorteQueteDuJour"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QueteInitialeEtat": {
+        "type": "object",
+        "required": [
+          "code",
+          "cible",
+          "progres",
+          "faite",
+          "recuperee",
+          "recompense"
+        ],
+        "properties": {
+          "cible": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "code": {
+            "$ref": "#/components/schemas/CodeQueteInitiale"
+          },
+          "faite": {
+            "type": "boolean",
+            "description": "Faite pendant la première semaine : la récompense peut se récupérer."
+          },
+          "progres": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "recompense": {
+            "$ref": "#/components/schemas/RecompenseInitiale"
+          },
+          "recuperee": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "QueteLongCours": {
         "allOf": [
           {
@@ -2972,6 +3626,67 @@
           }
         }
       },
+      "RecompenseCarte": {
+        "type": "object",
+        "description": "Ce que donne une carte de lecteur pleine, annoncé d'avance.",
+        "required": [
+          "gouttes",
+          "sabliers",
+          "plis_de_lecteur"
+        ],
+        "properties": {
+          "gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis_de_lecteur": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecompenseInitiale": {
+        "type": "object",
+        "description": "Récompense d'une quête initiale, annoncée d'avance.",
+        "required": [
+          "plis_offerts",
+          "plis_de_lecteur",
+          "sabliers",
+          "gouttes"
+        ],
+        "properties": {
+          "gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis_de_lecteur": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis_offerts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.",
+            "minimum": 0
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "Regle": {
         "type": "string",
         "description": "Règle qui a décidé de la brique tirée.",
@@ -3035,6 +3750,37 @@
             "format": "int32",
             "description": "Gouttes payées.",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseCadeau": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseCarteDeLecteur": {
+        "type": "object",
+        "required": [
+          "ouverture",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "ouverture": {
+            "$ref": "#/components/schemas/OuverturePli",
+            "description": "Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine."
           }
         },
         "additionalProperties": false
@@ -3152,6 +3898,27 @@
           },
           "ouverture": {
             "$ref": "#/components/schemas/OuverturePli"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseQueteInitiale": {
+        "type": "object",
+        "required": [
+          "ouvertures",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "ouvertures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OuverturePli"
+            },
+            "description": "Briques des plis offerts et de lecteur, dans l'ordre."
           }
         },
         "additionalProperties": false
@@ -3503,6 +4270,15 @@
           }
         ],
         "description": "Ce qu'une quête compte : la liste fermée de l'ADR 0045."
+      },
+      "SorteQueteDuJour": {
+        "type": "string",
+        "description": "Sorte d'une quête du jour : une de chaque par jour (ADR 0045).",
+        "enum": [
+          "table",
+          "memoire",
+          "adresse"
+        ]
       },
       "Source": {
         "type": "object",

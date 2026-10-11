@@ -22,6 +22,12 @@ pub enum Commande {
     PublierFascicules(ConfigParution),
     /// Tâche planifiée : purge les données à durée limitée (ADR 0024).
     Purger(ConfigBase),
+    /// Tâche quotidienne, juste après minuit GMT : agrège le jour achevé (ADR 0050).
+    AgregerJour(ConfigAgregatJour),
+    /// Tâche mensuelle, dans les premières minutes du mois : agrège le mois achevé (ADR 0050).
+    AgregerMois(ConfigAgregatMois),
+    /// Écrit sur la sortie standard les cohortes et indicateurs, groupes de moins de 50 joueurs masqués (ADR 0050).
+    Statistiques(ConfigBase),
     /// Applique les migrations de schéma de la base de progression.
     Migrer(ConfigBase),
     /// Écrit le contrat OpenAPI sur la sortie standard.
@@ -33,6 +39,29 @@ pub struct ConfigBase {
     /// Adresse de la base de progression PostgreSQL.
     #[arg(long, env = "DATABASE_URL", hide_env_values = true)]
     pub database_url: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ConfigAgregatJour {
+    #[command(flatten)]
+    pub base: ConfigBase,
+    /// Jour GMT à agréger (AAAA-MM-JJ) ; par défaut la veille.
+    #[arg(long)]
+    pub jour: Option<chrono::NaiveDate>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ConfigAgregatMois {
+    #[command(flatten)]
+    pub base: ConfigBase,
+    /// Mois à agréger (AAAA-MM) ; par défaut le mois précédent.
+    #[arg(long, value_parser = lire_mois)]
+    pub mois: Option<chrono::NaiveDate>,
+}
+
+fn lire_mois(texte: &str) -> Result<chrono::NaiveDate, String> {
+    chrono::NaiveDate::parse_from_str(&format!("{texte}-01"), "%Y-%m-%d")
+        .map_err(|_| "mois attendu au format AAAA-MM".to_owned())
 }
 
 #[derive(Debug, Clone, Args)]

@@ -1,6 +1,7 @@
 //! API de jeu d'ÉtymoLogique (ADR 0024) : un seul service sans état, qui fait
 //! foi pour toute mutation de la progression (ADR 0007).
 
+pub mod carte_lecteur;
 pub mod catalogue;
 pub mod config;
 pub mod debit;
@@ -9,6 +10,8 @@ pub mod extraction;
 pub mod jeton;
 pub mod openapi;
 pub mod progression;
+pub mod quetes_initiales;
+pub mod quetes_jour;
 pub mod ricochets;
 pub mod routes;
 pub mod secret;

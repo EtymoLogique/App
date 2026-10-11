@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO indicateurs_jour (jour, joueurs_actifs, sans_decouverte, tampons, quetes_terminees, seances_ricochets)\n         SELECT $1::date,\n                (SELECT count(*) FROM joueur WHERE (derniere_activite AT TIME ZONE 'UTC')::date = $1::date),\n                (SELECT count(*) FROM joueur j\n                  WHERE (j.derniere_activite AT TIME ZONE 'UTC')::date = $1::date\n                    AND (j.cree_le AT TIME ZONE 'UTC')::date < $2::date\n                    AND NOT EXISTS (SELECT 1 FROM decouverte d\n                                    WHERE d.joueur_id = j.id AND (d.decouverte_le AT TIME ZONE 'UTC')::date >= $2::date)),\n                (SELECT count(*) FROM tampon WHERE jour = $1::date),\n                (SELECT count(*) FROM quete_jour WHERE jour = $1::date AND faite_le IS NOT NULL),\n                (SELECT count(*) FROM ricochet_jour WHERE jour = $1::date AND reponses = 5)\n         ON CONFLICT (jour) DO UPDATE SET\n             joueurs_actifs = EXCLUDED.joueurs_actifs, sans_decouverte = EXCLUDED.sans_decouverte,\n             tampons = EXCLUDED.tampons, quetes_terminees = EXCLUDED.quetes_terminees,\n             seances_ricochets = EXCLUDED.seances_ricochets",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e240aa991c8eb49d41a9d4fe18335f0246e43e2458bfd61344f6d07f0b8255a6"
+}

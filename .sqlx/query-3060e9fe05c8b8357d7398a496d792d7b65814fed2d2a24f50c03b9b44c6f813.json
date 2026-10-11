@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO carte_lecteur_recuperee (joueur_id, numero) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3060e9fe05c8b8357d7398a496d792d7b65814fed2d2a24f50c03b9b44c6f813"
+}

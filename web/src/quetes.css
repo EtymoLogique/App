@@ -50,3 +50,28 @@
 .quete-longue { display: grid; gap: 8px; }
 .quete-longue-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
 .quete-longue-titre { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 600; }
+
+/* Carte de lecteur (ADR 0045, maquette I-27) : sept cases, un tampon ÉL par jour gagné. */
+.carte-lecteur {
+  display: grid; gap: 12px; margin-bottom: 18px; padding: 14px 16px;
+  border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink);
+}
+.carte-lecteur[data-etat="a_recuperer"] { border-color: var(--ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.carte-lecteur-cases { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 0; padding: 0; list-style: none; }
+.tampon { display: grid; justify-items: center; gap: 4px; min-width: 36px; }
+.tampon-sceau, .tampon-numero {
+  display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box;
+  font-family: var(--serif); font-weight: 700;
+}
+.tampon-sceau {
+  border: 2px solid var(--fixed-ink); border-radius: 10px; background: var(--c-action);
+  box-shadow: 3px 3px 0 var(--pop-shadow); color: var(--fixed-ink); transform: rotate(-6deg);
+}
+.tampon.is-vide .tampon-numero {
+  border: 1.5px dashed var(--line-strong); border-radius: 4px; color: var(--ink-3); font-family: var(--mono); font-size: 12px;
+}
+.tampon-jour { color: var(--ink-3); font-family: var(--mono); font-size: 9px; white-space: nowrap; }
+@media (max-width: 480px) {
+  .tampon-sceau, .tampon-numero { width: 28px; height: 28px; }
+  .tampon-sceau { border-radius: 8px; box-shadow: 2px 2px 0 var(--pop-shadow); font-size: 12px; }
+}

@@ -20,7 +20,7 @@ import {
   silhouetteDe,
 } from '../services/codex'
 import type { CatalogueJeu } from '../services/jeu'
-import { NATURES, libelleFascicule } from '../services/jeu'
+import { NATURES, libelleFascicule, prochainFascicule } from '../services/jeu'
 import type { Route, TriCodex, VueCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
 import { mouvementReduit } from '../services/animation'
@@ -1181,6 +1181,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
         </div>
       ) : (
         <>
+          {prochainFascicule(jeu) && <p className="cb-note prochain-fascicule">{prochainFascicule(jeu)}</p>}
           <SelecteurFascicules jeu={jeu} entrees={entrees} actif={fascicule} onChoisir={setFascicule} urlMedia={urlMedia} />
 
           <div className="cb-toolbar">

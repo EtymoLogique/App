@@ -18,7 +18,7 @@ function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
 }) {
   return (
     <section className="reglage" role="group" aria-label={legende}>
-      <h3>{legende}</h3>
+      <h2>{legende}</h2>
       <div className="segments">
         {options.map(([v, libelle]) => (
           <label key={v} className={v === valeur ? 'on' : undefined}>
@@ -45,7 +45,7 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
   }
   return (
     <section className="reglage">
-      <h3>Hors production</h3>
+      <h2>Hors production</h2>
       <p className="panel-tip">Efface le codex, la réserve et la progression, et rend 10 000 gouttes. Irréversible.</p>
       {confirmer ? (
         <div className="segments">
@@ -104,14 +104,14 @@ export function Reglages({ reglages, onChanger, onReinitialiser }: Props) {
         onChoisir={(retours) => onChanger({ retours })}
       />
       <section className="reglage">
-        <h3>Profil invité</h3>
+        <h2>Profil invité</h2>
         <p className="panel-tip">
           Votre progression est liée à cet appareil. Aucun nom ni adresse électronique n’est demandé.
         </p>
       </section>
       {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
       <section className="reglage">
-        <h3>Licences</h3>
+        <h2>Licences</h2>
         <p className="panel-tip">
           Code sous licence AGPL 3.0 ou ultérieure, contenu sous CC BY-SA 4.0. Le nom et le logo ÉtymoLogique sont réservés.
         </p>

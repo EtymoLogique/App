@@ -4,6 +4,49 @@
  */
 
 export interface paths {
+    "/cadeau": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis
+         *     au contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.
+         */
+        post: operations["recuperer_cadeau"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/carte-de-lecteur": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
+         *     l'encre, un sablier et un pli de lecteur dont le joueur choisit le
+         *     fascicule. Le pli tire parmi les briques peu communes et rares, les
+         *     légendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne
+         *     compte pour aucune garantie.
+         */
+        post: operations["recuperer_carte_de_lecteur"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dev/reset": {
         parameters: {
             query?: never;
@@ -151,6 +194,27 @@ export interface paths {
          *     crédite l'exemplaire et l'encre, dans une seule transaction idempotente.
          */
         post: operations["ouvrir_pli"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quete-initiale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une quête initiale faite pendant la première
+         *     semaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,
+         *     sabliers, encre. Sans énergie, hors garanties.
+         */
+        post: operations["recuperer_quete_initiale"];
         delete?: never;
         options?: never;
         head?: never;
@@ -317,15 +381,43 @@ export interface components {
             /** @description Sens affiché de la brique : la bonne réponse de « sens d'une brique ». */
             sens_id: components["schemas"]["IdCatalogue"];
         };
+        CadeauDeBienvenue: {
+            /**
+             * Format: int32
+             * @description Gouttes d'encre.
+             */
+            encre?: number;
+            /** @description Une brique par pli de bienvenue, choisie pour ouvrir des recettes ; jamais une légendaire. */
+            plis: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
+        /** @description Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance. */
+        CadeauEtat: {
+            /** Format: int32 */
+            encre: number;
+            /** @description Une brique par pli de bienvenue. */
+            plis: components["schemas"]["IdCatalogue"][];
+            recupere: boolean;
+            /** Format: int32 */
+            sabliers: number;
+        };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
          */
         Calendrier: {
+            cadeau_de_bienvenue?: components["schemas"]["CadeauDeBienvenue"] | null;
             essai?: boolean;
             fascicules: components["schemas"]["EntreeFascicule"][];
             /** Format: int32 */
             format: number;
+            /**
+             * Format: date-time
+             * @description Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre
+             *     de ce fascicule (ADR 0049) ; absente s'il n'y en a plus.
+             */
+            prochaine_parution?: string | null;
             /**
              * @description Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
              *     absentes d'un index antérieur.
@@ -349,6 +441,33 @@ export interface components {
             sources?: {
                 [key: string]: components["schemas"]["Source"];
             };
+        };
+        /**
+         * @description Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
+         *     sans série ni expiration.
+         */
+        CarteDeLecteurEtat: {
+            /**
+             * Format: int32
+             * @description Cartes pleines dont la récompense attend.
+             */
+            a_recuperer: number;
+            recompense: components["schemas"]["RecompenseCarte"];
+            /**
+             * Format: int32
+             * @description Cartes pleines, récupérées ou non.
+             */
+            remplies: number;
+            /**
+             * Format: int32
+             * @description Tampons d'une carte pleine.
+             */
+            taille: number;
+            /**
+             * @description Jours des tampons de la carte affichée, du plus ancien au plus récent :
+             *     la plus ancienne carte pleine à récupérer, sinon la carte en cours.
+             */
+            tampons: string[];
         };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
@@ -377,6 +496,16 @@ export interface components {
         Chemin: string;
         /** @enum {string} */
         CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
+        /**
+         * @description Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
+         * @enum {string}
+         */
+        CodeQueteDuJour: "table_sens" | "memoire_sans_faute" | "memoire_litteral" | "memoire_maitrise" | "adresse_decouper" | "adresse_paires";
+        /**
+         * @description Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
+         * @enum {string}
+         */
+        CodeQueteInitiale: "trois_mots" | "transformation" | "premiers_ricochets" | "premiere_carte";
         CompositionCarte: {
             fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
@@ -423,6 +552,35 @@ export interface components {
             commande: string;
             /** Format: int32 */
             nombre: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération du cadeau de bienvenue. */
+        DemandeCadeau: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur. */
+        DemandeCarteDeLecteur: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id: components["schemas"]["IdCatalogue"];
             version_catalogue: string;
             /**
              * Format: int64
@@ -507,6 +665,22 @@ export interface components {
             commande: string;
             fascicule_id: components["schemas"]["IdCatalogue"];
             /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur. */
+        DemandeQueteInitiale: {
+            code: components["schemas"]["CodeQueteInitiale"];
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id?: components["schemas"]["IdCatalogue"] | null;
             version_catalogue: string;
             /**
              * Format: int64
@@ -663,6 +837,8 @@ export interface components {
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            cadeau_de_bienvenue?: components["schemas"]["CadeauEtat"] | null;
+            carte_de_lecteur?: components["schemas"]["CarteDeLecteurEtat"] | null;
             /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
             compteurs_plis: components["schemas"]["CompteurPli"][];
             /** @description Mots découverts, dans l'ordre de leur découverte. */
@@ -700,6 +876,13 @@ export interface components {
              *     le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
              */
             progression_quetes?: components["schemas"]["ProgressionQuete"][];
+            /**
+             * @description Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première
+             *     visite du jour ; vide avant App#20 ou sans catalogue.
+             */
+            quetes_du_jour?: components["schemas"]["QueteDuJour"][];
+            /** @description Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées. */
+            quetes_initiales?: components["schemas"]["QueteInitialeEtat"][];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
@@ -942,6 +1125,35 @@ export interface components {
             choix?: components["schemas"]["IdCatalogue"][];
             format: components["schemas"]["FormatRicochet"];
         };
+        QueteDuJour: {
+            /**
+             * Format: int32
+             * @description Ce qu'il faut atteindre.
+             */
+            cible: number;
+            code: components["schemas"]["CodeQueteDuJour"];
+            faite: boolean;
+            mot_id?: components["schemas"]["IdCatalogue"] | null;
+            /**
+             * Format: int32
+             * @description Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
+             */
+            progres: number;
+            /** Format: int32 */
+            rang: number;
+            sorte: components["schemas"]["SorteQueteDuJour"];
+        };
+        QueteInitialeEtat: {
+            /** Format: int32 */
+            cible: number;
+            code: components["schemas"]["CodeQueteInitiale"];
+            /** @description Faite pendant la première semaine : la récompense peut se récupérer. */
+            faite: boolean;
+            /** Format: int32 */
+            progres: number;
+            recompense: components["schemas"]["RecompenseInitiale"];
+            recuperee: boolean;
+        };
         QueteLongCours: components["schemas"]["Sorte"] & {
             id: components["schemas"]["IdCatalogue"];
             /** @description Libellés par locale ; `fr` est la locale de référence. */
@@ -967,6 +1179,29 @@ export interface components {
             chemin: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
         };
+        /** @description Ce que donne une carte de lecteur pleine, annoncé d'avance. */
+        RecompenseCarte: {
+            /** Format: int32 */
+            gouttes: number;
+            /** Format: int32 */
+            plis_de_lecteur: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
+        /** @description Récompense d'une quête initiale, annoncée d'avance. */
+        RecompenseInitiale: {
+            /** Format: int32 */
+            gouttes: number;
+            /** Format: int32 */
+            plis_de_lecteur: number;
+            /**
+             * Format: int32
+             * @description Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
+             */
+            plis_offerts: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
         /**
          * @description Règle qui a décidé de la brique tirée.
          * @enum {string}
@@ -986,6 +1221,16 @@ export interface components {
              * @description Gouttes payées.
              */
             prix: number;
+        };
+        ReponseCadeau: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        ReponseCarteDeLecteur: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine. */
+            ouverture: components["schemas"]["OuverturePli"];
         };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
@@ -1024,6 +1269,12 @@ export interface components {
              */
             exemplaires: number;
             ouverture: components["schemas"]["OuverturePli"];
+        };
+        ReponseQueteInitiale: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Briques des plis offerts et de lecteur, dans l'ordre. */
+            ouvertures: components["schemas"]["OuverturePli"][];
         };
         ReponseRicochet: {
             carte: components["schemas"]["CarteRicochet"];
@@ -1137,6 +1388,11 @@ export interface components {
             /** @enum {string} */
             sorte: "premiere_legendaire";
         };
+        /**
+         * @description Sorte d'une quête du jour : une de chaque par jour (ADR 0045).
+         * @enum {string}
+         */
+        SorteQueteDuJour: "table" | "memoire" | "adresse";
         Source: {
             edition?: string | null;
             id: components["schemas"]["IdCatalogue"];
@@ -1180,6 +1436,162 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    recuperer_cadeau: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCadeau"];
+            };
+        };
+        responses: {
+            /** @description Cadeau récupéré et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseCadeau"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun cadeau de bienvenue déclaré */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_carte_de_lecteur: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCarteDeLecteur"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseCarteDeLecteur"];
+                };
+            };
+            /** @description Requête invalide ou fascicule sans pli de lecteur */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucune carte de lecteur pleine */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
     reinitialiser: {
         parameters: {
             query?: never;
@@ -1607,6 +2019,84 @@ export interface operations {
                 };
             };
             /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_quete_initiale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeQueteInitiale"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseQueteInitiale"];
+                };
+            };
+            /** @description Requête invalide, fascicule manquant ou sans pli */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Quête initiale pas faite */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Déjà récupérée, état ou catalogue périmé : resynchroniser */
             409: {
                 headers: {
                     [name: string]: unknown;

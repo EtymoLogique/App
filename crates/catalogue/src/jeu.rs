@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::cadeau::CadeauDeBienvenue;
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
@@ -37,6 +38,8 @@ pub struct Jeu {
     pub quetes: Vec<QueteLongCours>,
     /// Ce que ces quêtes mesurent dans le catalogue.
     pub mesures: Mesures,
+    /// Cadeau de bienvenue déclaré par l'index (ADR 0046), réduit à ses briques publiées.
+    pub cadeau: Option<CadeauDeBienvenue>,
 }
 
 /// Données de jugement des ricochets, par carte.
@@ -64,6 +67,21 @@ pub struct PliJeu {
 }
 
 impl Jeu {
+    /// Retient le cadeau déclaré : seuls ses plis de briques publiées et non
+    /// légendaires sont donnés (ADR 0046, ADR 0043).
+    pub fn declarer_cadeau(&mut self, cadeau: &CadeauDeBienvenue) {
+        let plis = cadeau
+            .plis
+            .iter()
+            .filter(|b| self.briques.contains(*b) && !self.legendaires.contains(*b))
+            .cloned()
+            .collect();
+        self.cadeau = Some(CadeauDeBienvenue {
+            plis,
+            ..cadeau.clone()
+        });
+    }
+
     /// Rareté d'une brique tirable, si un pli paru la connaît.
     #[must_use]
     pub fn rarete(&self, brique: &IdCatalogue) -> Option<pli::Rarete> {

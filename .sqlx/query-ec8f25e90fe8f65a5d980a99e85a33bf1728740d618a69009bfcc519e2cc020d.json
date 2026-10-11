@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT true FROM ricochet_jour WHERE joueur_id = $1 AND reponses = 5 AND bonnes = 5 LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ec8f25e90fe8f65a5d980a99e85a33bf1728740d618a69009bfcc519e2cc020d"
+}

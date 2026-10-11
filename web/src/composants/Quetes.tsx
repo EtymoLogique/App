@@ -1,8 +1,10 @@
 import { useState } from 'react'
 
-import type { Etat, ReponseJalon, ReponsePalier } from '../contrat'
+import type { CadeauEtat, CodeQueteInitiale, QueteInitialeEtat, ReponseQueteInitiale, CarteDeLecteurEtat, Etat, QueteDuJour, ReponseCadeau, ReponseCarteDeLecteur, ReponseJalon, ReponsePalier } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
-import type { CatalogueJeu } from '../services/jeu'
+import { type CatalogueJeu, libelleFascicule } from '../services/jeu'
+import { briquesDuPli, chances, LIBELLES_RARETES, pourcentage } from '../services/plis'
+import { sensLitteral } from '../services/ricochets'
 import { type PalierSuivi, type QueteJalon, type QueteLongue, SORTES, quetesAuLongCours, quetesDeFascicule } from '../services/quetes'
 import type { OngletQuetes, Route } from '../services/route'
 import { PetiteBrique } from './Brique'
@@ -178,6 +180,271 @@ function CarteQuete({ longue, inactif, recuperer }: { longue: QueteLongue; inact
   )
 }
 
+/** Consigne d'une quête du jour (ADR 0045) : le serveur ne donne que le code, le texte vient d'ici. */
+function consigne(q: QueteDuJour, jeu: CatalogueJeu): string {
+  switch (q.code) {
+    case 'table_sens': {
+      const sens = q.mot_id ? sensLitteral(jeu, q.mot_id) : null
+      return sens ? `Trouvez le mot qui veut dire «\u00a0${sens}\u00a0».` : 'Trouvez le mot que votre réserve permet de former.'
+    }
+    case 'memoire_sans_faute':
+      return 'Cinq ricochets sans faute.'
+    case 'memoire_litteral':
+      return 'Retrouvez trois mots par leur sens littéral.'
+    case 'memoire_maitrise':
+      return 'Maîtrisez une carte.'
+    case 'adresse_decouper':
+      return 'Découpez trois mots sans erreur.'
+    case 'adresse_paires':
+      return 'Reliez quatre paires sans faute.'
+    default:
+      return 'Quête du jour.'
+  }
+}
+
+/** Les trois quêtes du jour : un défi de réflexion de chaque sorte, renouvelé à minuit GMT, sans pénalité. */
+function QuetesDuJourListe({ quetes, jeu, onAller }: { quetes: QueteDuJour[]; jeu: CatalogueJeu; onAller: (o: 'table' | 'ricochets') => void }) {
+  return (
+    <>
+      <p className="cb-note quetes-intro">
+        Chaque jour, un défi de chaque sorte&nbsp;: à la table, de mémoire, d’adresse. Elles se renouvellent à minuit GMT&nbsp;; une quête non faite disparaît sans rien coûter, et une erreur se recommence aussitôt.
+      </p>
+      <ol className="quetes-liste">
+        {quetes.map((q) => (
+          <li key={q.rang} className="quete" data-etat={q.faite ? 'recupere' : 'en_cours'}>
+            <div className="quete-tete">
+              <b className="quete-seuil">{consigne(q, jeu)}</b>
+              <span className="quete-avancee">{q.faite ? '✓ Faite' : `${q.progres} / ${q.cible}`}</span>
+            </div>
+            {!q.faite && (
+              <div className="quete-pied">
+                <button type="button" className="btn btn-s" onClick={() => onAller(q.sorte === 'table' ? 'table' : 'ricochets')}>
+                  {q.sorte === 'table' ? 'Aller à la table' : 'Faire des ricochets'}
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
+  )
+}
+
+/** « 24 sept. » : le jour du tampon, espace insécable. */
+const jourCourt = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace(' ', '\u00a0')
+
+/** Chances du pli de lecteur d'un fascicule : peu communes et rares seulement, la légendaire à sa chance fixe. */
+function chancesLecteur(jeu: CatalogueJeu, fascicule: string): string {
+  const f = jeu.fascicules.find((x) => x.manifeste.id === fascicule)
+  const equilibrage = f?.manifeste.pli?.equilibrage
+  if (!f || !equilibrage) return ''
+  const briques = briquesDuPli(f).filter((b) => b.rarete !== 'commune')
+  const { parRarete } = chances(briques, equilibrage)
+  return (['peu_commune', 'rare', 'legendaire'] as const)
+    .filter((r) => parRarete[r] > 0)
+    .map((r) => `${LIBELLES_RARETES[r]}\u00a0${pourcentage(parRarete[r])}`)
+    .join(' · ')
+}
+
+/**
+ * Carte de lecteur (ADR 0045) : un tampon par jour où les trois quêtes sont
+ * faites, sans série ni rappel. Pleine, elle offre un pli de lecteur dont le
+ * joueur choisit le fascicule, chances affichées.
+ */
+function CarteDeLecteur({ carte, jeu, inactif, recuperer }: { carte: CarteDeLecteurEtat; jeu: CatalogueJeu; inactif: string | null; recuperer: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }> }) {
+  const [fascicule, setFascicule] = useState(jeu.fascicules[0]?.manifeste.id ?? '')
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
+  const { recompense } = carte
+  const agir = async () => {
+    setEnCours(true)
+    const reponse = await recuperer(fascicule)
+    setEnCours(false)
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Carte récupérée\u00a0: ${pluriel(recompense.gouttes, 'goutte')} d’encre, ${pluriel(recompense.sabliers, 'sablier')} et un pli de lecteur.`, ton: 'win' })
+  }
+  return (
+    <section className="carte-lecteur" aria-label="Carte de lecteur" data-etat={carte.a_recuperer > 0 ? 'a_recuperer' : 'en_cours'}>
+      <div className="quete-tete">
+        <h3 className="quete-longue-titre">Carte de lecteur</h3>
+        <b className="quete-avancee">{`${carte.tampons.length} / ${carte.taille}`}</b>
+      </div>
+      <ol className="carte-lecteur-cases">
+        {Array.from({ length: carte.taille }, (_, i) => {
+          const jour = carte.tampons[i]
+          return (
+            <li key={i} className={jour ? 'tampon' : 'tampon is-vide'}>
+              {jour ? (
+                <>
+                  <span className="tampon-sceau" aria-hidden="true">ÉL</span>
+                  <span className="tampon-jour">{jourCourt(jour)}</span>
+                  <span className="sr-only">Tampon du {jourCourt(jour)}</span>
+                </>
+              ) : (
+                <span className="tampon-numero" aria-label={`Case ${i + 1}, vide`}>{i + 1}</span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      <p className="cb-note">Un tampon par jour où vos trois quêtes sont faites, sans ordre ni série.</p>
+      <div className="quete-pied">
+        <span className="quete-k">Récompense</span>
+        <span className="quete-recompense">
+          {`${pluriel(recompense.gouttes, 'goutte')} d’encre · ${pluriel(recompense.sabliers, 'sablier')} · ${recompense.plis_de_lecteur > 1 ? `${recompense.plis_de_lecteur} plis` : 'un pli'} de lecteur`}
+        </span>
+      </div>
+      {carte.a_recuperer > 0 && (
+        <div className="quete-pied">
+          <label className="quete-k" htmlFor="pli-lecteur-fascicule">Fascicule du pli</label>
+          <select id="pli-lecteur-fascicule" value={fascicule} onChange={(e) => setFascicule(e.target.value)}>
+            {jeu.fascicules.map((f) => (
+              <option key={f.manifeste.id} value={f.manifeste.id}>
+                {libelleFascicule(f)}
+              </option>
+            ))}
+          </select>
+          <p className="cb-note">Chances&nbsp;: {chancesLecteur(jeu, fascicule)}. Sans énergie, hors garanties.</p>
+          <button type="button" className="btn btn-primary btn-s" onClick={() => void agir()} disabled={enCours || inactif !== null || !fascicule} title={inactif ?? undefined}>
+            {enCours ? 'Récupération…' : 'Récupérer'}
+          </button>
+        </div>
+      )}
+      {message && (
+        <p className="feedback" data-tone={message.ton} role="status">
+          {message.texte}
+        </p>
+      )}
+    </section>
+  )
+}
+
+/** Cadeau de bienvenue (ADR 0046) : plis au contenu fixé, sabliers et encre, une seule fois. */
+function CadeauDeBienvenue({ cadeau, jeu, inactif, recuperer }: { cadeau: CadeauEtat; jeu: CatalogueJeu; inactif: string | null; recuperer: () => Promise<ReponseCadeau | { erreur: string }> }) {
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
+  const agir = async () => {
+    setEnCours(true)
+    const reponse = await recuperer()
+    setEnCours(false)
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: 'Cadeau de bienvenue récupéré.', ton: 'win' })
+  }
+  if (cadeau.recupere && !message) return null
+  return (
+    <section className="quete cadeau" data-etat={cadeau.recupere ? 'recupere' : 'a_recuperer'} aria-label="Cadeau de bienvenue">
+      <div className="quete-tete">
+        <h3 className="quete-longue-titre">Cadeau de bienvenue</h3>
+        <span className="quete-avancee">{cadeau.recupere ? '✓ Récupéré' : '✓ À récupérer'}</span>
+      </div>
+      <div className="quete-pied">
+        <span className="quete-k">Contenu</span>
+        <span className="quete-recompense">
+          {cadeau.plis.map((id, i) => {
+            const b = jeu.briques.get(id)
+            return b ? <PetiteBrique key={`${id}-${i}`} brique={b} /> : null
+          })}
+          {cadeau.sabliers > 0 && (
+            <span className="quete-sabliers">
+              <Sablier />
+              {pluriel(cadeau.sabliers, 'sablier')}
+            </span>
+          )}
+          {cadeau.encre > 0 && <span className="quete-sabliers">{pluriel(cadeau.encre, 'goutte')} d’encre</span>}
+        </span>
+        {!cadeau.recupere && (
+          <button type="button" className="btn btn-primary btn-s" onClick={() => void agir()} disabled={enCours || inactif !== null} title={inactif ?? undefined}>
+            {enCours ? 'Récupération…' : 'Récupérer'}
+          </button>
+        )}
+      </div>
+      {message && (
+        <p className="feedback" data-tone={message.ton} role="status">
+          {message.texte}
+        </p>
+      )}
+    </section>
+  )
+}
+
+const CONSIGNES_INITIALES: Record<CodeQueteInitiale, string> = {
+  trois_mots: 'Découvrez trois mots.',
+  transformation: 'Découvrez un mot qui porte une transformation.',
+  premiers_ricochets: 'Réussissez cinq ricochets sans faute.',
+  premiere_carte: 'Remplissez votre première carte de lecteur.',
+}
+
+function texteRecompenseInitiale({ recompense: r }: QueteInitialeEtat): string {
+  const parts = []
+  if (r.plis_offerts > 0) parts.push(pluriel(r.plis_offerts, 'pli') + ' offert' + (r.plis_offerts > 1 ? 's' : ''))
+  if (r.plis_de_lecteur > 0) parts.push(`${r.plis_de_lecteur > 1 ? `${r.plis_de_lecteur} plis` : 'un pli'} de lecteur`)
+  if (r.sabliers > 0) parts.push(pluriel(r.sabliers, 'sablier'))
+  if (r.gouttes > 0) parts.push(`${pluriel(r.gouttes, 'goutte')} d’encre`)
+  return parts.join(' · ')
+}
+
+/**
+ * Quêtes initiales de la première semaine (ADR 0046) : faites une seule fois,
+ * un acte de réflexion chacune, jamais comptées pour le tampon du jour.
+ * Une récompense avec des plis se récupère dans le fascicule choisi.
+ */
+function QuetesInitiales({ quetes, jeu, inactif, recuperer }: { quetes: QueteInitialeEtat[]; jeu: CatalogueJeu; inactif: string | null; recuperer: (code: CodeQueteInitiale, fascicule: string | null) => Promise<ReponseQueteInitiale | { erreur: string }> }) {
+  const [fascicule, setFascicule] = useState(jeu.fascicules[0]?.manifeste.id ?? '')
+  const [enCours, setEnCours] = useState<CodeQueteInitiale | null>(null)
+  const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
+  if (quetes.length === 0 || (quetes.every((q) => q.recuperee) && !message)) return null
+  const agir = async (q: QueteInitialeEtat) => {
+    setEnCours(q.code)
+    const avecPlis = q.recompense.plis_offerts + q.recompense.plis_de_lecteur > 0
+    const reponse = await recuperer(q.code, avecPlis ? fascicule : null)
+    setEnCours(null)
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Récompense ajoutée\u00a0: ${texteRecompenseInitiale(q)}.`, ton: 'win' })
+  }
+  const attend = quetes.some((q) => q.faite && !q.recuperee && q.recompense.plis_offerts + q.recompense.plis_de_lecteur > 0)
+  return (
+    <section className="quetes-fascicule" aria-label="Quêtes de la première semaine">
+      <h2 className="quetes-titre">Première semaine</h2>
+      <p className="cb-note quetes-intro">Quatre défis à faire une seule fois, avec leur récompense annoncée d’avance. Ils ne comptent pas pour le tampon du jour.</p>
+      <ol className="quetes-liste">
+        {quetes.map((q) => (
+          <li key={q.code} className="quete" data-etat={q.recuperee ? 'recupere' : q.faite ? 'a_recuperer' : 'en_cours'}>
+            <div className="quete-tete">
+              <b className="quete-seuil">{CONSIGNES_INITIALES[q.code]}</b>
+              <span className="quete-avancee">{q.recuperee ? '✓ Récupérée' : q.faite ? '✓ Faite' : `${q.progres} / ${q.cible}`}</span>
+            </div>
+            <div className="quete-pied">
+              <span className="quete-k">Récompense</span>
+              <span className="quete-recompense">{texteRecompenseInitiale(q)}</span>
+              {q.faite && !q.recuperee && (
+                <button type="button" className="btn btn-primary btn-s" onClick={() => void agir(q)} disabled={enCours !== null || inactif !== null || (q.recompense.plis_offerts + q.recompense.plis_de_lecteur > 0 && !fascicule)} title={inactif ?? undefined}>
+                  {enCours === q.code ? 'Récupération…' : 'Récupérer'}
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {attend && (
+        <div className="quete-pied">
+          <label className="quete-k" htmlFor="pli-initial-fascicule">Fascicule des plis</label>
+          <select id="pli-initial-fascicule" value={fascicule} onChange={(e) => setFascicule(e.target.value)}>
+            {jeu.fascicules.map((f) => (
+              <option key={f.manifeste.id} value={f.manifeste.id}>
+                {libelleFascicule(f)}
+              </option>
+            ))}
+          </select>
+          <p className="cb-note">Chances d’un pli de lecteur&nbsp;: {chancesLecteur(jeu, fascicule)}. Sans énergie, hors garanties.</p>
+        </div>
+      )}
+      {message && (
+        <p className="feedback" data-tone={message.ton} role="status">
+          {message.texte}
+        </p>
+      )}
+    </section>
+  )
+}
+
 interface Props {
   jeu: CatalogueJeu
   etat: Etat | null
@@ -187,6 +454,9 @@ interface Props {
   urlMedia: (chemin: string) => string
   recuperer: (jalon: string) => Promise<ReponseJalon | { erreur: string }>
   recupererPalier: (palier: string) => Promise<ReponsePalier | { erreur: string }>
+  recupererCarte: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }>
+  recupererCadeau: () => Promise<ReponseCadeau | { erreur: string }>
+  recupererQueteInitiale: (code: CodeQueteInitiale, fascicule: string | null) => Promise<ReponseQueteInitiale | { erreur: string }>
   /** Raison pour laquelle une récompense ne peut pas être récupérée maintenant (hors ligne), sinon `null`. */
   inactif: string | null
 }
@@ -196,7 +466,7 @@ interface Props {
  * de fascicule. Un jalon atteint attend que le joueur vienne chercher sa
  * récompense : rien n'arrive dans la réserve sans qu'il sache d'où cela vient.
  */
-export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, inactif }: Props) {
+export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, recupererCadeau, recupererQueteInitiale, inactif }: Props) {
   const quetes = quetesDeFascicule(jeu, etat)
   const aRecuperer = quetes.filter((q) => q.etat === 'a_recuperer')
   const longues = quetesAuLongCours(jeu, etat)
@@ -217,6 +487,18 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
     fixerOnglet()
     return recupererPalier(palier)
   }
+  const recupererInitialeIci = (code: CodeQueteInitiale, fascicule: string | null) => {
+    fixerOnglet()
+    return recupererQueteInitiale(code, fascicule)
+  }
+  const recupererCadeauIci = () => {
+    fixerOnglet()
+    return recupererCadeau()
+  }
+  const recupererCarteIci = (fascicule: string) => {
+    fixerOnglet()
+    return recupererCarte(fascicule)
+  }
   const inactifIci = inactif ?? (etat ? null : 'Votre partie n’est pas encore chargée.')
 
   return (
@@ -234,19 +516,32 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
         ))}
       </div>
 
+      {onglet === 'journalieres' && (etat?.quetes_initiales ?? []).length > 0 && (
+        <QuetesInitiales quetes={etat?.quetes_initiales ?? []} jeu={jeu} inactif={inactifIci} recuperer={recupererInitialeIci} />
+      )}
+      {onglet === 'journalieres' && etat?.cadeau_de_bienvenue && (
+        <CadeauDeBienvenue cadeau={etat.cadeau_de_bienvenue} jeu={jeu} inactif={inactifIci} recuperer={recupererCadeauIci} />
+      )}
       {onglet === 'journalieres' ? (
-        <div className="cb-empty quetes-bientot">
-          <span className="quetes-ill" aria-hidden="true">
-            <Icone nom="quete" />
-          </span>
-          <p className="cb-empty-k">Bientôt disponibles</p>
-          <p>Les quêtes journalières arrivent bientôt&nbsp;: chaque jour, de petits défis à relever avec les briques de votre réserve.</p>
-          {aRecuperer.length > 0 && (
-            <button type="button" className="btn btn-primary" onClick={() => onChangerVue({ quete: 'fascicules' }, { remplacer: true })}>
-              {aRecuperer.length > 1 ? `Récupérer vos ${aRecuperer.length} récompenses de fascicule` : 'Récupérer votre récompense de fascicule'}
-            </button>
-          )}
-        </div>
+        (etat?.quetes_du_jour ?? []).length > 0 ? (
+          <>
+            {etat?.carte_de_lecteur && <CarteDeLecteur carte={etat.carte_de_lecteur} jeu={jeu} inactif={inactifIci} recuperer={recupererCarteIci} />}
+            <QuetesDuJourListe quetes={etat?.quetes_du_jour ?? []} jeu={jeu} onAller={(o) => onChangerVue({ onglet: o })} />
+          </>
+        ) : (
+          <div className="cb-empty quetes-bientot">
+            <span className="quetes-ill" aria-hidden="true">
+              <Icone nom="quete" />
+            </span>
+            <p className="cb-empty-k">Pas de quête aujourd’hui</p>
+            <p>Les quêtes du jour se tirent à la première visite après minuit GMT, dès que votre partie est chargée.</p>
+            {aRecuperer.length > 0 && (
+              <button type="button" className="btn btn-primary" onClick={() => onChangerVue({ quete: 'fascicules' }, { remplacer: true })}>
+                {aRecuperer.length > 1 ? `Récupérer vos ${aRecuperer.length} récompenses de fascicule` : 'Récupérer votre récompense de fascicule'}
+              </button>
+            )}
+          </div>
+        )
       ) : onglet === 'au-long-cours' ? (
         <>
           <p className="cb-note quetes-intro">

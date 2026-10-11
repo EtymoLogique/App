@@ -99,6 +99,206 @@ pub struct Etat {
     /// Paliers de quêtes au long cours dont la récompense a été récupérée.
     #[serde(default)]
     pub paliers_recuperes: Vec<IdCatalogue>,
+    /// Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première
+    /// visite du jour ; vide avant App#20 ou sans catalogue.
+    #[serde(default)]
+    pub quetes_du_jour: Vec<QueteDuJour>,
+    /// Carte de lecteur (ADR 0045) ; absente avant App#21.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carte_de_lecteur: Option<CarteDeLecteurEtat>,
+    /// Cadeau de bienvenue déclaré par le catalogue (ADR 0046) ; absent s'il n'y en a pas.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cadeau_de_bienvenue: Option<CadeauEtat>,
+    /// Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées.
+    #[serde(default)]
+    pub quetes_initiales: Vec<QueteInitialeEtat>,
+}
+
+/// Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CodeQueteInitiale {
+    /// Découvrir trois mots.
+    TroisMots,
+    /// Découvrir un mot qui porte une transformation.
+    Transformation,
+    /// Cinq ricochets sans faute.
+    PremiersRicochets,
+    /// Remplir sa première carte de lecteur.
+    PremiereCarte,
+}
+
+/// Récompense d'une quête initiale, annoncée d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseInitiale {
+    /// Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
+    pub plis_offerts: u32,
+    pub plis_de_lecteur: u32,
+    pub sabliers: u32,
+    pub gouttes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueteInitialeEtat {
+    pub code: CodeQueteInitiale,
+    #[schema(minimum = 1)]
+    pub cible: u8,
+    pub progres: u8,
+    /// Faite pendant la première semaine : la récompense peut se récupérer.
+    pub faite: bool,
+    pub recuperee: bool,
+    pub recompense: RecompenseInitiale,
+}
+
+/// Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeQueteInitiale {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub code: CodeQueteInitiale,
+    /// Obligatoire si la récompense contient des plis.
+    #[serde(default)]
+    pub fascicule_id: Option<IdCatalogue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseQueteInitiale {
+    /// Briques des plis offerts et de lecteur, dans l'ordre.
+    pub ouvertures: Vec<OuverturePli>,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CadeauEtat {
+    /// Une brique par pli de bienvenue.
+    pub plis: Vec<IdCatalogue>,
+    pub sabliers: u32,
+    pub encre: u32,
+    pub recupere: bool,
+}
+
+/// Commande de récupération du cadeau de bienvenue.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCadeau {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseCadeau {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Ce que donne une carte de lecteur pleine, annoncé d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseCarte {
+    pub gouttes: u32,
+    pub sabliers: u32,
+    pub plis_de_lecteur: u32,
+}
+
+/// Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
+/// sans série ni expiration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CarteDeLecteurEtat {
+    /// Jours des tampons de la carte affichée, du plus ancien au plus récent :
+    /// la plus ancienne carte pleine à récupérer, sinon la carte en cours.
+    pub tampons: Vec<NaiveDate>,
+    /// Tampons d'une carte pleine.
+    #[schema(minimum = 1)]
+    pub taille: u8,
+    /// Cartes pleines dont la récompense attend.
+    pub a_recuperer: u32,
+    /// Cartes pleines, récupérées ou non.
+    pub remplies: u32,
+    pub recompense: RecompenseCarte,
+}
+
+/// Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCarteDeLecteur {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub fascicule_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseCarteDeLecteur {
+    /// Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine.
+    pub ouverture: OuverturePli,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Sorte d'une quête du jour : une de chaque par jour (ADR 0045).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SorteQueteDuJour {
+    Table,
+    Memoire,
+    Adresse,
+}
+
+/// Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CodeQueteDuJour {
+    /// Trouver le mot décrit par son seul sens (`mot_id`).
+    TableSens,
+    /// Cinq ricochets justes de suite.
+    MemoireSansFaute,
+    /// Trois mots retrouvés par leur sens littéral.
+    MemoireLitteral,
+    /// Maîtriser une carte.
+    MemoireMaitrise,
+    /// Découper trois mots sans erreur.
+    AdresseDecouper,
+    /// Relier quatre paires sans erreur.
+    AdressePaires,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueteDuJour {
+    #[schema(minimum = 0, maximum = 2)]
+    pub rang: u8,
+    pub sorte: SorteQueteDuJour,
+    pub code: CodeQueteDuJour,
+    /// Le mot à trouver, pour la quête de table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mot_id: Option<IdCatalogue>,
+    /// Ce qu'il faut atteindre.
+    #[schema(minimum = 1)]
+    pub cible: u8,
+    /// Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
+    pub progres: u8,
+    pub faite: bool,
 }
 
 /// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.

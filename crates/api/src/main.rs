@@ -7,6 +7,7 @@ use axum::http::HeaderValue;
 use clap::Parser;
 use etymo_api::config::{Cli, Commande, ConfigBase, ConfigParution, ConfigServeur};
 use etymo_api::{CatalogueVivant, EtatApp, Limiteurs, MIGRATIONS, Signataire, openapi, routeur};
+use etymo_taches::cohortes;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
@@ -36,7 +37,27 @@ async fn main() -> anyhow::Result<()> {
         Some(Commande::PublierFascicules(config)) => publier(config).await,
         Some(Commande::Purger(config)) => {
             let rapport = etymo_taches::purger(&connecter(&config)?).await?;
-            tracing::info!(commandes = rapport.commandes, "purges terminées");
+            tracing::info!(
+                commandes = rapport.commandes,
+                quetes_du_jour = rapport.quetes_du_jour,
+                ricochets_du_jour = rapport.ricochets_du_jour,
+                "purges terminées"
+            );
+            Ok(())
+        }
+        Some(Commande::AgregerJour(config)) => {
+            let jour = config.jour.unwrap_or_else(cohortes::hier);
+            cohortes::agreger_jour(&connecter(&config.base)?, jour).await?;
+            Ok(())
+        }
+        Some(Commande::AgregerMois(config)) => {
+            let mois = config.mois.unwrap_or_else(cohortes::mois_precedent);
+            cohortes::agreger_mois(&connecter(&config.base)?, mois).await?;
+            Ok(())
+        }
+        Some(Commande::Statistiques(config)) => {
+            let statistiques = cohortes::statistiques(&connecter(&config)?).await?;
+            println!("{}", serde_json::to_string_pretty(&statistiques)?);
             Ok(())
         }
         Some(Commande::Migrer(config)) => {

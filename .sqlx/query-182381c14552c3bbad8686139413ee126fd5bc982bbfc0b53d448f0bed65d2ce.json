@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE quete_jour q SET progres = 1, faite_le = now()\n         WHERE q.joueur_id = $1 AND q.jour = $2 AND q.code = 'table_sens' AND q.faite_le IS NULL\n           AND EXISTS (SELECT 1 FROM decouverte d\n                       WHERE d.joueur_id = q.joueur_id AND d.mot_id = q.cible_id AND d.decouverte_le >= $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "182381c14552c3bbad8686139413ee126fd5bc982bbfc0b53d448f0bed65d2ce"
+}

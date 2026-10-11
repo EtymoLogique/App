@@ -157,7 +157,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | PWA : destination Quêtes (`#/quetes`), onglets Journalières (bientôt disponibles) et Fascicules (`#/quetes/fascicules?fascicule=0`) ; sélecteur de fascicule partagé avec le codex, compteur Corail des récompenses qui attendent (navigation, onglet, fascicule) ; jalons retirés de la vue Objectifs du codex, qui renvoie aux quêtes ; « Récupérer la récompense » sous la découverte qui atteint un jalon | fait |
 | Recette locale (Chromium) : 3 découvertes → jalon atteint, réserve et sabliers inchangés ; « Récupérer » → philo- et -iste, historique `deterministe` | fait |
 | Hors production : « Réinitialiser » (Réglages) efface aussi les jalons atteints et récupérés ; une fois le jalon de nouveau atteint, sa récompense est à récupérer (test `la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer`) | fait |
-| Quêtes journalières | à concevoir (ADR à venir) |
+| Quêtes journalières | voir « Quêtes du jour » ci-dessous |
 
 ### Quêtes au long cours (App#22, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
 
@@ -169,9 +169,109 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | API : `progression_quetes` et `paliers_recuperes` dans l’état ; `POST /palier` idempotent (`403` pas atteint, `409` déjà récupéré, `400` inconnu) ; réinitialisation hors production | fait |
 | PWA : onglet « Au long cours » (`#/quetes/au-long-cours`), paliers à récompense annoncée d’avance, « Récupérer », compteur Corail | fait ; **maquette I-28 à dessiner** |
 | Récompenses : encre et sabliers ; les plis de lecteur arrivent avec la carte de lecteur | écart assumé |
-| Sortes « ricochets » et « lecteur » : déclarables, progression à zéro tant que ADR 0044 et la carte de lecteur ne sont pas livrés | en attente |
+| Sortes « ricochets » et « lecteur » : mesurées depuis App#20/#21 (cartes maîtrisées, cartes de lecteur pleines) | fait |
 
 Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
+
+### Quêtes du jour (App#20, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Base : `quete_jour` (joueur, jour GMT, rang, code, mot visé, progrès, faite le) ; purgée avec les données du jour (App#29) | fait |
+| API : tirage déterministe par joueur et jour à la première visite (`GET /etat`), parmi les quêtes faisables ; la table cède sa place à une seconde quête de mémoire sans découverte possible ; la difficulté des mots (ADR 0047) fait tourner le tirage entre les trois tiers ; `quetes_du_jour` dans l'état | fait |
+| Progression : `POST /ricochet` compte la réponse ; une suite sans faute retombe à zéro et se recommence aussitôt ; la quête de table est faite dès que son mot est au codex | fait |
+| PWA : onglet Journalières (consigne rendue côté client depuis le catalogue, progression « 2 / 4 », « Faite ») | fait ; **maquette I-28 à dessiner** |
+| Écart assumé : la liste fermée des six quêtes est écrite dans `etymo-api` (`quetes_jour.rs`), pas déclarée par le catalogue comme le veut l'ADR 0045 | écart |
+| Écart assumé : la quête « Sens littéral ou actuel » n'existe pas, le format n'est pas encore livré ; une seule quête de table (« le mot qui veut dire… »), pas « un mot venu du grec ancien » | écart |
+| Écart assumé : toutes les réponses du jour comptent pour les quêtes, pas seulement les cinq premières (ADR 0044), sans quoi un sans-faute manqué ne se recommencerait pas | écart |
+
+### Carte de lecteur (App#21, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Domaine : `carte_de_lecteur` (7 tampons, vue de la carte affichée, récompense 20 gouttes · 1 sablier · 1 pli de lecteur) | fait |
+| Base : `tampon` (un par jour GMT), `carte_lecteur_recuperee` ; commande `carte_lecteur`, motif `lecteur`, origine de pli `lecteur` ; réinitialisation hors production | fait |
+| API : le tampon est posé par le serveur quand toutes les quêtes du jour tirées (au moins deux) sont faites ; `carte_de_lecteur` dans l'état ; `POST /carte-de-lecteur` idempotent (`403` aucune carte pleine) : le joueur choisit le fascicule, le pli tire parmi les briques peu communes, rares et légendaires (chance fixe de l'équilibrage), sans énergie ni garantie, de l'encre seulement si la réserve est pleine | fait |
+| Quêtes au long cours : les sortes « ricochets » (cartes maîtrisées) et « lecteur » (cartes pleines) sont mesurées | fait |
+| PWA : carte (cases, tampon ÉL incliné de −6° et sa date, « 4 / 7 »), récompense annoncée, choix du fascicule, chances affichées, « Récupérer » ; aucune notification | fait ; **état « 7ᵉ tampon à récupérer » non dessiné** |
+| Écart assumé : la récompense (valeurs de départ) est une constante du domaine, pas un paramètre d'équilibrage du catalogue (ADR 0009, 0045) ; à simuler | écart |
+| Écart assumé : les tampons gagnés alors qu'une carte pleine attend comptent pour la carte suivante, invisibles jusqu'à la récupération | écart |
+
+### Cadeau de bienvenue (App#23, [ADR 0046](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0046-demarrage-genereux-cadeau-de-bienvenue-et-quetes-initiales.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Catalogue : `cadeau_de_bienvenue` dans l'index (`Calendrier`) : une brique par pli, sabliers, encre ; recopié par la tâche de parution ; le serveur ne garde que les briques publiées et non légendaires | fait côté App ; **à faire dans Content** : déclaration, schéma, validateur (briques de fascicules parus, jamais une légendaire) et compilation |
+| Base : `cadeau_recupere` (une ligne par profil) ; commande `cadeau`, motifs et origine `cadeau` ; réinitialisation hors production | fait |
+| API : `cadeau_de_bienvenue` dans l'état (annoncé d'avance, `recupere`) ; `POST /cadeau` idempotent (`403` aucun cadeau déclaré, `409` déjà récupéré) ; plis fixes sans énergie, hors garanties, comme un pli de jalon (logique partagée `accorder_plis_fixes`) | fait |
+| PWA : carte « Cadeau de bienvenue » en tête de l'onglet Journalières, compteur Corail | fait ; **maquette I-29 à dessiner** |
+| Écart assumé : pas de tutoriel (J5) : le cadeau est récupérable dès la création du profil, pas « dès la fin du tutoriel » | écart |
+| Valeurs (3 plis, 12 sabliers, 40 gouttes) : déclarées par le catalogue, **à simuler** | à faire (Content) |
+
+### Quêtes initiales de la première semaine (App#24, [ADR 0046](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0046-demarrage-genereux-cadeau-de-bienvenue-et-quetes-initiales.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Base : `quete_initiale` (une ligne quand la quête est faite pendant les sept premiers jours du profil, `recupere_le` quand la récompense est prise) ; commande `quete_initiale`, motif et origine de pli `quete_initiale` ; réinitialisation hors production | fait |
+| API : `quetes_initiales` dans l'état (progrès, récompense annoncée) ; `POST /quete-initiale` idempotent (`400` fascicule manquant pour des plis, `403` pas faite, `409` déjà récupérée) ; plis offerts du fascicule choisi (tirage ordinaire), pli de lecteur (peu communes et rares), sans énergie ni garantie | fait |
+| Les quatre quêtes : trois mots (2 plis offerts), un mot avec transformation (1 pli offert, 10 gouttes), cinq ricochets sans faute (3 sabliers), première carte de lecteur (1 pli de lecteur) | fait ; valeurs **à simuler** |
+| PWA : section « Première semaine » en tête de l'onglet Journalières, masquée une fois tout récupéré ; choix du fascicule des plis, chances affichées ; compteur Corail | fait ; **maquette I-29 à dessiner** |
+| Écart assumé : la liste fermée des quatre quêtes et leurs récompenses sont écrites dans `etymo-api`, pas dans l'équilibrage du catalogue | écart |
+| Écart assumé : « cinq ricochets sans faute » se lit sur les cinq premières réponses du jour (`ricochet_jour`) ; la quête n'est pas indexée sur les ricochets de la première semaine seulement | écart |
+
+### Date du prochain fascicule (App#26, [ADR 0049](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0049-date-du-prochain-fascicule-publique.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Tâche `publier-fascicules` : écrit `prochaine_parution` (UTC, rien d'autre du fascicule) dans `public/index.json` à chaque passage ; champ absent sans fascicule à venir ; un report change la date et réécrit l'index | fait |
+| Catalogue : `Calendrier.prochaine_parution` ; PWA : « Prochain fascicule : 1ᵉʳ novembre » sur le choix du fascicule des plis et en tête du codex ; rien ne s'affiche passée la date | fait |
+| Relancer la tâche à tout changement du calendrier (`staging/parutions.json`) | **à faire dans Infra / Content** (déclencheur) ; sinon le prochain passage planifié suffit |
+| Schéma de l'index global (`prochaine_parution`) | **à faire dans Content / Design** |
+
+### Purges et journaux sans donnée personnelle (App#29, [ADR 0010](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0010-observabilite-et-vie-privee.md))
+
+| Tâche | État |
+|---|---|
+| `purger` : commandes (30 jours), quêtes du jour et réponses de ricochets du jour (30 jours) ; durées documentées dans `crates/taches/src/purges.rs` et le README ; test d'intégration | fait |
+| Télémétrie brute (90 jours) et agrégats : aucune table n'existe encore, la purge viendra avec elles (J7) | en attente |
+| Audit des journaux : seuls les `tracing::` de `catalogue.rs`, `main.rs`, `erreur.rs`, `parution.rs` et `purges.rs` écrivent ; ils ne portent que des nombres, des versions et des causes internes ; pas de couche HTTP qui trace les requêtes. Test `journaux.rs` : un secret, un jeton, un identifiant d'installation et une adresse réseau envoyés en requête (et en erreur) n'apparaissent jamais dans le journal | fait |
+| Planifier `etymo-api purger` chaque jour (Serverless Job) | **à faire dans Infra** |
+| Durée de conservation d'un profil invité inactif | question ouverte du modèle de données, non tranchée |
+
+### Cohortes de rétention (App#28, [ADR 0050](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0050-cohortes-de-retention-et-statistiques-du-joueur.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Migration : `joueur.mois_activite_precedente`, mise à jour quand l'activité change de mois (ouverture de session et commandes) ; tables d'agrégats `indicateurs_jour`, `retour_jour`, `retention_mois`, `passage_mois` (des nombres, aucun identifiant de joueur) | fait |
+| `etymo-api agreger-jour` : retour au 1ᵉʳ, 7ᵉ et 30ᵉ jour, joueurs actifs, tampons, quêtes terminées, séances de ricochets, actifs sans découverte depuis deux jours ; idempotente | fait |
+| `etymo-api agreger-mois` : rétention par mois d'arrivée, passage d'un mois au suivant ; idempotente | fait |
+| `etymo-api statistiques` : aucun agrégat de moins de 50 joueurs n'est affiché ni exporté (`masquer`, testé) | fait |
+| Jours joués par mois : somme des joueurs actifs de chaque jour (`indicateurs_jour`) | fait |
+| Écart assumé : « sans découverte **possible** » demande le catalogue ; l'indicateur mesure « actifs sans **aucune** découverte depuis deux jours », un majorant | écart |
+| Écart assumé : sans journal d'activité par jour, « actif ce jour-là » se lit sur `derniere_activite` : les tâches se lancent juste après minuit GMT, sinon un joueur revenu depuis n'est plus compté | écart |
+| Télémétrie : le mois d'arrivée comme propriété, identifiant renouvelé au mois civil | en attente (J7, pas de télémétrie) |
+| Planifier les deux tâches (quotidienne 00:05 GMT, mensuelle le 1ᵉʳ à 00:10 GMT) | **à faire dans Infra** ; en place dès le premier jour de la bêta (ADR 0048) |
+
+### Durcissement avant lancement (App#30)
+
+| Tâche | État |
+|---|---|
+| Corps de requête borné (8 Kio) sur chaque route `POST` : test `durcissement.rs`, dont un garde-fou qui échoue si une route `POST` n'est pas dans la liste testée | fait |
+| Propriétés inconnues refusées : test du contrat (`requetes_strictes.rs`) qui échoue si une `Demande…` n'a pas `deny_unknown_fields` ; requêtes mal formées refusées sans erreur serveur sur chaque route | fait |
+| `/dev/reset` absent (`404`) en production : test | fait |
+| En-têtes de l'API (`no-store`, `nosniff`, `no-referrer`, HSTS, CSP `default-src 'none'`) déjà posés et testés | fait |
+| Limites de débit : **recommandation, à trancher par le propriétaire** — garder la limite par instance en mémoire pour la bêta. Avec `instances_max = 5` (Infra), un joueur ou une adresse ne dépasse jamais 5 × les quotas (120 requêtes par minute par profil, 20 sessions par minute par adresse), soit 600 et 100 par minute : sans effet sur le coût ni sur l'équité. Passer à une limite partagée (table PostgreSQL ou cache) si `instances_max` monte nettement ou si un abus est observé | décision ouverte |
+| Démarrage à froid sous 1 s au p95 : script `scripts/demarrage-a-froid.sh` ; mesure locale (binaire `release`, base locale) : p50 259 ms, p95 265 ms sur 20 démarrages | mesure locale faite ; **à mesurer en hors-prod** (conteneur Scaleway à froid) |
+| CSP de la PWA : aujourd'hui une balise `<meta>` (`web/vite.config.ts`), qui ne peut pas porter `frame-ancestors` ; le CDN doit poser CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` et `frame-ancestors 'none'` (ADR 0024) | **à faire dans Infra** (module `cdn` : vérifier que Scaleway Edge Services offre un étage d'en-têtes de réponse, sinon prévoir une règle côté bucket ou un autre CDN) ; vérification en hors-prod |
+
+### Audits avant lancement (App#31)
+
+| Tâche | État |
+|---|---|
+| `cargo audit` et `npm audit` en CI (déjà en place) ; résultat du jour : 0 vulnérabilité | fait |
+| Test d'accessibilité automatique (axe-core, neuf écrans, hors contraste) : deux écarts d'ordre des titres corrigés | fait |
+| Rapport [`docs/audits/avant-lancement.md`](audits/avant-lancement.md) : preuves, huit écarts proposés | fait |
+| Contraste rendu, clavier seul, lecteur d'écran, mouvement réduit, texte d'information sur la collecte | **à faire à la main** (appareil, hors-prod) ; l'issue #31 reste ouverte tant que ces points ne sont pas passés |
 
 ## Animations retenues (relevé et décisions du 2026-10-01)
 

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO passage_mois (mois, actifs, venus_du_mois_precedent)\n         SELECT $1::date, count(*), count(*) FILTER (WHERE mois_activite_precedente = $2::date)\n         FROM joueur WHERE date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date = $1::date\n         ON CONFLICT (mois) DO UPDATE SET actifs = EXCLUDED.actifs, venus_du_mois_precedent = EXCLUDED.venus_du_mois_precedent",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "23759728c47650349dae1a93dc16900fd9329c4d5c1cd02bb9153e4db44da03c"
+}
