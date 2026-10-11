@@ -200,6 +200,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quete-du-jour": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une quête du jour faite (ADR 0063) : encre pour la
+         *     table, sablier pour la mémoire, un pli de plus en attente (une charge
+         *     d'énergie) pour l'adresse. Une quête faite attend, même après minuit GMT.
+         */
+        post: operations["recuperer_quete_du_jour"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/quete-initiale": {
         parameters: {
             query?: never;
@@ -274,7 +295,7 @@ export interface paths {
         put?: never;
         /**
          * Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
-         *     recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+         *     recharge en cours d'une heure. Le temps au-delà de la capacité est perdu.
          */
         post: operations["utiliser_sabliers"];
         delete?: never;
@@ -665,6 +686,24 @@ export interface components {
             commande: string;
             fascicule_id: components["schemas"]["IdCatalogue"];
             /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération de la récompense d'une quête du jour faite. */
+        DemandeQueteDuJour: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: date */
+            jour: string;
+            /** Format: int32 */
+            rang: number;
             version_catalogue: string;
             /**
              * Format: int64
@@ -1133,6 +1172,11 @@ export interface components {
             cible: number;
             code: components["schemas"]["CodeQueteDuJour"];
             faite: boolean;
+            /**
+             * Format: date
+             * @description Jour GMT de la quête : une quête faite et pas récupérée survit à minuit (ADR 0063).
+             */
+            jour?: string | null;
             mot_id?: components["schemas"]["IdCatalogue"] | null;
             /**
              * Format: int32
@@ -1141,6 +1185,9 @@ export interface components {
             progres: number;
             /** Format: int32 */
             rang: number;
+            recompense?: components["schemas"]["RecompenseQuete"] | null;
+            /** @description La récompense est prise. */
+            recuperee?: boolean;
             sorte: components["schemas"]["SorteQueteDuJour"];
         };
         QueteInitialeEtat: {
@@ -1199,6 +1246,18 @@ export interface components {
              * @description Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
              */
             plis_offerts: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
+        /** @description Ce que donne une quête du jour faite, annoncé d'avance (ADR 0063). */
+        RecompenseQuete: {
+            /** Format: int32 */
+            gouttes: number;
+            /**
+             * Format: int32
+             * @description Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+             */
+            plis: number;
             /** Format: int32 */
             sabliers: number;
         };
@@ -1269,6 +1328,10 @@ export interface components {
              */
             exemplaires: number;
             ouverture: components["schemas"]["OuverturePli"];
+        };
+        ReponseQueteDuJour: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
         };
         ReponseQueteInitiale: {
             /** @description État confirmé après la commande. */
@@ -2019,6 +2082,84 @@ export interface operations {
                 };
             };
             /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_quete_du_jour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeQueteDuJour"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseQueteDuJour"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Quête du jour pas faite, ou énergie pleine pour un pli en attente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Déjà récupérée, état ou catalogue périmé : resynchroniser */
             409: {
                 headers: {
                     [name: string]: unknown;

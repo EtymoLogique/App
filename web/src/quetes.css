@@ -21,24 +21,29 @@
 }
 .quetes-ill .ic { width: 26px; height: 26px; }
 
-.quetes-fascicule { display: grid; gap: 12px; margin-top: 22px; }
+.quetes-fascicule { display: grid; gap: 12px; margin-top: 22px; margin-bottom: 18px; }
 .quetes-titre { margin: 0; font-size: 20px; }
 .quetes-liste {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px;
   margin: 0; padding: 0; list-style: none;
 }
 .quete {
-  display: grid; align-content: start; gap: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; min-height: 120px;
   border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink);
 }
 /* Une récompense qui attend : bordure Encre et ombre dure, comme un élément actif. */
 .quete[data-etat="a_recuperer"] { border-color: var(--ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
 .quete[data-etat="recupere"] { background: var(--paper-2); }
+.quete.cadeau { margin-bottom: 18px; }
 .quete-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.quetes-liste .quete-tete { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; }
 .quete-seuil { font-family: var(--serif); font-size: 20px; font-weight: 600; }
 .quete-avancee { font-family: var(--mono); font-size: 12px; font-weight: 700; }
-.quete-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.quete-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: auto; }
 .quete-pied .btn { margin-left: auto; }
+.quete-pied .cb-note { flex-basis: 100%; margin: 0; }
+.quete-pied select { min-height: 44px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.quete-pied select:disabled { opacity: 0.6; cursor: not-allowed; }
 .quete-k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .quete-recompense { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .quete-sabliers { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }

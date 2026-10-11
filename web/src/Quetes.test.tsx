@@ -98,6 +98,23 @@ describe('quêtes', () => {
     expect(screen.queryByText('Bientôt disponibles')).not.toBeInTheDocument()
   })
 
+  it('récupère la récompense d’une quête du jour faite, même celle de la veille', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const recompense = { gouttes: 0, sabliers: 1, plis: 0 }
+    const veille = { rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true, jour: '2026-10-10', recuperee: false, recompense }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_du_jour: [veille] })
+    const prise = vi.spyOn(api, 'queteDuJour').mockResolvedValue({
+      etat: { ...atteint, version_etat: 2, quetes_du_jour: [{ ...veille, recuperee: true }] },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('1 sablier')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText(/Récompense ajoutée/)).toBeInTheDocument()
+    expect(prise).toHaveBeenCalledWith(expect.objectContaining({ jour: '2026-10-10', rang: 1, version_etat: 1 }))
+    expect(screen.getByText('✓ Récupérée')).toBeInTheDocument()
+  })
+
   it('montre la carte de lecteur et récupère la carte pleine', async () => {
     history.replaceState(null, '', '/#/quetes/journalieres')
     const { api } = client()
@@ -136,7 +153,7 @@ describe('quêtes', () => {
   })
 
   it('liste les quêtes de la première semaine et récupère une récompense sans pli', async () => {
-    history.replaceState(null, '', '/#/quetes/journalieres')
+    history.replaceState(null, '', '/#/quetes/ponctuelles')
     const { api } = client()
     const recompense = { plis_offerts: 0, plis_de_lecteur: 0, sabliers: 3, gouttes: 0 }
     const initiales = (faite: boolean, recuperee: boolean) => [

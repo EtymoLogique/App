@@ -24,7 +24,7 @@ const partie = etat({
   quetes_initiales: [{ code: 'trois_mots', cible: 3, progres: 1, faite: false, recuperee: false, recompense: { plis_offerts: 2, plis_de_lecteur: 0, sabliers: 0, gouttes: 0 } }],
 })
 
-const ECRANS = ['table', 'codex', 'plis', 'quetes/journalieres', 'quetes/fascicules', 'quetes/au-long-cours', 'boutique', 'ricochets', 'reglages']
+const ECRANS = ['table', 'codex', 'plis', 'quetes/journalieres', 'quetes/ponctuelles', 'quetes/fascicules', 'quetes/au-long-cours', 'boutique', 'ricochets', 'reglages']
 
 async function violations(): Promise<string[]> {
   const resultat = await axe.run(document.body, {

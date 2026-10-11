@@ -12,7 +12,7 @@ export type TriCodex = 'n' | 'az' | 'type' | 'fasc' | 'date' | 'maitrise'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
 export type VueCodex = 'tout' | 'recentes' | 'familles' | 'cabinet'
 /** Onglets des quêtes (ADR 0042, 0045) : journalières, récompenses de fascicule, puis quêtes au long cours. */
-export type OngletQuetes = 'journalieres' | 'fascicules' | 'au-long-cours'
+export type OngletQuetes = 'journalieres' | 'ponctuelles' | 'fascicules' | 'au-long-cours'
 
 export interface Route {
   onglet: Onglet
@@ -34,7 +34,7 @@ export interface Route {
 }
 
 const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'ricochets', 'reglages']
-const QUETES: OngletQuetes[] = ['journalieres', 'fascicules', 'au-long-cours']
+const QUETES: OngletQuetes[] = ['journalieres', 'ponctuelles', 'fascicules', 'au-long-cours']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc', 'date', 'maitrise']
 const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'cabinet']

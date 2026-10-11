@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeAchatSablier, DemandeCadeau, DemandeQueteInitiale, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCadeau, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeCadeau, DemandeQueteDuJour, DemandeQueteInitiale, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCadeau, ReponseQueteDuJour, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -159,6 +159,15 @@ export class ClientApi {
   /** Récupère la récompense d'une quête initiale faite : `403` si elle n'est pas faite, `409` si elle est déjà récupérée. */
   queteInitiale(demande: DemandeQueteInitiale): Promise<ReponseQueteInitiale> {
     return this.authentifie('/quete-initiale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Récupère la récompense d'une quête du jour faite : `403` si elle n'est pas faite, `409` si elle est déjà récupérée. */
+  queteDuJour(demande: DemandeQueteDuJour): Promise<ReponseQueteDuJour> {
+    return this.authentifie('/quete-du-jour', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { DemandeRicochet, Etat, ReponseCadeau, CodeQueteInitiale, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
+import type { DemandeRicochet, Etat, ReponseCadeau, CodeQueteInitiale, ReponseQueteDuJour, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -433,6 +433,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander],
   )
 
+  /** Récupère la récompense d'une quête du jour faite (ADR 0063) . */
+  const recupererQueteDuJour = useCallback(
+    (jour: string, rang: number): Promise<ReponseQueteDuJour | { erreur: string }> =>
+      commander(
+        (e, version) => api.queteDuJour({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, jour, rang }),
+        'Cette quête n’est pas encore faite.',
+      ),
+    [api, commander],
+  )
+
   /** Récupère le cadeau de bienvenue (ADR 0046) : plis fixes, sabliers et encre, une fois. */
   const recupererCadeau = useCallback(
     (): Promise<ReponseCadeau | { erreur: string }> =>
@@ -483,6 +493,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     recupererCarte,
     recupererCadeau,
     recupererQueteInitiale,
+    recupererQueteDuJour,
     erreurEtat,
     table,
     cases,
