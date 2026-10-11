@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM quete_jour WHERE jour < (now() AT TIME ZONE 'UTC')::date - $1::int\n           AND (faite_le IS NULL OR recupere_le IS NOT NULL)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a02515740fd1de48f8b1f1928ac3b4d80d9c48e9e445631f988abbbfedc9595b"
+}

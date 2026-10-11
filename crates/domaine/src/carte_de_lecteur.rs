@@ -7,7 +7,8 @@ pub const TAILLE: u32 = 7;
 /// Récompense d'une carte pleine : valeurs de départ de l'ADR 0045, à simuler.
 pub const GOUTTES: u32 = 20;
 pub const SABLIERS: u32 = 1;
-pub const PLIS_DE_LECTEUR: u32 = 1;
+/// Plis en attente de plus : une charge d'énergie (ADR 0063).
+pub const PLIS: u32 = 1;
 
 /// Ce que montre la carte, d'après le nombre de tampons gagnés et de cartes récupérées.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

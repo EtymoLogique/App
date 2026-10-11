@@ -4,7 +4,7 @@
 
 use chrono::NaiveDate;
 use etymo_contrat::{CarteDeLecteurEtat, RecompenseCarte};
-use etymo_domaine::carte_de_lecteur::{self, GOUTTES, PLIS_DE_LECTEUR, SABLIERS, TAILLE};
+use etymo_domaine::carte_de_lecteur::{self, GOUTTES, PLIS, SABLIERS, TAILLE};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -69,7 +69,7 @@ pub async fn etat(tx: &mut PgConnection, joueur: Uuid) -> Result<CarteDeLecteurE
         recompense: RecompenseCarte {
             gouttes: GOUTTES,
             sabliers: SABLIERS,
-            plis_de_lecteur: PLIS_DE_LECTEUR,
+            plis: PLIS,
         },
     })
 }

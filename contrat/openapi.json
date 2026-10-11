@@ -111,7 +111,7 @@
         "tags": [
           "jeu"
         ],
-        "summary": "Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de\nl'encre, un sablier et un pli de lecteur dont le joueur choisit le\nfascicule. Le pli tire parmi les briques peu communes et rares, les\nlégendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne\ncompte pour aucune garantie.",
+        "summary": "Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de\nl'encre, un sablier et un pli en attente de plus (une charge d'énergie,\nrefusée tant que l'énergie est pleine).",
         "operationId": "recuperer_carte_de_lecteur",
         "requestBody": {
           "content": {
@@ -135,7 +135,7 @@
             }
           },
           "400": {
-            "description": "Requête invalide ou fascicule sans pli de lecteur",
+            "description": "Requête invalide",
             "content": {
               "application/json": {
                 "schema": {
@@ -155,7 +155,7 @@
             }
           },
           "403": {
-            "description": "Aucune carte de lecteur pleine",
+            "description": "Aucune carte de lecteur pleine, ou énergie pleine",
             "content": {
               "application/json": {
                 "schema": {
@@ -757,6 +757,102 @@
         ]
       }
     },
+    "/quete-du-jour": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'une quête du jour faite (ADR 0063) : encre pour la\ntable, sablier pour la mémoire, un pli de plus en attente (une charge\nd'énergie) pour l'adresse. Une quête faite attend, même après minuit GMT.",
+        "operationId": "recuperer_quete_du_jour",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeQueteDuJour"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseQueteDuJour"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Quête du jour pas faite, ou énergie pleine pour un pli en attente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déjà récupérée, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/quete-initiale": {
       "post": {
         "tags": [
@@ -1010,7 +1106,7 @@
         "tags": [
           "jeu"
         ],
-        "summary": "Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la\nrecharge en cours d'une heure. Le temps au-delà de deux charges est perdu.",
+        "summary": "Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la\nrecharge en cours d'une heure. Le temps au-delà de la capacité est perdu.",
         "operationId": "utiliser_sabliers",
         "requestBody": {
           "content": {
@@ -1974,21 +2070,17 @@
       },
       "DemandeCarteDeLecteur": {
         "type": "object",
-        "description": "Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur.",
+        "description": "Commande de récupération d'une carte pleine.",
         "required": [
           "commande",
           "version_etat",
-          "version_catalogue",
-          "fascicule_id"
+          "version_catalogue"
         ],
         "properties": {
           "commande": {
             "type": "string",
             "format": "uuid",
             "description": "Clé d'idempotence générée par le client (UUID v4)."
-          },
-          "fascicule_id": {
-            "$ref": "#/components/schemas/IdCatalogue"
           },
           "version_catalogue": {
             "type": "string",
@@ -2157,6 +2249,44 @@
           "version_catalogue": {
             "type": "string",
             "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeQueteDuJour": {
+        "type": "object",
+        "description": "Commande de récupération de la récompense d'une quête du jour faite.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "jour",
+          "rang"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "jour": {
+            "type": "string",
+            "format": "date"
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 2,
+            "minimum": 0
+          },
+          "version_catalogue": {
+            "type": "string",
             "maxLength": 64
           },
           "version_etat": {
@@ -3471,6 +3601,14 @@
           "faite": {
             "type": "boolean"
           },
+          "jour": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Jour GMT de la quête : une quête faite et pas récupérée survit à minuit (ADR 0063)."
+          },
           "mot_id": {
             "oneOf": [
               {
@@ -3493,6 +3631,21 @@
             "format": "int32",
             "maximum": 2,
             "minimum": 0
+          },
+          "recompense": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecompenseQuete",
+                "description": "Annoncée d'avance, selon la sorte de la quête."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recuperee": {
+            "type": "boolean",
+            "description": "La récompense est prise."
           },
           "sorte": {
             "$ref": "#/components/schemas/SorteQueteDuJour"
@@ -3632,7 +3785,7 @@
         "required": [
           "gouttes",
           "sabliers",
-          "plis_de_lecteur"
+          "plis"
         ],
         "properties": {
           "gouttes": {
@@ -3640,9 +3793,10 @@
             "format": "int32",
             "minimum": 0
           },
-          "plis_de_lecteur": {
+          "plis": {
             "type": "integer",
             "format": "int32",
+            "description": "Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.",
             "minimum": 0
           },
           "sabliers": {
@@ -3677,6 +3831,34 @@
             "type": "integer",
             "format": "int32",
             "description": "Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.",
+            "minimum": 0
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecompenseQuete": {
+        "type": "object",
+        "description": "Ce que donne une quête du jour faite, annoncé d'avance (ADR 0063).",
+        "required": [
+          "gouttes",
+          "sabliers",
+          "plis"
+        ],
+        "properties": {
+          "gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.",
             "minimum": 0
           },
           "sabliers": {
@@ -3770,17 +3952,12 @@
       "ReponseCarteDeLecteur": {
         "type": "object",
         "required": [
-          "ouverture",
           "etat"
         ],
         "properties": {
           "etat": {
             "$ref": "#/components/schemas/Etat",
             "description": "État confirmé après la commande."
-          },
-          "ouverture": {
-            "$ref": "#/components/schemas/OuverturePli",
-            "description": "Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine."
           }
         },
         "additionalProperties": false
@@ -3898,6 +4075,19 @@
           },
           "ouverture": {
             "$ref": "#/components/schemas/OuverturePli"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseQueteDuJour": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
           }
         },
         "additionalProperties": false

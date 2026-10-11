@@ -8,11 +8,12 @@ use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
     CarteRicochet, DemandeAchatSablier, DemandeCadeau, DemandeCarteDeLecteur, DemandeFusion,
-    DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeQueteInitiale, DemandeRicochet,
-    DemandeSablier, DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier,
-    ReponseCadeau, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon,
-    ReponsePalier, ReponsePli, ReponseQueteInitiale, ReponseRicochet, ReponseSablier, Sante,
-    SeanceRicochets, Session, StatutSante,
+    DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeQueteDuJour,
+    DemandeQueteInitiale, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat,
+    IssueFusion, OuverturePli, ReponseAchatSablier, ReponseCadeau, ReponseCarteDeLecteur,
+    ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseQueteDuJour,
+    ReponseQueteInitiale, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session,
+    StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -41,6 +42,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/carte-de-lecteur", post(recuperer_carte_de_lecteur))
         .route("/cadeau", post(recuperer_cadeau))
         .route("/quete-initiale", post(recuperer_quete_initiale))
+        .route("/quete-du-jour", post(recuperer_quete_du_jour))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -619,7 +621,7 @@ pub async fn acheter_sabliers(
 }
 
 /// Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
-/// recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+/// recharge en cours d'une heure. Le temps au-delà de la capacité est perdu.
 #[utoipa::path(post, path = "/sablier", tag = "jeu", security(("session" = [])), request_body = DemandeSablier,
     responses(
         (status = 200, description = "Recharge avancée et état confirmé", body = ReponseSablier),
@@ -1016,6 +1018,60 @@ pub async fn recuperer_quete_initiale(
     Ok(Json(reponse))
 }
 
+/// Récupère la récompense d'une quête du jour faite (ADR 0063) : encre pour la
+/// table, sablier pour la mémoire, un pli de plus en attente (une charge
+/// d'énergie) pour l'adresse. Une quête faite attend, même après minuit GMT.
+#[utoipa::path(post, path = "/quete-du-jour", tag = "jeu", security(("session" = [])), request_body = DemandeQueteDuJour,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseQueteDuJour),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Quête du jour pas faite, ou énergie pleine pour un pli en attente", body = Erreur),
+        (status = 409, description = "Déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_quete_du_jour(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeQueteDuJour>,
+) -> Result<Json<ReponseQueteDuJour>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let maintenant = Utc::now();
+    let sorte = quetes_jour::reclamer(&mut tx, joueur, demande.jour, demande.rang).await?;
+    let recompense = quetes_jour::recompense(sorte);
+    for _ in 0..recompense.plis {
+        progression::gagner_charge(&mut tx, joueur, app.recharge, maintenant).await?;
+    }
+    progression::accorder_sabliers_et_encre(
+        &mut tx,
+        joueur,
+        demande.commande,
+        recompense.sabliers,
+        recompense.gouttes,
+        "quete_jour",
+        maintenant,
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseQueteDuJour {
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "quete_jour", &reponse).await?;
+    Ok(Json(reponse))
+}
+
 /// Tire la brique d'un pli sans énergie : tout le pli pour un pli offert,
 /// les seules peu communes et rares (et la légendaire à sa chance fixe) pour
 /// un pli de lecteur.
@@ -1096,16 +1152,14 @@ pub async fn recuperer_cadeau(
 }
 
 /// Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
-/// l'encre, un sablier et un pli de lecteur dont le joueur choisit le
-/// fascicule. Le pli tire parmi les briques peu communes et rares, les
-/// légendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne
-/// compte pour aucune garantie.
+/// l'encre, un sablier et un pli en attente de plus (une charge d'énergie,
+/// refusée tant que l'énergie est pleine).
 #[utoipa::path(post, path = "/carte-de-lecteur", tag = "jeu", security(("session" = [])), request_body = DemandeCarteDeLecteur,
     responses(
         (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseCarteDeLecteur),
-        (status = 400, description = "Requête invalide ou fascicule sans pli de lecteur", body = Erreur),
+        (status = 400, description = "Requête invalide", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
-        (status = 403, description = "Aucune carte de lecteur pleine", body = Erreur),
+        (status = 403, description = "Aucune carte de lecteur pleine, ou énergie pleine", body = Erreur),
         (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
@@ -1127,50 +1181,17 @@ pub async fn recuperer_carte_de_lecteur(
         Ok(tx) => tx,
         Err(reponse) => return Ok(Json(reponse)),
     };
-    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
-    let jeu = &catalogue.jeu;
-    let pli_jeu = jeu
-        .pli(&demande.fascicule_id)
-        .filter(|p| !p.briques.is_empty())
-        .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : aucun pli paru".into()))?;
-    let equilibrage = pli_jeu
-        .equilibrage
-        .as_ref()
-        .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : pli sans équilibrage".into()))?;
-    let parametres = &equilibrage.parametres;
     carte_lecteur::reclamer(&mut tx, joueur).await?;
-    let brique = tirer_brique(pli_jeu, parametres, true)?;
-    let stock = progression::stock(&mut tx, joueur).await?;
-    let resultat = pli::resultat(stock.get(&brique.id).copied());
-    let gouttes = encre_reserve_pleine(resultat, brique, parametres);
-    let maintenant = Utc::now();
     progression::accorder_carte_de_lecteur(
         &mut tx,
         joueur,
-        &progression::EffetsPli {
-            commande: demande.commande,
-            fascicule: &demande.fascicule_id,
-            brique: &brique.id,
-            resultat,
-            regle: pli::Regle::Tirage,
-            gouttes,
-            energie: etymo_domaine::energie::Energie::pleine(),
-            compteurs: pli::Compteurs::default(),
-            version_equilibrage: &equilibrage.version,
-            maintenant,
-        },
+        demande.commande,
+        app.recharge,
+        Utc::now(),
     )
     .await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseCarteDeLecteur {
-        ouverture: OuverturePli {
-            fascicule_id: demande.fascicule_id.clone(),
-            brique_id: brique.id.clone(),
-            resultat,
-            regle: pli::Regle::Tirage,
-            encre: gouttes,
-            ouvert_le: maintenant,
-        },
         etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "carte_lecteur", &reponse).await?;

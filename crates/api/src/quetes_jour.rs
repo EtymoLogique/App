@@ -10,7 +10,9 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{Datelike, NaiveDate, Utc};
 use etymo_catalogue::{Difficulte, Jeu};
-use etymo_contrat::{CodeQueteDuJour as Code, FormatRicochet, QueteDuJour, SorteQueteDuJour};
+use etymo_contrat::{
+    CodeQueteDuJour as Code, FormatRicochet, QueteDuJour, RecompenseQuete, SorteQueteDuJour,
+};
 use etymo_domaine::IdCatalogue;
 use sqlx::PgConnection;
 use uuid::Uuid;
@@ -50,6 +52,21 @@ const fn sorte(code: Code) -> SorteQueteDuJour {
             SorteQueteDuJour::Memoire
         }
         Code::AdresseDecouper | Code::AdressePaires => SorteQueteDuJour::Adresse,
+    }
+}
+
+/// Récompense de chaque sorte (ADR 0063), valeurs de départ à simuler.
+#[must_use]
+pub const fn recompense(sorte: SorteQueteDuJour) -> RecompenseQuete {
+    let (gouttes, sabliers, plis) = match sorte {
+        SorteQueteDuJour::Table => (5, 0, 0),
+        SorteQueteDuJour::Memoire => (0, 1, 0),
+        SorteQueteDuJour::Adresse => (0, 0, 1),
+    };
+    RecompenseQuete {
+        gouttes,
+        sabliers,
+        plis,
     }
 }
 
@@ -298,8 +315,10 @@ pub async fn du_jour(
         carte_lecteur::tamponner(&mut *tx, joueur, jour).await?;
     }
     sqlx::query!(
-        "SELECT rang, code, cible_id, progres, faite_le FROM quete_jour
-         WHERE joueur_id = $1 AND jour = $2 ORDER BY rang",
+        "SELECT jour, rang, code, cible_id, progres, faite_le, recupere_le FROM quete_jour
+         WHERE joueur_id = $1
+           AND (jour = $2 OR (jour < $2 AND faite_le IS NOT NULL AND recupere_le IS NULL))
+         ORDER BY jour, rang",
         joueur,
         jour
     )
@@ -317,9 +336,51 @@ pub async fn du_jour(
             cible: cible(code),
             progres: u8::try_from(l.progres).unwrap_or(0),
             faite: l.faite_le.is_some(),
+            jour: Some(l.jour),
+            recuperee: l.recupere_le.is_some(),
+            recompense: Some(recompense(sorte(code))),
         })
     })
     .collect()
+}
+
+/// Marque la récompense d'une quête du jour comme prise et rend sa sorte.
+/// `403` : quête pas faite ; `409` : déjà récupérée.
+pub async fn reclamer(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jour: NaiveDate,
+    rang: u8,
+) -> Result<SorteQueteDuJour, ErreurApi> {
+    let prise = sqlx::query_scalar!(
+        "UPDATE quete_jour SET recupere_le = now()
+         WHERE joueur_id = $1 AND jour = $2 AND rang = $3
+           AND faite_le IS NOT NULL AND recupere_le IS NULL RETURNING code",
+        joueur,
+        jour,
+        i16::from(rang)
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(code) = prise {
+        let code = depuis(&code)
+            .ok_or_else(|| ErreurApi::Interne(format!("quête du jour inconnue : {code}")))?;
+        return Ok(sorte(code));
+    }
+    let faite = sqlx::query_scalar!(
+        "SELECT faite_le IS NOT NULL FROM quete_jour WHERE joueur_id = $1 AND jour = $2 AND rang = $3",
+        joueur,
+        jour,
+        i16::from(rang)
+    )
+    .fetch_optional(tx)
+    .await?
+    .flatten();
+    Err(if faite == Some(true) {
+        ErreurApi::Conflit("quête du jour déjà récupérée")
+    } else {
+        ErreurApi::Interdit("quête du jour pas faite")
+    })
 }
 
 /// Compte une réponse de ricochet pour les quêtes du jour non faites.

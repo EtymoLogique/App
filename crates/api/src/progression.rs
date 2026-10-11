@@ -549,6 +549,20 @@ pub async fn utiliser_sabliers(
     ecrire_energie(&mut *tx, joueur, avancee).await
 }
 
+/// Ajoute une charge d'énergie, un pli de plus à ouvrir. `403` : énergie pleine.
+pub async fn gagner_charge(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    recharge: TimeDelta,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    let energie = lire_energie(&mut *tx, joueur).await?;
+    let gagnee = energie
+        .gagner(maintenant, recharge)
+        .ok_or(ErreurApi::Interdit("énergie pleine"))?;
+    ecrire_energie(tx, joueur, gagnee).await
+}
+
 /// Achète `nombre` sabliers contre de l'encre (ADR 0039). Renvoie le prix payé.
 pub async fn acheter_sabliers(
     tx: &mut PgConnection,
@@ -879,17 +893,21 @@ pub(crate) async fn accorder_sabliers_et_encre(
 pub async fn accorder_carte_de_lecteur(
     tx: &mut PgConnection,
     joueur: Uuid,
-    effets: &EffetsPli<'_>,
+    commande: Uuid,
+    recharge: TimeDelta,
+    maintenant: DateTime<Utc>,
 ) -> Result<(), ErreurApi> {
-    accorder_brique_tiree(&mut *tx, joueur, effets, "lecteur").await?;
+    for _ in 0..carte_de_lecteur::PLIS {
+        gagner_charge(&mut *tx, joueur, recharge, maintenant).await?;
+    }
     accorder_sabliers_et_encre(
         &mut *tx,
         joueur,
-        effets.commande,
+        commande,
         carte_de_lecteur::SABLIERS,
         carte_de_lecteur::GOUTTES,
         "lecteur",
-        effets.maintenant,
+        maintenant,
     )
     .await
 }

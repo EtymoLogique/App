@@ -119,11 +119,12 @@ describe('quêtes', () => {
     history.replaceState(null, '', '/#/quetes/journalieres')
     const { api } = client()
     const quetes = [{ rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true }]
-    const carte = { taille: 7, a_recuperer: 1, remplies: 1, recompense: { gouttes: 20, sabliers: 1, plis_de_lecteur: 1 } }
+    const carte = { taille: 7, a_recuperer: 1, remplies: 1, recompense: { gouttes: 20, sabliers: 1, plis: 1 } }
     const jours = ['2026-10-01', '2026-10-02', '2026-10-04', '2026-10-05', '2026-10-07', '2026-10-08', '2026-10-09']
-    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_du_jour: quetes, carte_de_lecteur: { ...carte, tampons: jours } })
+    const plein = { ...atteint, quetes_du_jour: quetes, carte_de_lecteur: { ...carte, tampons: jours } }
+    const energie = { ...plein.energie, charges: 1, prochaine_charge: '2026-10-12T00:00:00Z' }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...plein, energie })
     const recuperee = vi.spyOn(api, 'carteDeLecteur').mockResolvedValue({
-      ouverture: { fascicule_id: 'fsc_00000000', brique_id: GEO, resultat: 'nouvelle', regle: 'tirage', encre: 0, ouvert_le: '2026-10-11T10:00:00Z' },
       etat: { ...atteint, version_etat: 2, quetes_du_jour: quetes, carte_de_lecteur: { ...carte, tampons: [], a_recuperer: 0 } },
     })
     render(<App api={api} catalogue={lecteurAvecJalon()} />)
@@ -133,6 +134,17 @@ describe('quêtes', () => {
     expect(await screen.findByText(/Carte récupérée/)).toBeInTheDocument()
     expect(recuperee).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, version_catalogue: 'v1' }))
     expect(await screen.findByText('0 / 7')).toBeInTheDocument()
+  })
+
+  it('garde la carte pleine en attente tant que l’énergie est pleine', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const quetes = [{ rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true }]
+    const carte = { taille: 7, a_recuperer: 1, remplies: 1, recompense: { gouttes: 20, sabliers: 1, plis: 1 }, tampons: ['2026-10-01', '2026-10-02', '2026-10-04', '2026-10-05', '2026-10-07', '2026-10-08', '2026-10-09'] }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_du_jour: quetes, carte_de_lecteur: carte })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText(/ouvrez-en un, la récompense vous attend/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Récupérer' })).toBeDisabled()
   })
 
   it('propose le cadeau de bienvenue et le récupère une fois', async () => {

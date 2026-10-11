@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT faite_le IS NOT NULL FROM quete_jour WHERE joueur_id = $1 AND jour = $2 AND rang = $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1d116a5e2385063efe703417c6586737901eeb033e65e2d541992cf91929f466"
+}

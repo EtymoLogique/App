@@ -455,9 +455,9 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
 
   /** Récupère la carte de lecteur pleine (ADR 0045) : de l'encre, un sablier et un pli de lecteur du fascicule choisi. */
   const recupererCarte = useCallback(
-    (fascicule: string): Promise<ReponseCarteDeLecteur | { erreur: string }> =>
+    (): Promise<ReponseCarteDeLecteur | { erreur: string }> =>
       commander(
-        (e, version) => api.carteDeLecteur({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, fascicule_id: fascicule }),
+        (e, version) => api.carteDeLecteur({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version }),
         'Cette carte de lecteur n’est pas encore pleine.',
       ),
     [api, commander],

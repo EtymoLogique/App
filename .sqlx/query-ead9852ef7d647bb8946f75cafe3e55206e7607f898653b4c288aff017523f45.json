@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE quete_jour SET recupere_le = now()\n         WHERE joueur_id = $1 AND jour = $2 AND rang = $3\n           AND faite_le IS NOT NULL AND recupere_le IS NULL RETURNING code",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ead9852ef7d647bb8946f75cafe3e55206e7607f898653b4c288aff017523f45"
+}

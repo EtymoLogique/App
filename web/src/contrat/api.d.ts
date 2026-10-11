@@ -35,10 +35,8 @@ export interface paths {
         put?: never;
         /**
          * Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
-         *     l'encre, un sablier et un pli de lecteur dont le joueur choisit le
-         *     fascicule. Le pli tire parmi les briques peu communes et rares, les
-         *     légendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne
-         *     compte pour aucune garantie.
+         *     l'encre, un sablier et un pli en attente de plus (une charge d'énergie,
+         *     refusée tant que l'énergie est pleine).
          */
         post: operations["recuperer_carte_de_lecteur"];
         delete?: never;
@@ -594,14 +592,13 @@ export interface components {
              */
             version_etat: number;
         };
-        /** @description Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur. */
+        /** @description Commande de récupération d'une carte pleine. */
         DemandeCarteDeLecteur: {
             /**
              * Format: uuid
              * @description Clé d'idempotence générée par le client (UUID v4).
              */
             commande: string;
-            fascicule_id: components["schemas"]["IdCatalogue"];
             version_catalogue: string;
             /**
              * Format: int64
@@ -1230,8 +1227,11 @@ export interface components {
         RecompenseCarte: {
             /** Format: int32 */
             gouttes: number;
-            /** Format: int32 */
-            plis_de_lecteur: number;
+            /**
+             * Format: int32
+             * @description Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+             */
+            plis: number;
             /** Format: int32 */
             sabliers: number;
         };
@@ -1288,8 +1288,6 @@ export interface components {
         ReponseCarteDeLecteur: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
-            /** @description Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine. */
-            ouverture: components["schemas"]["OuverturePli"];
         };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
@@ -1599,7 +1597,7 @@ export interface operations {
                     "application/json": components["schemas"]["ReponseCarteDeLecteur"];
                 };
             };
-            /** @description Requête invalide ou fascicule sans pli de lecteur */
+            /** @description Requête invalide */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1617,7 +1615,7 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Aucune carte de lecteur pleine */
+            /** @description Aucune carte de lecteur pleine, ou énergie pleine */
             403: {
                 headers: {
                     [name: string]: unknown;

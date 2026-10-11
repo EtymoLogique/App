@@ -19,7 +19,7 @@ const partie = etat({
     { rang: 0, sorte: 'table', code: 'table_sens', mot_id: MOT, cible: 1, progres: 0, faite: false },
     { rang: 1, sorte: 'memoire', code: 'memoire_sans_faute', cible: 5, progres: 2, faite: false },
   ],
-  carte_de_lecteur: { tampons: ['2026-10-01', '2026-10-03'], taille: 7, a_recuperer: 0, remplies: 0, recompense: { gouttes: 20, sabliers: 1, plis_de_lecteur: 1 } },
+  carte_de_lecteur: { tampons: ['2026-10-01', '2026-10-03'], taille: 7, a_recuperer: 0, remplies: 0, recompense: { gouttes: 20, sabliers: 1, plis: 1 } },
   cadeau_de_bienvenue: { plis: [GEO], sabliers: 12, encre: 40, recupere: false },
   quetes_initiales: [{ code: 'trois_mots', cible: 3, progres: 1, faite: false, recuperee: false, recompense: { plis_offerts: 2, plis_de_lecteur: 0, sabliers: 0, gouttes: 0 } }],
 })

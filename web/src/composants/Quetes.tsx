@@ -306,19 +306,19 @@ function chancesLecteur(jeu: CatalogueJeu, fascicule: string): string {
 
 /**
  * Carte de lecteur (ADR 0045) : un tampon par jour où les trois quêtes sont
- * faites, sans série ni rappel. Pleine, elle offre un pli de lecteur dont le
- * joueur choisit le fascicule, chances affichées.
+ * faites, sans série ni rappel. Pleine, elle donne de l'encre, un sablier et
+ * un pli en attente de plus (ADR 0063) ; énergie pleine, la récompense attend.
  */
-function CarteDeLecteur({ carte, jeu, inactif, recuperer }: { carte: CarteDeLecteurEtat; jeu: CatalogueJeu; inactif: string | null; recuperer: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }> }) {
-  const [fascicule, setFascicule] = useState(jeu.fascicules[0]?.manifeste.id ?? '')
+function CarteDeLecteur({ carte, energiePleine, inactif, recuperer }: { carte: CarteDeLecteurEtat; energiePleine: boolean; inactif: string | null; recuperer: () => Promise<ReponseCarteDeLecteur | { erreur: string }> }) {
   const [enCours, setEnCours] = useState(false)
   const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
   const { recompense } = carte
+  const texte = `${pluriel(recompense.gouttes, 'goutte')} d’encre · ${pluriel(recompense.sabliers, 'sablier')} · ${recompense.plis > 1 ? `${recompense.plis} plis` : 'un pli'} à ouvrir`
   const agir = async () => {
     setEnCours(true)
-    const reponse = await recuperer(fascicule)
+    const reponse = await recuperer()
     setEnCours(false)
-    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Carte récupérée\u00a0: ${pluriel(recompense.gouttes, 'goutte')} d’encre, ${pluriel(recompense.sabliers, 'sablier')} et un pli de lecteur.`, ton: 'win' })
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Carte récupérée\u00a0: ${texte}.`, ton: 'win' })
   }
   return (
     <section className="carte-lecteur" aria-label="Carte de lecteur" data-etat={carte.a_recuperer > 0 ? 'a_recuperer' : 'en_cours'}>
@@ -347,30 +347,14 @@ function CarteDeLecteur({ carte, jeu, inactif, recuperer }: { carte: CarteDeLect
       <p className="cb-note">Un tampon par jour où vos trois quêtes sont faites, sans ordre ni série.</p>
       <div className="quete-pied">
         <span className="quete-k">Récompense</span>
-        <span className="quete-recompense">
-          {`${pluriel(recompense.gouttes, 'goutte')} d’encre · ${pluriel(recompense.sabliers, 'sablier')} · ${recompense.plis_de_lecteur > 1 ? `${recompense.plis_de_lecteur} plis` : 'un pli'} de lecteur`}
-        </span>
-      </div>
-      {carte.a_recuperer > 0 && (
-        <div className="quete-pied">
-          {jeu.fascicules.length > 1 && (
-            <>
-              <label className="quete-k" htmlFor="pli-lecteur-fascicule">Fascicule du pli</label>
-              <select id="pli-lecteur-fascicule" value={fascicule} onChange={(e) => setFascicule(e.target.value)}>
-                {jeu.fascicules.map((f) => (
-                  <option key={f.manifeste.id} value={f.manifeste.id}>
-                    {libelleFascicule(f)}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          <p className="cb-note">Chances&nbsp;: {chancesLecteur(jeu, fascicule)}. Sans énergie, hors garanties.</p>
-          <button type="button" className="btn btn-primary btn-s" onClick={() => void agir()} disabled={enCours || inactif !== null || !fascicule} title={inactif ?? undefined}>
+        <span className="quete-recompense">{texte}</span>
+        {carte.a_recuperer > 0 && (
+          <button type="button" className="btn btn-primary btn-s" onClick={() => void agir()} disabled={enCours || inactif !== null || energiePleine} title={inactif ?? undefined}>
             {enCours ? 'Récupération…' : 'Récupérer'}
           </button>
-        </div>
-      )}
+        )}
+        {carte.a_recuperer > 0 && energiePleine && <p className="cb-note">Vos plis en attente sont au complet&nbsp;: ouvrez-en un, la récompense vous attend.</p>}
+      </div>
       {message && (
         <p className="feedback" data-tone={message.ton} role="status">
           {message.texte}
@@ -523,7 +507,7 @@ interface Props {
   urlMedia: (chemin: string) => string
   recuperer: (jalon: string) => Promise<ReponseJalon | { erreur: string }>
   recupererPalier: (palier: string) => Promise<ReponsePalier | { erreur: string }>
-  recupererCarte: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }>
+  recupererCarte: () => Promise<ReponseCarteDeLecteur | { erreur: string }>
   recupererCadeau: () => Promise<ReponseCadeau | { erreur: string }>
   recupererQueteInitiale: (code: CodeQueteInitiale, fascicule: string | null) => Promise<ReponseQueteInitiale | { erreur: string }>
   recupererQueteDuJour: RecupererQueteDuJour
@@ -575,10 +559,11 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
     fixerOnglet()
     return recupererCadeau()
   }
-  const recupererCarteIci = (fascicule: string) => {
+  const recupererCarteIci = () => {
     fixerOnglet()
-    return recupererCarte(fascicule)
+    return recupererCarte()
   }
+  const energiePleine = etat ? etat.energie.charges >= etat.energie.capacite : false
   const aller = (d: Destination) => onChangerVue(d === 'journalieres' ? { quete: 'journalieres' } : { onglet: d })
   const inactifIci = inactif ?? (etat ? null : 'Votre partie n’est pas encore chargée.')
 
@@ -606,8 +591,8 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
       {onglet === 'ponctuelles' ? null : onglet === 'journalieres' ? (
         (etat?.quetes_du_jour ?? []).length > 0 ? (
           <>
-            {etat?.carte_de_lecteur && <CarteDeLecteur carte={etat.carte_de_lecteur} jeu={jeu} inactif={inactifIci} recuperer={recupererCarteIci} />}
-            <QuetesDuJourListe quetes={etat?.quetes_du_jour ?? []} jeu={jeu} energiePleine={etat ? etat.energie.charges >= etat.energie.capacite : false} inactif={inactifIci} recuperer={recupererQueteDuJourIci} onAller={aller} />
+            {etat?.carte_de_lecteur && <CarteDeLecteur carte={etat.carte_de_lecteur} energiePleine={energiePleine} inactif={inactifIci} recuperer={recupererCarteIci} />}
+            <QuetesDuJourListe quetes={etat?.quetes_du_jour ?? []} jeu={jeu} energiePleine={energiePleine} inactif={inactifIci} recuperer={recupererQueteDuJourIci} onAller={aller} />
           </>
         ) : (
           <div className="cb-empty quetes-bientot">

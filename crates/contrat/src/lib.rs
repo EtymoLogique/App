@@ -213,7 +213,8 @@ pub struct ReponseCadeau {
 pub struct RecompenseCarte {
     pub gouttes: u32,
     pub sabliers: u32,
-    pub plis_de_lecteur: u32,
+    /// Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+    pub plis: u32,
 }
 
 /// Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
@@ -234,7 +235,7 @@ pub struct CarteDeLecteurEtat {
     pub recompense: RecompenseCarte,
 }
 
-/// Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur.
+/// Commande de récupération d'une carte pleine.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DemandeCarteDeLecteur {
@@ -244,14 +245,11 @@ pub struct DemandeCarteDeLecteur {
     pub version_etat: i64,
     #[schema(max_length = 64)]
     pub version_catalogue: String,
-    pub fascicule_id: IdCatalogue,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReponseCarteDeLecteur {
-    /// Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine.
-    pub ouverture: OuverturePli,
     /// État confirmé après la commande.
     pub etat: Etat,
 }
@@ -299,6 +297,47 @@ pub struct QueteDuJour {
     /// Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
     pub progres: u8,
     pub faite: bool,
+    /// Jour GMT de la quête : une quête faite et pas récupérée survit à minuit (ADR 0063).
+    #[serde(default)]
+    pub jour: Option<NaiveDate>,
+    /// La récompense est prise.
+    #[serde(default)]
+    pub recuperee: bool,
+    /// Annoncée d'avance, selon la sorte de la quête.
+    #[serde(default)]
+    pub recompense: Option<RecompenseQuete>,
+}
+
+/// Ce que donne une quête du jour faite, annoncé d'avance (ADR 0063).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseQuete {
+    pub gouttes: u32,
+    pub sabliers: u32,
+    /// Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+    pub plis: u32,
+}
+
+/// Commande de récupération de la récompense d'une quête du jour faite.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeQueteDuJour {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub jour: NaiveDate,
+    #[schema(minimum = 0, maximum = 2)]
+    pub rang: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseQueteDuJour {
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.

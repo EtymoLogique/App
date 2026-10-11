@@ -3,7 +3,7 @@
 //! | Donnée | Conservation | Pourquoi |
 //! |---|---|---|
 //! | `commande` | 30 jours | idempotence et support |
-//! | `quete_jour` | 30 jours | les quêtes du jour ne servent que le jour même ; on garde un mois pour le support |
+//! | `quete_jour` | 30 jours | les quêtes du jour ne servent que le jour même ; on garde un mois pour le support, sauf une quête faite dont la récompense attend (ADR 0063) |
 //! | `ricochet_jour` | 30 jours | réponses du jour comptées pour les quêtes |
 //!
 //! Le reste est la progression du joueur (codex, réserve, tampons, cartes de
@@ -33,7 +33,8 @@ pub async fn purger(base: &PgPool) -> Result<RapportPurge, sqlx::Error> {
     .await?
     .rows_affected();
     let quetes_du_jour = sqlx::query!(
-        "DELETE FROM quete_jour WHERE jour < (now() AT TIME ZONE 'UTC')::date - $1::int",
+        "DELETE FROM quete_jour WHERE jour < (now() AT TIME ZONE 'UTC')::date - $1::int
+           AND (faite_le IS NULL OR recupere_le IS NOT NULL)",
         JOURS_DONNEES_DU_JOUR
     )
     .execute(base)
