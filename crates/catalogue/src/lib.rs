@@ -140,6 +140,9 @@ pub async fn charger(
         });
     }
     let mut jeu = Jeu::depuis(&fascicules);
+    if let Some(cadeau) = &index.cadeau_de_bienvenue {
+        jeu.declarer_cadeau(cadeau);
+    }
     if !index.quetes.is_empty() {
         let cartes = lire_cartes(lecteur, &fascicules).await?;
         jeu.mesurer(index.quetes.clone(), &cartes);

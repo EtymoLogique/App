@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset};
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::cadeau::CadeauDeBienvenue;
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
 use etymo_domaine::quete::QueteLongCours;
@@ -29,6 +30,9 @@ pub struct Calendrier {
     /// absentes d'un index antérieur.
     #[serde(default)]
     pub quetes: Vec<QueteLongCours>,
+    /// Cadeau de bienvenue, unique par profil (ADR 0046) ; absent d'un index antérieur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cadeau_de_bienvenue: Option<CadeauDeBienvenue>,
     pub fascicules: Vec<EntreeFascicule>,
 }
 

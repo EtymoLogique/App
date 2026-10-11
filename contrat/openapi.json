@@ -10,6 +10,102 @@
     "version": "1"
   },
   "paths": {
+    "/cadeau": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis\nau contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.",
+        "operationId": "recuperer_cadeau",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCadeau"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Cadeau récupéré et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseCadeau"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aucun cadeau de bienvenue déclaré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/carte-de-lecteur": {
       "post": {
         "tags": [
@@ -1264,6 +1360,66 @@
           }
         }
       },
+      "CadeauDeBienvenue": {
+        "type": "object",
+        "required": [
+          "plis"
+        ],
+        "properties": {
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Gouttes d'encre.",
+            "minimum": 0
+          },
+          "plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Une brique par pli de bienvenue, choisie pour ouvrir des recettes ; jamais une légendaire."
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CadeauEtat": {
+        "type": "object",
+        "description": "Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance.",
+        "required": [
+          "plis",
+          "sabliers",
+          "encre",
+          "recupere"
+        ],
+        "properties": {
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Une brique par pli de bienvenue."
+          },
+          "recupere": {
+            "type": "boolean"
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "Calendrier": {
         "type": "object",
         "description": "Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :\nmême forme, seuls les fascicules listés diffèrent.",
@@ -1274,6 +1430,17 @@
           "fascicules"
         ],
         "properties": {
+          "cadeau_de_bienvenue": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CadeauDeBienvenue",
+                "description": "Cadeau de bienvenue, unique par profil (ADR 0046) ; absent d'un index antérieur."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "essai": {
             "type": "boolean"
           },
@@ -1652,6 +1819,32 @@
             "format": "int32",
             "maximum": 1000,
             "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeCadeau": {
+        "type": "object",
+        "description": "Commande de récupération du cadeau de bienvenue.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
           },
           "version_catalogue": {
             "type": "string",
@@ -2206,6 +2399,17 @@
           "historique_plis"
         ],
         "properties": {
+          "cadeau_de_bienvenue": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CadeauEtat",
+                "description": "Cadeau de bienvenue déclaré par le catalogue (ADR 0046) ; absent s'il n'y en a pas."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "carte_de_lecteur": {
             "oneOf": [
               {
@@ -3313,6 +3517,19 @@
             "format": "int32",
             "description": "Gouttes payées.",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseCadeau": {
+        "type": "object",
+        "required": [
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
           }
         },
         "additionalProperties": false

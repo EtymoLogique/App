@@ -7,11 +7,11 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    CarteRicochet, DemandeAchatSablier, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice,
-    DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, DemandeSession,
-    Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseCarteDeLecteur,
-    ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet,
-    ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
+    CarteRicochet, DemandeAchatSablier, DemandeCadeau, DemandeCarteDeLecteur, DemandeFusion,
+    DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier,
+    DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseCadeau,
+    ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli,
+    ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -36,6 +36,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/ricochet", post(repondre_ricochet))
         .route("/palier", post(recuperer_palier))
         .route("/carte-de-lecteur", post(recuperer_carte_de_lecteur))
+        .route("/cadeau", post(recuperer_cadeau))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -891,6 +892,45 @@ pub async fn repondre_ricochet(
         etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "ricochet", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis
+/// au contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.
+#[utoipa::path(post, path = "/cadeau", tag = "jeu", security(("session" = [])), request_body = DemandeCadeau,
+    responses(
+        (status = 200, description = "Cadeau récupéré et état confirmé", body = ReponseCadeau),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Aucun cadeau de bienvenue déclaré", body = Erreur),
+        (status = 409, description = "Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_cadeau(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeCadeau>,
+) -> Result<Json<ReponseCadeau>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    progression::recuperer_cadeau(&mut tx, joueur, &catalogue.jeu, demande.commande).await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseCadeau {
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "cadeau", &reponse).await?;
     Ok(Json(reponse))
 }
 

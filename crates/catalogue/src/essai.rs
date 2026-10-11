@@ -156,6 +156,7 @@ pub fn calendrier(racine: &Path, nom: &str, version: &str, fascicules: &[(u32, &
               "libelles": { "fr": { "titre": "Maîtrise", "consigne": "Maîtrisez des cartes." } },
               "paliers": [{ "id": PALIER_RICOCHETS, "seuil": 1, "sabliers": 1 }] }
         ],
+        "cadeau_de_bienvenue": { "plis": [GEO, GEO, BIO], "sabliers": 12, "encre": 40 },
         "fascicules": fascicules
             .iter()
             .map(|(numero, parution, manifeste)| json!({ "numero": numero, "parution": parution, "manifeste": manifeste }))

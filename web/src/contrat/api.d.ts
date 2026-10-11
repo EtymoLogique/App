@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/cadeau": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis
+         *     au contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.
+         */
+        post: operations["recuperer_cadeau"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/carte-de-lecteur": {
         parameters: {
             query?: never;
@@ -340,11 +360,33 @@ export interface components {
             /** @description Sens affiché de la brique : la bonne réponse de « sens d'une brique ». */
             sens_id: components["schemas"]["IdCatalogue"];
         };
+        CadeauDeBienvenue: {
+            /**
+             * Format: int32
+             * @description Gouttes d'encre.
+             */
+            encre?: number;
+            /** @description Une brique par pli de bienvenue, choisie pour ouvrir des recettes ; jamais une légendaire. */
+            plis: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
+        /** @description Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance. */
+        CadeauEtat: {
+            /** Format: int32 */
+            encre: number;
+            /** @description Une brique par pli de bienvenue. */
+            plis: components["schemas"]["IdCatalogue"][];
+            recupere: boolean;
+            /** Format: int32 */
+            sabliers: number;
+        };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
          */
         Calendrier: {
+            cadeau_de_bienvenue?: components["schemas"]["CadeauDeBienvenue"] | null;
             essai?: boolean;
             fascicules: components["schemas"]["EntreeFascicule"][];
             /** Format: int32 */
@@ -478,6 +520,20 @@ export interface components {
             commande: string;
             /** Format: int32 */
             nombre: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération du cadeau de bienvenue. */
+        DemandeCadeau: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
             version_catalogue: string;
             /**
              * Format: int64
@@ -733,6 +789,7 @@ export interface components {
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            cadeau_de_bienvenue?: components["schemas"]["CadeauEtat"] | null;
             carte_de_lecteur?: components["schemas"]["CarteDeLecteurEtat"] | null;
             /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
             compteurs_plis: components["schemas"]["CompteurPli"][];
@@ -1090,6 +1147,10 @@ export interface components {
              */
             prix: number;
         };
+        ReponseCadeau: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
         ReponseCarteDeLecteur: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
@@ -1294,6 +1355,84 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    recuperer_cadeau: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCadeau"];
+            };
+        };
+        responses: {
+            /** @description Cadeau récupéré et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseCadeau"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun cadeau de bienvenue déclaré */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
     recuperer_carte_de_lecteur: {
         parameters: {
             query?: never;

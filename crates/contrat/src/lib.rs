@@ -106,6 +106,39 @@ pub struct Etat {
     /// Carte de lecteur (ADR 0045) ; absente avant App#21.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub carte_de_lecteur: Option<CarteDeLecteurEtat>,
+    /// Cadeau de bienvenue déclaré par le catalogue (ADR 0046) ; absent s'il n'y en a pas.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cadeau_de_bienvenue: Option<CadeauEtat>,
+}
+
+/// Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CadeauEtat {
+    /// Une brique par pli de bienvenue.
+    pub plis: Vec<IdCatalogue>,
+    pub sabliers: u32,
+    pub encre: u32,
+    pub recupere: bool,
+}
+
+/// Commande de récupération du cadeau de bienvenue.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCadeau {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseCadeau {
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Ce que donne une carte de lecteur pleine, annoncé d'avance.
