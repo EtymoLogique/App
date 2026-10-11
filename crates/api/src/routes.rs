@@ -135,7 +135,10 @@ pub async fn session(
 
     if !cree {
         let connue = sqlx::query_scalar!(
-            "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int, derniere_activite = now()
+            "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,
+                 mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')
+                     THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,
+                 derniere_activite = now()
              WHERE id = $1 RETURNING empreinte_secret",
             demande.installation,
         )

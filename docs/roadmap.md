@@ -238,6 +238,20 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Planifier `etymo-api purger` chaque jour (Serverless Job) | **à faire dans Infra** |
 | Durée de conservation d'un profil invité inactif | question ouverte du modèle de données, non tranchée |
 
+### Cohortes de rétention (App#28, [ADR 0050](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0050-cohortes-de-retention-et-statistiques-du-joueur.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Migration : `joueur.mois_activite_precedente`, mise à jour quand l'activité change de mois (ouverture de session et commandes) ; tables d'agrégats `indicateurs_jour`, `retour_jour`, `retention_mois`, `passage_mois` (des nombres, aucun identifiant de joueur) | fait |
+| `etymo-api agreger-jour` : retour au 1ᵉʳ, 7ᵉ et 30ᵉ jour, joueurs actifs, tampons, quêtes terminées, séances de ricochets, actifs sans découverte depuis deux jours ; idempotente | fait |
+| `etymo-api agreger-mois` : rétention par mois d'arrivée, passage d'un mois au suivant ; idempotente | fait |
+| `etymo-api statistiques` : aucun agrégat de moins de 50 joueurs n'est affiché ni exporté (`masquer`, testé) | fait |
+| Jours joués par mois : somme des joueurs actifs de chaque jour (`indicateurs_jour`) | fait |
+| Écart assumé : « sans découverte **possible** » demande le catalogue ; l'indicateur mesure « actifs sans **aucune** découverte depuis deux jours », un majorant | écart |
+| Écart assumé : sans journal d'activité par jour, « actif ce jour-là » se lit sur `derniere_activite` : les tâches se lancent juste après minuit GMT, sinon un joueur revenu depuis n'est plus compté | écart |
+| Télémétrie : le mois d'arrivée comme propriété, identifiant renouvelé au mois civil | en attente (J7, pas de télémétrie) |
+| Planifier les deux tâches (quotidienne 00:05 GMT, mensuelle le 1ᵉʳ à 00:10 GMT) | **à faire dans Infra** ; en place dès le premier jour de la bêta (ADR 0048) |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.

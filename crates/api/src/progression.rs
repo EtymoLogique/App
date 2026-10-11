@@ -1456,7 +1456,10 @@ pub async fn graines_sans_exemplaire(
 pub async fn incrementer_version(tx: &mut PgConnection, joueur: Uuid) -> Result<(), ErreurApi> {
     sqlx::query!(
         "UPDATE joueur SET version_etat = version_etat + 1,
-             jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int, derniere_activite = now()
+             jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,
+             mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')
+                 THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,
+             derniere_activite = now()
          WHERE id = $1",
         joueur
     )

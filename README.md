@@ -27,6 +27,9 @@ La suite du travail est dans la [roadmap](docs/roadmap.md).
 | *(aucune)* ou `servir` | Sert l’API sur `PORT` (8080), applique les migrations, relit l’index du catalogue toutes les 60 s | `DATABASE_URL`, `ETYMO_CATALOGUE_URL`, `ETYMO_CLE_SIGNATURE_SESSION`, `ETYMO_ORIGINES_PWA` |
 | `publier-fascicules` | Tâche de parution : promeut de `staging/` vers `public/` les fascicules dont la date est passée, puis écrit `public/index.json` | `ETYMO_S3`, `ETYMO_BUCKET_CATALOGUE`, `ETYMO_S3_POINT`, `ETYMO_S3_REGION` |
 | `purger` | Supprime les commandes, les quêtes du jour et les réponses de ricochets du jour de plus de 30 jours (durées dans `crates/taches/src/purges.rs`) ; à planifier chaque jour | `DATABASE_URL` |
+| `agreger-jour` | Tâche quotidienne, **juste après minuit GMT** : écrit les agrégats du jour achevé (joueurs actifs, retour au 1ᵉʳ, 7ᵉ et 30ᵉ jour, tampons, quêtes terminées, séances de ricochets, joueurs actifs sans découverte depuis deux jours). `--jour AAAA-MM-JJ` pour rejouer | `DATABASE_URL` |
+| `agreger-mois` | Tâche mensuelle, dans les premières minutes du mois : rétention par mois d'arrivée, passage d'un mois au suivant. `--mois AAAA-MM` pour rejouer | `DATABASE_URL` |
+| `statistiques` | Écrit en JSON les cohortes et indicateurs ; tout nombre décrivant moins de 50 joueurs est absent (ADR 0050) | `DATABASE_URL` |
 | `migrer` | Applique les migrations de schéma | `DATABASE_URL` |
 | `openapi` | Écrit le contrat sur la sortie standard | — |
 

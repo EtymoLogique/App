@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE joueur SET version_etat = version_etat + 1,\n             jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,\n             mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')\n                 THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,\n             derniere_activite = now()\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a25de8694a2c705b2c7de9b4e5ebc492562f3fe3bc924886024626da8bb40856"
+}
