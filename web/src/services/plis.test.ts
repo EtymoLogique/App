@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { manifeste } from '../test/fixtures'
-import { type BriquePli, chanceFixe, chances, duree, dureeLisible, avantPlein, dureeSablier, energieA, nombrePourRemplir, poids, pourcentage, sabliersAchetables } from './plis'
+import type { ReponsePli } from '../contrat'
+import { type BriquePli, chanceFixe, chances, departCanon, duree, dureeLisible, avantPlein, dureeSablier, energieA, nombrePourRemplir, poids, pourcentage, rareteMax, resumeGroupe, sabliersAchetables, tailleGroupe } from './plis'
 
 const equilibrage = manifeste.pli!.equilibrage!
 const brique = (id: string, nature: BriquePli['nature'], rarete: BriquePli['rarete']): BriquePli => ({ id, unite_id: 'unt_00000000', nature, rarete })
@@ -87,5 +88,29 @@ describe('sabliers', () => {
     expect(sabliersAchetables(s, 35)).toBe(3)
     expect(sabliersAchetables(s, 500)).toBe(50)
     expect(sabliersAchetables(s, 9)).toBe(0)
+  })
+})
+
+describe('ouverture groupée', () => {
+  it('décale les départs des plis de 0,11 s, comme un canon', () => {
+    expect([0, 1, 2, 9].map(departCanon)).toEqual([0, 110, 220, 990])
+  })
+
+  it('réduit les plis quand ils sont nombreux', () => {
+    expect([2, 3, 5, 6, 10].map(tailleGroupe)).toEqual(['g', 'm', 'm', 'p', 'p'])
+  })
+
+  it('retient la rareté la plus haute du lot', () => {
+    expect(rareteMax(['commune', 'rare', 'peu_commune'])).toBe('rare')
+    expect(rareteMax(['rare', 'legendaire', 'commune'])).toBe('legendaire')
+    expect(rareteMax([])).toBe('commune')
+  })
+
+  it('résume le lot en une phrase, nouvelles briques et encre comprises', () => {
+    const ouverture = (resultat: ReponsePli['ouverture']['resultat'], encre: number) =>
+      ({ ouverture: { fascicule_id: 'fsc_00000000', brique_id: 'brq_0000ge00', resultat, regle: 'tirage', encre, ouvert_le: '2026-10-02T10:00:00Z' }, exemplaires: 1, etait_epuisee: false }) as ReponsePli
+    const texte = resumeGroupe([ouverture('nouvelle', 2), ouverture('doublon', 3), ouverture('doublon', 3)])
+    expect(texte).toMatchObject({ nouvelles: 1, encre: 8 })
+    expect(texte.texte).toBe('3\u00a0plis ouverts : 1\u00a0nouvelle brique, +8\u00a0gouttes d’encre.')
   })
 })

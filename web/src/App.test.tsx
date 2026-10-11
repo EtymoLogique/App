@@ -481,6 +481,44 @@ describe('table de fusion', () => {
     delete document.documentElement.dataset.mouvement
   })
 
+  it('ouvre tous les plis prêts d’un coup, chaque appel partant de la version renvoyée par le précédent', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    const energie = (charges: number) => ({ charges, capacite: 2, prochaine_charge: '2026-10-02T22:00:00Z', recharge_s: 43_200 })
+    const ouverture = (brique: string, resultat: 'nouvelle' | 'doublon', encre: number): ReponsePli['ouverture'] => ({ fascicule_id: 'fsc_00000000', brique_id: brique, resultat, regle: 'tirage', encre, ouvert_le: '2026-10-02T10:00:00Z' })
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ energie: energie(2) }))
+    const pli = vi
+      .spyOn(api, 'pli')
+      .mockResolvedValueOnce({ ouverture: ouverture(GEO, 'doublon', 3), exemplaires: 3, etait_epuisee: false, etat: etat({ version_etat: 2, reserve: [ex(GEO, 3)], encre: 3, energie: energie(1) }) })
+      .mockResolvedValueOnce({ ouverture: ouverture(LOGIE, 'nouvelle', 2), exemplaires: 1, etait_epuisee: false, etat: etat({ version_etat: 3, reserve: [ex(GEO, 3), ex(LOGIE, 1)], encre: 5, energie: energie(0) }) })
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    const groupe = await screen.findByRole('button', { name: 'Ouvrir les 2 plis' })
+    await act(async () => fireEvent.click(groupe))
+    await waitFor(() => expect(pli).toHaveBeenCalledTimes(2), { timeout: 3000 })
+    // Le second pli part de la version renvoyée par le premier, sinon le serveur répondrait 409.
+    expect(pli.mock.calls.map(([d]) => d.version_etat)).toEqual([1, 2])
+    expect(pli.mock.calls[0]?.[0].commande).not.toBe(pli.mock.calls[1]?.[0].commande)
+    // Une seule annonce pour tout le lot, puis une brique par pli, qui s'essaie sur la table.
+    expect(await screen.findByText(/^2 plis ouverts : 1 nouvelle brique, \+5 gouttes d’encre\.$/, undefined, { timeout: 4000 })).toHaveAttribute('role', 'status')
+    expect(screen.getAllByRole('button', { name: /Essayer sur la table$/ })).toHaveLength(2)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuer' })).toHaveFocus())
+    delete document.documentElement.dataset.mouvement
+  }, 15_000)
+
+  it('n’offre l’ouverture groupée qu’à partir de deux plis prêts', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ energie: { charges: 1, capacite: 2, prochaine_charge: new Date(Date.now() + 3_600_000).toISOString(), recharge_s: 43_200 } }))
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    await screen.findByRole('button', { name: 'Ouvrir le pli du fascicule Essai' })
+    expect(screen.queryByRole('button', { name: /^Ouvrir les \d+ plis$/ })).toBeNull()
+    delete document.documentElement.dataset.mouvement
+  })
+
   it('achète des sabliers depuis les plis et les emploie aussitôt, sur l’état renvoyé par l’achat', async () => {
     document.documentElement.dataset.mouvement = 'reduit'
     const api = client()
