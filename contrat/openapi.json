@@ -10,6 +10,102 @@
     "version": "1"
   },
   "paths": {
+    "/carte-de-lecteur": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de\nl'encre, un sablier et un pli de lecteur dont le joueur choisit le\nfascicule. Le pli tire parmi les briques peu communes et rares, les\nlégendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne\ncompte pour aucune garantie.",
+        "operationId": "recuperer_carte_de_lecteur",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCarteDeLecteur"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseCarteDeLecteur"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide ou fascicule sans pli de lecteur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aucune carte de lecteur pleine",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "État ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/dev/reset": {
       "post": {
         "tags": [
@@ -1287,6 +1383,49 @@
           }
         }
       },
+      "CarteDeLecteurEtat": {
+        "type": "object",
+        "description": "Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,\nsans série ni expiration.",
+        "required": [
+          "tampons",
+          "taille",
+          "a_recuperer",
+          "remplies",
+          "recompense"
+        ],
+        "properties": {
+          "a_recuperer": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cartes pleines dont la récompense attend.",
+            "minimum": 0
+          },
+          "recompense": {
+            "$ref": "#/components/schemas/RecompenseCarte"
+          },
+          "remplies": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cartes pleines, récupérées ou non.",
+            "minimum": 0
+          },
+          "taille": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Tampons d'une carte pleine.",
+            "minimum": 1
+          },
+          "tampons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Jours des tampons de la carte affichée, du plus ancien au plus récent :\nla plus ancienne carte pleine à récupérer, sinon la carte en cours."
+          }
+        },
+        "additionalProperties": false
+      },
       "CarteManifeste": {
         "type": "object",
         "required": [
@@ -1513,6 +1652,36 @@
             "format": "int32",
             "maximum": 1000,
             "minimum": 1
+          },
+          "version_catalogue": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeCarteDeLecteur": {
+        "type": "object",
+        "description": "Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "fascicule_id"
+        ],
+        "properties": {
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
           },
           "version_catalogue": {
             "type": "string",
@@ -2037,6 +2206,17 @@
           "historique_plis"
         ],
         "properties": {
+          "carte_de_lecteur": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CarteDeLecteurEtat",
+                "description": "Carte de lecteur (ADR 0045) ; absente avant App#21."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "compteurs_plis": {
             "type": "array",
             "items": {
@@ -3043,6 +3223,33 @@
           }
         }
       },
+      "RecompenseCarte": {
+        "type": "object",
+        "description": "Ce que donne une carte de lecteur pleine, annoncé d'avance.",
+        "required": [
+          "gouttes",
+          "sabliers",
+          "plis_de_lecteur"
+        ],
+        "properties": {
+          "gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis_de_lecteur": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "Regle": {
         "type": "string",
         "description": "Règle qui a décidé de la brique tirée.",
@@ -3106,6 +3313,24 @@
             "format": "int32",
             "description": "Gouttes payées.",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseCarteDeLecteur": {
+        "type": "object",
+        "required": [
+          "ouverture",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "ouverture": {
+            "$ref": "#/components/schemas/OuverturePli",
+            "description": "Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine."
           }
         },
         "additionalProperties": false

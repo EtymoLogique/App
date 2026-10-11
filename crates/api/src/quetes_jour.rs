@@ -15,6 +15,7 @@ use etymo_domaine::IdCatalogue;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
+use crate::carte_lecteur;
 use crate::erreur::ErreurApi;
 use crate::ricochets::{self, Hasard};
 
@@ -283,6 +284,19 @@ pub async fn du_jour(
     )
     .execute(&mut *tx)
     .await?;
+    // Un tampon par jour au plus, quand toutes les quêtes tirées sont faites.
+    let faites = sqlx::query_scalar!(
+        "SELECT count(*) FILTER (WHERE faite_le IS NOT NULL) = count(*) AND count(*) >= 2
+         FROM quete_jour WHERE joueur_id = $1 AND jour = $2",
+        joueur,
+        jour
+    )
+    .fetch_one(&mut *tx)
+    .await?
+    .unwrap_or(false);
+    if faites {
+        carte_lecteur::tamponner(&mut *tx, joueur, jour).await?;
+    }
     sqlx::query!(
         "SELECT rang, code, cible_id, progres, faite_le FROM quete_jour
          WHERE joueur_id = $1 AND jour = $2 ORDER BY rang",

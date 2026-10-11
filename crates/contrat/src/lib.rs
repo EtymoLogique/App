@@ -103,6 +103,58 @@ pub struct Etat {
     /// visite du jour ; vide avant App#20 ou sans catalogue.
     #[serde(default)]
     pub quetes_du_jour: Vec<QueteDuJour>,
+    /// Carte de lecteur (ADR 0045) ; absente avant App#21.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carte_de_lecteur: Option<CarteDeLecteurEtat>,
+}
+
+/// Ce que donne une carte de lecteur pleine, annoncé d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseCarte {
+    pub gouttes: u32,
+    pub sabliers: u32,
+    pub plis_de_lecteur: u32,
+}
+
+/// Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
+/// sans série ni expiration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CarteDeLecteurEtat {
+    /// Jours des tampons de la carte affichée, du plus ancien au plus récent :
+    /// la plus ancienne carte pleine à récupérer, sinon la carte en cours.
+    pub tampons: Vec<NaiveDate>,
+    /// Tampons d'une carte pleine.
+    #[schema(minimum = 1)]
+    pub taille: u8,
+    /// Cartes pleines dont la récompense attend.
+    pub a_recuperer: u32,
+    /// Cartes pleines, récupérées ou non.
+    pub remplies: u32,
+    pub recompense: RecompenseCarte,
+}
+
+/// Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCarteDeLecteur {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub fascicule_id: IdCatalogue,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseCarteDeLecteur {
+    /// Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine.
+    pub ouverture: OuverturePli,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Sorte d'une quête du jour : une de chaque par jour (ADR 0045).

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM quete_jour WHERE joueur_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "06c709d92053f4cd6d4a7824a6a9e2380640c57765a2be5c6cf4730521134647"
+}

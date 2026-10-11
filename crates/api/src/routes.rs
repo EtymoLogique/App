@@ -7,10 +7,11 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    CarteRicochet, DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier,
-    DemandePli, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat, IssueFusion,
-    OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier,
-    ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
+    CarteRicochet, DemandeAchatSablier, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice,
+    DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, DemandeSession,
+    Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseCarteDeLecteur,
+    ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet,
+    ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -18,7 +19,7 @@ use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
-use crate::{EtatApp, debit, progression, quetes_jour, ricochets, secret};
+use crate::{EtatApp, carte_lecteur, debit, progression, quetes_jour, ricochets, secret};
 
 pub fn routes() -> Router<Arc<EtatApp>> {
     Router::new()
@@ -34,6 +35,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/ricochets/seance", get(seance_ricochets))
         .route("/ricochet", post(repondre_ricochet))
         .route("/palier", post(recuperer_palier))
+        .route("/carte-de-lecteur", post(recuperer_carte_de_lecteur))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -889,6 +891,109 @@ pub async fn repondre_ricochet(
         etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "ricochet", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
+/// l'encre, un sablier et un pli de lecteur dont le joueur choisit le
+/// fascicule. Le pli tire parmi les briques peu communes et rares, les
+/// légendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne
+/// compte pour aucune garantie.
+#[utoipa::path(post, path = "/carte-de-lecteur", tag = "jeu", security(("session" = [])), request_body = DemandeCarteDeLecteur,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseCarteDeLecteur),
+        (status = 400, description = "Requête invalide ou fascicule sans pli de lecteur", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Aucune carte de lecteur pleine", body = Erreur),
+        (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_carte_de_lecteur(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeCarteDeLecteur>,
+) -> Result<Json<ReponseCarteDeLecteur>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    let pli_jeu = jeu
+        .pli(&demande.fascicule_id)
+        .filter(|p| !p.briques.is_empty())
+        .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : aucun pli paru".into()))?;
+    let equilibrage = pli_jeu
+        .equilibrage
+        .as_ref()
+        .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : pli sans équilibrage".into()))?;
+    let parametres = &equilibrage.parametres;
+    let eligibles: Vec<bool> = pli_jeu
+        .briques
+        .iter()
+        .map(|b| pli::tirable(b) && b.rarete != pli::Rarete::Commune)
+        .collect();
+    let somme = pli::somme_eligible(&pli_jeu.briques, &eligibles, parametres);
+    if somme == 0 {
+        return Err(ErreurApi::RequeteInvalide(
+            "fascicule : aucune brique pour un pli de lecteur".into(),
+        ));
+    }
+    carte_lecteur::reclamer(&mut tx, joueur).await?;
+    let brique = pli::tirer(&pli_jeu.briques, &eligibles, parametres, alea(somme)?)
+        .ok_or_else(|| ErreurApi::Interne("aucune brique tirable".into()))?;
+    let stock = progression::stock(&mut tx, joueur).await?;
+    let resultat = pli::resultat(stock.get(&brique.id).copied());
+    // Comme un pli de jalon : de l'encre seulement si la réserve est pleine.
+    let gouttes = if resultat == pli::Resultat::ReservePleine {
+        parametres
+            .encre_reserve_pleine
+            .get(&brique.rarete)
+            .copied()
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    let maintenant = Utc::now();
+    progression::accorder_carte_de_lecteur(
+        &mut tx,
+        joueur,
+        &progression::EffetsPli {
+            commande: demande.commande,
+            fascicule: &demande.fascicule_id,
+            brique: &brique.id,
+            resultat,
+            regle: pli::Regle::Tirage,
+            gouttes,
+            energie: etymo_domaine::energie::Energie::pleine(),
+            compteurs: pli::Compteurs::default(),
+            version_equilibrage: &equilibrage.version,
+            maintenant,
+        },
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseCarteDeLecteur {
+        ouverture: OuverturePli {
+            fascicule_id: demande.fascicule_id.clone(),
+            brique_id: brique.id.clone(),
+            resultat,
+            regle: pli::Regle::Tirage,
+            encre: gouttes,
+            ouvert_le: maintenant,
+        },
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "carte_lecteur", &reponse).await?;
     Ok(Json(reponse))
 }
 

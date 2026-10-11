@@ -4,6 +4,29 @@
  */
 
 export interface paths {
+    "/carte-de-lecteur": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
+         *     l'encre, un sablier et un pli de lecteur dont le joueur choisit le
+         *     fascicule. Le pli tire parmi les briques peu communes et rares, les
+         *     légendaires gardent leur chance fixe ; il ne consomme pas d'énergie et ne
+         *     compte pour aucune garantie.
+         */
+        post: operations["recuperer_carte_de_lecteur"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dev/reset": {
         parameters: {
             query?: never;
@@ -350,6 +373,33 @@ export interface components {
                 [key: string]: components["schemas"]["Source"];
             };
         };
+        /**
+         * @description Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
+         *     sans série ni expiration.
+         */
+        CarteDeLecteurEtat: {
+            /**
+             * Format: int32
+             * @description Cartes pleines dont la récompense attend.
+             */
+            a_recuperer: number;
+            recompense: components["schemas"]["RecompenseCarte"];
+            /**
+             * Format: int32
+             * @description Cartes pleines, récupérées ou non.
+             */
+            remplies: number;
+            /**
+             * Format: int32
+             * @description Tampons d'une carte pleine.
+             */
+            taille: number;
+            /**
+             * @description Jours des tampons de la carte affichée, du plus ancien au plus récent :
+             *     la plus ancienne carte pleine à récupérer, sinon la carte en cours.
+             */
+            tampons: string[];
+        };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
             difficulte?: components["schemas"]["Difficulte"] | null;
@@ -428,6 +478,21 @@ export interface components {
             commande: string;
             /** Format: int32 */
             nombre: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération d'une carte pleine : le joueur choisit le fascicule du pli de lecteur. */
+        DemandeCarteDeLecteur: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id: components["schemas"]["IdCatalogue"];
             version_catalogue: string;
             /**
              * Format: int64
@@ -668,6 +733,7 @@ export interface components {
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            carte_de_lecteur?: components["schemas"]["CarteDeLecteurEtat"] | null;
             /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
             compteurs_plis: components["schemas"]["CompteurPli"][];
             /** @description Mots découverts, dans l'ordre de leur découverte. */
@@ -995,6 +1061,15 @@ export interface components {
             chemin: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
         };
+        /** @description Ce que donne une carte de lecteur pleine, annoncé d'avance. */
+        RecompenseCarte: {
+            /** Format: int32 */
+            gouttes: number;
+            /** Format: int32 */
+            plis_de_lecteur: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
         /**
          * @description Règle qui a décidé de la brique tirée.
          * @enum {string}
@@ -1014,6 +1089,12 @@ export interface components {
              * @description Gouttes payées.
              */
             prix: number;
+        };
+        ReponseCarteDeLecteur: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Brique du pli de lecteur ; `encre` vaut zéro sauf réserve pleine. */
+            ouverture: components["schemas"]["OuverturePli"];
         };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
@@ -1213,6 +1294,84 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    recuperer_carte_de_lecteur: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCarteDeLecteur"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseCarteDeLecteur"];
+                };
+            };
+            /** @description Requête invalide ou fascicule sans pli de lecteur */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucune carte de lecteur pleine */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
     reinitialiser: {
         parameters: {
             query?: never;

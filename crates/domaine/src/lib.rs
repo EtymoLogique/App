@@ -1,5 +1,6 @@
 //! Types et règles du jeu, sans entrée-sortie.
 
+pub mod carte_de_lecteur;
 pub mod energie;
 pub mod fusion;
 pub mod identifiant;

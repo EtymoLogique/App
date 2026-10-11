@@ -11,6 +11,7 @@ use etymo_contrat::{
     ProgressionQuete, SabliersEtat,
 };
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::carte_de_lecteur;
 use etymo_domaine::energie::{self, Energie};
 use etymo_domaine::pli::{self, Compteurs, Regle, Resultat};
 use etymo_domaine::quete::{self, Codex};
@@ -20,7 +21,7 @@ use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
-use crate::{quetes_jour, ricochets};
+use crate::{carte_lecteur, quetes_jour, ricochets};
 
 pub type Tx<'a> = Transaction<'a, Postgres>;
 
@@ -141,6 +142,8 @@ pub async fn etat(
         paliers_recuperes: paliers_recuperes(&mut *tx, joueur).await?,
         quetes_du_jour: quetes_jour::du_jour(&mut *tx, joueur, jeu, maintenant.date_naive())
             .await?,
+        // Après les quêtes : le tampon du jour se pose quand la dernière est faite.
+        carte_de_lecteur: Some(carte_lecteur::etat(&mut *tx, joueur).await?),
     })
 }
 
@@ -358,7 +361,7 @@ pub async fn ouvrir_pli(
     historiser_pli(&mut *tx, joueur, effets, "energie", gouttes).await
 }
 
-async fn historiser_pli(
+pub(crate) async fn historiser_pli(
     tx: &mut PgConnection,
     joueur: Uuid,
     effets: &EffetsPli<'_>,
@@ -385,7 +388,7 @@ async fn historiser_pli(
 }
 
 /// Un exemplaire de plus, tracé dans `mouvement`.
-async fn crediter_exemplaire(
+pub(crate) async fn crediter_exemplaire(
     tx: &mut PgConnection,
     joueur: Uuid,
     commande: Option<Uuid>,
@@ -417,7 +420,7 @@ async fn crediter_exemplaire(
 }
 
 /// Ajoute (ou retire, `gouttes` négatif) de l'encre, tracée dans `mouvement`.
-async fn crediter_encre(
+pub(crate) async fn crediter_encre(
     tx: &mut PgConnection,
     joueur: Uuid,
     commande: Option<Uuid>,
@@ -462,7 +465,7 @@ async fn crediter_encre(
 }
 
 /// Ajoute (ou retire) des sabliers détenus, tracés dans `mouvement`.
-async fn crediter_sabliers(
+pub(crate) async fn crediter_sabliers(
     tx: &mut PgConnection,
     joueur: Uuid,
     commande: Option<Uuid>,
@@ -777,6 +780,54 @@ pub async fn recuperer_jalon(
     Ok(())
 }
 
+/// Accorde la récompense d'une carte de lecteur pleine (ADR 0045) : de
+/// l'encre, des sabliers et la brique du pli de lecteur, déjà tirée. Comme un
+/// pli de jalon, il ne consomme pas d'énergie et ne compte pour aucune garantie.
+/// Renvoie les gouttes de la brique (réserve pleine) pour l'historique.
+pub async fn accorder_carte_de_lecteur(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    effets: &EffetsPli<'_>,
+) -> Result<u32, ErreurApi> {
+    let maintenant = effets.maintenant;
+    let commande = Some(effets.commande);
+    let gouttes = i32::try_from(effets.gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    if effets.resultat == Resultat::ReservePleine {
+        crediter_encre(&mut *tx, joueur, commande, gouttes, "lecteur", maintenant).await?;
+    } else {
+        crediter_exemplaire(
+            &mut *tx,
+            joueur,
+            commande,
+            effets.brique.as_str(),
+            "lecteur",
+            maintenant,
+        )
+        .await?;
+    }
+    historiser_pli(&mut *tx, joueur, effets, "lecteur", gouttes).await?;
+    let recompense = |n: u32| i32::try_from(n).map_err(|e| ErreurApi::Interne(e.to_string()));
+    crediter_encre(
+        &mut *tx,
+        joueur,
+        commande,
+        recompense(carte_de_lecteur::GOUTTES)?,
+        "lecteur",
+        maintenant,
+    )
+    .await?;
+    crediter_sabliers(
+        &mut *tx,
+        joueur,
+        commande,
+        recompense(carte_de_lecteur::SABLIERS)?,
+        "lecteur",
+        maintenant,
+    )
+    .await?;
+    Ok(effets.gouttes)
+}
+
 async fn jalons_recuperes(
     tx: &mut PgConnection,
     joueur: Uuid,
@@ -839,12 +890,26 @@ async fn progression_quetes(
         mots: &mots,
         briques: &briques,
     };
+    let maitrisees = sqlx::query_scalar!(
+        "SELECT count(*) FROM ricochet WHERE joueur_id = $1 AND maitrisee_le IS NOT NULL",
+        joueur
+    )
+    .fetch_one(&mut *tx)
+    .await?
+    .unwrap_or(0);
+    let maitrisees = u32::try_from(maitrisees).unwrap_or(u32::MAX);
+    let cartes = carte_lecteur::remplies(&mut *tx, joueur).await?;
     Ok(jeu
         .quetes
         .iter()
         .map(|q| ProgressionQuete {
             quete_id: q.id.clone(),
-            progression: jeu.mesures.progression(&q.sorte, &codex),
+            progression: match q.sorte {
+                // Une carte légendaire n'est jamais un ricochet : aucune n'est comptée.
+                quete::Sorte::Ricochets => maitrisees,
+                quete::Sorte::Lecteur => cartes,
+                _ => jeu.mesures.progression(&q.sorte, &codex),
+            },
         })
         .collect())
 }
@@ -1172,6 +1237,18 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
     sqlx::query!("DELETE FROM ricochet_jour WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
+    sqlx::query!("DELETE FROM quete_jour WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM tampon WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!(
+        "DELETE FROM carte_lecteur_recuperee WHERE joueur_id = $1",
+        joueur
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!("DELETE FROM palier_recupere WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
