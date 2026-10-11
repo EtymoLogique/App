@@ -321,6 +321,7 @@ export function App({ api, catalogue }: Props) {
                   recuperer={partie.recupererJalon}
                   recupererPalier={partie.recupererPalier}
                   recupererCarte={partie.recupererCarte}
+                  recupererCadeau={partie.recupererCadeau}
                   inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
                 />
               </section>

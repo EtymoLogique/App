@@ -1,7 +1,7 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeAchatSablier, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
+import type { DemandeAchatSablier, DemandeCadeau, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCadeau, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
@@ -150,6 +150,15 @@ export class ClientApi {
   /** Récupère la récompense d'un jalon atteint : `403` s'il n'est pas atteint, `409` s'il est déjà récupéré. */
   jalon(demande: DemandeJalon): Promise<ReponseJalon> {
     return this.authentifie('/jalon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Récupère le cadeau de bienvenue : `403` s'il n'y en a pas, `409` s'il est déjà récupéré. */
+  cadeau(demande: DemandeCadeau): Promise<ReponseCadeau> {
+    return this.authentifie('/cadeau', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(demande),

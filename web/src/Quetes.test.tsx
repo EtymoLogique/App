@@ -118,6 +118,23 @@ describe('quêtes', () => {
     expect(await screen.findByText('0 / 7')).toBeInTheDocument()
   })
 
+  it('propose le cadeau de bienvenue et le récupère une fois', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const cadeau = { plis: [GEO, GEO], sabliers: 12, encre: 40 }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, cadeau_de_bienvenue: { ...cadeau, recupere: false } })
+    const recupere = vi.spyOn(api, 'cadeau').mockResolvedValue({
+      etat: { ...atteint, version_etat: 2, cadeau_de_bienvenue: { ...cadeau, recupere: true } },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByRole('region', { name: 'Cadeau de bienvenue' })).toBeInTheDocument()
+    expect(screen.getByText('12 sabliers')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText('Cadeau de bienvenue récupéré.')).toBeInTheDocument()
+    expect(recupere).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, version_catalogue: 'v1' }))
+    expect(screen.queryByRole('button', { name: 'Récupérer' })).not.toBeInTheDocument()
+  })
+
   it('explique l’absence de quête du jour', async () => {
     history.replaceState(null, '', '/#/quetes/journalieres')
     const { api } = client()

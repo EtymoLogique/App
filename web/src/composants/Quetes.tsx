@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { CarteDeLecteurEtat, Etat, QueteDuJour, ReponseCarteDeLecteur, ReponseJalon, ReponsePalier } from '../contrat'
+import type { CadeauEtat, CarteDeLecteurEtat, Etat, QueteDuJour, ReponseCadeau, ReponseCarteDeLecteur, ReponseJalon, ReponsePalier } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
 import { type CatalogueJeu, libelleFascicule } from '../services/jeu'
 import { briquesDuPli, chances, LIBELLES_RARETES, pourcentage } from '../services/plis'
@@ -319,6 +319,53 @@ function CarteDeLecteur({ carte, jeu, inactif, recuperer }: { carte: CarteDeLect
   )
 }
 
+/** Cadeau de bienvenue (ADR 0046) : plis au contenu fixé, sabliers et encre, une seule fois. */
+function CadeauDeBienvenue({ cadeau, jeu, inactif, recuperer }: { cadeau: CadeauEtat; jeu: CatalogueJeu; inactif: string | null; recuperer: () => Promise<ReponseCadeau | { erreur: string }> }) {
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
+  const agir = async () => {
+    setEnCours(true)
+    const reponse = await recuperer()
+    setEnCours(false)
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: 'Cadeau de bienvenue récupéré.', ton: 'win' })
+  }
+  if (cadeau.recupere && !message) return null
+  return (
+    <section className="quete cadeau" data-etat={cadeau.recupere ? 'recupere' : 'a_recuperer'} aria-label="Cadeau de bienvenue">
+      <div className="quete-tete">
+        <h3 className="quete-longue-titre">Cadeau de bienvenue</h3>
+        <span className="quete-avancee">{cadeau.recupere ? '✓ Récupéré' : '✓ À récupérer'}</span>
+      </div>
+      <div className="quete-pied">
+        <span className="quete-k">Contenu</span>
+        <span className="quete-recompense">
+          {cadeau.plis.map((id, i) => {
+            const b = jeu.briques.get(id)
+            return b ? <PetiteBrique key={`${id}-${i}`} brique={b} /> : null
+          })}
+          {cadeau.sabliers > 0 && (
+            <span className="quete-sabliers">
+              <Sablier />
+              {pluriel(cadeau.sabliers, 'sablier')}
+            </span>
+          )}
+          {cadeau.encre > 0 && <span className="quete-sabliers">{pluriel(cadeau.encre, 'goutte')} d’encre</span>}
+        </span>
+        {!cadeau.recupere && (
+          <button type="button" className="btn btn-primary btn-s" onClick={() => void agir()} disabled={enCours || inactif !== null} title={inactif ?? undefined}>
+            {enCours ? 'Récupération…' : 'Récupérer'}
+          </button>
+        )}
+      </div>
+      {message && (
+        <p className="feedback" data-tone={message.ton} role="status">
+          {message.texte}
+        </p>
+      )}
+    </section>
+  )
+}
+
 interface Props {
   jeu: CatalogueJeu
   etat: Etat | null
@@ -329,6 +376,7 @@ interface Props {
   recuperer: (jalon: string) => Promise<ReponseJalon | { erreur: string }>
   recupererPalier: (palier: string) => Promise<ReponsePalier | { erreur: string }>
   recupererCarte: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }>
+  recupererCadeau: () => Promise<ReponseCadeau | { erreur: string }>
   /** Raison pour laquelle une récompense ne peut pas être récupérée maintenant (hors ligne), sinon `null`. */
   inactif: string | null
 }
@@ -338,7 +386,7 @@ interface Props {
  * de fascicule. Un jalon atteint attend que le joueur vienne chercher sa
  * récompense : rien n'arrive dans la réserve sans qu'il sache d'où cela vient.
  */
-export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, inactif }: Props) {
+export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, recupererCadeau, inactif }: Props) {
   const quetes = quetesDeFascicule(jeu, etat)
   const aRecuperer = quetes.filter((q) => q.etat === 'a_recuperer')
   const longues = quetesAuLongCours(jeu, etat)
@@ -358,6 +406,10 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
   const recupererPalierIci = (palier: string) => {
     fixerOnglet()
     return recupererPalier(palier)
+  }
+  const recupererCadeauIci = () => {
+    fixerOnglet()
+    return recupererCadeau()
   }
   const recupererCarteIci = (fascicule: string) => {
     fixerOnglet()
@@ -380,6 +432,9 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
         ))}
       </div>
 
+      {onglet === 'journalieres' && etat?.cadeau_de_bienvenue && (
+        <CadeauDeBienvenue cadeau={etat.cadeau_de_bienvenue} jeu={jeu} inactif={inactifIci} recuperer={recupererCadeauIci} />
+      )}
       {onglet === 'journalieres' ? (
         (etat?.quetes_du_jour ?? []).length > 0 ? (
           <>

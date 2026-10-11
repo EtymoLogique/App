@@ -197,6 +197,17 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Écart assumé : la récompense (valeurs de départ) est une constante du domaine, pas un paramètre d'équilibrage du catalogue (ADR 0009, 0045) ; à simuler | écart |
 | Écart assumé : les tampons gagnés alors qu'une carte pleine attend comptent pour la carte suivante, invisibles jusqu'à la récupération | écart |
 
+### Cadeau de bienvenue (App#23, [ADR 0046](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0046-demarrage-genereux-cadeau-de-bienvenue-et-quetes-initiales.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Catalogue : `cadeau_de_bienvenue` dans l'index (`Calendrier`) : une brique par pli, sabliers, encre ; recopié par la tâche de parution ; le serveur ne garde que les briques publiées et non légendaires | fait côté App ; **à faire dans Content** : déclaration, schéma, validateur (briques de fascicules parus, jamais une légendaire) et compilation |
+| Base : `cadeau_recupere` (une ligne par profil) ; commande `cadeau`, motifs et origine `cadeau` ; réinitialisation hors production | fait |
+| API : `cadeau_de_bienvenue` dans l'état (annoncé d'avance, `recupere`) ; `POST /cadeau` idempotent (`403` aucun cadeau déclaré, `409` déjà récupéré) ; plis fixes sans énergie, hors garanties, comme un pli de jalon (logique partagée `accorder_plis_fixes`) | fait |
+| PWA : carte « Cadeau de bienvenue » en tête de l'onglet Journalières, compteur Corail | fait ; **maquette I-29 à dessiner** |
+| Écart assumé : pas de tutoriel (J5) : le cadeau est récupérable dès la création du profil, pas « dès la fin du tutoriel » | écart |
+| Valeurs (3 plis, 12 sabliers, 40 gouttes) : déclarées par le catalogue, **à simuler** | à faire (Content) |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.

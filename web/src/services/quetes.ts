@@ -97,5 +97,7 @@ export function quetesAuLongCours(jeu: CatalogueJeu, etat: Etat | null): QueteLo
 export function recompensesARecuperer(jeu: CatalogueJeu | null, etat: Etat | null): number {
   if (!jeu || !etat) return 0
   const paliers = quetesAuLongCours(jeu, etat).flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').length
-  return quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + paliers
+  const cartes = etat.carte_de_lecteur?.a_recuperer ?? 0
+  const cadeau = etat.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? 1 : 0
+  return quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + paliers + cartes + cadeau
 }

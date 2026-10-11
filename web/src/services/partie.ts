@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { DemandeRicochet, Etat, ReponseCarteDeLecteur, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
+import type { DemandeRicochet, Etat, ReponseCadeau, ReponseCarteDeLecteur, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -423,6 +423,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander],
   )
 
+  /** Récupère le cadeau de bienvenue (ADR 0046) : plis fixes, sabliers et encre, une fois. */
+  const recupererCadeau = useCallback(
+    (): Promise<ReponseCadeau | { erreur: string }> =>
+      commander(
+        (e, version) => api.cadeau({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version }),
+        'Le cadeau de bienvenue n’est pas disponible.',
+      ),
+    [api, commander],
+  )
+
   /** Récupère la carte de lecteur pleine (ADR 0045) : de l'encre, un sablier et un pli de lecteur du fascicule choisi. */
   const recupererCarte = useCallback(
     (fascicule: string): Promise<ReponseCarteDeLecteur | { erreur: string }> =>
@@ -461,6 +471,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     repondreRicochet,
     recupererPalier,
     recupererCarte,
+    recupererCadeau,
     erreurEtat,
     table,
     cases,
