@@ -17,6 +17,7 @@ import {
   energieA,
   pliOuvrable,
   pourcentage,
+  rareteMax,
   reserveDuFascicule,
   resumeGroupe,
 } from '../services/plis'
@@ -426,9 +427,11 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
     setEtape('revealed')
     onGeler(false)
     setTeteGelee(undefined)
-    setStatut([resumeGroupe(reponses).texte, erreur].filter(Boolean).join(' '))
+    const meilleure = rareteMax(reponses.map((r) => raretes.get(r.ouverture.brique_id) ?? 'commune'))
+    const annonce = meilleure === 'legendaire' ? 'Légendaire !' : meilleure === 'rare' ? 'Rare !' : ''
+    setStatut([annonce, resumeGroupe(reponses).texte, erreur].filter(Boolean).join(' '))
     occupe.current = false
-  }, [onGeler])
+  }, [onGeler, raretes])
   useEffect(() => {
     if (etape === 'revealed' && groupe) continuerGroupe.current?.focus({ preventScroll: true })
   }, [etape, groupe])

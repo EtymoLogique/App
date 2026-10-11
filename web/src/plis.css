@@ -511,6 +511,7 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
  */
 .pkg { --s: 0.4; grid-area: main; position: relative; isolation: isolate; display: grid; justify-items: center; align-content: center; gap: 10px; width: 100%; }
 .pkg[data-taille="g"] { --s: 0.55; }
+.pkg[data-taille="g"] .pkg-grille { column-gap: 32px; }
 .pkg[data-taille="m"] { --s: 0.4; }
 .pkg[data-taille="p"] { --s: 0.3; }
 @media (max-width: 760px) {
@@ -535,6 +536,8 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .pkg[data-anticipe="true"] .pkg-rays { background: repeating-conic-gradient(rgba(143, 123, 240, 0.4) 0deg 7deg, transparent 7deg 36deg); opacity: 0.5; } /* identite: ok — Palimpseste du rituel rare, comme .pk-anticipe */
 .pkg[data-anticipe="true"] .pkg-rays span { color: var(--c-lang-deep); }
 .pkg[data-revele="true"] .pkg-rays { opacity: 1; animation-duration: 12s; }
+.pkg[data-revele="true"]:is([data-rarity="rare"], [data-rarity="legendaire"]) .pkg-rays { background: repeating-conic-gradient(rgba(143, 123, 240, 0.4) 0deg 7deg, transparent 7deg 36deg); } /* identite: ok — Palimpseste du rituel rare */
+.pkg[data-revele="true"]:is([data-rarity="rare"], [data-rarity="legendaire"]) .pkg-rays span { color: var(--c-lang-deep); }
 .pkg[data-revele="true"][data-rarity="legendaire"] .pkg-rays { animation-duration: 5s; filter: saturate(1.6); }
 .pkg-kicker { min-height: 22px; margin: 0; }
 .pkg-kicker.is-haute { color: var(--c-lang-deep); }
@@ -559,6 +562,7 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .pkg-tag small { color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 600; }
 .pkg-tag small.is-nouvelle { padding: 1px 6px; border: 1px solid #0f1f19; border-radius: 999px; background: var(--c-pli); color: #0f1f19; font-weight: 700; }
 /* Une rare ou une légendaire pose un anneau violet qui s'élargit une fois, sans ombre colorée. */
+.pkg-carte.is-haute { outline: 2px solid var(--c-lang); outline-offset: 2px; }
 .pkg-carte.is-haute::after { position: absolute; inset: -2px; border: 2px solid var(--c-lang); border-radius: 14px; content: ""; pointer-events: none; animation: pkgHalo 0.65s ease-out 0.3s both; }
 @keyframes pkgImprime {
   0% { opacity: 0; transform: translateY(-22px) scale(1.5); }
@@ -566,5 +570,5 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
   100% { opacity: 1; transform: none; }
 }
 @keyframes pkgHalo { from { opacity: 0.9; transform: scale(0.95); } to { opacity: 0; transform: scale(1.35); } }
-@media (prefers-reduced-motion: reduce) { .pkg-rays, .pkg-carte, .pkg-carte::after { animation: none; transition: none; } }
-:root[data-mouvement="reduit"] :is(.pkg-rays, .pkg-carte, .pkg-carte::after) { animation: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .pkg-rays, .pkg-carte, .pkg-carte::after, .pkg-cell .pk-flash { animation: none; transition: none; } }
+:root[data-mouvement="reduit"] :is(.pkg-rays, .pkg-carte, .pkg-carte::after, .pkg-cell .pk-flash) { animation: none; transition: none; }

@@ -77,15 +77,18 @@ export interface RituelEcrit {
   interrompu: () => boolean
   /** Rituel court des plis ouverts ensemble : la plume va plus vite, avec un brouillon de moins pour une brique ordinaire. */
   court?: boolean
+  /** Nombre de brouillons gardés (les derniers) quand le pli est trop petit pour qu'on lise la plume. */
+  brouillonsMax?: number
 }
 
 /** Écriture complète du rituel : brouillons barrés (rature à la main), puis la brique dans son cadre, qui s'encre. */
-export async function ecrireRituel({ jeu, briqueId, majLignes, pause, interrompu, court = false }: RituelEcrit): Promise<void> {
+export async function ecrireRituel({ jeu, briqueId, majLignes, pause, interrompu, court = false, brouillonsMax }: RituelEcrit): Promise<void> {
   const ecrire = creerPlume(majLignes, pause, interrompu)
   const brique = jeu.briques.get(briqueId)
   const connues = new Set<string>()
   const essais = brouillons(jeu, briqueId)
-  for (const brouillon of court ? essais.slice(0, 2) : essais) {
+  const gardes = brouillonsMax ? essais.slice(-brouillonsMax) : court ? essais.slice(0, 2) : essais
+  for (const brouillon of gardes) {
     const cle = await ecrire(brouillon, false, court ? { lettre: 20, syllabe: 30 } : { lettre: 26, syllabe: 50 }, connues)
     Array.from(brouillon.toLowerCase()).forEach((c) => connues.add(c))
     await pause(court ? 40 : 60)

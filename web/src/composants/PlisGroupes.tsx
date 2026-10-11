@@ -4,7 +4,7 @@ import type { Rarete, ReponsePli } from '../contrat'
 import { accordLegendaire, mouvementReduit, vibrer } from '../services/animation'
 import { type Ligne, ecrireRituel } from '../services/ecriture'
 import type { CatalogueJeu } from '../services/jeu'
-import { departCanon, rareteMax, tailleGroupe } from '../services/plis'
+import { LIBELLES_RARETES, departCanon, rareteMax, tailleGroupe } from '../services/plis'
 import { PetiteBrique } from './Brique'
 import { Ecrit, Plume } from './Plume'
 import { FormeRarete } from './Rarete'
@@ -60,6 +60,7 @@ export function PlisGroupes({ jeu, nombre, reponses, raretes, jaquette, nom, url
     const maj = (i: number, f: (c: CelluleEtat) => CelluleEtat) => {
       if (vivant) setCellules((cs) => cs.map((c, k) => (k === i ? f(c) : c)))
     }
+    const taille = tailleGroupe(reponses.length)
     let restants = reponses.length
     const jouer = async (i: number, reponse: ReponsePli) => {
       const id = reponse.ouverture.brique_id
@@ -71,7 +72,7 @@ export function PlisGroupes({ jeu, nombre, reponses, raretes, jaquette, nom, url
       await pause(departCanon(i) + 250)
       if (!vivant) return
       maj(i, (c) => ({ ...c, classe: `pk-writing${anticipe}` }))
-      await ecrireRituel({ jeu, briqueId: id, majLignes: (f) => maj(i, (c) => ({ ...c, lignes: typeof f === 'function' ? f(c.lignes) : f })), pause, interrompu, court: !haute })
+      await ecrireRituel({ jeu, briqueId: id, majLignes: (f) => maj(i, (c) => ({ ...c, lignes: typeof f === 'function' ? f(c.lignes) : f })), pause, interrompu, court: !haute, brouillonsMax: taille === 'p' && !haute ? 1 : undefined })
       // Une rare s'écrit plus longtemps : la plume vire au violet et laisse le temps de l'attendre.
       if (haute) await pause(600)
       maj(i, (c) => ({ ...c, classe: `pk-flip${anticipe}` }))
@@ -171,7 +172,7 @@ const Cellule = memo(function Cellule({ cellule, jeu, ouverture, exemplaires, ra
         </div>
       )}
       {cellule.revele && ouverture && brique && (
-        <button type="button" className={`pkg-carte${rarete === 'rare' || rarete === 'legendaire' ? ' is-haute' : ''}`} aria-label={`${brique.libelle} : ${decrit}. Essayer sur la table`} onClick={() => onEssayer(ouverture.brique_id)}>
+        <button type="button" className={`pkg-carte${rarete === 'rare' || rarete === 'legendaire' ? ' is-haute' : ''}`} aria-label={`${brique.libelle}, ${rarete ? LIBELLES_RARETES[rarete].toLowerCase() : ''} : ${decrit}. Essayer sur la table`} onClick={() => onEssayer(ouverture.brique_id)}>
           <PetiteBrique brique={brique} />
           <span className="pkg-tag">
             {rarete && <FormeRarete rarete={rarete} />}
