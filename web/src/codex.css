@@ -524,3 +524,32 @@
 }
 /* Image d'arrivée explicite : sans elle, Safari iOS peut laisser le surlignage à 0. */
 @keyframes surligne { from { background-size: 0% 32%; } to { background-size: calc(100% - 3px) 32%; } }
+
+/* Sélecteur de fascicules compact : une seule bande défilante, jaquette 44 px, filet de 3 px, parution masquée (le nom et le numéro suffisent). */
+.cb-fasc {
+  display: flex; gap: 10px; margin-bottom: 14px; padding: 5px 2px 8px; overflow-x: auto;
+  scroll-snap-type: x proximity; scrollbar-width: thin;
+}
+.cb-fasc-btn { flex: 0 0 auto; width: 224px; grid-template-columns: 44px 1fr; gap: 10px; padding: 8px 12px; scroll-snap-align: start; }
+.cb-fasc-btn .jk-mini { max-width: 44px; border-width: 1.5px; border-radius: 6px; }
+.cb-fasc-info { gap: 4px; }
+.cb-fasc-head > span:last-child { display: none; }
+.cb-fasc-bar { height: 3px; border-width: 0; background: color-mix(in srgb, currentColor 22%, transparent); }
+.cb-fasc-count { font-size: 12px; white-space: nowrap; }
+.cb-fasc-count b { font-size: 16px; }
+.cb-fasc-btn .fasc-nom { font-size: 15px; }
+/* La bande défile dans la carte du codex au lieu de l'élargir (parent flex/grid : min-width auto). */
+.codex-browser { min-width: 0; max-width: 100%; }
+.cb-fasc { min-width: 0; max-width: 100%; }
+.page { grid-template-columns: minmax(0, 1fr); }
+/* Chevrons de la bande : posés sur ses bords, seulement du côté où l'on peut encore défiler. */
+.cb-fasc-wrap { position: relative; min-width: 0; max-width: 100%; padding-inline: 44px; } /* gouttières réservées : les chevrons ne couvrent jamais une carte */
+.cb-fasc-nav {
+  position: absolute; top: 50%; z-index: 1; display: grid; place-items: center; width: 36px; height: 36px; translate: 0 -50%;
+  border: 1.5px solid var(--ink); border-radius: 50%; background: var(--cream); color: var(--ink); cursor: pointer;
+  box-shadow: 2px 3px 0 var(--pop-shadow);
+}
+.cb-fasc-nav.is-gauche { left: 0; }
+.cb-fasc-nav.is-droite { right: 0; }
+.cb-fasc-nav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.cb-fasc-nav:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
