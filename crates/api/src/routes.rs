@@ -8,10 +8,11 @@ use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
     CarteRicochet, DemandeAchatSablier, DemandeCadeau, DemandeCarteDeLecteur, DemandeFusion,
-    DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier,
-    DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier, ReponseCadeau,
-    ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli,
-    ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session, StatutSante,
+    DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeQueteInitiale, DemandeRicochet,
+    DemandeSablier, DemandeSession, Erreur, Etat, IssueFusion, OuverturePli, ReponseAchatSablier,
+    ReponseCadeau, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon,
+    ReponsePalier, ReponsePli, ReponseQueteInitiale, ReponseRicochet, ReponseSablier, Sante,
+    SeanceRicochets, Session, StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -19,7 +20,9 @@ use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
-use crate::{EtatApp, carte_lecteur, debit, progression, quetes_jour, ricochets, secret};
+use crate::{
+    EtatApp, carte_lecteur, debit, progression, quetes_initiales, quetes_jour, ricochets, secret,
+};
 
 pub fn routes() -> Router<Arc<EtatApp>> {
     Router::new()
@@ -37,6 +40,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/palier", post(recuperer_palier))
         .route("/carte-de-lecteur", post(recuperer_carte_de_lecteur))
         .route("/cadeau", post(recuperer_cadeau))
+        .route("/quete-initiale", post(recuperer_quete_initiale))
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -895,6 +899,160 @@ pub async fn repondre_ricochet(
     Ok(Json(reponse))
 }
 
+/// Récupère la récompense d'une quête initiale faite pendant la première
+/// semaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,
+/// sabliers, encre. Sans énergie, hors garanties.
+#[utoipa::path(post, path = "/quete-initiale", tag = "jeu", security(("session" = [])), request_body = DemandeQueteInitiale,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseQueteInitiale),
+        (status = 400, description = "Requête invalide, fascicule manquant ou sans pli", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Quête initiale pas faite", body = Erreur),
+        (status = 409, description = "Déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_quete_initiale(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeQueteInitiale>,
+) -> Result<Json<ReponseQueteInitiale>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    let recompense = quetes_initiales::recompense(demande.code);
+    let avec_plis = recompense.plis_offerts + recompense.plis_de_lecteur > 0;
+    let fascicule = match (&demande.fascicule_id, avec_plis) {
+        (Some(f), true) => Some(f),
+        (None, true) => {
+            return Err(ErreurApi::RequeteInvalide(
+                "fascicule_id : requis pour des plis".into(),
+            ));
+        }
+        _ => None,
+    };
+    let maintenant = Utc::now();
+    quetes_initiales::reclamer(&mut tx, joueur, demande.code, maintenant).await?;
+    let mut ouvertures = Vec::new();
+    if let Some(fascicule) = fascicule {
+        let pli_jeu = jeu
+            .pli(fascicule)
+            .filter(|p| !p.briques.is_empty())
+            .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : aucun pli paru".into()))?;
+        let equilibrage = pli_jeu
+            .equilibrage
+            .as_ref()
+            .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : pli sans équilibrage".into()))?;
+        let plis = std::iter::repeat_n(false, recompense.plis_offerts as usize).chain(
+            std::iter::repeat_n(true, recompense.plis_de_lecteur as usize),
+        );
+        for lecteur in plis {
+            let brique = tirer_brique(pli_jeu, &equilibrage.parametres, lecteur)?;
+            let resultat = pli::resultat(
+                progression::stock(&mut tx, joueur)
+                    .await?
+                    .get(&brique.id)
+                    .copied(),
+            );
+            let gouttes = encre_reserve_pleine(resultat, brique, &equilibrage.parametres);
+            progression::accorder_brique_tiree(
+                &mut tx,
+                joueur,
+                &progression::EffetsPli {
+                    commande: demande.commande,
+                    fascicule,
+                    brique: &brique.id,
+                    resultat,
+                    regle: pli::Regle::Tirage,
+                    gouttes,
+                    energie: etymo_domaine::energie::Energie::pleine(),
+                    compteurs: pli::Compteurs::default(),
+                    version_equilibrage: &equilibrage.version,
+                    maintenant,
+                },
+                "quete_initiale",
+            )
+            .await?;
+            ouvertures.push(OuverturePli {
+                fascicule_id: fascicule.clone(),
+                brique_id: brique.id.clone(),
+                resultat,
+                regle: pli::Regle::Tirage,
+                encre: gouttes,
+                ouvert_le: maintenant,
+            });
+        }
+    }
+    progression::accorder_sabliers_et_encre(
+        &mut tx,
+        joueur,
+        demande.commande,
+        recompense.sabliers,
+        recompense.gouttes,
+        "quete_initiale",
+        maintenant,
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseQueteInitiale {
+        ouvertures,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "quete_initiale", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Tire la brique d'un pli sans énergie : tout le pli pour un pli offert,
+/// les seules peu communes et rares (et la légendaire à sa chance fixe) pour
+/// un pli de lecteur.
+fn tirer_brique<'a>(
+    pli_jeu: &'a etymo_catalogue::PliJeu,
+    parametres: &pli::Equilibrage,
+    lecteur: bool,
+) -> Result<&'a pli::BriquePli, ErreurApi> {
+    let eligibles: Vec<bool> = pli_jeu
+        .briques
+        .iter()
+        .map(|b| pli::tirable(b) && (!lecteur || b.rarete != pli::Rarete::Commune))
+        .collect();
+    let somme = pli::somme_eligible(&pli_jeu.briques, &eligibles, parametres);
+    if somme == 0 {
+        return Err(ErreurApi::RequeteInvalide(
+            "fascicule : aucune brique pour ce pli".into(),
+        ));
+    }
+    pli::tirer(&pli_jeu.briques, &eligibles, parametres, alea(somme)?)
+        .ok_or_else(|| ErreurApi::Interne("aucune brique tirable".into()))
+}
+
+/// Comme un pli de jalon : de l'encre seulement si la réserve est pleine.
+fn encre_reserve_pleine(
+    resultat: pli::Resultat,
+    brique: &pli::BriquePli,
+    parametres: &pli::Equilibrage,
+) -> u32 {
+    if resultat == pli::Resultat::ReservePleine {
+        parametres
+            .encre_reserve_pleine
+            .get(&brique.rarete)
+            .copied()
+            .unwrap_or(0)
+    } else {
+        0
+    }
+}
+
 /// Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis
 /// au contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.
 #[utoipa::path(post, path = "/cadeau", tag = "jeu", security(("session" = [])), request_body = DemandeCadeau,
@@ -977,32 +1135,11 @@ pub async fn recuperer_carte_de_lecteur(
         .as_ref()
         .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : pli sans équilibrage".into()))?;
     let parametres = &equilibrage.parametres;
-    let eligibles: Vec<bool> = pli_jeu
-        .briques
-        .iter()
-        .map(|b| pli::tirable(b) && b.rarete != pli::Rarete::Commune)
-        .collect();
-    let somme = pli::somme_eligible(&pli_jeu.briques, &eligibles, parametres);
-    if somme == 0 {
-        return Err(ErreurApi::RequeteInvalide(
-            "fascicule : aucune brique pour un pli de lecteur".into(),
-        ));
-    }
     carte_lecteur::reclamer(&mut tx, joueur).await?;
-    let brique = pli::tirer(&pli_jeu.briques, &eligibles, parametres, alea(somme)?)
-        .ok_or_else(|| ErreurApi::Interne("aucune brique tirable".into()))?;
+    let brique = tirer_brique(pli_jeu, parametres, true)?;
     let stock = progression::stock(&mut tx, joueur).await?;
     let resultat = pli::resultat(stock.get(&brique.id).copied());
-    // Comme un pli de jalon : de l'encre seulement si la réserve est pleine.
-    let gouttes = if resultat == pli::Resultat::ReservePleine {
-        parametres
-            .encre_reserve_pleine
-            .get(&brique.rarete)
-            .copied()
-            .unwrap_or(0)
-    } else {
-        0
-    };
+    let gouttes = encre_reserve_pleine(resultat, brique, parametres);
     let maintenant = Utc::now();
     progression::accorder_carte_de_lecteur(
         &mut tx,

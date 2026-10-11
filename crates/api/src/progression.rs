@@ -21,7 +21,7 @@ use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
-use crate::{carte_lecteur, quetes_jour, ricochets};
+use crate::{carte_lecteur, quetes_initiales, quetes_jour, ricochets};
 
 pub type Tx<'a> = Transaction<'a, Postgres>;
 
@@ -145,6 +145,8 @@ pub async fn etat(
         // Après les quêtes : le tampon du jour se pose quand la dernière est faite.
         cadeau_de_bienvenue: cadeau_etat(&mut *tx, joueur, jeu).await?,
         carte_de_lecteur: Some(carte_lecteur::etat(&mut *tx, joueur).await?),
+        // En dernier : elles lisent la carte de lecteur et les ricochets du jour.
+        quetes_initiales: quetes_initiales::etat(&mut *tx, joueur, jeu, maintenant).await?,
     })
 }
 
@@ -806,52 +808,90 @@ pub async fn recuperer_jalon(
     Ok(())
 }
 
-/// Accorde la récompense d'une carte de lecteur pleine (ADR 0045) : de
-/// l'encre, des sabliers et la brique du pli de lecteur, déjà tirée. Comme un
-/// pli de jalon, il ne consomme pas d'énergie et ne compte pour aucune garantie.
-/// Renvoie les gouttes de la brique (réserve pleine) pour l'historique.
-pub async fn accorder_carte_de_lecteur(
+/// Accorde une brique tirée par un pli sans énergie (lecteur, offert) : un
+/// exemplaire, ou de l'encre si la réserve est pleine, et une ligne d'historique
+/// d'origine `origine`.
+pub(crate) async fn accorder_brique_tiree(
     tx: &mut PgConnection,
     joueur: Uuid,
     effets: &EffetsPli<'_>,
-) -> Result<u32, ErreurApi> {
-    let maintenant = effets.maintenant;
-    let commande = Some(effets.commande);
+    origine: &str,
+) -> Result<(), ErreurApi> {
     let gouttes = i32::try_from(effets.gouttes).map_err(|e| ErreurApi::Interne(e.to_string()))?;
     if effets.resultat == Resultat::ReservePleine {
-        crediter_encre(&mut *tx, joueur, commande, gouttes, "lecteur", maintenant).await?;
+        crediter_encre(
+            &mut *tx,
+            joueur,
+            Some(effets.commande),
+            gouttes,
+            origine,
+            effets.maintenant,
+        )
+        .await?;
     } else {
         crediter_exemplaire(
             &mut *tx,
             joueur,
-            commande,
+            Some(effets.commande),
             effets.brique.as_str(),
-            "lecteur",
-            maintenant,
+            origine,
+            effets.maintenant,
         )
         .await?;
     }
-    historiser_pli(&mut *tx, joueur, effets, "lecteur", gouttes).await?;
-    let recompense = |n: u32| i32::try_from(n).map_err(|e| ErreurApi::Interne(e.to_string()));
+    historiser_pli(&mut *tx, joueur, effets, origine, gouttes).await
+}
+
+/// Accorde des sabliers et de l'encre d'une récompense, sous le motif `motif`.
+pub(crate) async fn accorder_sabliers_et_encre(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    commande: Uuid,
+    sabliers: u32,
+    gouttes: u32,
+    motif: &str,
+    maintenant: DateTime<Utc>,
+) -> Result<(), ErreurApi> {
+    let entier = |n: u32| i32::try_from(n).map_err(|e| ErreurApi::Interne(e.to_string()));
     crediter_encre(
         &mut *tx,
         joueur,
-        commande,
-        recompense(carte_de_lecteur::GOUTTES)?,
-        "lecteur",
+        Some(commande),
+        entier(gouttes)?,
+        motif,
         maintenant,
     )
     .await?;
     crediter_sabliers(
         &mut *tx,
         joueur,
-        commande,
-        recompense(carte_de_lecteur::SABLIERS)?,
-        "lecteur",
+        Some(commande),
+        entier(sabliers)?,
+        motif,
         maintenant,
     )
-    .await?;
-    Ok(effets.gouttes)
+    .await
+}
+
+/// Accorde la récompense d'une carte de lecteur pleine (ADR 0045) : de
+/// l'encre, des sabliers et la brique du pli de lecteur, déjà tirée. Comme un
+/// pli de jalon, il ne consomme pas d'énergie et ne compte pour aucune garantie.
+pub async fn accorder_carte_de_lecteur(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    effets: &EffetsPli<'_>,
+) -> Result<(), ErreurApi> {
+    accorder_brique_tiree(&mut *tx, joueur, effets, "lecteur").await?;
+    accorder_sabliers_et_encre(
+        &mut *tx,
+        joueur,
+        effets.commande,
+        carte_de_lecteur::SABLIERS,
+        carte_de_lecteur::GOUTTES,
+        "lecteur",
+        effets.maintenant,
+    )
+    .await
 }
 
 /// Cadeau de bienvenue du catalogue et s'il est déjà récupéré (ADR 0046).
@@ -977,7 +1017,7 @@ async fn paliers_recuperes(
 }
 
 /// Briques connues du joueur : sa réserve, dont la carte se montre au codex.
-async fn briques_connues(
+pub(crate) async fn briques_connues(
     tx: &mut PgConnection,
     joueur: Uuid,
 ) -> Result<HashSet<IdCatalogue>, ErreurApi> {
@@ -1355,6 +1395,9 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
         .execute(&mut *tx)
         .await?;
     sqlx::query!("DELETE FROM quete_jour WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM quete_initiale WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
     sqlx::query!("DELETE FROM cadeau_recupere WHERE joueur_id = $1", joueur)

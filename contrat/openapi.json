@@ -757,6 +757,102 @@
         ]
       }
     },
+    "/quete-initiale": {
+      "post": {
+        "tags": [
+          "jeu"
+        ],
+        "summary": "Récupère la récompense d'une quête initiale faite pendant la première\nsemaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,\nsabliers, encre. Sans énergie, hors garanties.",
+        "operationId": "recuperer_quete_initiale",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeQueteInitiale"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Récompense récupérée et état confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseQueteInitiale"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide, fascicule manquant ou sans pli",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Quête initiale pas faite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déjà récupérée, état ou catalogue périmé : resynchroniser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de requêtes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun catalogue publié",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/ricochet": {
       "post": {
         "tags": [
@@ -1696,6 +1792,16 @@
           "adresse_paires"
         ]
       },
+      "CodeQueteInitiale": {
+        "type": "string",
+        "description": "Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.",
+        "enum": [
+          "trois_mots",
+          "transformation",
+          "premiers_ricochets",
+          "premiere_carte"
+        ]
+      },
       "CompositionCarte": {
         "type": "object",
         "required": [
@@ -2043,6 +2149,47 @@
           "version_catalogue": {
             "type": "string",
             "description": "Version du catalogue dont le client a lu les chances.",
+            "maxLength": 64
+          },
+          "version_etat": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeQueteInitiale": {
+        "type": "object",
+        "description": "Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur.",
+        "required": [
+          "commande",
+          "version_etat",
+          "version_catalogue",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CodeQueteInitiale"
+          },
+          "commande": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Clé d'idempotence générée par le client (UUID v4)."
+          },
+          "fascicule_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Obligatoire si la récompense contient des plis."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version_catalogue": {
+            "type": "string",
             "maxLength": 64
           },
           "version_etat": {
@@ -2508,6 +2655,13 @@
               "$ref": "#/components/schemas/QueteDuJour"
             },
             "description": "Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première\nvisite du jour ; vide avant App#20 ou sans catalogue."
+          },
+          "quetes_initiales": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueteInitialeEtat"
+            },
+            "description": "Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées."
           },
           "reserve": {
             "type": "array",
@@ -3338,6 +3492,43 @@
         },
         "additionalProperties": false
       },
+      "QueteInitialeEtat": {
+        "type": "object",
+        "required": [
+          "code",
+          "cible",
+          "progres",
+          "faite",
+          "recuperee",
+          "recompense"
+        ],
+        "properties": {
+          "cible": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "code": {
+            "$ref": "#/components/schemas/CodeQueteInitiale"
+          },
+          "faite": {
+            "type": "boolean",
+            "description": "Faite pendant la première semaine : la récompense peut se récupérer."
+          },
+          "progres": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "recompense": {
+            "$ref": "#/components/schemas/RecompenseInitiale"
+          },
+          "recuperee": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "QueteLongCours": {
         "allOf": [
           {
@@ -3444,6 +3635,40 @@
           "plis_de_lecteur": {
             "type": "integer",
             "format": "int32",
+            "minimum": 0
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecompenseInitiale": {
+        "type": "object",
+        "description": "Récompense d'une quête initiale, annoncée d'avance.",
+        "required": [
+          "plis_offerts",
+          "plis_de_lecteur",
+          "sabliers",
+          "gouttes"
+        ],
+        "properties": {
+          "gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis_de_lecteur": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "plis_offerts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.",
             "minimum": 0
           },
           "sabliers": {
@@ -3665,6 +3890,27 @@
           },
           "ouverture": {
             "$ref": "#/components/schemas/OuverturePli"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseQueteInitiale": {
+        "type": "object",
+        "required": [
+          "ouvertures",
+          "etat"
+        ],
+        "properties": {
+          "etat": {
+            "$ref": "#/components/schemas/Etat",
+            "description": "État confirmé après la commande."
+          },
+          "ouvertures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OuverturePli"
+            },
+            "description": "Briques des plis offerts et de lecteur, dans l'ordre."
           }
         },
         "additionalProperties": false

@@ -10,6 +10,7 @@ pub mod extraction;
 pub mod jeton;
 pub mod openapi;
 pub mod progression;
+pub mod quetes_initiales;
 pub mod quetes_jour;
 pub mod ricochets;
 pub mod routes;

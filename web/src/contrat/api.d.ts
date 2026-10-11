@@ -200,6 +200,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quete-initiale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une quête initiale faite pendant la première
+         *     semaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,
+         *     sabliers, encre. Sans énergie, hors garanties.
+         */
+        post: operations["recuperer_quete_initiale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ricochet": {
         parameters: {
             query?: never;
@@ -474,6 +495,11 @@ export interface components {
          * @enum {string}
          */
         CodeQueteDuJour: "table_sens" | "memoire_sans_faute" | "memoire_litteral" | "memoire_maitrise" | "adresse_decouper" | "adresse_paires";
+        /**
+         * @description Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
+         * @enum {string}
+         */
+        CodeQueteInitiale: "trois_mots" | "transformation" | "premiers_ricochets" | "premiere_carte";
         CompositionCarte: {
             fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
@@ -633,6 +659,22 @@ export interface components {
             commande: string;
             fascicule_id: components["schemas"]["IdCatalogue"];
             /** @description Version du catalogue dont le client a lu les chances. */
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur. */
+        DemandeQueteInitiale: {
+            code: components["schemas"]["CodeQueteInitiale"];
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id?: components["schemas"]["IdCatalogue"] | null;
             version_catalogue: string;
             /**
              * Format: int64
@@ -833,6 +875,8 @@ export interface components {
              *     visite du jour ; vide avant App#20 ou sans catalogue.
              */
             quetes_du_jour?: components["schemas"]["QueteDuJour"][];
+            /** @description Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées. */
+            quetes_initiales?: components["schemas"]["QueteInitialeEtat"][];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
@@ -1093,6 +1137,17 @@ export interface components {
             rang: number;
             sorte: components["schemas"]["SorteQueteDuJour"];
         };
+        QueteInitialeEtat: {
+            /** Format: int32 */
+            cible: number;
+            code: components["schemas"]["CodeQueteInitiale"];
+            /** @description Faite pendant la première semaine : la récompense peut se récupérer. */
+            faite: boolean;
+            /** Format: int32 */
+            progres: number;
+            recompense: components["schemas"]["RecompenseInitiale"];
+            recuperee: boolean;
+        };
         QueteLongCours: components["schemas"]["Sorte"] & {
             id: components["schemas"]["IdCatalogue"];
             /** @description Libellés par locale ; `fr` est la locale de référence. */
@@ -1124,6 +1179,20 @@ export interface components {
             gouttes: number;
             /** Format: int32 */
             plis_de_lecteur: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
+        /** @description Récompense d'une quête initiale, annoncée d'avance. */
+        RecompenseInitiale: {
+            /** Format: int32 */
+            gouttes: number;
+            /** Format: int32 */
+            plis_de_lecteur: number;
+            /**
+             * Format: int32
+             * @description Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
+             */
+            plis_offerts: number;
             /** Format: int32 */
             sabliers: number;
         };
@@ -1194,6 +1263,12 @@ export interface components {
              */
             exemplaires: number;
             ouverture: components["schemas"]["OuverturePli"];
+        };
+        ReponseQueteInitiale: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Briques des plis offerts et de lecteur, dans l'ordre. */
+            ouvertures: components["schemas"]["OuverturePli"][];
         };
         ReponseRicochet: {
             carte: components["schemas"]["CarteRicochet"];
@@ -1938,6 +2013,84 @@ export interface operations {
                 };
             };
             /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_quete_initiale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeQueteInitiale"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseQueteInitiale"];
+                };
+            };
+            /** @description Requête invalide, fascicule manquant ou sans pli */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Quête initiale pas faite */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Déjà récupérée, état ou catalogue périmé : resynchroniser */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -109,6 +109,72 @@ pub struct Etat {
     /// Cadeau de bienvenue déclaré par le catalogue (ADR 0046) ; absent s'il n'y en a pas.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cadeau_de_bienvenue: Option<CadeauEtat>,
+    /// Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées.
+    #[serde(default)]
+    pub quetes_initiales: Vec<QueteInitialeEtat>,
+}
+
+/// Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CodeQueteInitiale {
+    /// Découvrir trois mots.
+    TroisMots,
+    /// Découvrir un mot qui porte une transformation.
+    Transformation,
+    /// Cinq ricochets sans faute.
+    PremiersRicochets,
+    /// Remplir sa première carte de lecteur.
+    PremiereCarte,
+}
+
+/// Récompense d'une quête initiale, annoncée d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseInitiale {
+    /// Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
+    pub plis_offerts: u32,
+    pub plis_de_lecteur: u32,
+    pub sabliers: u32,
+    pub gouttes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueteInitialeEtat {
+    pub code: CodeQueteInitiale,
+    #[schema(minimum = 1)]
+    pub cible: u8,
+    pub progres: u8,
+    /// Faite pendant la première semaine : la récompense peut se récupérer.
+    pub faite: bool,
+    pub recuperee: bool,
+    pub recompense: RecompenseInitiale,
+}
+
+/// Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeQueteInitiale {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub code: CodeQueteInitiale,
+    /// Obligatoire si la récompense contient des plis.
+    #[serde(default)]
+    pub fascicule_id: Option<IdCatalogue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseQueteInitiale {
+    /// Briques des plis offerts et de lecteur, dans l'ordre.
+    pub ouvertures: Vec<OuverturePli>,
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance.
