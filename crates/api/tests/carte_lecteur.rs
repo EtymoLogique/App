@@ -111,3 +111,55 @@ async fn pas_de_carte_pleine_pas_de_recompense(base: PgPool) {
     let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/carte-de-lecteur", &demande)).await;
     assert_eq!(statut, StatusCode::FORBIDDEN);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn chaque_quete_faite_rapporte_sa_recompense_une_seule_fois(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let etat = faire_les_quetes(&banc, &jeton).await;
+    let jour = Utc::now().date_naive().to_string();
+    let quetes = etat["quetes_du_jour"].as_array().unwrap();
+    assert!(
+        quetes
+            .iter()
+            .all(|q| q["faite"] == true && q["recuperee"] == false)
+    );
+    let rang_de =
+        |sorte: &str| quetes.iter().find(|q| q["sorte"] == sorte).unwrap()["rang"].clone();
+
+    // Table : 5 gouttes d'encre.
+    let encre = etat["encre"].as_i64().unwrap();
+    let demande = commande(&etat, json!({ "jour": jour, "rang": rang_de("table") }));
+    let (statut, _, reponse) =
+        appeler(&banc.routeur, post(&jeton, "/quete-du-jour", &demande)).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(reponse["etat"]["encre"].as_i64().unwrap(), encre + 5);
+    // Rejouée : même réponse ; une autre commande sur la même quête : conflit.
+    let (_, _, rejouee) = appeler(&banc.routeur, post(&jeton, "/quete-du-jour", &demande)).await;
+    assert_eq!(rejouee, reponse);
+    let autre = commande(
+        &reponse["etat"],
+        json!({ "jour": jour, "rang": rang_de("table") }),
+    );
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/quete-du-jour", &autre)).await;
+    assert_eq!(statut, StatusCode::CONFLICT);
+
+    // Mémoire : 1 sablier.
+    let sabliers = reponse["etat"]["sabliers"]["detenus"].as_i64().unwrap();
+    let demande = commande(
+        &reponse["etat"],
+        json!({ "jour": jour, "rang": rang_de("memoire") }),
+    );
+    let (statut, _, reponse) =
+        appeler(&banc.routeur, post(&jeton, "/quete-du-jour", &demande)).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(
+        reponse["etat"]["sabliers"]["detenus"].as_i64().unwrap(),
+        sabliers + 1
+    );
+
+    // Une quête qui n'existe pas n'est pas faite.
+    let demande = commande(&reponse["etat"], json!({ "jour": jour, "rang": 2 }));
+    let (statut, _, _) = appeler(&banc.routeur, post(&jeton, "/quete-du-jour", &demande)).await;
+    assert_eq!(statut, StatusCode::FORBIDDEN);
+}

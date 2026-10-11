@@ -11,7 +11,7 @@ use sqlx::PgPool;
 use commun::{appeler, banc, session};
 
 /// Toutes les routes `POST` de l'API (hors production).
-const ROUTES_POST: [&str; 12] = [
+const ROUTES_POST: [&str; 13] = [
     "/session",
     "/fusion",
     "/pli",
@@ -24,6 +24,7 @@ const ROUTES_POST: [&str; 12] = [
     "/carte-de-lecteur",
     "/cadeau",
     "/quete-initiale",
+    "/quete-du-jour",
 ];
 
 fn post_brut(jeton: &str, chemin: &str, corps: String) -> Request<Body> {
