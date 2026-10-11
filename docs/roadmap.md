@@ -252,6 +252,18 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Télémétrie : le mois d'arrivée comme propriété, identifiant renouvelé au mois civil | en attente (J7, pas de télémétrie) |
 | Planifier les deux tâches (quotidienne 00:05 GMT, mensuelle le 1ᵉʳ à 00:10 GMT) | **à faire dans Infra** ; en place dès le premier jour de la bêta (ADR 0048) |
 
+### Durcissement avant lancement (App#30)
+
+| Tâche | État |
+|---|---|
+| Corps de requête borné (8 Kio) sur chaque route `POST` : test `durcissement.rs`, dont un garde-fou qui échoue si une route `POST` n'est pas dans la liste testée | fait |
+| Propriétés inconnues refusées : test du contrat (`requetes_strictes.rs`) qui échoue si une `Demande…` n'a pas `deny_unknown_fields` ; requêtes mal formées refusées sans erreur serveur sur chaque route | fait |
+| `/dev/reset` absent (`404`) en production : test | fait |
+| En-têtes de l'API (`no-store`, `nosniff`, `no-referrer`, HSTS, CSP `default-src 'none'`) déjà posés et testés | fait |
+| Limites de débit : **recommandation, à trancher par le propriétaire** — garder la limite par instance en mémoire pour la bêta. Avec `instances_max = 5` (Infra), un joueur ou une adresse ne dépasse jamais 5 × les quotas (120 requêtes par minute par profil, 20 sessions par minute par adresse), soit 600 et 100 par minute : sans effet sur le coût ni sur l'équité. Passer à une limite partagée (table PostgreSQL ou cache) si `instances_max` monte nettement ou si un abus est observé | décision ouverte |
+| Démarrage à froid sous 1 s au p95 : script `scripts/demarrage-a-froid.sh` ; mesure locale (binaire `release`, base locale) : p50 259 ms, p95 265 ms sur 20 démarrages | mesure locale faite ; **à mesurer en hors-prod** (conteneur Scaleway à froid) |
+| CSP de la PWA : aujourd'hui une balise `<meta>` (`web/vite.config.ts`), qui ne peut pas porter `frame-ancestors` ; le CDN doit poser CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` et `frame-ancestors 'none'` (ADR 0024) | **à faire dans Infra** (module `cdn` : vérifier que Scaleway Edge Services offre un étage d'en-têtes de réponse, sinon prévoir une règle côté bucket ou un autre CDN) ; vérification en hors-prod |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.
