@@ -3,7 +3,7 @@
 # sert l'API par défaut ; `etymo-api publier-fascicules` et `etymo-api purger`
 # sont lancées par les Serverless Jobs du dépôt Infra.
 
-FROM rust:1.98-bookworm AS construction
+FROM rust:1.99-bookworm AS construction
 WORKDIR /src
 # Requêtes SQL vérifiées à la compilation, sans base : données de .sqlx/.
 ENV SQLX_OFFLINE=true
