@@ -157,7 +157,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | PWA : destination Quêtes (`#/quetes`), onglets Journalières (bientôt disponibles) et Fascicules (`#/quetes/fascicules?fascicule=0`) ; sélecteur de fascicule partagé avec le codex, compteur Corail des récompenses qui attendent (navigation, onglet, fascicule) ; jalons retirés de la vue Objectifs du codex, qui renvoie aux quêtes ; « Récupérer la récompense » sous la découverte qui atteint un jalon | fait |
 | Recette locale (Chromium) : 3 découvertes → jalon atteint, réserve et sabliers inchangés ; « Récupérer » → philo- et -iste, historique `deterministe` | fait |
 | Hors production : « Réinitialiser » (Réglages) efface aussi les jalons atteints et récupérés ; une fois le jalon de nouveau atteint, sa récompense est à récupérer (test `la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer`) | fait |
-| Quêtes journalières | à concevoir (ADR à venir) |
+| Quêtes journalières | voir « Quêtes du jour » ci-dessous |
 
 ### Quêtes au long cours (App#22, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
 
@@ -172,6 +172,18 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Sortes « ricochets » et « lecteur » : déclarables, progression à zéro tant que ADR 0044 et la carte de lecteur ne sont pas livrés | en attente |
 
 Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
+
+### Quêtes du jour (App#20, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Base : `quete_jour` (joueur, jour GMT, rang, code, mot visé, progrès, faite le) ; purgée avec les données du jour (App#29) | fait |
+| API : tirage déterministe par joueur et jour à la première visite (`GET /etat`), parmi les quêtes faisables ; la table cède sa place à une seconde quête de mémoire sans découverte possible ; la difficulté des mots (ADR 0047) fait tourner le tirage entre les trois tiers ; `quetes_du_jour` dans l'état | fait |
+| Progression : `POST /ricochet` compte la réponse ; une suite sans faute retombe à zéro et se recommence aussitôt ; la quête de table est faite dès que son mot est au codex | fait |
+| PWA : onglet Journalières (consigne rendue côté client depuis le catalogue, progression « 2 / 4 », « Faite ») | fait ; **maquette I-28 à dessiner** |
+| Écart assumé : la liste fermée des six quêtes est écrite dans `etymo-api` (`quetes_jour.rs`), pas déclarée par le catalogue comme le veut l'ADR 0045 | écart |
+| Écart assumé : la quête « Sens littéral ou actuel » n'existe pas, le format n'est pas encore livré ; une seule quête de table (« le mot qui veut dire… »), pas « un mot venu du grec ancien » | écart |
+| Écart assumé : toutes les réponses du jour comptent pour les quêtes, pas seulement les cinq premières (ADR 0044), sans quoi un sans-faute manqué ne se recommencerait pas | écart |
 
 ## Animations retenues (relevé et décisions du 2026-10-01)
 

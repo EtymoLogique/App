@@ -1,8 +1,9 @@
 import { useState } from 'react'
 
-import type { Etat, ReponseJalon, ReponsePalier } from '../contrat'
+import type { Etat, QueteDuJour, ReponseJalon, ReponsePalier } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
 import type { CatalogueJeu } from '../services/jeu'
+import { sensLitteral } from '../services/ricochets'
 import { type PalierSuivi, type QueteJalon, type QueteLongue, SORTES, quetesAuLongCours, quetesDeFascicule } from '../services/quetes'
 import type { OngletQuetes, Route } from '../services/route'
 import { PetiteBrique } from './Brique'
@@ -178,6 +179,56 @@ function CarteQuete({ longue, inactif, recuperer }: { longue: QueteLongue; inact
   )
 }
 
+/** Consigne d'une quête du jour (ADR 0045) : le serveur ne donne que le code, le texte vient d'ici. */
+function consigne(q: QueteDuJour, jeu: CatalogueJeu): string {
+  switch (q.code) {
+    case 'table_sens': {
+      const sens = q.mot_id ? sensLitteral(jeu, q.mot_id) : null
+      return sens ? `Trouvez le mot qui veut dire «\u00a0${sens}\u00a0».` : 'Trouvez le mot que votre réserve permet de former.'
+    }
+    case 'memoire_sans_faute':
+      return 'Cinq ricochets sans faute.'
+    case 'memoire_litteral':
+      return 'Retrouvez trois mots par leur sens littéral.'
+    case 'memoire_maitrise':
+      return 'Maîtrisez une carte.'
+    case 'adresse_decouper':
+      return 'Découpez trois mots sans erreur.'
+    case 'adresse_paires':
+      return 'Reliez quatre paires sans faute.'
+    default:
+      return 'Quête du jour.'
+  }
+}
+
+/** Les trois quêtes du jour : un défi de réflexion de chaque sorte, renouvelé à minuit GMT, sans pénalité. */
+function QuetesDuJourListe({ quetes, jeu, onAller }: { quetes: QueteDuJour[]; jeu: CatalogueJeu; onAller: (o: 'table' | 'ricochets') => void }) {
+  return (
+    <>
+      <p className="cb-note quetes-intro">
+        Chaque jour, un défi de chaque sorte&nbsp;: à la table, de mémoire, d’adresse. Elles se renouvellent à minuit GMT&nbsp;; une quête non faite disparaît sans rien coûter, et une erreur se recommence aussitôt.
+      </p>
+      <ol className="quetes-liste">
+        {quetes.map((q) => (
+          <li key={q.rang} className="quete" data-etat={q.faite ? 'recupere' : 'en_cours'}>
+            <div className="quete-tete">
+              <b className="quete-seuil">{consigne(q, jeu)}</b>
+              <span className="quete-avancee">{q.faite ? '✓ Faite' : `${q.progres} / ${q.cible}`}</span>
+            </div>
+            {!q.faite && (
+              <div className="quete-pied">
+                <button type="button" className="btn btn-s" onClick={() => onAller(q.sorte === 'table' ? 'table' : 'ricochets')}>
+                  {q.sorte === 'table' ? 'Aller à la table' : 'Faire des ricochets'}
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
+  )
+}
+
 interface Props {
   jeu: CatalogueJeu
   etat: Etat | null
@@ -235,18 +286,22 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
       </div>
 
       {onglet === 'journalieres' ? (
-        <div className="cb-empty quetes-bientot">
-          <span className="quetes-ill" aria-hidden="true">
-            <Icone nom="quete" />
-          </span>
-          <p className="cb-empty-k">Bientôt disponibles</p>
-          <p>Les quêtes journalières arrivent bientôt&nbsp;: chaque jour, de petits défis à relever avec les briques de votre réserve.</p>
-          {aRecuperer.length > 0 && (
-            <button type="button" className="btn btn-primary" onClick={() => onChangerVue({ quete: 'fascicules' }, { remplacer: true })}>
-              {aRecuperer.length > 1 ? `Récupérer vos ${aRecuperer.length} récompenses de fascicule` : 'Récupérer votre récompense de fascicule'}
-            </button>
-          )}
-        </div>
+        (etat?.quetes_du_jour ?? []).length > 0 ? (
+          <QuetesDuJourListe quetes={etat?.quetes_du_jour ?? []} jeu={jeu} onAller={(o) => onChangerVue({ onglet: o })} />
+        ) : (
+          <div className="cb-empty quetes-bientot">
+            <span className="quetes-ill" aria-hidden="true">
+              <Icone nom="quete" />
+            </span>
+            <p className="cb-empty-k">Pas de quête aujourd’hui</p>
+            <p>Les quêtes du jour se tirent à la première visite après minuit GMT, dès que votre partie est chargée.</p>
+            {aRecuperer.length > 0 && (
+              <button type="button" className="btn btn-primary" onClick={() => onChangerVue({ quete: 'fascicules' }, { remplacer: true })}>
+                {aRecuperer.length > 1 ? `Récupérer vos ${aRecuperer.length} récompenses de fascicule` : 'Récupérer votre récompense de fascicule'}
+              </button>
+            )}
+          </div>
+        )
       ) : onglet === 'au-long-cours' ? (
         <>
           <p className="cb-note quetes-intro">

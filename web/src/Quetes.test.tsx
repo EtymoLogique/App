@@ -79,11 +79,30 @@ describe('quêtes', () => {
     expect(within(navigation).queryAllByLabelText(/récompense.* à récupérer/)).toHaveLength(0)
   })
 
-  it('annonce les quêtes journalières à venir', async () => {
+  it('liste les quêtes du jour tirées par le serveur', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    vi.spyOn(api, 'etat').mockResolvedValue({
+      ...atteint,
+      quetes_du_jour: [
+        { rang: 0, sorte: 'table', code: 'table_sens', mot_id: MOT, cible: 1, progres: 0, faite: false },
+        { rang: 1, sorte: 'memoire', code: 'memoire_sans_faute', cible: 5, progres: 5, faite: true },
+        { rang: 2, sorte: 'adresse', code: 'adresse_paires', cible: 4, progres: 2, faite: false },
+      ],
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('Cinq ricochets sans faute.')).toBeInTheDocument()
+    expect(screen.getByText('✓ Faite')).toBeInTheDocument()
+    expect(screen.getByText('2 / 4')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aller à la table' })).toBeInTheDocument()
+    expect(screen.queryByText('Bientôt disponibles')).not.toBeInTheDocument()
+  })
+
+  it('explique l’absence de quête du jour', async () => {
     history.replaceState(null, '', '/#/quetes/journalieres')
     const { api } = client()
     render(<App api={api} catalogue={lecteurAvecJalon()} />)
-    expect(await screen.findByText('Bientôt disponibles')).toBeInTheDocument()
+    expect(await screen.findByText('Pas de quête aujourd’hui')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Récupérer votre récompense de fascicule' }))
     expect(await screen.findByRole('button', { name: 'Récupérer' })).toBeInTheDocument()
   })
