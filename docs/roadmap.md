@@ -169,7 +169,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | API : `progression_quetes` et `paliers_recuperes` dans l’état ; `POST /palier` idempotent (`403` pas atteint, `409` déjà récupéré, `400` inconnu) ; réinitialisation hors production | fait |
 | PWA : onglet « Au long cours » (`#/quetes/au-long-cours`), paliers à récompense annoncée d’avance, « Récupérer », compteur Corail | fait ; **maquette I-28 à dessiner** |
 | Récompenses : encre et sabliers ; les plis de lecteur arrivent avec la carte de lecteur | écart assumé |
-| Sortes « ricochets » et « lecteur » : déclarables, progression à zéro tant que ADR 0044 et la carte de lecteur ne sont pas livrés | en attente |
+| Sortes « ricochets » et « lecteur » : mesurées depuis App#20/#21 (cartes maîtrisées, cartes de lecteur pleines) | fait |
 
 Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
 
@@ -184,6 +184,18 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Écart assumé : la liste fermée des six quêtes est écrite dans `etymo-api` (`quetes_jour.rs`), pas déclarée par le catalogue comme le veut l'ADR 0045 | écart |
 | Écart assumé : la quête « Sens littéral ou actuel » n'existe pas, le format n'est pas encore livré ; une seule quête de table (« le mot qui veut dire… »), pas « un mot venu du grec ancien » | écart |
 | Écart assumé : toutes les réponses du jour comptent pour les quêtes, pas seulement les cinq premières (ADR 0044), sans quoi un sans-faute manqué ne se recommencerait pas | écart |
+
+### Carte de lecteur (App#21, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Domaine : `carte_de_lecteur` (7 tampons, vue de la carte affichée, récompense 20 gouttes · 1 sablier · 1 pli de lecteur) | fait |
+| Base : `tampon` (un par jour GMT), `carte_lecteur_recuperee` ; commande `carte_lecteur`, motif `lecteur`, origine de pli `lecteur` ; réinitialisation hors production | fait |
+| API : le tampon est posé par le serveur quand toutes les quêtes du jour tirées (au moins deux) sont faites ; `carte_de_lecteur` dans l'état ; `POST /carte-de-lecteur` idempotent (`403` aucune carte pleine) : le joueur choisit le fascicule, le pli tire parmi les briques peu communes, rares et légendaires (chance fixe de l'équilibrage), sans énergie ni garantie, de l'encre seulement si la réserve est pleine | fait |
+| Quêtes au long cours : les sortes « ricochets » (cartes maîtrisées) et « lecteur » (cartes pleines) sont mesurées | fait |
+| PWA : carte (cases, tampon ÉL incliné de −6° et sa date, « 4 / 7 »), récompense annoncée, choix du fascicule, chances affichées, « Récupérer » ; aucune notification | fait ; **état « 7ᵉ tampon à récupérer » non dessiné** |
+| Écart assumé : la récompense (valeurs de départ) est une constante du domaine, pas un paramètre d'équilibrage du catalogue (ADR 0009, 0045) ; à simuler | écart |
+| Écart assumé : les tampons gagnés alors qu'une carte pleine attend comptent pour la carte suivante, invisibles jusqu'à la récupération | écart |
 
 ## Animations retenues (relevé et décisions du 2026-10-01)
 

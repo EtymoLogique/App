@@ -1,8 +1,9 @@
 import { useState } from 'react'
 
-import type { Etat, QueteDuJour, ReponseJalon, ReponsePalier } from '../contrat'
+import type { CarteDeLecteurEtat, Etat, QueteDuJour, ReponseCarteDeLecteur, ReponseJalon, ReponsePalier } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
-import type { CatalogueJeu } from '../services/jeu'
+import { type CatalogueJeu, libelleFascicule } from '../services/jeu'
+import { briquesDuPli, chances, LIBELLES_RARETES, pourcentage } from '../services/plis'
 import { sensLitteral } from '../services/ricochets'
 import { type PalierSuivi, type QueteJalon, type QueteLongue, SORTES, quetesAuLongCours, quetesDeFascicule } from '../services/quetes'
 import type { OngletQuetes, Route } from '../services/route'
@@ -229,6 +230,95 @@ function QuetesDuJourListe({ quetes, jeu, onAller }: { quetes: QueteDuJour[]; je
   )
 }
 
+/** « 24 sept. » : le jour du tampon, espace insécable. */
+const jourCourt = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace(' ', '\u00a0')
+
+/** Chances du pli de lecteur d'un fascicule : peu communes et rares seulement, la légendaire à sa chance fixe. */
+function chancesLecteur(jeu: CatalogueJeu, fascicule: string): string {
+  const f = jeu.fascicules.find((x) => x.manifeste.id === fascicule)
+  const equilibrage = f?.manifeste.pli?.equilibrage
+  if (!f || !equilibrage) return ''
+  const briques = briquesDuPli(f).filter((b) => b.rarete !== 'commune')
+  const { parRarete } = chances(briques, equilibrage)
+  return (['peu_commune', 'rare', 'legendaire'] as const)
+    .filter((r) => parRarete[r] > 0)
+    .map((r) => `${LIBELLES_RARETES[r]}\u00a0${pourcentage(parRarete[r])}`)
+    .join(' · ')
+}
+
+/**
+ * Carte de lecteur (ADR 0045) : un tampon par jour où les trois quêtes sont
+ * faites, sans série ni rappel. Pleine, elle offre un pli de lecteur dont le
+ * joueur choisit le fascicule, chances affichées.
+ */
+function CarteDeLecteur({ carte, jeu, inactif, recuperer }: { carte: CarteDeLecteurEtat; jeu: CatalogueJeu; inactif: string | null; recuperer: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }> }) {
+  const [fascicule, setFascicule] = useState(jeu.fascicules[0]?.manifeste.id ?? '')
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
+  const { recompense } = carte
+  const agir = async () => {
+    setEnCours(true)
+    const reponse = await recuperer(fascicule)
+    setEnCours(false)
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Carte récupérée\u00a0: ${pluriel(recompense.gouttes, 'goutte')} d’encre, ${pluriel(recompense.sabliers, 'sablier')} et un pli de lecteur.`, ton: 'win' })
+  }
+  return (
+    <section className="carte-lecteur" aria-label="Carte de lecteur" data-etat={carte.a_recuperer > 0 ? 'a_recuperer' : 'en_cours'}>
+      <div className="quete-tete">
+        <h3 className="quete-longue-titre">Carte de lecteur</h3>
+        <b className="quete-avancee">{`${carte.tampons.length} / ${carte.taille}`}</b>
+      </div>
+      <ol className="carte-lecteur-cases">
+        {Array.from({ length: carte.taille }, (_, i) => {
+          const jour = carte.tampons[i]
+          return (
+            <li key={i} className={jour ? 'tampon' : 'tampon is-vide'}>
+              {jour ? (
+                <>
+                  <span className="tampon-sceau" aria-hidden="true">ÉL</span>
+                  <span className="tampon-jour">{jourCourt(jour)}</span>
+                  <span className="sr-only">Tampon du {jourCourt(jour)}</span>
+                </>
+              ) : (
+                <span className="tampon-numero" aria-label={`Case ${i + 1}, vide`}>{i + 1}</span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      <p className="cb-note">Un tampon par jour où vos trois quêtes sont faites, sans ordre ni série.</p>
+      <div className="quete-pied">
+        <span className="quete-k">Récompense</span>
+        <span className="quete-recompense">
+          {`${pluriel(recompense.gouttes, 'goutte')} d’encre · ${pluriel(recompense.sabliers, 'sablier')} · ${recompense.plis_de_lecteur > 1 ? `${recompense.plis_de_lecteur} plis` : 'un pli'} de lecteur`}
+        </span>
+      </div>
+      {carte.a_recuperer > 0 && (
+        <div className="quete-pied">
+          <label className="quete-k" htmlFor="pli-lecteur-fascicule">Fascicule du pli</label>
+          <select id="pli-lecteur-fascicule" value={fascicule} onChange={(e) => setFascicule(e.target.value)}>
+            {jeu.fascicules.map((f) => (
+              <option key={f.manifeste.id} value={f.manifeste.id}>
+                {libelleFascicule(f)}
+              </option>
+            ))}
+          </select>
+          <p className="cb-note">Chances&nbsp;: {chancesLecteur(jeu, fascicule)}. Sans énergie, hors garanties.</p>
+          <button type="button" className="btn btn-primary btn-s" onClick={() => void agir()} disabled={enCours || inactif !== null || !fascicule} title={inactif ?? undefined}>
+            {enCours ? 'Récupération…' : 'Récupérer'}
+          </button>
+        </div>
+      )}
+      {message && (
+        <p className="feedback" data-tone={message.ton} role="status">
+          {message.texte}
+        </p>
+      )}
+    </section>
+  )
+}
+
 interface Props {
   jeu: CatalogueJeu
   etat: Etat | null
@@ -238,6 +328,7 @@ interface Props {
   urlMedia: (chemin: string) => string
   recuperer: (jalon: string) => Promise<ReponseJalon | { erreur: string }>
   recupererPalier: (palier: string) => Promise<ReponsePalier | { erreur: string }>
+  recupererCarte: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }>
   /** Raison pour laquelle une récompense ne peut pas être récupérée maintenant (hors ligne), sinon `null`. */
   inactif: string | null
 }
@@ -247,7 +338,7 @@ interface Props {
  * de fascicule. Un jalon atteint attend que le joueur vienne chercher sa
  * récompense : rien n'arrive dans la réserve sans qu'il sache d'où cela vient.
  */
-export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, inactif }: Props) {
+export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, inactif }: Props) {
   const quetes = quetesDeFascicule(jeu, etat)
   const aRecuperer = quetes.filter((q) => q.etat === 'a_recuperer')
   const longues = quetesAuLongCours(jeu, etat)
@@ -268,6 +359,10 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
     fixerOnglet()
     return recupererPalier(palier)
   }
+  const recupererCarteIci = (fascicule: string) => {
+    fixerOnglet()
+    return recupererCarte(fascicule)
+  }
   const inactifIci = inactif ?? (etat ? null : 'Votre partie n’est pas encore chargée.')
 
   return (
@@ -287,7 +382,10 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
 
       {onglet === 'journalieres' ? (
         (etat?.quetes_du_jour ?? []).length > 0 ? (
-          <QuetesDuJourListe quetes={etat?.quetes_du_jour ?? []} jeu={jeu} onAller={(o) => onChangerVue({ onglet: o })} />
+          <>
+            {etat?.carte_de_lecteur && <CarteDeLecteur carte={etat.carte_de_lecteur} jeu={jeu} inactif={inactifIci} recuperer={recupererCarteIci} />}
+            <QuetesDuJourListe quetes={etat?.quetes_du_jour ?? []} jeu={jeu} onAller={(o) => onChangerVue({ onglet: o })} />
+          </>
         ) : (
           <div className="cb-empty quetes-bientot">
             <span className="quetes-ill" aria-hidden="true">

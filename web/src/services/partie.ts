@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { DemandeRicochet, Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
+import type { DemandeRicochet, Etat, ReponseCarteDeLecteur, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
@@ -423,6 +423,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander],
   )
 
+  /** Récupère la carte de lecteur pleine (ADR 0045) : de l'encre, un sablier et un pli de lecteur du fascicule choisi. */
+  const recupererCarte = useCallback(
+    (fascicule: string): Promise<ReponseCarteDeLecteur | { erreur: string }> =>
+      commander(
+        (e, version) => api.carteDeLecteur({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, fascicule_id: fascicule }),
+        'Cette carte de lecteur n’est pas encore pleine.',
+      ),
+    [api, commander],
+  )
+
   /** Hors production : repart d'un joueur neuf. Le serveur fait foi, l'état renvoyé remplace tout. */
   const reinitialiser = useCallback(async (): Promise<string | null> => {
     try {
@@ -450,6 +460,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     seanceRicochets,
     repondreRicochet,
     recupererPalier,
+    recupererCarte,
     erreurEtat,
     table,
     cases,

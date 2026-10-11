@@ -320,6 +320,7 @@ export function App({ api, catalogue }: Props) {
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   recuperer={partie.recupererJalon}
                   recupererPalier={partie.recupererPalier}
+                  recupererCarte={partie.recupererCarte}
                   inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
                 />
               </section>
