@@ -208,6 +208,17 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Écart assumé : pas de tutoriel (J5) : le cadeau est récupérable dès la création du profil, pas « dès la fin du tutoriel » | écart |
 | Valeurs (3 plis, 12 sabliers, 40 gouttes) : déclarées par le catalogue, **à simuler** | à faire (Content) |
 
+### Quêtes initiales de la première semaine (App#24, [ADR 0046](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0046-demarrage-genereux-cadeau-de-bienvenue-et-quetes-initiales.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Base : `quete_initiale` (une ligne quand la quête est faite pendant les sept premiers jours du profil, `recupere_le` quand la récompense est prise) ; commande `quete_initiale`, motif et origine de pli `quete_initiale` ; réinitialisation hors production | fait |
+| API : `quetes_initiales` dans l'état (progrès, récompense annoncée) ; `POST /quete-initiale` idempotent (`400` fascicule manquant pour des plis, `403` pas faite, `409` déjà récupérée) ; plis offerts du fascicule choisi (tirage ordinaire), pli de lecteur (peu communes et rares), sans énergie ni garantie | fait |
+| Les quatre quêtes : trois mots (2 plis offerts), un mot avec transformation (1 pli offert, 10 gouttes), cinq ricochets sans faute (3 sabliers), première carte de lecteur (1 pli de lecteur) | fait ; valeurs **à simuler** |
+| PWA : section « Première semaine » en tête de l'onglet Journalières, masquée une fois tout récupéré ; choix du fascicule des plis, chances affichées ; compteur Corail | fait ; **maquette I-29 à dessiner** |
+| Écart assumé : la liste fermée des quatre quêtes et leurs récompenses sont écrites dans `etymo-api`, pas dans l'équilibrage du catalogue | écart |
+| Écart assumé : « cinq ricochets sans faute » se lit sur les cinq premières réponses du jour (`ricochet_jour`) ; la quête n'est pas indexée sur les ricochets de la première semaine seulement | écart |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { CadeauEtat, CarteDeLecteurEtat, Etat, QueteDuJour, ReponseCadeau, ReponseCarteDeLecteur, ReponseJalon, ReponsePalier } from '../contrat'
+import type { CadeauEtat, CodeQueteInitiale, QueteInitialeEtat, ReponseQueteInitiale, CarteDeLecteurEtat, Etat, QueteDuJour, ReponseCadeau, ReponseCarteDeLecteur, ReponseJalon, ReponsePalier } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
 import { type CatalogueJeu, libelleFascicule } from '../services/jeu'
 import { briquesDuPli, chances, LIBELLES_RARETES, pourcentage } from '../services/plis'
@@ -366,6 +366,85 @@ function CadeauDeBienvenue({ cadeau, jeu, inactif, recuperer }: { cadeau: Cadeau
   )
 }
 
+const CONSIGNES_INITIALES: Record<CodeQueteInitiale, string> = {
+  trois_mots: 'Découvrez trois mots.',
+  transformation: 'Découvrez un mot qui porte une transformation.',
+  premiers_ricochets: 'Réussissez cinq ricochets sans faute.',
+  premiere_carte: 'Remplissez votre première carte de lecteur.',
+}
+
+function texteRecompenseInitiale({ recompense: r }: QueteInitialeEtat): string {
+  const parts = []
+  if (r.plis_offerts > 0) parts.push(pluriel(r.plis_offerts, 'pli') + ' offert' + (r.plis_offerts > 1 ? 's' : ''))
+  if (r.plis_de_lecteur > 0) parts.push(`${r.plis_de_lecteur > 1 ? `${r.plis_de_lecteur} plis` : 'un pli'} de lecteur`)
+  if (r.sabliers > 0) parts.push(pluriel(r.sabliers, 'sablier'))
+  if (r.gouttes > 0) parts.push(`${pluriel(r.gouttes, 'goutte')} d’encre`)
+  return parts.join(' · ')
+}
+
+/**
+ * Quêtes initiales de la première semaine (ADR 0046) : faites une seule fois,
+ * un acte de réflexion chacune, jamais comptées pour le tampon du jour.
+ * Une récompense avec des plis se récupère dans le fascicule choisi.
+ */
+function QuetesInitiales({ quetes, jeu, inactif, recuperer }: { quetes: QueteInitialeEtat[]; jeu: CatalogueJeu; inactif: string | null; recuperer: (code: CodeQueteInitiale, fascicule: string | null) => Promise<ReponseQueteInitiale | { erreur: string }> }) {
+  const [fascicule, setFascicule] = useState(jeu.fascicules[0]?.manifeste.id ?? '')
+  const [enCours, setEnCours] = useState<CodeQueteInitiale | null>(null)
+  const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
+  if (quetes.length === 0 || (quetes.every((q) => q.recuperee) && !message)) return null
+  const agir = async (q: QueteInitialeEtat) => {
+    setEnCours(q.code)
+    const avecPlis = q.recompense.plis_offerts + q.recompense.plis_de_lecteur > 0
+    const reponse = await recuperer(q.code, avecPlis ? fascicule : null)
+    setEnCours(null)
+    setMessage('erreur' in reponse ? { texte: reponse.erreur, ton: 'fail' } : { texte: `Récompense ajoutée\u00a0: ${texteRecompenseInitiale(q)}.`, ton: 'win' })
+  }
+  const attend = quetes.some((q) => q.faite && !q.recuperee && q.recompense.plis_offerts + q.recompense.plis_de_lecteur > 0)
+  return (
+    <section className="quetes-fascicule" aria-label="Quêtes de la première semaine">
+      <h2 className="quetes-titre">Première semaine</h2>
+      <p className="cb-note quetes-intro">Quatre défis à faire une seule fois, avec leur récompense annoncée d’avance. Ils ne comptent pas pour le tampon du jour.</p>
+      <ol className="quetes-liste">
+        {quetes.map((q) => (
+          <li key={q.code} className="quete" data-etat={q.recuperee ? 'recupere' : q.faite ? 'a_recuperer' : 'en_cours'}>
+            <div className="quete-tete">
+              <b className="quete-seuil">{CONSIGNES_INITIALES[q.code]}</b>
+              <span className="quete-avancee">{q.recuperee ? '✓ Récupérée' : q.faite ? '✓ Faite' : `${q.progres} / ${q.cible}`}</span>
+            </div>
+            <div className="quete-pied">
+              <span className="quete-k">Récompense</span>
+              <span className="quete-recompense">{texteRecompenseInitiale(q)}</span>
+              {q.faite && !q.recuperee && (
+                <button type="button" className="btn btn-primary btn-s" onClick={() => void agir(q)} disabled={enCours !== null || inactif !== null || (q.recompense.plis_offerts + q.recompense.plis_de_lecteur > 0 && !fascicule)} title={inactif ?? undefined}>
+                  {enCours === q.code ? 'Récupération…' : 'Récupérer'}
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {attend && (
+        <div className="quete-pied">
+          <label className="quete-k" htmlFor="pli-initial-fascicule">Fascicule des plis</label>
+          <select id="pli-initial-fascicule" value={fascicule} onChange={(e) => setFascicule(e.target.value)}>
+            {jeu.fascicules.map((f) => (
+              <option key={f.manifeste.id} value={f.manifeste.id}>
+                {libelleFascicule(f)}
+              </option>
+            ))}
+          </select>
+          <p className="cb-note">Chances d’un pli de lecteur&nbsp;: {chancesLecteur(jeu, fascicule)}. Sans énergie, hors garanties.</p>
+        </div>
+      )}
+      {message && (
+        <p className="feedback" data-tone={message.ton} role="status">
+          {message.texte}
+        </p>
+      )}
+    </section>
+  )
+}
+
 interface Props {
   jeu: CatalogueJeu
   etat: Etat | null
@@ -377,6 +456,7 @@ interface Props {
   recupererPalier: (palier: string) => Promise<ReponsePalier | { erreur: string }>
   recupererCarte: (fascicule: string) => Promise<ReponseCarteDeLecteur | { erreur: string }>
   recupererCadeau: () => Promise<ReponseCadeau | { erreur: string }>
+  recupererQueteInitiale: (code: CodeQueteInitiale, fascicule: string | null) => Promise<ReponseQueteInitiale | { erreur: string }>
   /** Raison pour laquelle une récompense ne peut pas être récupérée maintenant (hors ligne), sinon `null`. */
   inactif: string | null
 }
@@ -386,7 +466,7 @@ interface Props {
  * de fascicule. Un jalon atteint attend que le joueur vienne chercher sa
  * récompense : rien n'arrive dans la réserve sans qu'il sache d'où cela vient.
  */
-export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, recupererCadeau, inactif }: Props) {
+export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, recupererCadeau, recupererQueteInitiale, inactif }: Props) {
   const quetes = quetesDeFascicule(jeu, etat)
   const aRecuperer = quetes.filter((q) => q.etat === 'a_recuperer')
   const longues = quetesAuLongCours(jeu, etat)
@@ -406,6 +486,10 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
   const recupererPalierIci = (palier: string) => {
     fixerOnglet()
     return recupererPalier(palier)
+  }
+  const recupererInitialeIci = (code: CodeQueteInitiale, fascicule: string | null) => {
+    fixerOnglet()
+    return recupererQueteInitiale(code, fascicule)
   }
   const recupererCadeauIci = () => {
     fixerOnglet()
@@ -432,6 +516,9 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
         ))}
       </div>
 
+      {onglet === 'journalieres' && (etat?.quetes_initiales ?? []).length > 0 && (
+        <QuetesInitiales quetes={etat?.quetes_initiales ?? []} jeu={jeu} inactif={inactifIci} recuperer={recupererInitialeIci} />
+      )}
       {onglet === 'journalieres' && etat?.cadeau_de_bienvenue && (
         <CadeauDeBienvenue cadeau={etat.cadeau_de_bienvenue} jeu={jeu} inactif={inactifIci} recuperer={recupererCadeauIci} />
       )}

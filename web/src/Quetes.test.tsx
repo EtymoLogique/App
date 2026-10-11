@@ -135,6 +135,27 @@ describe('quêtes', () => {
     expect(screen.queryByRole('button', { name: 'Récupérer' })).not.toBeInTheDocument()
   })
 
+  it('liste les quêtes de la première semaine et récupère une récompense sans pli', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const recompense = { plis_offerts: 0, plis_de_lecteur: 0, sabliers: 3, gouttes: 0 }
+    const initiales = (faite: boolean, recuperee: boolean) => [
+      { code: 'trois_mots' as const, cible: 3, progres: 1, faite: false, recuperee: false, recompense: { ...recompense, sabliers: 0, plis_offerts: 2 } },
+      { code: 'premiers_ricochets' as const, cible: 1, progres: faite ? 1 : 0, faite, recuperee, recompense },
+    ]
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_initiales: initiales(true, false) })
+    const prise = vi.spyOn(api, 'queteInitiale').mockResolvedValue({
+      ouvertures: [],
+      etat: { ...atteint, version_etat: 2, quetes_initiales: initiales(true, true) },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('Découvrez trois mots.')).toBeInTheDocument()
+    expect(screen.getByText('1 / 3')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText(/Récompense ajoutée/)).toBeInTheDocument()
+    expect(prise).toHaveBeenCalledWith(expect.objectContaining({ code: 'premiers_ricochets', fascicule_id: null, version_etat: 1 }))
+  })
+
   it('explique l’absence de quête du jour', async () => {
     history.replaceState(null, '', '/#/quetes/journalieres')
     const { api } = client()
