@@ -222,6 +222,7 @@ function Choix({
         {parus.map((f) => {
           const { connues, exemplaires } = reserveDuFascicule(jeu, etat, f)
           const ouvrable = pliOuvrable(f)
+          const total = briquesDuPli(f).length
           const contenu = (
             <>
               <Jaquette chemin={f.manifeste.jaquette} urlMedia={urlMedia} />
@@ -231,12 +232,25 @@ function Choix({
                 <span>
                   {connues === 0 ? 'Aucune brique connue' : `${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}`} · {exemplaires} exemplaire{exemplaires > 1 ? 's' : ''}
                 </span>
+                {total > 0 && (
+                  <>
+                    <span className="pk-fasc-bar" aria-hidden="true">
+                      <i style={{ width: `${Math.min(100, (connues / total) * 100)}%` }} />
+                    </span>
+                    <span className="pk-fasc-count" aria-hidden="true">
+                      <b>
+                        {connues} / {total}
+                      </b>{' '}
+                      briques
+                    </span>
+                  </>
+                )}
                 <span className="pk-fasc-go">{ouvrable ? 'Ouvrir son pli →' : 'Pli bientôt disponible'}</span>
               </span>
             </>
           )
           return ouvrable ? (
-            <button key={f.numero} type="button" className="pk-fasc" aria-label={`${libelleFascicule(f)} : ${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}, ${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}. Ouvrir son pli`} onClick={() => onChoisir(f.manifeste.id)}>
+            <button key={f.numero} type="button" className="pk-fasc" aria-label={`${libelleFascicule(f)} : ${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}${total > 0 ? ` sur ${total}` : ''}, ${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}. Ouvrir son pli`} onClick={() => onChoisir(f.manifeste.id)}>
               {contenu}
             </button>
           ) : (

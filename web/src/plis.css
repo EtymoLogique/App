@@ -286,6 +286,11 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .pk-fasc .jk-mini { max-width: 112px; }
 .pk-fasc-info { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .pk-fasc-info b { color: var(--ink); font-family: var(--serif); font-size: 24px; line-height: 1.1; }
+.pk-fasc-bar { height: 8px; overflow: hidden; border: 1.5px solid var(--ink); border-radius: 999px; background: transparent; }
+.pk-fasc-bar i { display: block; height: 100%; background: var(--ink); transition: width 0.6s var(--ease-out); }
+.pk-fasc-count { color: var(--ink-2); font-size: 13px; }
+.pk-fasc-count b { color: var(--ink); font-family: var(--serif); font-size: 20px; }
+@media (prefers-reduced-motion: reduce) { .pk-fasc-bar i { transition: none; } }
 .pk-fasc-k { color: var(--c-pli-deep); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
 :root[data-theme="nocturne"] .pk-fasc-k { color: var(--c-pli); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pk-fasc-k { color: var(--c-pli); } }
