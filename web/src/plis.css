@@ -503,3 +503,68 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 /* Mouvement réduit : la révélation apparaît sans se retourner. */
 @media (prefers-reduced-motion: reduce) { .pk-reveal { animation: none; } }
 :root[data-mouvement="reduit"] .pk-reveal { animation: none; }
+
+/*
+ * Ouverture groupée, variante « Canon » : les plis sont en grille et chacun joue le rituel entier d'un pli seul.
+ * Chaque case porte les classes d'état du rituel (.pk-stage.pk-charging, .pk-writing…) : le pli, le sceau, la plume
+ * et le flash reprennent donc les règles ci-dessus, réduits par `zoom`. Les rayons, eux, sont communs à toute la scène.
+ */
+.pkg { --s: 0.4; grid-area: main; position: relative; isolation: isolate; display: grid; justify-items: center; align-content: center; gap: 10px; width: 100%; }
+.pkg[data-taille="g"] { --s: 0.55; }
+.pkg[data-taille="m"] { --s: 0.4; }
+.pkg[data-taille="p"] { --s: 0.3; }
+@media (max-width: 760px) {
+  .pkg[data-taille="g"] { --s: 0.45; }
+  .pkg[data-taille="m"] { --s: 0.3; }
+  .pkg[data-taille="p"] { --s: 0.24; }
+}
+.pkg-rays {
+  position: absolute; z-index: -1; top: 50%; left: 50%; width: 980px; height: 980px; translate: -50% -50%; pointer-events: none;
+  background: repeating-conic-gradient(rgba(244, 183, 64, 0.3) 0deg 7deg, transparent 7deg 36deg);
+  -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  opacity: 0; transition: opacity 0.6s ease; animation: spin 22s linear infinite;
+}
+.pkg-rays span {
+  position: absolute; top: 50%; left: 50%; padding-left: 64px;
+  transform-origin: 0 50%; transform: translateY(-50%) rotate(calc(var(--a) - 90deg));
+  color: var(--c-pli-deep); font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; opacity: 0.16;
+}
+.pkg[data-ecriture="true"] .pkg-rays { opacity: 0.35; animation-duration: 6s; }
+/* Une rare ou une légendaire teinte les rayons dès l'écriture, comme pour un pli seul. */
+.pkg[data-anticipe="true"] .pkg-rays { background: repeating-conic-gradient(rgba(143, 123, 240, 0.4) 0deg 7deg, transparent 7deg 36deg); opacity: 0.5; } /* identite: ok — Palimpseste du rituel rare, comme .pk-anticipe */
+.pkg[data-anticipe="true"] .pkg-rays span { color: var(--c-lang-deep); }
+.pkg[data-revele="true"] .pkg-rays { opacity: 1; animation-duration: 12s; }
+.pkg[data-revele="true"][data-rarity="legendaire"] .pkg-rays { animation-duration: 5s; filter: saturate(1.6); }
+.pkg-kicker { min-height: 22px; margin: 0; }
+.pkg-kicker.is-haute { color: var(--c-lang-deep); }
+:root[data-theme="nocturne"] .pkg-kicker.is-haute { color: var(--c-lang); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pkg-kicker.is-haute { color: var(--c-lang); } }
+.pkg-grille { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 12px; margin: 0; padding: 0; list-style: none; }
+.pkg-cell.pk-stage {
+  display: flex; align-items: center; justify-content: center;
+  width: max(calc(236px * var(--s)), 76px); height: calc(320px * var(--s)); min-height: 0; padding: 0;
+  overflow: visible; border: 0; border-radius: 0; background: none; cursor: default;
+}
+.pkg-cell .pk-pack { flex: none; zoom: var(--s); }
+.pkg-cell .pk-flash { inset: -50%; }
+.pkg-carte {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 4px;
+  border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer;
+  animation: pkgImprime 0.5s var(--ease-out) both;
+}
+.pkg-carte .bchip { font-size: 15px; }
+.pkg-tag { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pkg-tag .rar { width: 14px; height: 14px; }
+.pkg-tag small { color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 600; }
+.pkg-tag small.is-nouvelle { padding: 1px 6px; border: 1px solid #0f1f19; border-radius: 999px; background: var(--c-pli); color: #0f1f19; font-weight: 700; }
+/* Une rare ou une légendaire pose un anneau violet qui s'élargit une fois, sans ombre colorée. */
+.pkg-carte.is-haute::after { position: absolute; inset: -2px; border: 2px solid var(--c-lang); border-radius: 14px; content: ""; pointer-events: none; animation: pkgHalo 0.65s ease-out 0.3s both; }
+@keyframes pkgImprime {
+  0% { opacity: 0; transform: translateY(-22px) scale(1.5); }
+  55% { opacity: 1; transform: translateY(2px) scale(0.94); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes pkgHalo { from { opacity: 0.9; transform: scale(0.95); } to { opacity: 0; transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .pkg-rays, .pkg-carte, .pkg-carte::after { animation: none; transition: none; } }
+:root[data-mouvement="reduit"] :is(.pkg-rays, .pkg-carte, .pkg-carte::after) { animation: none; transition: none; }

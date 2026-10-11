@@ -294,6 +294,7 @@ export function App({ api, catalogue }: Props) {
                   fascicule={route.pli}
                   onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
                   ouvrirPli={partie.ouvrirPli}
+                  ouvrirPlis={partie.ouvrirPlis}
                   utiliserSabliers={partie.utiliserSabliers}
                   acheterEtAvancer={partie.acheterEtAvancer}
                   onEssayer={(brique) => {

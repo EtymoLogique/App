@@ -248,7 +248,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       try {
         const reponse = await api.pli({
           commande: crypto.randomUUID(),
-          version_etat: etat.version_etat,
+          // Dernier état confirmé : un pli ouvert juste après un autre part de la version que le précédent a renvoyée.
+          version_etat: (etatCourant.current ?? etat).version_etat,
           version_catalogue: jeu.valeur.version,
           fascicule_id: fascicule,
         })
@@ -270,6 +271,23 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       }
     },
     [api, enLigne, jeu, etat, confirmer, synchroniser],
+  )
+
+  /**
+   * Ouvre plusieurs plis du même fascicule, un appel à `/pli` après l'autre, chacun sur l'état renvoyé par le précédent
+   * (ouverture groupée). Une erreur arrête la série : les plis déjà ouverts sont rendus avec elle, jamais un faux succès.
+   */
+  const ouvrirPlis = useCallback(
+    async (fascicule: string, nombre: number): Promise<{ reponses: ReponsePli[]; erreur?: string }> => {
+      const reponses: ReponsePli[] = []
+      for (let i = 0; i < nombre; i++) {
+        const reponse = await ouvrirPli(fascicule)
+        if ('erreur' in reponse) return { reponses, erreur: reponse.erreur }
+        reponses.push(reponse)
+      }
+      return { reponses }
+    },
+    [ouvrirPli],
   )
 
   /**
@@ -482,6 +500,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     reinitialisable,
     reinitialiser,
     ouvrirPli,
+    ouvrirPlis,
     utiliserSabliers,
     acheterSabliers,
     acheterEtAvancer,
