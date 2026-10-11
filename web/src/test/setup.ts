@@ -8,3 +8,10 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
+
+// jsdom n'a pas ResizeObserver (utilisé par les chevrons des fascicules).
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
