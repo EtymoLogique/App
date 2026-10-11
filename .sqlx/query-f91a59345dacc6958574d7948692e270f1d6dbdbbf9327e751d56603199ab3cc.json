@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE quete_jour SET progres = $4,\n                    faite_le = CASE WHEN $5 THEN now() END\n                 WHERE joueur_id = $1 AND jour = $2 AND rang = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int2",
+        "Int2",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f91a59345dacc6958574d7948692e270f1d6dbdbbf9327e751d56603199ab3cc"
+}

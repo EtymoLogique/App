@@ -51,7 +51,7 @@ impl Hasard {
     }
 
     /// Dans `[0, n)`.
-    fn jusqu_a(&mut self, n: usize) -> usize {
+    pub fn jusqu_a(&mut self, n: usize) -> usize {
         usize::try_from(self.suivant() % u64::try_from(n.max(1)).unwrap_or(1)).unwrap_or(0)
     }
 

@@ -99,6 +99,55 @@ pub struct Etat {
     /// Paliers de quêtes au long cours dont la récompense a été récupérée.
     #[serde(default)]
     pub paliers_recuperes: Vec<IdCatalogue>,
+    /// Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première
+    /// visite du jour ; vide avant App#20 ou sans catalogue.
+    #[serde(default)]
+    pub quetes_du_jour: Vec<QueteDuJour>,
+}
+
+/// Sorte d'une quête du jour : une de chaque par jour (ADR 0045).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SorteQueteDuJour {
+    Table,
+    Memoire,
+    Adresse,
+}
+
+/// Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CodeQueteDuJour {
+    /// Trouver le mot décrit par son seul sens (`mot_id`).
+    TableSens,
+    /// Cinq ricochets justes de suite.
+    MemoireSansFaute,
+    /// Trois mots retrouvés par leur sens littéral.
+    MemoireLitteral,
+    /// Maîtriser une carte.
+    MemoireMaitrise,
+    /// Découper trois mots sans erreur.
+    AdresseDecouper,
+    /// Relier quatre paires sans erreur.
+    AdressePaires,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueteDuJour {
+    #[schema(minimum = 0, maximum = 2)]
+    pub rang: u8,
+    pub sorte: SorteQueteDuJour,
+    pub code: CodeQueteDuJour,
+    /// Le mot à trouver, pour la quête de table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mot_id: Option<IdCatalogue>,
+    /// Ce qu'il faut atteindre.
+    #[schema(minimum = 1)]
+    pub cible: u8,
+    /// Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
+    pub progres: u8,
+    pub faite: bool,
 }
 
 /// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.

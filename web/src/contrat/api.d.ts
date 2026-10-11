@@ -377,6 +377,11 @@ export interface components {
         Chemin: string;
         /** @enum {string} */
         CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
+        /**
+         * @description Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
+         * @enum {string}
+         */
+        CodeQueteDuJour: "table_sens" | "memoire_sans_faute" | "memoire_litteral" | "memoire_maitrise" | "adresse_decouper" | "adresse_paires";
         CompositionCarte: {
             fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
@@ -701,6 +706,11 @@ export interface components {
              */
             progression_quetes?: components["schemas"]["ProgressionQuete"][];
             /**
+             * @description Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première
+             *     visite du jour ; vide avant App#20 ou sans catalogue.
+             */
+            quetes_du_jour?: components["schemas"]["QueteDuJour"][];
+            /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
              */
@@ -942,6 +952,24 @@ export interface components {
             choix?: components["schemas"]["IdCatalogue"][];
             format: components["schemas"]["FormatRicochet"];
         };
+        QueteDuJour: {
+            /**
+             * Format: int32
+             * @description Ce qu'il faut atteindre.
+             */
+            cible: number;
+            code: components["schemas"]["CodeQueteDuJour"];
+            faite: boolean;
+            mot_id?: components["schemas"]["IdCatalogue"] | null;
+            /**
+             * Format: int32
+             * @description Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
+             */
+            progres: number;
+            /** Format: int32 */
+            rang: number;
+            sorte: components["schemas"]["SorteQueteDuJour"];
+        };
         QueteLongCours: components["schemas"]["Sorte"] & {
             id: components["schemas"]["IdCatalogue"];
             /** @description Libellés par locale ; `fr` est la locale de référence. */
@@ -1137,6 +1165,11 @@ export interface components {
             /** @enum {string} */
             sorte: "premiere_legendaire";
         };
+        /**
+         * @description Sorte d'une quête du jour : une de chaque par jour (ADR 0045).
+         * @enum {string}
+         */
+        SorteQueteDuJour: "table" | "memoire" | "adresse";
         Source: {
             edition?: string | null;
             id: components["schemas"]["IdCatalogue"];

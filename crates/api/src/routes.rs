@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
-use crate::{EtatApp, debit, progression, ricochets, secret};
+use crate::{EtatApp, debit, progression, quetes_jour, ricochets, secret};
 
 pub fn routes() -> Router<Arc<EtatApp>> {
     Router::new()
@@ -869,8 +869,14 @@ pub async fn repondre_ricochet(
     if !ricochets::est_trouvee(&mut tx, joueur, &demande.unite_id).await? {
         return Err(ErreurApi::Interdit("carte pas encore trouvée"));
     }
+    let etait_maitrisee = ricochets::lire(&mut tx, joueur)
+        .await?
+        .get(&demande.unite_id)
+        .is_some_and(|c| c.maitrisee);
     let carte =
         ricochets::enregistrer(&mut tx, joueur, &demande.unite_id, juste, Utc::now()).await?;
+    let nouvelle_maitrise = carte.maitrisee && !etait_maitrisee;
+    quetes_jour::compter(&mut tx, joueur, demande.format, juste, nouvelle_maitrise).await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseRicochet {
         juste,

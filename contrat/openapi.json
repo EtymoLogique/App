@@ -1378,6 +1378,18 @@
           "interne"
         ]
       },
+      "CodeQueteDuJour": {
+        "type": "string",
+        "description": "Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.",
+        "enum": [
+          "table_sens",
+          "memoire_sans_faute",
+          "memoire_litteral",
+          "memoire_maitrise",
+          "adresse_decouper",
+          "adresse_paires"
+        ]
+      },
       "CompositionCarte": {
         "type": "object",
         "required": [
@@ -2105,6 +2117,13 @@
               "$ref": "#/components/schemas/ProgressionQuete"
             },
             "description": "Progression de chaque quête au long cours, calculée par le serveur sur\nle codex (ADR 0045). Un palier est atteint quand elle franchit son seuil."
+          },
+          "quetes_du_jour": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueteDuJour"
+            },
+            "description": "Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première\nvisite du jour ; vide avant App#20 ou sans catalogue."
           },
           "reserve": {
             "type": "array",
@@ -2883,6 +2902,58 @@
         },
         "additionalProperties": false
       },
+      "QueteDuJour": {
+        "type": "object",
+        "required": [
+          "rang",
+          "sorte",
+          "code",
+          "cible",
+          "progres",
+          "faite"
+        ],
+        "properties": {
+          "cible": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ce qu'il faut atteindre.",
+            "minimum": 1
+          },
+          "code": {
+            "$ref": "#/components/schemas/CodeQueteDuJour"
+          },
+          "faite": {
+            "type": "boolean"
+          },
+          "mot_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IdCatalogue",
+                "description": "Le mot à trouver, pour la quête de table."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progres": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.",
+            "minimum": 0
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 2,
+            "minimum": 0
+          },
+          "sorte": {
+            "$ref": "#/components/schemas/SorteQueteDuJour"
+          }
+        },
+        "additionalProperties": false
+      },
       "QueteLongCours": {
         "allOf": [
           {
@@ -3503,6 +3574,15 @@
           }
         ],
         "description": "Ce qu'une quête compte : la liste fermée de l'ADR 0045."
+      },
+      "SorteQueteDuJour": {
+        "type": "string",
+        "description": "Sorte d'une quête du jour : une de chaque par jour (ADR 0045).",
+        "enum": [
+          "table",
+          "memoire",
+          "adresse"
+        ]
       },
       "Source": {
         "type": "object",

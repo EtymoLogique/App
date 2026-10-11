@@ -20,7 +20,7 @@ use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
-use crate::ricochets;
+use crate::{quetes_jour, ricochets};
 
 pub type Tx<'a> = Transaction<'a, Postgres>;
 
@@ -139,6 +139,8 @@ pub async fn etat(
             None => Vec::new(),
         },
         paliers_recuperes: paliers_recuperes(&mut *tx, joueur).await?,
+        quetes_du_jour: quetes_jour::du_jour(&mut *tx, joueur, jeu, maintenant.date_naive())
+            .await?,
     })
 }
 
