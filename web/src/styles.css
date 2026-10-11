@@ -118,7 +118,7 @@ button { font: inherit; }
 /* ---------- Coque et navigation (design système 4.1) ---------- */
 .coque { min-height: 100vh; }
 .contenu { min-width: 0; padding-bottom: 120px; }
-.ecran { display: grid; gap: 24px; }
+.ecran { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; } /* minmax(0) : une bande défilante ne doit pas élargir l'écran */
 .ecran[hidden] { display: none; }
 .navigation {
   position: fixed; z-index: 40; right: 0; bottom: 0; left: 0;
