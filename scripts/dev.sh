@@ -53,6 +53,8 @@ export VITE_URL_CATALOGUE="http://localhost:$port_pwa/catalogue"
 # Relecture rapide de l'index : une nouvelle parution locale se voit en 5 s.
 export ETYMO_RELECTURE_CATALOGUE_S="${ETYMO_RELECTURE_CATALOGUE_S:-5}"
 export ETYMO_RELECTURE_CATALOGUE_S=60
+# Plis
+export ETYMO_RECHARGE_S=60
 # Requêtes vérifiées contre la base locale : une nouvelle requête compile sans `cargo sqlx prepare`.
 export SQLX_OFFLINE="${SQLX_OFFLINE:-false}"
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -73,7 +75,7 @@ sqlx migrate run --source migrations
 if [ ! -f .local/bucket/public/index.json ]; then
   contenu="${ETYMO_CONTENU:-$racine/../content}"
   echo "Compilation du catalogue d'essai depuis $contenu…"
-  "$contenu/.venv/bin/etymo-contenu" compiler --racine "$contenu" --essai \
+  cargo run -q --release --manifest-path "$contenu/outils/Cargo.toml" -- compiler --racine "$contenu" --essai \
     --sortie .local/bucket/staging --version essai-local
   ETYMO_S3_POINT="file://$racine/.local/bucket" \
     cargo run -q -p etymo-api -- publier-fascicules --simuler-le "${ETYMO_SIMULER_LE:-2100-01-01T00:00:00Z}"
