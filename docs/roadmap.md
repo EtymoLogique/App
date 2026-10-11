@@ -264,6 +264,15 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Démarrage à froid sous 1 s au p95 : script `scripts/demarrage-a-froid.sh` ; mesure locale (binaire `release`, base locale) : p50 259 ms, p95 265 ms sur 20 démarrages | mesure locale faite ; **à mesurer en hors-prod** (conteneur Scaleway à froid) |
 | CSP de la PWA : aujourd'hui une balise `<meta>` (`web/vite.config.ts`), qui ne peut pas porter `frame-ancestors` ; le CDN doit poser CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` et `frame-ancestors 'none'` (ADR 0024) | **à faire dans Infra** (module `cdn` : vérifier que Scaleway Edge Services offre un étage d'en-têtes de réponse, sinon prévoir une règle côté bucket ou un autre CDN) ; vérification en hors-prod |
 
+### Audits avant lancement (App#31)
+
+| Tâche | État |
+|---|---|
+| `cargo audit` et `npm audit` en CI (déjà en place) ; résultat du jour : 0 vulnérabilité | fait |
+| Test d'accessibilité automatique (axe-core, neuf écrans, hors contraste) : deux écarts d'ordre des titres corrigés | fait |
+| Rapport [`docs/audits/avant-lancement.md`](audits/avant-lancement.md) : preuves, huit écarts proposés | fait |
+| Contraste rendu, clavier seul, lecteur d'écran, mouvement réduit, texte d'information sur la collecte | **à faire à la main** (appareil, hors-prod) ; l'issue #31 reste ouverte tant que ces points ne sont pas passés |
+
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
 Les 53 animations de `plans/todo/animations-propositions.html`, avec la version retenue pour chacune, sont dans la PWA ; vérifiées image par image (`animation-check`) pour la pose depuis la réserve, la découverte, le rituel du pli et le retournement de carte.

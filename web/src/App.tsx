@@ -205,7 +205,7 @@ export function App({ api, catalogue }: Props) {
                         <span className="ill" aria-hidden="true">
                           ?
                         </span>
-                        <h3>Aucun mot possible pour l’instant</h3>
+                        <h2>Aucun mot possible pour l’instant</h2>
                         <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
                         <div className="rangee rangee-centree">
                           <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
