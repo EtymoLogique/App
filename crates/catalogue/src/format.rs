@@ -106,6 +106,17 @@ pub struct BriqueRicochet {
     pub sens_id: IdCatalogue,
     /// Commune à deux briques de même glose : jamais deux leurres de même classe.
     pub classe_sens: IdCatalogue,
+    /// Colonne de la brique dans « assembler » (ADR 0067) ; absente : jamais proposée.
+    #[serde(default)]
+    pub position: Option<PositionBrique>,
+}
+
+/// Place d'une brique dans un mot de deux briques : devant (« géo- ») ou derrière (« -graphie »).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PositionBrique {
+    Prefixe,
+    Suffixe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -117,6 +128,10 @@ pub struct MotRicochet {
     /// Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas.
     #[serde(default)]
     pub coupes: Vec<u32>,
+    /// Les deux briques de la composition préférée, préfixe puis suffixe ;
+    /// vide : le mot ne s'assemble pas (ADR 0067).
+    #[serde(default)]
+    pub assemblage: Vec<IdCatalogue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

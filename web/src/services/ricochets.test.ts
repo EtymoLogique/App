@@ -4,14 +4,14 @@ import { type DonneesRicochets, juger, retour } from './ricochets'
 
 const d: DonneesRicochets = {
   briques: new Map([
-    ['brq_1', { sens: 'sns_1', classe: 'sns_1' }],
-    ['brq_2', { sens: 'sns_2', classe: 'sns_2' }],
-    ['brq_3', { sens: 'sns_3', classe: 'sns_1' }],
+    ['brq_1', { sens: 'sns_1', classe: 'sns_1', position: 'prefixe' as const }],
+    ['brq_2', { sens: 'sns_2', classe: 'sns_2', position: 'suffixe' as const }],
+    ['brq_3', { sens: 'sns_3', classe: 'sns_1', position: null }],
   ]),
   mots: new Map([
-    ['unt_1', { classe: 'unt_1', coupes: [3] }],
-    ['unt_2', { classe: 'unt_1', coupes: [] }],
-    ['unt_3', { classe: null, coupes: [] }],
+    ['unt_1', { classe: 'unt_1', coupes: [3], assemblage: ['brq_1', 'brq_2'] }],
+    ['unt_2', { classe: 'unt_1', coupes: [], assemblage: [] }],
+    ['unt_3', { classe: null, coupes: [], assemblage: [] }],
   ]),
   gloses: new Map(),
 }
@@ -33,6 +33,13 @@ describe('juger', () => {
     expect(juger(d, 'decouper', 'unt_1', [3, 3])).toBe(true)
     expect(juger(d, 'decouper', 'unt_1', [2])).toBe(false)
     expect(juger(d, 'decouper', 'unt_2', [1])).toBeNull()
+  })
+  it('assembler : la paire exacte, préfixe puis suffixe', () => {
+    expect(juger(d, 'assembler', 'unt_1', ['brq_1', 'brq_2'])).toBe(true)
+    expect(juger(d, 'assembler', 'unt_1', ['brq_1', 'brq_3'])).toBe(false)
+    expect(juger(d, 'assembler', 'unt_1', ['brq_2', 'brq_1'])).toBe(false)
+    expect(juger(d, 'assembler', 'unt_1', ['brq_1'])).toBeNull()
+    expect(juger(d, 'assembler', 'unt_2', ['brq_1', 'brq_2'])).toBeNull()
   })
 })
 

@@ -397,6 +397,7 @@ export interface components {
             /** @description Commune à deux briques de même glose : jamais deux leurres de même classe. */
             classe_sens: components["schemas"]["IdCatalogue"];
             id: components["schemas"]["IdCatalogue"];
+            position?: components["schemas"]["PositionBrique"] | null;
             /** @description Sens affiché de la brique : la bonne réponse de « sens d'une brique ». */
             sens_id: components["schemas"]["IdCatalogue"];
         };
@@ -979,7 +980,7 @@ export interface components {
          * @description Les cinq formats d'une question de ricochet (ADR 0044).
          * @enum {string}
          */
-        FormatRicochet: "sens_brique" | "brique_sens" | "mot_sens" | "decouper" | "paires";
+        FormatRicochet: "sens_brique" | "brique_sens" | "mot_sens" | "decouper" | "paires" | "assembler";
         Forme: {
             id: components["schemas"]["IdCatalogue"];
             /** @description `canonique` pour la forme de référence. */
@@ -1089,6 +1090,11 @@ export interface components {
             mot_id: components["schemas"]["IdCatalogue"];
         };
         MotRicochet: {
+            /**
+             * @description Les deux briques de la composition préférée, préfixe puis suffixe ;
+             *     vide : le mot ne s'assemble pas (ADR 0067).
+             */
+            assemblage?: components["schemas"]["IdCatalogue"][];
             classe_litteral?: components["schemas"]["IdCatalogue"] | null;
             /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
             coupes?: number[];
@@ -1147,6 +1153,11 @@ export interface components {
             briques?: components["schemas"]["BriquePliManifeste"][];
             equilibrage?: components["schemas"]["EquilibrageManifeste"] | null;
         };
+        /**
+         * @description Place d'une brique dans un mot de deux briques : devant (« géo- ») ou derrière (« -graphie »).
+         * @enum {string}
+         */
+        PositionBrique: "prefixe" | "suffixe";
         ProgressionQuete: {
             /** Format: int32 */
             progression: number;
@@ -1311,8 +1322,8 @@ export interface components {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
         };
-        /** @description Réponse du joueur : un choix, ou les positions de coupe d'un mot. */
-        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[];
+        /** @description Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage. */
+        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[] | components["schemas"]["IdCatalogue"][];
         ReponsePalier: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];

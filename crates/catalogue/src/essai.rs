@@ -104,10 +104,10 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "mots_briques": [{ "mot_id": MOT, "brique_id": BIO }],
         "ricochets": {
             "briques": [
-                { "id": GEO, "sens_id": SENS_GEO, "classe_sens": SENS_GEO },
-                { "id": LOGIE, "sens_id": SENS_LOGIE, "classe_sens": SENS_LOGIE }
+                { "id": GEO, "sens_id": SENS_GEO, "classe_sens": SENS_GEO, "position": "prefixe" },
+                { "id": LOGIE, "sens_id": SENS_LOGIE, "classe_sens": SENS_LOGIE, "position": "suffixe" }
             ],
-            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3] }]
+            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3], "assemblage": [GEO, LOGIE] }]
         },
         "pli": {
             "briques": [

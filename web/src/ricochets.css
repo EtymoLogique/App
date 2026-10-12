@@ -216,3 +216,19 @@
 .rico-ouvrir:hover { transform: translateY(-1px); }
 .rico-ouvrir:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .rico-ouvrir * { cursor: pointer; }
+
+/* Assembler (ADR 0067) : deux colonnes de briques, puis l'assemblage « préfixe + suffixe ». */
+.rico-assembler { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rico-colonne { display: grid; gap: 8px; align-content: start; }
+.rico-colonne-titre { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-align: center; text-transform: uppercase; color: var(--ink-2); }
+.rico-option.rico-case { justify-content: center; min-height: 48px; padding: 6px 10px; }
+.rico-option.rico-case.prise { box-shadow: 0 0 0 3px var(--c-action); }
+.rico-assemblage { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px; border: 1.5px dashed var(--ink-3); border-radius: 12px; }
+.rico-assemblage b { font-family: var(--mono); color: var(--ink-2); }
+.rico-emplacement { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; min-width: 84px; min-height: 48px; justify-content: center; padding: 4px 8px; border: 0; border-radius: 10px; background: none; cursor: pointer; }
+.rico-emplacement:disabled { cursor: default; }
+.rico-emplacement.vide { border: 1.5px dashed var(--ink-3); color: var(--ink-3); font-family: var(--serif); font-size: 18px; cursor: default; }
+.rico-emplacement:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+/* Brique fausse : Sable, pointillé, sans ombre. Jamais de rouge. */
+.rico-brique-ko { filter: grayscale(1); opacity: 0.55; box-shadow: none; border-style: dashed; }
+.rico-lecon-assemblage { line-height: 1.8; }

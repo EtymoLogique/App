@@ -7,18 +7,22 @@ import { type BriqueJeu, type CatalogueJeu, texteDuMot } from './jeu'
 
 export type FormatRicochet = QuestionRicochet['format']
 
-/** Réponse d'un joueur : un choix, ou les positions de coupe d'un mot. */
-export type ReponseJoueur = string | number[]
+/** Réponse d'un joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage. */
+export type ReponseJoueur = string | number[] | string[]
+
+export type PositionBrique = 'prefixe' | 'suffixe'
 
 interface BriqueRicochet {
   sens: string
   classe: string
+  /** Colonne dans « assembler » ; `null` : jamais proposée. */
+  position: PositionBrique | null
 }
 
 export interface DonneesRicochets {
   briques: Map<string, BriqueRicochet>
-  /** Classe du sens littéral et coupes, par mot. */
-  mots: Map<string, { classe: string | null; coupes: number[] }>
+  /** Classe du sens littéral, coupes et assemblage (préfixe, suffixe), par mot. */
+  mots: Map<string, { classe: string | null; coupes: number[]; assemblage: string[] }>
   /** Glose de chaque sens affiché d'une brique. */
   gloses: Map<string, string>
 }
@@ -27,11 +31,11 @@ export function donneesRicochets(jeu: CatalogueJeu): DonneesRicochets {
   const donnees: DonneesRicochets = { briques: new Map(), mots: new Map(), gloses: new Map() }
   for (const { manifeste } of jeu.fascicules) {
     for (const b of manifeste.ricochets?.briques ?? []) {
-      donnees.briques.set(b.id, { sens: b.sens_id, classe: b.classe_sens })
+      donnees.briques.set(b.id, { sens: b.sens_id, classe: b.classe_sens, position: b.position ?? null })
       const glose = jeu.briques.get(b.id)?.glose
       if (glose) donnees.gloses.set(b.sens_id, glose)
     }
-    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [] })
+    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [], assemblage: m.assemblage ?? [] })
   }
   return donnees
 }
@@ -45,10 +49,15 @@ export function sensLitteral(jeu: CatalogueJeu, motId: string): string | null {
 
 /** Verdict d'une réponse. `null` : la donnée manque, le client n'affiche pas de verdict. */
 export function juger(d: DonneesRicochets, format: FormatRicochet, unite: string, reponse: ReponseJoueur): boolean | null {
+  if (format === 'assembler') {
+    const attendu = d.mots.get(unite)?.assemblage
+    if (attendu?.length !== 2 || !Array.isArray(reponse) || reponse.length !== 2) return null
+    return reponse.every((b, i) => b === attendu[i])
+  }
   if (format === 'decouper') {
     const attendu = d.mots.get(unite)?.coupes
     if (!attendu?.length || !Array.isArray(reponse)) return null
-    const coupes = [...new Set(reponse)].sort((a, b) => a - b)
+    const coupes = [...new Set(reponse as number[])].sort((a, b) => a - b)
     return coupes.length === attendu.length && coupes.every((c, i) => c === attendu[i])
   }
   if (typeof reponse !== 'string') return null

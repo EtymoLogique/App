@@ -87,6 +87,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Ricochets, PWA : niveau sur la carte du codex, filet de trois segments (niveaux 1 à 3, tous pleins une fois maîtrisée) et galet de maîtrise dans le bandeau, mini-carte et carte ouverte | fait |
 | Ricochets, PWA : jauge « N / M maîtrisées » du fascicule | à faire |
 | Ricochets : la maîtrise se perd sur une erreur et se regagne ([ADR 0065](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0065-ricochets-la-maitrise-se-perd-et-se-regagne.md)) : une erreur fait descendre d’un niveau, `maitrisee_le` est vidé, au plus deux cartes maîtrisées par séance, annonce « revient demain » au récapitulatif | fait |
+| Ricochets : format « assembler » ([ADR 0067](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0067-ricochets-assembler-un-mot-depuis-sa-definition.md)) : `FormatRicochet::Assembler`, réponse `Briques`, colonnes tirées par `colonnes_assemblage`, manifeste `ricochets` (`position`, `assemblage`), composant `Assembler` ; essai local, tests à compléter côté PWA | fait |
 | « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la carte du codex (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
 
 ### Exigence reportée à J6

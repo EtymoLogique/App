@@ -1,8 +1,9 @@
+import { createPortal } from 'react-dom'
 import { type CSSProperties, createContext, useContext, type KeyboardEvent, type ReactNode, useCallback, useMemo, useRef, useState } from 'react'
 
 import type { Etat, QuestionRicochet, ReponseRicochet, SeanceRicochets } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
-import { type CatalogueJeu, NATURES } from '../services/jeu'
+import { type CatalogueJeu, NATURES, definition } from '../services/jeu'
 import {
   type DonneesRicochets,
   type FormatRicochet,
@@ -362,6 +363,130 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   )
 }
 
+/**
+ * Assembler (ADR 0067) : la définition du mot, deux colonnes de briques (préfixes, suffixes) ; on pose une brique de chaque
+ * colonne dans l'assemblage, puis « Valider ». Rien n'est jugé avant : toucher une brique posée la retire. Une brique reste
+ * une brique, sans sa glose, qui rendrait le mot déductible.
+ */
+function Assembler({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & { pied: HTMLElement | null }) {
+  const unite = q.cartes[0] ?? ''
+  const attendu = d.mots.get(unite)?.assemblage ?? []
+  const colonne = (position: 'prefixe' | 'suffixe') => q.choix?.filter((b) => d.briques.get(b)?.position === position) ?? []
+  const prefixes = colonne('prefixe')
+  const suffixes = colonne('suffixe')
+  const [prefixe, setPrefixe] = useState<string | null>(null)
+  const [suffixe, setSuffixe] = useState<string | null>(null)
+  const [valide, setValide] = useState(false)
+  const carte = jeu.cartes.get(unite)
+  const mot = motDe(jeu, unite)
+  const prete = prefixe !== null && suffixe !== null
+  const juste = valide && prete && juger(d, 'assembler', unite, [prefixe, suffixe]) === true
+  const valider = () => {
+    if (!prete || valide) return
+    setValide(true)
+    envoyer('assembler', unite, [prefixe, suffixe])
+    repondu()
+  }
+  const poser = (position: 'prefixe' | 'suffixe', b: string) => {
+    if (valide) return
+    const [courante, changer] = position === 'prefixe' ? [prefixe, setPrefixe] : [suffixe, setSuffixe]
+    changer(courante === b ? null : b)
+  }
+  const brique = (id: string | null | undefined, ko = false) => {
+    const b = id ? jeu.briques.get(id) : undefined
+    return b ? <Brique brique={{ ...b, glose: null }} taille="s" className={ko ? 'rico-brique-ko' : undefined} /> : null
+  }
+  const colonneDe = (titre: string, position: 'prefixe' | 'suffixe', briques: string[], choisie: string | null) => (
+    <div className="rico-colonne" role="group" aria-label={titre} onKeyDown={naviguerAuClavier}>
+      <span className="rico-colonne-titre" aria-hidden="true">
+        {titre}
+      </span>
+      {briques.map((b) => (
+        <button
+          key={b}
+          type="button"
+          className={['rico-option', 'rico-case', choisie === b && 'prise', valide && b === attendu[position === 'prefixe' ? 0 : 1] && 'juste'].filter(Boolean).join(' ')}
+          aria-pressed={choisie === b}
+          disabled={valide}
+          onClick={() => poser(position, b)}
+        >
+          {brique(b)}
+        </button>
+      ))}
+    </div>
+  )
+  const emplacement = (position: 'prefixe' | 'suffixe', choisie: string | null, bonne: string | undefined) => {
+    const nom = position === 'prefixe' ? 'Préfixe' : 'Suffixe'
+    const ko = valide && choisie !== null && choisie !== bonne
+    return choisie ? (
+      <button type="button" className={`rico-emplacement ${ko ? 'ko' : ''}`} disabled={valide} aria-label={`${nom} choisi, touchez pour le retirer`} onClick={() => poser(position, choisie)}>
+        {brique(choisie, ko)}
+        {valide && <span className="rico-etiquette">{ko ? 'Pas celui-ci' : 'Juste'}</span>}
+      </button>
+    ) : (
+      <span className="rico-emplacement vide" role="img" aria-label={`${nom} : pas encore choisi`}>
+        ?
+      </span>
+    )
+  }
+  const debutJuste = prefixe === attendu[0]
+  const finJuste = suffixe === attendu[1]
+  const statut = prete ? 'Touchez « Valider » pour assembler.' : 'Choisissez un préfixe et un suffixe.'
+  const commandes = (
+    <>
+      <p className="rico-statut" role="status" aria-live="polite">
+        {statut}
+      </p>
+      <button type="button" className="btn btn-primary" disabled={!prete} onClick={valider}>
+        Valider
+      </button>
+    </>
+  )
+  return (
+    <>
+      <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
+        Assemblez le mot.
+      </h2>
+      <div className="rico-sujet">
+        <span className="rico-sens">«&nbsp;{(carte && definition(carte)) ?? '…'}&nbsp;»</span>
+      </div>
+      <div className="rico-assembler">
+        {colonneDe('Préfixes', 'prefixe', prefixes, prefixe)}
+        {colonneDe('Suffixes', 'suffixe', suffixes, suffixe)}
+      </div>
+      <div className="rico-assemblage" role="group" aria-label="Assemblage">
+        {emplacement('prefixe', prefixe, attendu[0])}
+        <b aria-hidden="true">+</b>
+        {emplacement('suffixe', suffixe, attendu[1])}
+      </div>
+      <div className="rico-verdict" role="status" aria-live="polite" ref={(e) => (valide ? e?.scrollIntoView?.({ block: 'nearest' }) : undefined)}>
+        {valide && (
+          <>
+            <strong>
+              <Rond etat={juste ? 'juste' : 'rate'} /> {juste ? 'Bien vu.' : 'Pas cette fois.'}
+            </strong>
+            {!juste && (debutJuste || finJuste) && <span>{debutJuste ? 'Le début était juste.' : 'La fin était juste.'}</span>}
+            <div className="rico-lecon-assemblage">
+              <Ouvrable id={unite}>
+                <span className="rico-segmente">{mot}</span>
+              </Ouvrable>
+              {' : '}
+              {attendu.map((b, i) => (
+                <span key={b}>
+                  {i > 0 && ' + '}
+                  <Ouvrable id={jeu.briques.get(b)?.uniteId ?? b}>{brique(b)}</Ouvrable>
+                </span>
+              ))}
+              .
+            </div>
+          </>
+        )}
+      </div>
+      {pied && !valide && createPortal(commandes, pied)}
+    </>
+  )
+}
+
 type Reponses = Map<string, ReponseRicochet | { erreur: string }>
 
 /** Fin de séance : pas de score, chaque carte, son résultat et son retour confirmé par le serveur. */
@@ -454,6 +579,8 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
           <>
             {q.format === 'paires' ? (
               <Paires key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
+            ) : q.format === 'assembler' ? (
+              <Assembler key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} pied={pied} />
             ) : q.format === 'decouper' ? (
               <DecoupeQuestion key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} pied={pied} />
             ) : (
@@ -469,7 +596,7 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
         {phase.t === 'fin' && <Recapitulatif jeu={jeu} reponses={reponses} />}
       </div>
       <footer className="rico-pied" ref={setPied}>
-        {phase.t === 'question' && !phase.repondu && q?.format !== 'paires' && q?.format !== 'decouper' && <p className="rico-note">Touchez la bonne réponse.</p>}
+        {phase.t === 'question' && !phase.repondu && q?.format !== 'paires' && q?.format !== 'decouper' && q?.format !== 'assembler' && <p className="rico-note">Touchez la bonne réponse.</p>}
         {phase.t === 'question' && phase.repondu && (
           <button type="button" className="btn btn-primary" onClick={suivant}>
             {phase.i + 1 === questions.length ? 'Terminer' : 'Suivant'}

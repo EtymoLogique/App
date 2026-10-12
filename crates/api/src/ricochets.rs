@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, NaiveDate, Utc};
-use etymo_catalogue::Jeu;
+use etymo_catalogue::{Jeu, PositionBrique};
 use etymo_contrat::{
     FormatRicochet, QuestionRicochet, ReponseJoueur, RicochetEtat, RicochetsDuJour,
 };
@@ -24,6 +24,8 @@ const CHOIX_MAX: usize = 4;
 const PAIRES: usize = 4;
 /// Positions de coupe acceptées dans une réponse.
 const COUPES_MAX: usize = 8;
+/// Briques par colonne d'une question « assembler », bonne brique comprise (ADR 0067).
+const COLONNE_MAX: usize = 4;
 
 // ------------------------------------------------------------------ hasard
 
@@ -146,15 +148,8 @@ pub fn tirer(jeu: &Jeu, ordre: &[IdCatalogue], hasard: &mut Hasard) -> Vec<Quest
         if prises.contains(cible) {
             continue;
         }
-        let Some(question) = question(
-            jeu,
-            cible,
-            &briques,
-            &mots,
-            &prises,
-            questions.last(),
-            hasard,
-        ) else {
+        let Some(question) = question(jeu, cible, &briques, &mots, &prises, &questions, hasard)
+        else {
             continue;
         };
         prises.extend(question.cartes.iter().cloned());
@@ -163,15 +158,17 @@ pub fn tirer(jeu: &Jeu, ordre: &[IdCatalogue], hasard: &mut Hasard) -> Vec<Quest
     questions
 }
 
-fn question<'a>(
+/// Formats qu'une cible permet, sans répéter celui de la question précédente quand un autre existe.
+fn formats_possibles<'a>(
     jeu: &Jeu,
     cible: &'a IdCatalogue,
     briques: &[&'a IdCatalogue],
     mots: &[&'a IdCatalogue],
     prises: &HashSet<IdCatalogue>,
-    precedente: Option<&QuestionRicochet>,
+    deja: &[QuestionRicochet],
     hasard: &mut Hasard,
-) -> Option<QuestionRicochet> {
+) -> Option<Vec<FormatRicochet>> {
+    let precedente = deja.last();
     let mut formats = Vec::new();
     if est_brique(cible) {
         let b = jeu.ricochets.briques.get(cible)?;
@@ -192,6 +189,12 @@ fn question<'a>(
         if !m.coupes.is_empty() {
             formats.push(FormatRicochet::Decouper);
         }
+        // Un seul « assembler » par séance : il demande plus de gestes (ADR 0067).
+        if !deja.iter().any(|q| q.format == FormatRicochet::Assembler)
+            && colonnes_assemblage(jeu, cible, briques, hasard).is_some()
+        {
+            formats.push(FormatRicochet::Assembler);
+        }
     }
     if let Some(p) = precedente
         && formats.len() > 1
@@ -201,6 +204,19 @@ fn question<'a>(
     if formats.is_empty() {
         return None;
     }
+    Some(formats)
+}
+
+fn question<'a>(
+    jeu: &Jeu,
+    cible: &'a IdCatalogue,
+    briques: &[&'a IdCatalogue],
+    mots: &[&'a IdCatalogue],
+    prises: &HashSet<IdCatalogue>,
+    deja: &[QuestionRicochet],
+    hasard: &mut Hasard,
+) -> Option<QuestionRicochet> {
+    let formats = formats_possibles(jeu, cible, briques, mots, prises, deja, hasard)?;
     let format = formats[hasard.jusqu_a(formats.len())];
     let un = vec![cible.clone()];
     Some(match format {
@@ -253,6 +269,15 @@ fn question<'a>(
             cartes: un,
             choix: vec![],
         },
+        FormatRicochet::Assembler => {
+            let (mut prefixes, mut suffixes) = colonnes_assemblage(jeu, cible, briques, hasard)?;
+            prefixes.append(&mut suffixes);
+            QuestionRicochet {
+                format,
+                cartes: un,
+                choix: prefixes,
+            }
+        }
         FormatRicochet::Paires => {
             let b = &jeu.ricochets.briques[cible];
             let mut cartes = vec![cible.clone()];
@@ -302,6 +327,70 @@ fn leurres_mots<'a>(
             .filter_map(|m| Some((*m, jeu.ricochets.mots.get(*m)?.classe_litteral.as_ref()?))),
         hasard,
     )
+}
+
+/// Les deux colonnes d'une question « assembler » : préfixes puis suffixes,
+/// bonne brique comprise, chacune mélangée (ADR 0067). Les leurres sont des
+/// briques connues du joueur de la même colonne, de classes de sens toutes
+/// différentes, et aucune paire hors la bonne ne forme un mot du catalogue.
+/// `None` : le mot ne s'assemble pas, ou une colonne n'a aucun leurre.
+fn colonnes_assemblage(
+    jeu: &Jeu,
+    cible: &IdCatalogue,
+    briques: &[&IdCatalogue],
+    hasard: &mut Hasard,
+) -> Option<(Vec<IdCatalogue>, Vec<IdCatalogue>)> {
+    let [bon_prefixe, bon_suffixe] = jeu.ricochets.mots.get(cible)?.assemblage.as_slice() else {
+        return None;
+    };
+    let ricochets = &jeu.ricochets;
+    let classe = |b: &IdCatalogue| ricochets.briques.get(b).map(|b| &b.classe_sens);
+    let existe = |p: &IdCatalogue, s: &IdCatalogue| {
+        ricochets
+            .mots
+            .values()
+            .any(|m| matches!(m.assemblage.as_slice(), [a, b] if a == p && b == s))
+    };
+    let mut candidats: Vec<&IdCatalogue> = briques.to_vec();
+    hasard.melanger(&mut candidats);
+    let (mut prefixes, mut suffixes) = (vec![bon_prefixe], vec![bon_suffixe]);
+    let (mut classes_p, mut classes_s) = (
+        HashSet::from([classe(bon_prefixe)?]),
+        HashSet::from([classe(bon_suffixe)?]),
+    );
+    // Les paires hors la bonne ne doivent former aucun mot : on les vérifie à chaque ajout.
+    for b in candidats {
+        let Some(brique) = ricochets.briques.get(b) else {
+            continue;
+        };
+        match brique.position {
+            Some(PositionBrique::Prefixe)
+                if prefixes.len() < COLONNE_MAX
+                    && !prefixes.contains(&b)
+                    && !suffixes.iter().any(|s| existe(b, s))
+                    && classes_p.insert(&brique.classe_sens) =>
+            {
+                prefixes.push(b);
+            }
+            Some(PositionBrique::Suffixe)
+                if suffixes.len() < COLONNE_MAX
+                    && !suffixes.contains(&b)
+                    && !prefixes.iter().any(|p| existe(p, b))
+                    && classes_s.insert(&brique.classe_sens) =>
+            {
+                suffixes.push(b);
+            }
+            _ => {}
+        }
+    }
+    if prefixes.len() < 2 || suffixes.len() < 2 {
+        return None;
+    }
+    let mut prefixes: Vec<IdCatalogue> = prefixes.into_iter().cloned().collect();
+    let mut suffixes: Vec<IdCatalogue> = suffixes.into_iter().cloned().collect();
+    hasard.melanger(&mut prefixes);
+    hasard.melanger(&mut suffixes);
+    Some((prefixes, suffixes))
 }
 
 /// Les trois briques qui accompagnent la cible dans une question « paires » :
@@ -397,6 +486,21 @@ pub fn juger(
             coupes.sort_unstable();
             coupes.dedup();
             Ok(coupes == mot.coupes)
+        }
+        (FormatRicochet::Assembler, ReponseJoueur::Briques(briques)) => {
+            let mot = (unite.prefixe() == "unt")
+                .then(|| ricochets.mots.get(unite))
+                .flatten()
+                .ok_or_else(inconnue)?;
+            if mot.assemblage.len() != 2 {
+                return Err(invalide("format : ce mot ne s'assemble pas"));
+            }
+            if briques.len() != 2 || briques.iter().any(|b| !ricochets.briques.contains_key(b)) {
+                return Err(invalide(
+                    "reponse : un préfixe et un suffixe connus attendus",
+                ));
+            }
+            Ok(*briques == mot.assemblage)
         }
         _ => Err(invalide("reponse : forme incompatible avec le format")),
     }
@@ -592,7 +696,7 @@ pub async fn du_jour(
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
-    use etymo_catalogue::{BriqueRicochet, MotRicochet};
+    use etymo_catalogue::{BriqueRicochet, MotRicochet, PositionBrique};
 
     use super::*;
 
@@ -618,6 +722,7 @@ mod tests {
                     id: brique(n),
                     sens_id: sens(n),
                     classe_sens: sens(classe),
+                    position: None,
                 },
             );
             let classe = if n == 6 { 1 } else { n };
@@ -627,10 +732,134 @@ mod tests {
                     id: mot(n),
                     classe_litteral: Some(mot(classe)),
                     coupes: if n <= 2 { vec![3] } else { vec![] },
+                    assemblage: vec![],
                 },
             );
         }
         jeu
+    }
+
+    /// Préfixes n°1 à 5, suffixes n°11 à 15 (le n°15 a la classe de sens du n°11) ;
+    /// les mots n°1 (1 + 11) et n°2 (2 + 12) s'assemblent, et le mot n°3 est 3 + 13,
+    /// un mot du catalogue que le joueur n'a pas : jamais une paire de leurres.
+    fn jeu_assemblage() -> Jeu {
+        let mut jeu = Jeu::default();
+        for n in (1..=5).chain(11..=15) {
+            let classe = if n == 15 { 11 } else { n };
+            jeu.ricochets.briques.insert(
+                brique(n),
+                BriqueRicochet {
+                    id: brique(n),
+                    sens_id: sens(n),
+                    classe_sens: sens(classe),
+                    position: Some(if n < 10 {
+                        PositionBrique::Prefixe
+                    } else {
+                        PositionBrique::Suffixe
+                    }),
+                },
+            );
+        }
+        for n in 1..=3 {
+            jeu.ricochets.mots.insert(
+                mot(n),
+                MotRicochet {
+                    id: mot(n),
+                    classe_litteral: None,
+                    coupes: vec![],
+                    assemblage: vec![brique(n), brique(n + 10)],
+                },
+            );
+        }
+        jeu
+    }
+
+    fn ordre_assemblage() -> Vec<IdCatalogue> {
+        [mot(1), mot(2)]
+            .into_iter()
+            .chain((1..=5).chain(11..=15).map(brique))
+            .collect()
+    }
+
+    #[test]
+    fn assembler_donne_deux_colonnes_sans_autre_mot_possible() {
+        let jeu = jeu_assemblage();
+        let mut vu = false;
+        for graine in 0..200 {
+            let questions = tirer(&jeu, &ordre_assemblage(), &mut Hasard::nouveau(graine));
+            assert!(
+                questions
+                    .iter()
+                    .filter(|q| q.format == FormatRicochet::Assembler)
+                    .count()
+                    <= 1
+            );
+            for q in questions
+                .iter()
+                .filter(|q| q.format == FormatRicochet::Assembler)
+            {
+                vu = true;
+                let mot = &jeu.ricochets.mots[&q.cartes[0]];
+                let colonne = |p| -> Vec<&IdCatalogue> {
+                    q.choix
+                        .iter()
+                        .filter(|b| jeu.ricochets.briques[*b].position == Some(p))
+                        .collect()
+                };
+                let (prefixes, suffixes) = (
+                    colonne(PositionBrique::Prefixe),
+                    colonne(PositionBrique::Suffixe),
+                );
+                assert_eq!(prefixes.len() + suffixes.len(), q.choix.len());
+                assert!((2..=COLONNE_MAX).contains(&prefixes.len()));
+                assert!((2..=COLONNE_MAX).contains(&suffixes.len()));
+                assert!(prefixes.contains(&&mot.assemblage[0]));
+                assert!(suffixes.contains(&&mot.assemblage[1]));
+                for p in &prefixes {
+                    for s in &suffixes {
+                        let forme = jeu
+                            .ricochets
+                            .mots
+                            .values()
+                            .any(|m| m.assemblage == [(*p).clone(), (*s).clone()]);
+                        assert_eq!(forme, **p == mot.assemblage[0] && **s == mot.assemblage[1]);
+                    }
+                }
+                let classes: HashSet<_> = suffixes
+                    .iter()
+                    .map(|b| &jeu.ricochets.briques[*b].classe_sens)
+                    .collect();
+                assert_eq!(classes.len(), suffixes.len());
+            }
+        }
+        assert!(vu, "aucune question « assembler » tirée");
+    }
+
+    #[test]
+    fn assembler_se_juge_sur_la_paire_exacte() {
+        let jeu = jeu_assemblage();
+        let paire = |a: u32, b: u32| ReponseJoueur::Briques(vec![brique(a), brique(b)]);
+        let juger = |r: &ReponseJoueur| juger(&jeu, FormatRicochet::Assembler, &mot(1), r);
+        assert!(juger(&paire(1, 11)).unwrap());
+        assert!(!juger(&paire(1, 12)).unwrap());
+        assert!(!juger(&paire(2, 11)).unwrap());
+        // Dans le désordre ou incomplète : fausse forme, pas une réponse fausse.
+        assert!(!juger(&paire(11, 1)).unwrap());
+        assert!(juger(&ReponseJoueur::Briques(vec![brique(1)])).is_err());
+        assert!(juger(&paire(1, 99)).is_err());
+        assert!(juger(&ReponseJoueur::Choix(brique(1))).is_err());
+    }
+
+    #[test]
+    fn assembler_demande_un_leurre_par_colonne() {
+        let jeu = jeu_assemblage();
+        // Seules les deux bonnes briques sont connues : aucune colonne à deux choix.
+        let ordre = vec![mot(1), brique(1), brique(11)];
+        assert!(
+            tirer(&jeu, &ordre, &mut Hasard::nouveau(3))
+                .iter()
+                .all(|q| q.format != FormatRicochet::Assembler)
+        );
     }
 
     fn ordre() -> Vec<IdCatalogue> {
@@ -696,6 +925,7 @@ mod tests {
                         assert_eq!(classes.len(), PAIRES);
                     }
                     FormatRicochet::Decouper => assert!(q.choix.is_empty()),
+                    FormatRicochet::Assembler => unreachable!("aucun mot ne s'assemble ici"),
                 }
             }
         }

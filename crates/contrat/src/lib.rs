@@ -379,6 +379,9 @@ pub enum FormatRicochet {
     /// Relier une brique à son sens, une commande par brique. Cible `brq_…`,
     /// réponse le premier `sns_…` essayé pour elle.
     Paires,
+    /// Quel préfixe et quel suffixe forment le mot de cette définition ? Cible
+    /// `unt_…`, choix les briques des deux colonnes, réponse deux `brq_…` (ADR 0067).
+    Assembler,
 }
 
 /// Une question de la séance, par identifiants : le client rend les textes.
@@ -401,13 +404,15 @@ pub struct SeanceRicochets {
     pub questions: Vec<QuestionRicochet>,
 }
 
-/// Réponse du joueur : un choix, ou les positions de coupe d'un mot.
+/// Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum ReponseJoueur {
     Choix(IdCatalogue),
     /// Huit positions au plus.
     Coupes(Vec<u32>),
+    /// Deux briques : préfixe, suffixe.
+    Briques(Vec<IdCatalogue>),
 }
 
 /// Commande de réponse à une question de ricochet : une commande, une carte.

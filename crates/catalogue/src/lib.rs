@@ -19,7 +19,7 @@ pub use chemin::{Chemin, ErreurChemin};
 pub use format::{
     BriquePliManifeste, BriqueRicochet, Calendrier, CarteManifeste, Difficulte, Emplacement,
     EntreeFascicule, EquilibrageManifeste, Exclusion, Exclusions, Graine, Manifeste, MotRicochet,
-    PliManifeste, Recette, RecetteManifeste, RicochetsManifeste,
+    PliManifeste, PositionBrique, Recette, RecetteManifeste, RicochetsManifeste,
 };
 pub use jeu::{JalonsJeu, Jeu, PliJeu, RicochetsJeu};
 pub use lecteur::{Lecteur, LecteurDossier, LecteurHttp};

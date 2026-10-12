@@ -1546,6 +1546,17 @@
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           },
+          "position": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PositionBrique",
+                "description": "Colonne de la brique dans « assembler » (ADR 0067) ; absente : jamais proposée."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sens_id": {
             "$ref": "#/components/schemas/IdCatalogue",
             "description": "Sens affiché de la brique : la bonne réponse de « sens d'une brique »."
@@ -2954,7 +2965,8 @@
           "brique_sens",
           "mot_sens",
           "decouper",
-          "paires"
+          "paires",
+          "assembler"
         ]
       },
       "Forme": {
@@ -3357,6 +3369,13 @@
           "id"
         ],
         "properties": {
+          "assemblage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Les deux briques de la composition préférée, préfixe puis suffixe ;\nvide : le mot ne s'assemble pas (ADR 0067)."
+          },
           "classe_litteral": {
             "oneOf": [
               {
@@ -3535,6 +3554,14 @@
             ]
           }
         }
+      },
+      "PositionBrique": {
+        "type": "string",
+        "description": "Place d'une brique dans un mot de deux briques : devant (« géo- ») ou derrière (« -graphie »).",
+        "enum": [
+          "prefixe",
+          "suffixe"
+        ]
       },
       "ProgressionQuete": {
         "type": "object",
@@ -4036,9 +4063,16 @@
               "minimum": 0
             },
             "description": "Huit positions au plus."
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Deux briques : préfixe, suffixe."
           }
         ],
-        "description": "Réponse du joueur : un choix, ou les positions de coupe d'un mot."
+        "description": "Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage."
       },
       "ReponsePalier": {
         "type": "object",
