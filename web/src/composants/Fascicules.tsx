@@ -48,11 +48,12 @@ export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, 
   useEffect(() => {
     const el = bande.current
     if (!el) return
-    const maj = () =>
-      setPeut({
-        gauche: el.scrollLeft > 4,
-        droite: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-      })
+    // Même état ⇒ même objet : React ne re-rend pas la bande à chaque image du défilement.
+    const maj = () => {
+      const gauche = el.scrollLeft > 4
+      const droite = el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+      setPeut((p) => (p.gauche === gauche && p.droite === droite ? p : { gauche, droite }))
+    }
     maj()
     el.addEventListener('scroll', maj, { passive: true })
     const ro = new ResizeObserver(maj)

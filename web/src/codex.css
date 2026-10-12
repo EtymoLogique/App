@@ -553,3 +553,13 @@
 .cb-fasc-nav.is-droite { right: 0; }
 .cb-fasc-nav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .cb-fasc-nav:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* Mobile (pointeur tactile) : pas de chevrons ni de gouttières, la bande prend toute la largeur, un fondu à droite annonce la suite, et plus de survol collant ni d'accroche forcée. */
+@media (pointer: coarse), (max-width: 640px) {
+  .cb-fasc-wrap { padding-inline: 0; }
+  .cb-fasc-nav { display: none; }
+  .cb-fasc { scroll-snap-type: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .cb-fasc::-webkit-scrollbar { display: none; }
+  .cb-fasc-btn { width: min(224px, 72vw); transition: none; }
+  .cb-fasc-btn:hover { transform: none; box-shadow: none; }
+}
