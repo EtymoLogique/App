@@ -348,7 +348,7 @@ pub struct RicochetEtat {
     pub unite_id: IdCatalogue,
     #[schema(minimum = 0, maximum = 3)]
     pub niveau: u8,
-    /// Définitif : une carte maîtrisée le reste.
+    /// Perdue sur une erreur, regagnée par trois bonnes réponses sur trois jours (ADR 0065).
     pub maitrisee: bool,
     /// Vrai si une réponse d'aujourd'hui compterait.
     pub a_revoir: bool,
@@ -437,6 +437,9 @@ pub struct CarteRicochet {
     /// Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
     #[schema(minimum = 0, maximum = 3)]
     pub bonnes_niveau_3: u8,
+    /// Vrai si cette erreur a fait perdre la maîtrise de la carte (ADR 0065).
+    #[serde(default)]
+    pub maitrise_perdue: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

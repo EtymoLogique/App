@@ -370,6 +370,7 @@ function Recapitulatif({ jeu, reponses }: { jeu: CatalogueJeu; reponses: Reponse
   const cartes = lignes.flatMap(([id, r]) => ('carte' in r ? [{ id, r }] : []))
   const erreurs = lignes.length - cartes.length
   const maitrisees = cartes.filter(({ r }) => r.juste && r.carte.maitrisee && r.carte.bonnes_niveau_3 === 3)
+  const perdues = cartes.filter(({ r }) => r.carte.maitrise_perdue)
   const presque = cartes.filter(({ r }) => r.carte.niveau === 3 && !r.carte.maitrisee && r.carte.bonnes_niveau_3 === 2)
   return (
     <>
@@ -379,6 +380,11 @@ function Recapitulatif({ jeu, reponses }: { jeu: CatalogueJeu; reponses: Reponse
       {maitrisees.map(({ id }) => (
         <p key={id} className="rico-annonce">
           <Carte jeu={jeu} id={id} /> est maîtrisée. Elle reviendra tous les 7 jours au plus.
+        </p>
+      ))}
+      {perdues.map(({ id }) => (
+        <p key={id} className="rico-annonce">
+          <Carte jeu={jeu} id={id} /> revient demain.
         </p>
       ))}
       {presque.map(({ id }) => (

@@ -68,23 +68,34 @@ fn est_brique(carte: &IdCatalogue) -> bool {
     carte.prefixe() == "brq"
 }
 
-/// Ordre des cartes d'une séance : d'abord celles à revoir (échéance la plus
-/// ancienne), puis les cartes sans historique (la plus récente d'abord), puis,
-/// pour compléter, les cartes pas encore échues (échéance la plus proche).
-/// Celles-ci ne changent aucun niveau, mais la séance compte ses cinq questions.
+/// Cartes maîtrisées à revoir qu'une séance accueille avant de compléter (ADR 0065).
+const MAITRISEES_PAR_SEANCE: usize = 2;
+
+/// Ordre des cartes d'une séance : d'abord celles à revoir non maîtrisées
+/// (échéance la plus ancienne), puis les cartes sans historique (la plus récente
+/// d'abord), puis au plus deux cartes maîtrisées à revoir, puis, pour compléter,
+/// les cartes pas encore échues (échéance la plus proche), puis les autres
+/// maîtrisées à revoir. Les cartes pas échues ne changent aucun niveau, mais la
+/// séance compte ses cinq questions.
 #[must_use]
 pub fn ordonner(
     cartes: Vec<(IdCatalogue, Option<Carte>, DateTime<Utc>)>,
     aujourd_hui: NaiveDate,
 ) -> Vec<IdCatalogue> {
     let (mut a_revoir, mut neuves, mut pas_echues) = (Vec::new(), Vec::new(), Vec::new());
+    let mut maitrisees = Vec::new();
     for (id, carte, recence) in cartes {
         match carte {
             None => neuves.push((id, recence)),
+            Some(c) if c.a_revoir(aujourd_hui) && c.maitrisee => {
+                maitrisees.push((id, c.prochaine_revision));
+            }
             Some(c) if c.a_revoir(aujourd_hui) => a_revoir.push((id, c.prochaine_revision)),
             Some(c) => pas_echues.push((id, c.prochaine_revision)),
         }
     }
+    maitrisees.sort_by(|a, b| (a.1, &a.0).cmp(&(b.1, &b.0)));
+    let en_trop = maitrisees.split_off(maitrisees.len().min(MAITRISEES_PAR_SEANCE));
     a_revoir.sort_by(|a, b| (a.1, &a.0).cmp(&(b.1, &b.0)));
     pas_echues.sort_by(|a, b| (a.1, &a.0).cmp(&(b.1, &b.0)));
     neuves.sort_by(|a, b| (std::cmp::Reverse(a.1), &a.0).cmp(&(std::cmp::Reverse(b.1), &b.0)));
@@ -92,7 +103,9 @@ pub fn ordonner(
         .into_iter()
         .map(|c| c.0)
         .chain(neuves.into_iter().map(|c| c.0))
+        .chain(maitrisees.into_iter().map(|c| c.0))
         .chain(pas_echues.into_iter().map(|c| c.0))
+        .chain(en_trop.into_iter().map(|c| c.0))
         .collect()
 }
 
@@ -524,7 +537,7 @@ pub async fn enregistrer(
         .remove(unite)
         .unwrap_or_else(|| Carte::neuve(aujourd_hui));
     let apres = ricochet::repondre(avant, juste, aujourd_hui);
-    // La maîtrise est définitive : `maitrisee_le` garde sa première date.
+    // `maitrisee_le` garde la date de la maîtrise en cours et se vide quand elle est perdue (ADR 0065).
     let maitrisee_le = apres.maitrisee.then_some(maintenant);
     sqlx::query!(
         "INSERT INTO ricochet (joueur_id, unite_id, niveau, bonnes_niveau_3, prochaine_revision, maitrisee_le)
@@ -533,7 +546,8 @@ pub async fn enregistrer(
              niveau = EXCLUDED.niveau,
              bonnes_niveau_3 = EXCLUDED.bonnes_niveau_3,
              prochaine_revision = EXCLUDED.prochaine_revision,
-             maitrisee_le = COALESCE(ricochet.maitrisee_le, EXCLUDED.maitrisee_le)",
+             maitrisee_le = CASE WHEN EXCLUDED.maitrisee_le IS NULL THEN NULL
+                                ELSE COALESCE(ricochet.maitrisee_le, EXCLUDED.maitrisee_le) END",
         joueur,
         unite.as_str(),
         i16::from(apres.niveau),
@@ -723,6 +737,35 @@ mod tests {
         assert_eq!(
             ordre,
             vec![mot(4), brique(2), mot(5), mot(3), brique(6), brique(1)]
+        );
+    }
+
+    #[test]
+    fn deux_cartes_maitrisees_au_plus_avant_de_completer() {
+        let jour = |j| NaiveDate::from_ymd_opt(2026, 10, j).unwrap();
+        let heure = Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap();
+        let carte = |echeance, maitrisee| {
+            Some(Carte {
+                niveau: 3,
+                bonnes_niveau_3: if maitrisee { 3 } else { 0 },
+                prochaine_revision: jour(echeance),
+                maitrisee,
+            })
+        };
+        let ordre = ordonner(
+            vec![
+                (mot(1), carte(1, true), heure), // maîtrisée à revoir, la plus ancienne
+                (mot(2), carte(2, true), heure), // maîtrisée à revoir
+                (mot(3), carte(3, true), heure), // maîtrisée à revoir, en trop
+                (mot(4), carte(4, false), heure), // à revoir
+                (mot(5), carte(9, false), heure), // pas échue
+                (brique(6), None, heure),        // neuve
+            ],
+            jour(5),
+        );
+        assert_eq!(
+            ordre,
+            vec![mot(4), brique(6), mot(1), mot(2), mot(5), mot(3)]
         );
     }
 

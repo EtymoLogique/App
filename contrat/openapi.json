@@ -1850,6 +1850,10 @@
             "maximum": 3,
             "minimum": 0
           },
+          "maitrise_perdue": {
+            "type": "boolean",
+            "description": "Vrai si cette erreur a fait perdre la maîtrise de la carte (ADR 0065)."
+          },
           "maitrisee": {
             "type": "boolean"
           },
@@ -4173,7 +4177,7 @@
           },
           "maitrisee": {
             "type": "boolean",
-            "description": "Définitif : une carte maîtrisée le reste."
+            "description": "Perdue sur une erreur, regagnée par trois bonnes réponses sur trois jours (ADR 0065)."
           },
           "niveau": {
             "type": "integer",
