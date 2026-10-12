@@ -94,12 +94,14 @@ function PlisEnAttente({
             {charges > PILE_MAX && i === PILE_MAX - 1 && <span className="pk-pile-nb" aria-hidden="true">{charges}</span>}
           </span>
         ))}
-        <span className="jk-mini is-xs is-empty">
-          <span className="pk-recharge">
-            <Anneau progression={progression} avance={avance} />
-            {restant && <span className="pk-restant">{restant}</span>}
+        {charges < capacite && (
+          <span className="jk-mini is-xs is-empty">
+            <span className="pk-recharge">
+              <Anneau progression={progression} avance={avance} />
+              {restant && <span className="pk-restant">{restant}</span>}
+            </span>
           </span>
-        </span>
+        )}
       </span>
     )
   }
@@ -142,11 +144,10 @@ function CartePlisEnAttente({
   /** Raccourci des sabliers, quand le temps manque. */
   children?: ReactNode
 }) {
-  // Dix plis prêts : rien ne charge, la carte disparaît.
-  if (energie.charges >= energie.capacite) return null
+  const pleine = energie.charges >= energie.capacite
   return (
     <div className="pk-card pk-energie">
-      <p className="pk-label">Plis en chargement</p>
+      <p className="pk-label">{pleine ? 'Plis prêts' : 'Plis en chargement'}</p>
       <div className="pk-attente" role="status">
         <PlisEnAttente
           charges={energie.charges}
@@ -160,7 +161,9 @@ function CartePlisEnAttente({
         />
         <small>{energie.charges} / {energie.capacite} plis prêts</small>
       </div>
-      <p className="pk-note">Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand dix plis vous attendent. Les plis ne limitent jamais les fusions.</p>
+      <p className="pk-note">
+        {pleine ? 'Dix plis vous attendent : le temps est arrêté. Ouvrez-en un pour relancer la recharge.' : <>Un pli revient toutes les 12&nbsp;h, et le temps s’arrête quand dix plis vous attendent. Les plis ne limitent jamais les fusions.</>}
+      </p>
       {children}
     </div>
   )
