@@ -502,6 +502,8 @@ export interface components {
              * @description Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
              */
             bonnes_niveau_3: number;
+            /** @description Vrai si cette erreur a fait perdre la maîtrise de la carte (ADR 0065). */
+            maitrise_perdue?: boolean;
             maitrisee: boolean;
             /** Format: int32 */
             niveau: number;
@@ -1357,7 +1359,7 @@ export interface components {
         RicochetEtat: {
             /** @description Vrai si une réponse d'aujourd'hui compterait. */
             a_revoir: boolean;
-            /** @description Définitif : une carte maîtrisée le reste. */
+            /** @description Perdue sur une erreur, regagnée par trois bonnes réponses sur trois jours (ADR 0065). */
             maitrisee: boolean;
             /** Format: int32 */
             niveau: number;

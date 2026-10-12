@@ -115,6 +115,34 @@ async fn une_mauvaise_reponse_ne_descend_pas_sous_zero(base: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn une_erreur_fait_perdre_la_maitrise_et_la_carte_revient_demain(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    // Carte maîtrisée, à revoir aujourd'hui (ADR 0065).
+    sqlx::query(
+        "INSERT INTO ricochet (joueur_id, unite_id, niveau, bonnes_niveau_3, prochaine_revision, maitrisee_le)
+         SELECT id, $1, 3, 3, current_date, now() FROM joueur",
+    )
+    .bind(GEO)
+    .execute(&base)
+    .await
+    .unwrap();
+
+    let (statut, reponse) = repondre(&banc, &jeton, &etat, sens_brique(GEO, SENS_LOGIE)).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(reponse["juste"], false);
+    assert_eq!(reponse["carte"]["niveau"], 2);
+    assert_eq!(reponse["carte"]["maitrisee"], false);
+    assert_eq!(reponse["carte"]["maitrise_perdue"], true);
+    assert_eq!(reponse["carte"]["prochaine_revision"], demain());
+    assert_eq!(
+        reponse["etat"]["ricochets"],
+        json!([{ "unite_id": GEO, "niveau": 2, "maitrisee": false, "a_revoir": false }])
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn la_commande_rejouee_renvoie_la_meme_reponse(base: PgPool) {
     let banc = banc(base.clone(), Limiteurs::default()).await;
     let jeton = session(&banc.routeur).await;

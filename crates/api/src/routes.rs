@@ -897,6 +897,7 @@ pub async fn repondre_ricochet(
             maitrisee: carte.maitrisee,
             prochaine_revision: carte.prochaine_revision,
             bonnes_niveau_3: carte.bonnes_niveau_3,
+            maitrise_perdue: etait_maitrisee && !carte.maitrisee,
         },
         etat: etat_courant(&app, &mut tx, joueur).await?,
     };
