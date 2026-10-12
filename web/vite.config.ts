@@ -43,6 +43,65 @@ function csp(env: Record<string, string | undefined>): Plugin {
 }
 
 /**
+ * Référencement. Seule la coque `/` peut s'indexer : les écrans vivent dans le
+ * fragment (ADR 0034) et l'adresse ne porte jamais de texte du catalogue.
+ * `ETYMO_URL_PWA` (posée par Infra) donne les adresses absolues ; seule la prod
+ * pose `ETYMO_INDEXABLE=oui`. Ailleurs, `noindex`, et robots.txt laisse passer
+ * les robots pour qu'ils lisent cette consigne.
+ */
+function referencement(env: Record<string, string | undefined>): Plugin {
+  const site = env.ETYMO_URL_PWA ? new URL(env.ETYMO_URL_PWA).origin : null
+  const indexable = site !== null && env.ETYMO_INDEXABLE === 'oui'
+  return {
+    name: 'etymo-referencement',
+    apply: 'build',
+    transformIndexHtml(html) {
+      const description = /name="description" content="([^"]+)"/.exec(html)?.[1]
+      const jeu = {
+        '@type': ['VideoGame', 'WebApplication'],
+        name: 'ÉtymoLogique',
+        description,
+        inLanguage: 'fr',
+        genre: ['Jeu de logique', 'Jeu de mots', 'Jeu de collection'],
+        about: { '@type': 'Thing', name: 'Étymologie', sameAs: 'https://www.wikidata.org/wiki/Q35245' },
+        isBasedOn: { '@type': 'Dataset', name: 'Wikidata', url: 'https://www.wikidata.org/' },
+        applicationCategory: 'GameApplication',
+        gamePlatform: 'Navigateur web',
+        operatingSystem: 'Tout système doté d’un navigateur récent',
+        isAccessibleForFree: true,
+        offers: { '@type': 'Offer', price: 0, priceCurrency: 'EUR' },
+        author: { '@type': 'Person', name: 'Guillaume MARTINEZ' },
+        license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+        ...(site && { url: `${site}/`, image: `${site}/partage.png` }),
+      }
+      const donnees = JSON.stringify({ '@context': 'https://schema.org', ...jeu })
+      const balises = [
+        `<meta name="robots" content="${indexable ? 'index, follow, max-image-preview:large' : 'noindex'}" />`,
+        ...(site
+          ? [
+              `<link rel="canonical" href="${site}/" />`,
+              `<meta property="og:url" content="${site}/" />`,
+              `<meta property="og:image" content="${site}/partage.png" />`,
+            ]
+          : []),
+        `<script type="application/ld+json">${donnees.replaceAll('<', '\\u003c')}</script>`,
+      ]
+      return html.replace('</head>', `  ${balises.join('\n    ')}\n  </head>`)
+    },
+    generateBundle() {
+      const robots = ['User-agent: *', 'Allow: /', ...(indexable ? ['', `Sitemap: ${site}/sitemap.xml`] : [])]
+      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: `${robots.join('\n')}\n` })
+      if (!indexable) return
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sitemap.xml',
+        source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${site}/</loc></url>\n</urlset>\n`,
+      })
+    },
+  }
+}
+
+/**
  * Développement : sert sous `/catalogue/` le préfixe `public/` d'un bucket
  * simulé sur disque (`ETYMO_BUCKET_LOCAL`), comme le ferait le CDN.
  */
@@ -75,7 +134,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       catalogueLocal(env.ETYMO_BUCKET_LOCAL),
-      ...(mode === 'test' ? [] : [csp(env)]),
+      ...(mode === 'test' ? [] : [csp(env), referencement(env)]),
       VitePWA({
         // Enregistré par `MiseAJour` : une nouvelle version attend l'accord du joueur.
         registerType: 'prompt',
@@ -90,12 +149,20 @@ export default defineConfig(({ mode }) => {
           display: 'standalone',
           background_color: '#f3eee3',
           theme_color: '#ff6b4a',
-          icons: [{ src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+          categories: ['games', 'education'],
+          icons: [
+            { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+            { src: '/icone-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/icone-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/icone-masquable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
         },
         workbox: {
           // La coque seulement : aucun lot du catalogue n'est précaché (ADR 0025).
           globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
           navigateFallback: '/index.html',
+          // Fichiers des robots : le service worker ne les remplace jamais par la coque.
+          navigateFallbackDenylist: [/^\/(?:robots\.txt|sitemap\.xml|llms\.txt)$/],
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {

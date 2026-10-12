@@ -3,14 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Assemblez des briques linguistiques pour retrouver les mots et leur histoire." />
+    <title>ÉtymoLogique — le jeu d’étymologie, gratuit et sans publicité</title>
+    <meta name="description" content="Assemblez préfixes, suffixes et mots pour retrouver des mots français et leur histoire, sourcée dans Wikidata. Jeu de logique gratuit, sans inscription." />
     <meta name="theme-color" content="#ff6b4a" />
     <meta name="referrer" content="no-referrer" />
+    <meta name="application-name" content="ÉtymoLogique" />
+    <meta name="apple-mobile-web-app-title" content="ÉtymoLogique" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ÉtymoLogique" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:title" content="ÉtymoLogique — le jeu d’étymologie" />
+    <meta property="og:description" content="Assemblez les briques, retrouvez les mots et leur histoire. Gratuit, sans publicité, sans inscription." />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Le sceau ÉL d’ÉtymoLogique : une brique préfixe et une brique suffixe forment un mot à deviner." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <title>ÉtymoLogique</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      Présentation lisible sans JavaScript, pour les robots qui n'exécutent pas
+      les scripts (assistants, aperçus de partage). React la remplace au montage ;
+      une PWA installée ne l'affiche pas. Aucun mot du catalogue ici.
+    -->
+    <div id="root">
+      <main class="vitrine">
+        <span class="seal" aria-hidden="true">ÉL</span>
+        <h1>ÉtymoLogique, le jeu d’étymologie</h1>
+        <p class="vitrine-accroche">Assemblez des briques linguistiques — préfixes, suffixes et mots — pour retrouver des mots français et découvrir d’où ils viennent.</p>
+
+        <section aria-labelledby="vitrine-regles">
+          <h2 id="vitrine-regles">Comment jouer</h2>
+          <ol>
+            <li>Posez deux briques sur la table de fusion, dans l’ordre : un préfixe et un mot, un mot et un suffixe…</li>
+            <li>Si l’assemblage correspond à une recette étymologique documentée, le mot est découvert et rejoint votre codex avec son histoire.</li>
+            <li>Se tromper ne coûte rien : seule une découverte consomme un exemplaire de chaque brique.</li>
+            <li>Ouvrez des plis pour obtenir de nouveaux exemplaires. Un fascicule de 20 à 30 mots paraît environ chaque mois.</li>
+            <li>Jouez aux ricochets, de courtes questions sur vos cartes, pour les maîtriser.</li>
+          </ol>
+        </section>
+
+        <section aria-labelledby="vitrine-faq">
+          <h2 id="vitrine-faq">Questions fréquentes</h2>
+          <h3>ÉtymoLogique est-il gratuit ?</h3>
+          <p>Oui. Le jeu est gratuit et sans publicité.</p>
+          <h3>Faut-il créer un compte ?</h3>
+          <p>Non. On joue sans inscription, dans le navigateur, sur téléphone comme sur ordinateur. Aucun nom ni aucune adresse électronique n’est demandé.</p>
+          <h3>D’où viennent les étymologies ?</h3>
+          <p>Chaque recette s’appuie sur Wikidata et est relue avant publication. Le jeu explique la relation entre les briques et ne fait jamais passer une simple ressemblance pour une étymologie.</p>
+          <h3>Peut-on installer ÉtymoLogique ?</h3>
+          <p>Oui. C’est une application web progressive : ajoutez-la à l’écran d’accueil depuis le navigateur. Hors connexion, le codex reste consultable.</p>
+          <h3>À qui s’adresse le jeu ?</h3>
+          <p>Aux curieux de la langue française et aux amateurs de jeux de mots et de logique.</p>
+          <h3>Sous quelle licence est-il publié ?</h3>
+          <p>Le code est sous licence GNU AGPL 3.0 ou ultérieure, les contenus sous Creative Commons BY-SA 4.0.</p>
+        </section>
+      </main>
+    </div>
     <noscript>ÉtymoLogique a besoin de JavaScript.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

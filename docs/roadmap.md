@@ -267,6 +267,20 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Démarrage à froid sous 1 s au p95 : script `scripts/demarrage-a-froid.sh` ; mesure locale (binaire `release`, base locale) : p50 259 ms, p95 265 ms sur 20 démarrages | mesure locale faite ; **à mesurer en hors-prod** (conteneur Scaleway à froid) |
 | CSP de la PWA : aujourd'hui une balise `<meta>` (`web/vite.config.ts`), qui ne peut pas porter `frame-ancestors` ; le CDN doit poser CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` et `frame-ancestors 'none'` (ADR 0024) | **à faire dans Infra** (module `cdn` : vérifier que Scaleway Edge Services offre un étage d'en-têtes de réponse, sinon prévoir une règle côté bucket ou un autre CDN) ; vérification en hors-prod |
 
+### Référencement et moteurs génératifs
+
+Seule la coque `/` s'indexe : les écrans vivent dans le fragment (ADR 0034) et aucun mot du catalogue n'est publié hors du jeu (ADR 0015).
+
+| Tâche | État |
+|---|---|
+| `index.html` : titre, description, Open Graph, présentation et FAQ lisibles sans JavaScript (React les remplace au montage) | fait |
+| Plugin `referencement` (`web/vite.config.ts`) : `robots` (`noindex` hors prod), canonique, `og:image`, données structurées `VideoGame`, `robots.txt`, `sitemap.xml` en prod | fait |
+| `llms.txt`, image de partage 1200 × 630, icônes PNG (iOS, manifeste, masquable) ; sources dans `web/medias/` | fait |
+| Déploiement : `ETYMO_URL_PWA` et `ETYMO_INDEXABLE=oui` sur un tag seulement | fait |
+| Domaine de prod : `etymologique.fr` (Infra, `cdn.domaines`). Un tag échoue tant que `ETYMO_URL_PWA` n'est pas `https://etymologique.fr` | fait ; **CDN de prod à activer dans Infra**, CNAME chez OVH |
+| Robots qui exécutent le JavaScript : ils ouvrent une session invitée et gonflent les joueurs actifs et la rétention (ADR 0050) ; à filtrer ou à mesurer après l'ouverture de l'indexation | à décider |
+| Search Console et Bing Webmaster Tools : vérification par enregistrement DNS TXT dans la zone OVH, envoi du sitemap | **à faire à la main**, après le premier tag |
+
 ### Audits avant lancement (App#31)
 
 | Tâche | État |

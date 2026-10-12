@@ -1,0 +1,42 @@
+<!--
+  Image de partage (og:image, 1200 × 630). Rendu, depuis web/ :
+  inkscape medias/partage.svg -o public/partage.png
+  Aucun mot du catalogue : les briques restent à deviner.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <pattern id="trame" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="1.4" fill="#0f1f19" fill-opacity="0.16"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#e8dfcc"/>
+  <rect width="1200" height="630" fill="url(#trame)"/>
+
+  <rect x="82" y="78" width="1036" height="474" rx="28" fill="#0f1f19"/>
+  <rect x="70" y="66" width="1036" height="474" rx="28" fill="#fffbf3" stroke="#0f1f19" stroke-width="3"/>
+
+  <g transform="rotate(-6 196 196)">
+    <rect x="132" y="132" width="140" height="140" rx="36" fill="#0f1f19"/>
+    <rect x="122" y="122" width="140" height="140" rx="36" fill="#ff6b4a" stroke="#0f1f19" stroke-width="4"/>
+    <text x="192" y="218" text-anchor="middle" fill="#0f1f19" font-family="Iowan Old Style" font-size="68" font-weight="700" letter-spacing="-1">ÉL</text>
+  </g>
+  <text x="320" y="200" fill="#0f1f19" font-family="Iowan Old Style" font-size="92" font-weight="700" letter-spacing="-2">ÉtymoLogique</text>
+  <text x="324" y="252" fill="#44564d" font-family="Avenir Next" font-size="32" font-weight="600">Le jeu d’étymologie</text>
+
+  <text x="130" y="350" fill="#44564d" font-family="Avenir Next" font-size="30" font-weight="500">Assemblez les briques, retrouvez les mots et leur histoire.</text>
+
+  <g font-family="Iowan Old Style" font-weight="700" fill="#0f1f19">
+    <rect x="138" y="402" width="180" height="92" rx="16" fill="#0f1f19"/>
+    <rect x="130" y="394" width="180" height="92" rx="16" fill="#cdf25a" stroke="#0f1f19" stroke-width="3"/>
+    <text x="220" y="456" text-anchor="middle" font-size="44">…-</text>
+    <text x="360" y="458" text-anchor="middle" font-size="52" fill="#5c6b62">+</text>
+    <rect x="418" y="402" width="180" height="92" rx="16" fill="#0f1f19"/>
+    <rect x="410" y="394" width="180" height="92" rx="16" fill="#4fd1c5" stroke="#0f1f19" stroke-width="3"/>
+    <text x="500" y="456" text-anchor="middle" font-size="44">-…</text>
+    <text x="640" y="458" text-anchor="middle" font-size="52" fill="#5c6b62">=</text>
+    <rect x="698" y="402" width="180" height="92" rx="16" fill="#0f1f19"/>
+    <rect x="690" y="394" width="180" height="92" rx="16" fill="#e8dfcc" stroke="#0f1f19" stroke-width="3" stroke-dasharray="10 8"/>
+    <text x="780" y="460" text-anchor="middle" font-size="52" font-style="italic" fill="#5c6b62">?</text>
+  </g>
+  <text x="1066" y="252" text-anchor="end" fill="#5c6b62" font-family="Avenir Next" font-size="22" font-weight="600">Gratuit · sans publicité</text>
+</svg>

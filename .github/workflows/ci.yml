@@ -132,6 +132,10 @@ jobs:
           VITE_URL_CATALOGUE: https://catalogue.exemple.test/public
         run: npm run build
 
+      # Sans ETYMO_INDEXABLE=oui, la PWA ne doit jamais s'offrir aux moteurs.
+      - name: Check the PWA is not indexable by default
+        run: grep -q 'name="robots" content="noindex"' dist/index.html && test ! -e dist/sitemap.xml
+
       - name: Audit the dependencies
         run: npm audit --audit-level=high
 

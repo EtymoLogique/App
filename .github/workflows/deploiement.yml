@@ -207,10 +207,13 @@ jobs:
       BUCKET: ${{ vars.ETYMO_BUCKET_PWA }}
       VITE_URL_API: ${{ vars.ETYMO_URL_API }}
       VITE_URL_CATALOGUE: ${{ vars.ETYMO_URL_CATALOGUE }}
+      # Adresses absolues du référencement ; seule la prod s'indexe.
+      ETYMO_URL_PWA: ${{ vars.ETYMO_URL_PWA }}
+      ETYMO_INDEXABLE: ${{ startsWith(github.ref, 'refs/tags/v') && 'oui' || 'non' }}
     steps:
       - name: Check the configuration
         run: |
-          for nom in AWS_ACCESS_KEY_ID BUCKET VITE_URL_API VITE_URL_CATALOGUE; do
+          for nom in AWS_ACCESS_KEY_ID BUCKET VITE_URL_API VITE_URL_CATALOGUE ETYMO_URL_PWA; do
             if [ -z "${!nom}" ]; then
               echo "::error::$nom absente : l’environnement GitHub est posé par le dépôt Infra."
               exit 1
@@ -234,7 +237,15 @@ jobs:
         run: |
           npm ci
           npm test
+          # Indexée ailleurs que sur son domaine, la prod se canoniserait sur l'adresse du bucket.
+          if [ "$ETYMO_INDEXABLE" = oui ] && [ "$ETYMO_URL_PWA" != https://etymologique.fr ]; then
+            echo "::error::ETYMO_URL_PWA vaut $ETYMO_URL_PWA : activez le CDN de prod sur etymologique.fr (dépôt Infra)."
+            exit 1
+          fi
           npm run build
+          if [ "$ETYMO_INDEXABLE" != oui ]; then
+            grep -q 'name="robots" content="noindex"' dist/index.html && test ! -e dist/sitemap.xml
+          fi
 
       # Les fichiers hachés d'abord, immuables ; puis la coque, jamais mise en
       # cache par le navigateur (ADR 0024), pour qu'elle ne désigne jamais un
@@ -246,8 +257,10 @@ jobs:
           coque="public, max-age=0, must-revalidate, s-maxage=3600"
           aws s3 sync assets/ "s3://$BUCKET/assets/" --size-only --no-progress \
             --cache-control "public, max-age=31536000, immutable"
-          aws s3 sync . "s3://$BUCKET/" --exclude "assets/*" --exclude "manifest.webmanifest" --no-progress \
+          aws s3 sync . "s3://$BUCKET/" --exclude "assets/*" --exclude "manifest.webmanifest" --exclude "llms.txt" --no-progress \
             --cache-control "$coque"
+          aws s3 cp llms.txt "s3://$BUCKET/llms.txt" --no-progress \
+            --content-type "text/plain; charset=utf-8" --cache-control "$coque"
           aws s3 cp manifest.webmanifest "s3://$BUCKET/manifest.webmanifest" --no-progress \
             --content-type application/manifest+json --cache-control "$coque"
           echo "PWA ${GITHUB_SHA::12} déposée dans s3://$BUCKET/ ($ENVIRONNEMENT)." >> "$GITHUB_STEP_SUMMARY"
