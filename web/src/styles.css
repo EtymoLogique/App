@@ -117,7 +117,7 @@ button { font: inherit; }
 
 /* ---------- Coque et navigation (design système 4.1) ---------- */
 .coque { min-height: 100vh; }
-.contenu { min-width: 0; padding-bottom: 120px; }
+.contenu { min-width: 0; padding-bottom: calc(var(--hauteur-navigation, 104px) + 24px); }
 .ecran { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; } /* minmax(0) : une bande défilante ne doit pas élargir l'écran */
 .ecran[hidden] { display: none; }
 .navigation {
@@ -717,7 +717,7 @@ button.disc { font: inherit; cursor: pointer; }
   .seulement-ordinateur { display: none; }
   .seulement-mobile { display: initial; }
   .barre-actions.seulement-mobile {
-    position: sticky; bottom: 76px; z-index: 30; display: flex;
+    position: sticky; bottom: var(--hauteur-navigation, 104px); z-index: 30; display: flex;
     margin: 0 calc(-1 * var(--pad)); padding: 10px var(--pad);
     background: var(--paper); border-top: 1px solid var(--line);
   }

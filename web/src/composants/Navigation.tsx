@@ -90,6 +90,21 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
     }
   }, [ouvert])
 
+  // Hauteur réelle de la barre (safe-area, ligne des ressources, taille du texte) : les pieds collés se posent juste au-dessus.
+  useEffect(() => {
+    const nav = racine.current
+    if (!nav) return
+    const racineDoc = document.documentElement
+    const maj = () => racineDoc.style.setProperty('--hauteur-navigation', `${nav.offsetHeight}px`)
+    maj()
+    const ro = new ResizeObserver(maj)
+    ro.observe(nav)
+    return () => {
+      ro.disconnect()
+      racineDoc.style.removeProperty('--hauteur-navigation')
+    }
+  }, [])
+
   const nouveautes = (n: number, id?: Onglet) =>
     n > 0 && (
       <span className="count" aria-label={id === 'quetes' ? `${n} récompense${n > 1 ? 's' : ''} à récupérer` : `${n} nouveauté${n > 1 ? 's' : ''}`}>
