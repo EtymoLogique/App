@@ -1,7 +1,7 @@
 import { type CSSProperties, type PointerEvent, type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { jointureInitiale, jointureLaPlusProche, jointureLibreProche, jointureVoisine } from '../services/decoupe'
+import { jointureInitiale, jointureLaPlusProche, jointureVoisine } from '../services/decoupe'
 import { type BriqueJeu, NATURES } from '../services/jeu'
 
 interface Props {
@@ -49,7 +49,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
   const nombre = attendu.length
   // Les coupes dans l'ordre où le joueur les a posées : « Reprendre » retire la dernière.
   const [posees, setPosees] = useState<number[]>([])
-  const [curseur, setCurseur] = useState<number | null>(() => jointureInitiale(n, []))
+  const [curseur, setCurseur] = useState<number | null>(() => jointureInitiale(n, [], attendu))
   const [appuye, setAppuye] = useState(false)
   const [valide, setValide] = useState(false)
   const [positions, setPositions] = useState<number[]>([])
@@ -97,7 +97,7 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     const suite = [...posees, j]
     setPosees(suite)
     setAppuye(false)
-    if (suite.length < nombre) return setCurseur(jointureLibreProche(j, n, suite))
+    if (suite.length < nombre) return setCurseur(jointureInitiale(n, suite, attendu))
     setValide(true)
     onValider([...suite].sort((a, b) => a - b))
     repondu()

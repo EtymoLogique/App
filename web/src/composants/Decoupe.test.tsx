@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Decoupe } from './Decoupe'
 
@@ -28,6 +28,25 @@ const AUTO = [{ nature: 'prefixe' as const }, { nature: 'mot' as const }, { natu
 const curseur = () => screen.getByRole('slider').getAttribute('aria-valuenow')
 
 describe('Decoupe', () => {
+  // La lame arrive sur un leurre tiré au hasard : 0,37 la pose en 4 dans « géographie », en 6 dans « autobiographie ».
+  beforeEach(() => void vi.spyOn(Math, 'random').mockReturnValue(0.37))
+  afterEach(() => vi.restoreAllMocks())
+
+  it('la lame n’arrive jamais sur une coupe attendue, ni à la première coupe ni aux suivantes', () => {
+    vi.restoreAllMocks()
+    for (let i = 0; i < 20; i++) {
+      const pied = document.body.appendChild(document.createElement('footer'))
+      const { unmount } = render(
+        <Decoupe mot="autobiographie" attendu={[4, 7]} reels={AUTO} consigne="" lecon="" juger={() => null} onValider={() => {}} repondu={() => {}} pied={pied} />,
+      )
+      expect(['4', '7']).not.toContain(curseur())
+      fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
+      expect(['4', '7']).not.toContain(curseur())
+      unmount()
+      pied.remove()
+    }
+  })
+
   it('place la lame à l’arrivée et rien n’est envoyé avant « Couper ici »', () => {
     const { onValider } = monter('géographie', [3], GEO)
     expect(curseur()).toBe('4')
