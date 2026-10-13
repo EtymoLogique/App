@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { type EntreeCodex, completude } from '../services/codex'
+import { conditionDeblocage, useDeblocage } from '../services/deblocage'
 import { type CatalogueJeu, type FasciculeParu, libelleFascicule } from '../services/jeu'
+import { Icone } from './Icone'
 
 /** Miniature de la jaquette d'un fascicule, décorative : son numéro est écrit à côté. */
 export function Jaquette({ chemin, urlMedia, petite = false }: { chemin: string | null | undefined; urlMedia: (chemin: string) => string; petite?: boolean }) {
@@ -42,6 +44,7 @@ interface Props {
  * nouveau affiche tous les fascicules.
  */
 export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, aRecuperer }: Props) {
+  const deblocage = useDeblocage()
   const bande = useRef<HTMLDivElement>(null)
   const [peut, setPeut] = useState({ gauche: false, droite: false })
   // Chevrons : seulement du côté où la bande a encore de quoi défiler.
@@ -87,19 +90,27 @@ export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, 
       )}
       <div ref={bande} className="cb-fasc" role="group" aria-label="Complétude par fascicule, touchez pour filtrer">
         {[...jeu.fascicules]
-          .sort((a, b) => b.numero - a.numero)
+          // Les fascicules débloqués d'abord, puis les verrouillés (ADR 0068).
+          .sort((a, b) => Number(deblocage ? !deblocage.debloques.has(a.manifeste.id) : false) - Number(deblocage ? !deblocage.debloques.has(b.manifeste.id) : false) || b.numero - a.numero)
           .map((f, rang) => {
             const c = completude(entrees.filter((e) => e.fascicule === f.numero))
             const choisi = actif === f.numero
             const recompenses = aRecuperer?.(f) ?? 0
+            // Fascicule verrouillé (ADR 0068) : ses seules cartes trouvées, sans total ni silhouette.
+            const verrouille = deblocage ? !deblocage.debloques.has(f.manifeste.id) : false
+            const nouveau = deblocage?.nouveaux.has(f.manifeste.id) ?? false
+            const compte = verrouille ? `${c.trouvees} carte${c.trouvees > 1 ? 's' : ''} découverte${c.trouvees > 1 ? 's' : ''}, fascicule verrouillé\u00a0: ${conditionDeblocage(jeu, f)}` : `${c.trouvees} cartes découvertes sur ${c.total}`
             return (
               <button
                 key={f.numero}
                 type="button"
-                className="cb-fasc-btn"
+                className={['cb-fasc-btn', verrouille ? 'is-locked' : ''].filter(Boolean).join(' ')}
                 aria-pressed={choisi}
-                aria-label={`${libelleFascicule(f)}\u00a0: ${c.trouvees} cartes découvertes sur ${c.total}${recompenses > 0 ? `, ${recompenses} récompense${recompenses > 1 ? 's' : ''} à récupérer` : ''}. ${choisi ? 'Afficher tous les fascicules' : 'Afficher ce fascicule seulement'}`}
-                onClick={() => onChoisir(choisi ? 'tous' : f.numero)}
+                aria-label={`${libelleFascicule(f)}\u00a0: ${compte}${nouveau ? ', nouveau' : ''}${recompenses > 0 ? `, ${recompenses} récompense${recompenses > 1 ? 's' : ''} à récupérer` : ''}. ${choisi ? 'Afficher tous les fascicules' : 'Afficher ce fascicule seulement'}`}
+                onClick={() => {
+                  if (!choisi) deblocage?.marquerVu(f.manifeste.id)
+                  onChoisir(choisi ? 'tous' : f.numero)
+                }}
               >
                 <Jaquette chemin={f.manifeste.jaquette} urlMedia={urlMedia} />
                 <span className="cb-fasc-info">
@@ -112,25 +123,44 @@ export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, 
                       }).format(new Date(f.parution))}
                     </span>
                   </span>
-                  <span className="cb-fasc-bar">
-                    {/* --i : la barre se remplit à l'arrivée, après celle du fascicule précédent (codex.css). */}
-                    <i
-                      style={
-                        {
-                          width: `${c.total ? (c.trouvees / c.total) * 100 : 0}%`,
-                          '--i': rang,
-                        } as React.CSSProperties
-                      }
-                    />
-                  </span>
-                  <span className="cb-fasc-count">
-                    <b>
-                      {c.trouvees} / {c.total}
-                    </b>{' '}
-                    cartes
-                    {c.trouvees === c.total && c.total > 0 ? ' · complet' : ''}
-                  </span>
+                  {verrouille ? (
+                    <>
+                      <span className="cb-fasc-verrou">
+                        <Icone nom="verrou" />
+                        {conditionDeblocage(jeu, f)}
+                      </span>
+                      <span className="cb-fasc-count">
+                        <b>{c.trouvees}</b> trouvée{c.trouvees > 1 ? 's' : ''}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="cb-fasc-bar">
+                        {/* --i : la barre se remplit à l'arrivée, après celle du fascicule précédent (codex.css). */}
+                        <i
+                          style={
+                            {
+                              width: `${c.total ? (c.trouvees / c.total) * 100 : 0}%`,
+                              '--i': rang,
+                            } as React.CSSProperties
+                          }
+                        />
+                      </span>
+                      <span className="cb-fasc-count">
+                        <b>
+                          {c.trouvees} / {c.total}
+                        </b>{' '}
+                        cartes
+                        {c.trouvees === c.total && c.total > 0 ? ' · complet' : ''}
+                      </span>
+                    </>
+                  )}
                 </span>
+                {nouveau && recompenses === 0 && (
+                  <span className="count cb-fasc-pastille is-nouveau" aria-hidden="true">
+                    nouveau
+                  </span>
+                )}
                 {recompenses > 0 && (
                   <span className="count cb-fasc-pastille" aria-hidden="true">
                     {recompenses}

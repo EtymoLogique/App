@@ -563,3 +563,9 @@
   .cb-fasc-btn { width: min(224px, 72vw); transition: none; }
   .cb-fasc-btn:hover { transform: none; box-shadow: none; }
 }
+
+/* Fascicule verrouillé (ADR 0068) : jaquette atténuée, cadenas et condition en Encre ; la couleur n'est jamais le seul signal. */
+.cb-fasc-btn.is-locked { border-style: dashed; }
+.cb-fasc-btn.is-locked .jk-mini { opacity: 0.45; }
+.cb-fasc-verrou { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; line-height: 1.3; }
+.cb-fasc-verrou .ic { flex: none; width: 16px; height: 16px; }

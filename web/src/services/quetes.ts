@@ -4,6 +4,7 @@
 // dit atteint.
 
 import type { Etat, Jalon, Palier, QueteLongCours } from '../contrat'
+import { fasciculesDebloques } from './deblocage'
 import type { CatalogueJeu, FasciculeParu } from './jeu'
 
 export type EtatJalon = 'en_cours' | 'a_recuperer' | 'recupere'
@@ -23,11 +24,15 @@ export function motsDecouverts(fascicule: FasciculeParu, etat: Etat | null): num
   return (fascicule.manifeste.cartes ?? []).filter((c) => c.role === 'resultat' && decouverts.has(c.id)).length
 }
 
-/** Jalons des fascicules parus, dans l'ordre des fascicules puis des seuils. */
+/**
+ * Jalons des fascicules parus et débloqués, dans l'ordre des fascicules puis des
+ * seuils. Un fascicule verrouillé n'en montre aucun (ADR 0068).
+ */
 export function quetesDeFascicule(jeu: CatalogueJeu, etat: Etat | null): QueteJalon[] {
   const atteints = new Set(etat?.jalons_atteints ?? [])
   const recuperes = new Set(etat?.jalons_recuperes ?? [])
-  return jeu.fascicules.flatMap((fascicule) => {
+  const debloques = fasciculesDebloques(jeu, etat)
+  return jeu.fascicules.filter((f) => debloques.has(f.manifeste.id)).flatMap((fascicule) => {
     const trouves = motsDecouverts(fascicule, etat)
     return (fascicule.manifeste.jalons ?? []).map((jalon) => ({
       jalon,

@@ -46,6 +46,17 @@ pub const PALIER_RICOCHETS: &str = "pal_0000000d";
 /// jaquette, des graines) et renvoie le chemin de son manifeste.
 #[must_use]
 pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
+    fascicule_avec_jalons(
+        racine,
+        numero,
+        parution,
+        &json!([{ "id": "jal_0000000a", "decouvertes": 1, "pli": [BIO], "sabliers": 3 }]),
+    )
+}
+
+/// Comme [`fascicule`], avec ces jalons : le 2ᵉ débloque le fascicule suivant (ADR 0068).
+#[must_use]
+pub fn fascicule_avec_jalons(racine: &Path, numero: u32, parution: &str, jalons: &Value) -> String {
     let jaquette = deposer(
         racine,
         "a",
@@ -126,7 +137,7 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
                 "filet_utilite": 5
             }
         },
-        "jalons": [{ "id": "jal_0000000a", "decouvertes": 1, "pli": [BIO], "sabliers": 3 }],
+        "jalons": jalons,
         "graines": [
             { "brique_id": GEO, "exemplaires": 2 },
             { "brique_id": LOGIE, "exemplaires": 1 }

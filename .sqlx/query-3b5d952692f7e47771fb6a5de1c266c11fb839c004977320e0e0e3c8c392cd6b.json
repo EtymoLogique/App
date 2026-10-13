@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT fascicule_id, debloque_le FROM fascicule_debloque\n         WHERE joueur_id = $1 ORDER BY fascicule_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fascicule_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "debloque_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3b5d952692f7e47771fb6a5de1c266c11fb839c004977320e0e0e3c8c392cd6b"
+}

@@ -90,3 +90,11 @@ describe('quêtes au long cours', () => {
     expect(quetesAuLongCours({ ...j, quetes: [ricochets] }, etat())[0]?.ouverte).toBe(false)
   })
 })
+
+describe('quêtes d’un fascicule verrouillé (ADR 0068)', () => {
+  it('ne montrent aucun jalon', () => {
+    const deblocage = { fascicules_debloques: [{ fascicule_id: 'fsc_autre', debloque_le: '2026-10-12T00:00:00Z' }] }
+    expect(quetesDeFascicule(avecJalons(), etat({ ...deblocage, decouvertes: decouvert }))).toEqual([])
+    expect(quetesDeFascicule(avecJalons(), etat({ decouvertes: decouvert }))).toHaveLength(2)
+  })
+})

@@ -160,10 +160,11 @@ pub async fn session(
     }))
 }
 
-/// Synchronise le joueur : accorde les graines des fascicules parus qu'il
-/// n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
-/// parution (ADR 0038), dont la récompense attend d'être récupérée
-/// (ADR 0042), puis renvoie son état confirmé.
+/// Synchronise le joueur : marque les jalons atteints depuis une parution
+/// (ADR 0038), dont la récompense attend d'être récupérée (ADR 0042),
+/// débloque les fascicules qu'ils ouvrent (ADR 0068), accorde les graines des
+/// fascicules débloqués qu'il n'a pas encore reçues (ADR 0030), puis renvoie
+/// son état confirmé.
 #[utoipa::path(get, path = "/etat", tag = "profil", security(("session" = [])),
     responses(
         (status = 200, description = "État confirmé", body = Etat),
@@ -178,11 +179,10 @@ pub async fn etat(
     let mut tx = app.base.begin().await?;
     progression::verrouiller(&mut tx, joueur).await?;
     if let Some(catalogue) = &catalogue {
-        let seme = progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
-        let jalons = progression::atteindre_jalons(&mut tx, joueur, &catalogue.jeu).await?;
+        let avancee = progression::avancer(&mut tx, joueur, &catalogue.jeu).await?;
         let restaurees =
             progression::restaurer_briques_de_mots(&mut tx, joueur, &catalogue.jeu).await?;
-        if seme || restaurees || !jalons.is_empty() {
+        if avancee.change() || restaurees {
             progression::incrementer_version(&mut tx, joueur).await?;
         }
         sqlx::query!(
@@ -237,7 +237,7 @@ pub async fn fusion(
 
     let decouverts = progression::mots_decouverts(&mut tx, joueur).await?;
     let jeu = &catalogue.jeu;
-    let mut jalons = Vec::new();
+    let mut avancee = progression::Avancee::default();
     let issue = match resoudre(
         &demande.briques,
         &jeu.recettes,
@@ -275,7 +275,7 @@ pub async fn fusion(
                     progression::offrir_brique_du_mot(&mut tx, joueur, demande.commande, brique)
                         .await?;
                 }
-                jalons = progression::atteindre_jalons(&mut tx, joueur, jeu).await?;
+                avancee = progression::avancer(&mut tx, joueur, jeu).await?;
                 progression::incrementer_version(&mut tx, joueur).await?;
                 IssueFusion::Decouverte {
                     recette_id,
@@ -296,7 +296,8 @@ pub async fn fusion(
     let reponse = ReponseFusion {
         etat: etat_courant(&app, &mut tx, joueur).await?,
         issue,
-        jalons,
+        jalons: avancee.jalons,
+        fascicules_debloques: avancee.fascicules,
     };
     if matches!(reponse.issue, IssueFusion::Decouverte { .. }) {
         let enregistree =
@@ -415,7 +416,7 @@ fn alea(somme: u64) -> Result<u64, ErreurApi> {
         (status = 200, description = "Brique tirée et état confirmé", body = ReponsePli),
         (status = 400, description = "Requête invalide ou fascicule sans pli", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
-        (status = 403, description = "Aucune charge d'énergie", body = Erreur),
+        (status = 403, description = "Aucune charge d'énergie, ou fascicule pas encore débloqué", body = Erreur),
         (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
@@ -452,6 +453,8 @@ pub async fn ouvrir_pli(
     if demande.version_catalogue != catalogue.version() {
         return Err(ErreurApi::Conflit("version_catalogue périmée"));
     }
+
+    progression::exiger_debloque(&mut tx, joueur, &demande.fascicule_id).await?;
 
     let maintenant = Utc::now();
     let energie = progression::lire_energie(&mut tx, joueur)
@@ -800,7 +803,7 @@ pub async fn recuperer_jalon(
     let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
     let jeu = &catalogue.jeu;
     // Un jalon publié depuis la dernière synchronisation peut être déjà atteint.
-    progression::atteindre_jalons(&mut tx, joueur, jeu).await?;
+    progression::avancer(&mut tx, joueur, jeu).await?;
     progression::recuperer_jalon(&mut tx, joueur, jeu, demande.commande, &demande.jalon_id).await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseJalon {
@@ -913,7 +916,7 @@ pub async fn repondre_ricochet(
         (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseQueteInitiale),
         (status = 400, description = "Requête invalide, fascicule manquant ou sans pli", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
-        (status = 403, description = "Quête initiale pas faite", body = Erreur),
+        (status = 403, description = "Quête initiale pas faite, ou fascicule pas encore débloqué", body = Erreur),
         (status = 409, description = "Déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
@@ -952,6 +955,7 @@ pub async fn recuperer_quete_initiale(
     quetes_initiales::reclamer(&mut tx, joueur, demande.code, maintenant).await?;
     let mut ouvertures = Vec::new();
     if let Some(fascicule) = fascicule {
+        progression::exiger_debloque(&mut tx, joueur, fascicule).await?;
         let pli_jeu = jeu
             .pli(fascicule)
             .filter(|p| !p.briques.is_empty())

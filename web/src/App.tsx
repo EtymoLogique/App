@@ -17,6 +17,7 @@ import type { LecteurCatalogue } from './services/catalogue'
 import { construireCodex } from './services/codex'
 import { indiceCourant } from './services/indices'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
+import { FournisseurDeblocage, useDeblocageEtat } from './services/deblocage'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
 import { useRoute } from './services/route'
@@ -68,6 +69,7 @@ export function App({ api, catalogue }: Props) {
   // Avancée de la recharge en cours, de 0 à 1 ; null quand l'énergie est pleine.
   const recharge = etat && energieNav?.prochaine != null ? 1 - (energieNav.prochaine - maintenant) / (etat.energie.recharge_s * 1000) : null
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
+  const deblocage = useDeblocageEtat(catalogueJeu, etat)
   const entrees = useMemo(
     () => (catalogueJeu ? construireCodex(catalogueJeu, etat) : []),
     [catalogueJeu, etat],
@@ -131,235 +133,238 @@ export function App({ api, catalogue }: Props) {
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
-    <div className="coque">
-      <Navigation
-        actif={onglet}
-        compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size, quetes: recompensesARecuperer(catalogueJeu, etat) }}
-        onChoisir={setOnglet}
-        ressources={etat ? { plis: plisPrets, capacite: etat.energie.capacite, gouttes: encreAffichee ?? 0, sabliers: etat.sabliers?.detenus ?? 0, recharge, avance } : undefined}
-      />
+    <FournisseurDeblocage value={deblocage}>
+      <div className="coque">
+        <Navigation
+          actif={onglet}
+          compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size, quetes: recompensesARecuperer(catalogueJeu, etat) }}
+          onChoisir={setOnglet}
+          ressources={etat ? { plis: plisPrets, capacite: etat.energie.capacite, gouttes: encreAffichee ?? 0, sabliers: etat.sabliers?.detenus ?? 0, recharge, avance } : undefined}
+        />
 
-      <div className="contenu">
-        <main className="page">
-          {!enLigne && (
-            <p className="banniere" role="status">
-              <Icone nom="horsLigne" />
-              <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
-            </p>
-          )}
-          {partie.erreurEtat && (
-            <p className="banniere" role="alert">
-              <Icone nom="info" />
-              <span>{partie.erreurEtat} Votre progression confirmée n’est pas perdue.</span>
-            </p>
-          )}
-          {jeu.etat === 'erreur' && (
-            <p className="banniere" role="alert">
-              <Icone nom="info" />
-              <span>{jeu.message}</span>
-            </p>
-          )}
+        <div className="contenu">
+          <main className="page">
+            {!enLigne && (
+              <p className="banniere" role="status">
+                <Icone nom="horsLigne" />
+                <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
+              </p>
+            )}
+            {partie.erreurEtat && (
+              <p className="banniere" role="alert">
+                <Icone nom="info" />
+                <span>{partie.erreurEtat} Votre progression confirmée n’est pas perdue.</span>
+              </p>
+            )}
+            {jeu.etat === 'erreur' && (
+              <p className="banniere" role="alert">
+                <Icone nom="info" />
+                <span>{jeu.message}</span>
+              </p>
+            )}
 
-          {jeu.etat === 'attente' && (
-            <div className="lancement" aria-live="polite">
-              <span className="seal" aria-hidden="true">
-                ÉL
-              </span>
-              <p>Chargement du catalogue…</p>
-            </div>
-          )}
-          {jeu.etat === 'pret' && !catalogueJeu && (
-            <div className="empty">
-              <p>Aucun fascicule n’est encore paru.</p>
-            </div>
-          )}
+            {jeu.etat === 'attente' && (
+              <div className="lancement" aria-live="polite">
+                <span className="seal" aria-hidden="true">
+                  ÉL
+                </span>
+                <p>Chargement du catalogue…</p>
+              </div>
+            )}
+            {jeu.etat === 'pret' && !catalogueJeu && (
+              <div className="empty">
+                <p>Aucun fascicule n’est encore paru.</p>
+              </div>
+            )}
 
-          {catalogueJeu && (
-            <>
-              <section {...ecran('table')}>
-                <EnTete titre="Table" id="titre-table" />
-                {reserveOuverte && etat && (
-                  <ReserveModale
-                    reserve={etat.reserve}
-                    briques={catalogueJeu.briques}
-                    cases={partie.cases}
-                    consommees={partie.consommees}
-                    exemplaires={exemplaires}
-                    rang={reserveOuverte.rang}
-                    onPoser={partie.poser}
-                    onRetirer={partie.retirer}
-                    onComplete={versFusion}
-                    onFermer={fermerReserve}
+            {catalogueJeu && (
+              <>
+                <section {...ecran('table')}>
+                  <EnTete titre="Table" id="titre-table" />
+                  {reserveOuverte && etat && (
+                    <ReserveModale
+                      reserve={etat.reserve}
+                      briques={catalogueJeu.briques}
+                      cases={partie.cases}
+                      consommees={partie.consommees}
+                      exemplaires={exemplaires}
+                      rang={reserveOuverte.rang}
+                      onPoser={partie.poser}
+                      onRetirer={partie.retirer}
+                      onComplete={versFusion}
+                      onFermer={fermerReserve}
+                    />
+                  )}
+                  {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} lireMedia={lireMedia} onFermer={fermerIndices} />}
+
+                  <div className="jeu">
+                    <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
+                      <div className="panel-head">
+                        <span>Table de fusion</span>
+                        <span className="status">{statut}</span>
+                      </div>
+                      {bloque ? (
+                        <div className="empty">
+                          <span className="ill" aria-hidden="true">
+                            ?
+                          </span>
+                          <h2>Aucun mot possible pour l’instant</h2>
+                          <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
+                          <div className="rangee rangee-centree">
+                            <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
+                              Aller aux plis
+                            </button>
+                            {indiceDisponible && (
+                              <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                                <Icone nom="indice" />
+                                Indice
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <Table
+                            table={partie.cases}
+                            briques={catalogueJeu.briques}
+                            enAttente={partie.enAttente}
+                            secousse={partie.secousse}
+                            fusion={partie.fusion}
+                            onPoser={partie.poser}
+                            onDeplacer={partie.deplacer}
+                            onRetirer={partie.retirer}
+                            onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
+                          />
+                          <div className="actions">
+                            <button
+                              ref={boutonFusion}
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => void partie.fusionner()}
+                              disabled={raisonFusion !== null || partie.enAttente}
+                              title={raisonFusion ?? undefined}
+                            >
+                              {partie.enAttente ? 'Fusion…' : 'Fusionner'}
+                            </button>
+                            <button type="button" className="btn btn-secondary" onClick={() => setReserveOuverte({ rang: null })} disabled={bloquee !== null}>
+                              <Icone nom="reserve" />
+                              Réserve · {exemplaires}
+                            </button>
+                            {indiceDisponible && (
+                              <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                                <Icone nom="indice" />
+                                Indice
+                              </button>
+                            )}
+                          </div>
+                          <Resultat
+                            retour={partie.retour}
+                            jeu={catalogueJeu}
+                            posees={partie.table.length}
+                            bloquee={bloquee}
+                            onInverser={partie.inverser}
+                            aRecuperer={jalonsARecuperer}
+                            onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
+                            onFascicule={(id) => naviguer({ onglet: 'plis', pli: id })}
+                          />
+                        </>
+                      )}
+                    </section>
+                  </div>
+
+
+                </section>
+
+                <section {...ecran('codex')}>
+                  <EnTete titre="Codex" id="titre-codex" />
+                  <Codex
+                    entrees={entrees}
+                    jeu={catalogueJeu}
+                    joursDeJeu={etat?.jours_de_jeu}
+                    nouvelles={partie.nouvelles}
+                    onVue={partie.carteVue}
+                    vue={route}
+                    onChangerVue={naviguer}
+                    urlMedia={(chemin) => catalogue.url(chemin)}
+                    lireMedia={lireMedia}
+                  />
+                </section>
+
+                <section {...ecran('plis')}>
+                  <EnTete titre="Plis" id="titre-plis" />
+                  <Plis
+                    jeu={catalogueJeu}
+                    etat={etat}
+                    fascicule={route.pli}
+                    onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
+                    ouvrirPli={partie.ouvrirPli}
+                    ouvrirPlis={partie.ouvrirPlis}
+                    utiliserSabliers={partie.utiliserSabliers}
+                    acheterEtAvancer={partie.acheterEtAvancer}
+                    onEssayer={(brique) => {
+                      // Pose la brique découverte à sa place : un préfixe en tête, un suffixe en queue, un mot dans la première case libre.
+                      const nature = catalogueJeu.briques.get(brique)?.nature
+                      const rang = nature === 'prefixe' ? 0 : nature === 'suffixe' ? partie.cases.length - 1 : partie.cases.indexOf(null)
+                      const libres = (etat?.reserve.find((e) => e.brique_id === brique)?.exemplaires ?? 0) - partie.cases.filter((b) => b === brique).length
+                      if (rang >= 0 && libres > 0) partie.poser(brique, rang)
+                      setOnglet('table')
+                    }}
+                    onGeler={geler}
+                    urlMedia={(chemin) => catalogue.url(chemin)}
+                  />
+                </section>
+
+                <section {...ecran('quetes')}>
+                  <EnTete titre="Quêtes" id="titre-quetes" />
+                  <Quetes
+                    jeu={catalogueJeu}
+                    etat={etat}
+                    entrees={entrees}
+                    vue={route}
+                    onChangerVue={naviguer}
+                    urlMedia={(chemin) => catalogue.url(chemin)}
+                    recuperer={partie.recupererJalon}
+                    recupererPalier={partie.recupererPalier}
+                    recupererCarte={partie.recupererCarte}
+                    recupererCadeau={partie.recupererCadeau}
+                    recupererQueteInitiale={partie.recupererQueteInitiale}
+                    recupererQueteDuJour={partie.recupererQueteDuJour}
+                    inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
+                  />
+                </section>
+
+                <section {...ecran('boutique')}>
+                  <EnTete titre="Boutique" id="titre-boutique" />
+                  <Boutique etat={etat} acheter={partie.acheterSabliers} />
+                </section>
+
+                {/* Fusion réussie, nouvelle ou déjà connue : la carte s'ouvre, la même qu'au codex. */}
+                {ficheEntree && (
+                  <CarteSeule
+                    key={ficheEntree.id}
+                    entree={ficheEntree}
+                    entrees={entrees}
+                    jeu={catalogueJeu}
+                    lireMedia={lireMedia}
+                    onFermer={partie.fermerFiche}
+                    onSuivreLien={allerAuCodex}
                   />
                 )}
-                {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} lireMedia={lireMedia} onFermer={fermerIndices} />}
+              </>
+            )}
 
-                <div className="jeu">
-                  <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
-                    <div className="panel-head">
-                      <span>Table de fusion</span>
-                      <span className="status">{statut}</span>
-                    </div>
-                    {bloque ? (
-                      <div className="empty">
-                        <span className="ill" aria-hidden="true">
-                          ?
-                        </span>
-                        <h2>Aucun mot possible pour l’instant</h2>
-                        <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
-                        <div className="rangee rangee-centree">
-                          <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
-                            Aller aux plis
-                          </button>
-                          {indiceDisponible && (
-                            <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
-                              <Icone nom="indice" />
-                              Indice
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <Table
-                          table={partie.cases}
-                          briques={catalogueJeu.briques}
-                          enAttente={partie.enAttente}
-                          secousse={partie.secousse}
-                          fusion={partie.fusion}
-                          onPoser={partie.poser}
-                          onDeplacer={partie.deplacer}
-                          onRetirer={partie.retirer}
-                          onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
-                        />
-                        <div className="actions">
-                          <button
-                            ref={boutonFusion}
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => void partie.fusionner()}
-                            disabled={raisonFusion !== null || partie.enAttente}
-                            title={raisonFusion ?? undefined}
-                          >
-                            {partie.enAttente ? 'Fusion…' : 'Fusionner'}
-                          </button>
-                          <button type="button" className="btn btn-secondary" onClick={() => setReserveOuverte({ rang: null })} disabled={bloquee !== null}>
-                            <Icone nom="reserve" />
-                            Réserve · {exemplaires}
-                          </button>
-                          {indiceDisponible && (
-                            <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
-                              <Icone nom="indice" />
-                              Indice
-                            </button>
-                          )}
-                        </div>
-                        <Resultat
-                          retour={partie.retour}
-                          jeu={catalogueJeu}
-                          posees={partie.table.length}
-                          bloquee={bloquee}
-                          onInverser={partie.inverser}
-                          aRecuperer={jalonsARecuperer}
-                          onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
-                        />
-                      </>
-                    )}
-                  </section>
-                </div>
+            <section {...ecran('ricochets')}>
+              <EnTete titre="Ricochets" id="titre-ricochets" />
+              <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} entrees={entrees} lireMedia={lireMedia} onSuivreLien={allerAuCodex} />
+            </section>
 
-
-              </section>
-
-              <section {...ecran('codex')}>
-                <EnTete titre="Codex" id="titre-codex" />
-                <Codex
-                  entrees={entrees}
-                  jeu={catalogueJeu}
-                  joursDeJeu={etat?.jours_de_jeu}
-                  nouvelles={partie.nouvelles}
-                  onVue={partie.carteVue}
-                  vue={route}
-                  onChangerVue={naviguer}
-                  urlMedia={(chemin) => catalogue.url(chemin)}
-                  lireMedia={lireMedia}
-                />
-              </section>
-
-              <section {...ecran('plis')}>
-                <EnTete titre="Plis" id="titre-plis" />
-                <Plis
-                  jeu={catalogueJeu}
-                  etat={etat}
-                  fascicule={route.pli}
-                  onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
-                  ouvrirPli={partie.ouvrirPli}
-                  ouvrirPlis={partie.ouvrirPlis}
-                  utiliserSabliers={partie.utiliserSabliers}
-                  acheterEtAvancer={partie.acheterEtAvancer}
-                  onEssayer={(brique) => {
-                    // Pose la brique découverte à sa place : un préfixe en tête, un suffixe en queue, un mot dans la première case libre.
-                    const nature = catalogueJeu.briques.get(brique)?.nature
-                    const rang = nature === 'prefixe' ? 0 : nature === 'suffixe' ? partie.cases.length - 1 : partie.cases.indexOf(null)
-                    const libres = (etat?.reserve.find((e) => e.brique_id === brique)?.exemplaires ?? 0) - partie.cases.filter((b) => b === brique).length
-                    if (rang >= 0 && libres > 0) partie.poser(brique, rang)
-                    setOnglet('table')
-                  }}
-                  onGeler={geler}
-                  urlMedia={(chemin) => catalogue.url(chemin)}
-                />
-              </section>
-
-              <section {...ecran('quetes')}>
-                <EnTete titre="Quêtes" id="titre-quetes" />
-                <Quetes
-                  jeu={catalogueJeu}
-                  etat={etat}
-                  entrees={entrees}
-                  vue={route}
-                  onChangerVue={naviguer}
-                  urlMedia={(chemin) => catalogue.url(chemin)}
-                  recuperer={partie.recupererJalon}
-                  recupererPalier={partie.recupererPalier}
-                  recupererCarte={partie.recupererCarte}
-                  recupererCadeau={partie.recupererCadeau}
-                  recupererQueteInitiale={partie.recupererQueteInitiale}
-                  recupererQueteDuJour={partie.recupererQueteDuJour}
-                  inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
-                />
-              </section>
-
-              <section {...ecran('boutique')}>
-                <EnTete titre="Boutique" id="titre-boutique" />
-                <Boutique etat={etat} acheter={partie.acheterSabliers} />
-              </section>
-
-              {/* Fusion réussie, nouvelle ou déjà connue : la carte s'ouvre, la même qu'au codex. */}
-              {ficheEntree && (
-                <CarteSeule
-                  key={ficheEntree.id}
-                  entree={ficheEntree}
-                  entrees={entrees}
-                  jeu={catalogueJeu}
-                  lireMedia={lireMedia}
-                  onFermer={partie.fermerFiche}
-                  onSuivreLien={allerAuCodex}
-                />
-              )}
-            </>
-          )}
-
-          <section {...ecran('ricochets')}>
-            <EnTete titre="Ricochets" id="titre-ricochets" />
-            <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} entrees={entrees} lireMedia={lireMedia} onSuivreLien={allerAuCodex} />
-          </section>
-
-          <section {...ecran('reglages')}>
-            <EnTete titre="Réglages" id="titre-reglages" />
-            <Reglages reglages={reglages} onChanger={changer} onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined} />
-          </section>
-        </main>
+            <section {...ecran('reglages')}>
+              <EnTete titre="Réglages" id="titre-reglages" />
+              <Reglages reglages={reglages} onChanger={changer} onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined} />
+            </section>
+          </main>
+        </div>
       </div>
-    </div>
+    </FournisseurDeblocage>
   )
 }

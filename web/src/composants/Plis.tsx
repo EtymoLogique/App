@@ -4,6 +4,7 @@ import type { Etat, OuverturePli, Rarete, ReponseAchatSablier, ReponsePli, Repon
 import { accordLegendaire, basculer, mouvementReduit, useEnergieAnimee, vibrer } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
 import { useEnLigne } from '../services/reseau'
+import { conditionDeblocage, useDeblocage } from '../services/deblocage'
 import { type Ligne, ecrireRituel } from '../services/ecriture'
 import { type CatalogueJeu, type FasciculeParu, decouvertePossible, libelleFascicule, prochainFascicule } from '../services/jeu'
 import {
@@ -22,6 +23,7 @@ import {
   resumeGroupe,
 } from '../services/plis'
 import { Brique, PetiteBrique } from './Brique'
+import { Icone } from './Icone'
 import { FormeRarete } from './Rarete'
 import { Anneau } from './Anneau'
 import { Ecrit, Plume } from './Plume'
@@ -201,7 +203,9 @@ interface Props {
 
 /** Écran des plis (I-19 à I-21) : choisir un fascicule, puis ouvrir son pli. */
 export function Plis({ jeu, etat, fascicule, onChoisir, ouvrirPli, ouvrirPlis, utiliserSabliers, acheterEtAvancer, onEssayer, urlMedia, onGeler }: Props) {
-  const choisi = jeu.fascicules.find((f) => f.manifeste.id === fascicule)
+  const deblocage = useDeblocage()
+  // Un fascicule verrouillé (ADR 0068) ne s'ouvre pas, même par l'adresse : retour au choix.
+  const choisi = jeu.fascicules.find((f) => f.manifeste.id === fascicule && (!deblocage || deblocage.debloques.has(f.manifeste.id)))
   const raccourci = <RaccourciSabliers etat={etat} utiliser={utiliserSabliers} acheter={acheterEtAvancer} />
   if (!choisi) return <Choix jeu={jeu} etat={etat} onChoisir={onChoisir} urlMedia={urlMedia} />
   return (
@@ -233,8 +237,11 @@ function Choix({
   onChoisir: (f: string) => void
   urlMedia: (c: string) => string
 }) {
+  const deblocage = useDeblocage()
   if (jeu.fascicules.length === 0) return <p className="pk-empty">Aucun fascicule n’est encore paru.</p>
-  const parus = [...jeu.fascicules].sort((a, b) => b.numero - a.numero)
+  // Les fascicules débloqués d'abord, du plus récent au plus ancien, puis les verrouillés (ADR 0068).
+  const ouvert = (f: FasciculeParu) => (!deblocage || deblocage.debloques.has(f.manifeste.id) ? 0 : 1)
+  const parus = [...jeu.fascicules].sort((a, b) => ouvert(a) - ouvert(b) || b.numero - a.numero)
   const prochain = prochainFascicule(jeu)
   return (
     <div className="pk-chooser">
@@ -250,7 +257,9 @@ function Choix({
       <div className="pk-fasc-list">
         {parus.map((f) => {
           const { connues, exemplaires } = reserveDuFascicule(jeu, etat, f)
-          const ouvrable = pliOuvrable(f)
+          const verrouille = deblocage ? !deblocage.debloques.has(f.manifeste.id) : false
+          const nouveau = deblocage?.nouveaux.has(f.manifeste.id) ?? false
+          const ouvrable = pliOuvrable(f) && !verrouille
           const total = briquesDuPli(f).length
           const contenu = (
             <>
@@ -274,16 +283,38 @@ function Choix({
                     </span>
                   </>
                 )}
-                <span className="pk-fasc-go">{ouvrable ? 'Ouvrir son pli →' : 'Pli bientôt disponible'}</span>
+                {verrouille ? (
+                  <span className="pk-fasc-verrou">
+                    <Icone nom="verrou" />
+                    {conditionDeblocage(jeu, f)}
+                  </span>
+                ) : (
+                  <span className="pk-fasc-go">{ouvrable ? 'Ouvrir son pli →' : 'Pli bientôt disponible'}</span>
+                )}
               </span>
+              {nouveau && (
+                <span className="count pk-fasc-nouveau" aria-hidden="true">
+                  nouveau
+                </span>
+              )}
             </>
           )
           return ouvrable ? (
-            <button key={f.numero} type="button" className="pk-fasc" aria-label={`${libelleFascicule(f)} : ${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}${total > 0 ? ` sur ${total}` : ''}, ${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}. Ouvrir son pli`} onClick={() => onChoisir(f.manifeste.id)}>
+            <button
+              key={f.numero}
+              type="button"
+              className="pk-fasc"
+              aria-label={`${libelleFascicule(f)} : ${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}${total > 0 ? ` sur ${total}` : ''}, ${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}${nouveau ? ', nouveau' : ''}. Ouvrir son pli`}
+              onClick={() => {
+                deblocage?.marquerVu(f.manifeste.id)
+                onChoisir(f.manifeste.id)
+              }}
+            >
               {contenu}
             </button>
           ) : (
-            <div key={f.numero} className="pk-fasc is-next">
+            <div key={f.numero} className={['pk-fasc', verrouille ? 'is-locked' : 'is-next'].join(' ')}>
+              {verrouille && <span className="sr-only">Fascicule verrouillé.</span>}
               {contenu}
             </div>
           )

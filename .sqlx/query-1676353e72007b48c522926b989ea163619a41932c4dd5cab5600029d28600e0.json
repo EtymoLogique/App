@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO fascicule_debloque (joueur_id, fascicule_id) VALUES ($1, $2)\n             ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1676353e72007b48c522926b989ea163619a41932c4dd5cab5600029d28600e0"
+}

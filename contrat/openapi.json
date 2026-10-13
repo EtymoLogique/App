@@ -246,7 +246,7 @@
         "tags": [
           "profil"
         ],
-        "summary": "Synchronise le joueur : accorde les graines des fascicules parus qu'il\nn'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une\nparution (ADR 0038), dont la récompense attend d'être récupérée\n(ADR 0042), puis renvoie son état confirmé.",
+        "summary": "Synchronise le joueur : marque les jalons atteints depuis une parution\n(ADR 0038), dont la récompense attend d'être récupérée (ADR 0042),\ndébloque les fascicules qu'ils ouvrent (ADR 0068), accorde les graines des\nfascicules débloqués qu'il n'a pas encore reçues (ADR 0030), puis renvoie\nson état confirmé.",
         "operationId": "etat",
         "responses": {
           "200": {
@@ -710,7 +710,7 @@
             }
           },
           "403": {
-            "description": "Aucune charge d'énergie",
+            "description": "Aucune charge d'énergie, ou fascicule pas encore débloqué",
             "content": {
               "application/json": {
                 "schema": {
@@ -902,7 +902,7 @@
             }
           },
           "403": {
-            "description": "Quête initiale pas faite",
+            "description": "Quête initiale pas faite, ou fascicule pas encore débloqué",
             "content": {
               "application/json": {
                 "schema": {
@@ -2745,6 +2745,13 @@
             "$ref": "#/components/schemas/EnergieEtat",
             "description": "Charges de pli, à l'horloge du serveur (ADR 0020)."
           },
+          "fascicules_debloques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FasciculeDebloque"
+            },
+            "description": "Fascicules parus que le joueur a débloqués (ADR 0068), triés par\nfascicule. Vide dans une réponse enregistrée avant ce champ, ou sans\ncatalogue : le client tient alors tous les fascicules parus pour débloqués."
+          },
           "historique_plis": {
             "type": "array",
             "items": {
@@ -2956,6 +2963,24 @@
             }
           }
         }
+      },
+      "FasciculeDebloque": {
+        "type": "object",
+        "description": "Un fascicule débloqué par le joueur (ADR 0068).",
+        "required": [
+          "fascicule_id",
+          "debloque_le"
+        ],
+        "properties": {
+          "debloque_le": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
       },
       "FormatRicochet": {
         "type": "string",
@@ -4003,6 +4028,13 @@
           "etat": {
             "$ref": "#/components/schemas/Etat",
             "description": "État confirmé après la commande."
+          },
+          "fascicules_debloques": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Fascicules débloqués par cette découverte, à annoncer (ADR 0068)."
           },
           "issue": {
             "$ref": "#/components/schemas/IssueFusion"

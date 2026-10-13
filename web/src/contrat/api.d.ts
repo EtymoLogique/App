@@ -74,10 +74,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Synchronise le joueur : accorde les graines des fascicules parus qu'il
-         *     n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
-         *     parution (ADR 0038), dont la récompense attend d'être récupérée
-         *     (ADR 0042), puis renvoie son état confirmé.
+         * Synchronise le joueur : marque les jalons atteints depuis une parution
+         *     (ADR 0038), dont la récompense attend d'être récupérée (ADR 0042),
+         *     débloque les fascicules qu'ils ouvrent (ADR 0068), accorde les graines des
+         *     fascicules débloqués qu'il n'a pas encore reçues (ADR 0030), puis renvoie
+         *     son état confirmé.
          */
         get: operations["etat"];
         put?: never;
@@ -889,6 +890,12 @@ export interface components {
             encre: number;
             /** @description Charges de pli, à l'horloge du serveur (ADR 0020). */
             energie: components["schemas"]["EnergieEtat"];
+            /**
+             * @description Fascicules parus que le joueur a débloqués (ADR 0068), triés par
+             *     fascicule. Vide dans une réponse enregistrée avant ce champ, ou sans
+             *     catalogue : le client tient alors tous les fascicules parus pour débloqués.
+             */
+            fascicules_debloques?: components["schemas"]["FasciculeDebloque"][];
             /** @description Derniers plis ouverts, du plus récent au plus ancien. */
             historique_plis: components["schemas"]["OuverturePli"][];
             /** @description Indices obtenus, par recette (ADR 0051). */
@@ -975,6 +982,12 @@ export interface components {
         Fait: {
             confiance: components["schemas"]["Confiance"];
             sources?: components["schemas"]["SourceCitee"][];
+        };
+        /** @description Un fascicule débloqué par le joueur (ADR 0068). */
+        FasciculeDebloque: {
+            /** Format: date-time */
+            debloque_le: string;
+            fascicule_id: components["schemas"]["IdCatalogue"];
         };
         /**
          * @description Les cinq formats d'une question de ricochet (ADR 0044).
@@ -1305,6 +1318,8 @@ export interface components {
         ReponseFusion: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
+            /** @description Fascicules débloqués par cette découverte, à annoncer (ADR 0068). */
+            fascicules_debloques?: components["schemas"]["IdCatalogue"][];
             issue: components["schemas"]["IssueFusion"];
             /** @description Jalons atteints par cette découverte, à annoncer. */
             jalons?: components["schemas"]["IdCatalogue"][];
@@ -2083,7 +2098,7 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Aucune charge d'énergie */
+            /** @description Aucune charge d'énergie, ou fascicule pas encore débloqué */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2239,7 +2254,7 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Quête initiale pas faite */
+            /** @description Quête initiale pas faite, ou fascicule pas encore débloqué */
             403: {
                 headers: {
                     [name: string]: unknown;

@@ -5,6 +5,7 @@ import type { EntreeCodex } from '../services/codex'
 import { type CatalogueJeu, libelleFascicule } from '../services/jeu'
 import { briquesDuPli, chances, LIBELLES_RARETES, pourcentage } from '../services/plis'
 import { sensLitteral } from '../services/ricochets'
+import { conditionDeblocage, jalonDeblocant, useDeblocage } from '../services/deblocage'
 import { type PalierSuivi, type QueteJalon, type QueteLongue, SORTES, quetesAuLongCours, quetesDeFascicule } from '../services/quetes'
 import type { OngletQuetes, Route } from '../services/route'
 import { PetiteBrique } from './Brique'
@@ -97,6 +98,12 @@ function CarteJalon({ quete, jeu, inactif, recuperer, onAller }: CarteProps) {
       >
         <i style={{ width: `${(avancee / jalon.decouvertes) * 100}%` }} />
       </span>
+      {jalonDeblocant(quete.fascicule, jalon.id) && (
+        <p className="quete-deblocage">
+          <Icone nom="verrou" />
+          Ouvre le fascicule suivant
+        </p>
+      )}
       <div className="quete-pied">
         <span className="quete-k">Récompense</span>
         <Recompense quete={quete} jeu={jeu} />
@@ -440,7 +447,11 @@ function texteRecompenseInitiale({ recompense: r }: QueteInitialeEtat): string {
  * Une récompense avec des plis se récupère dans le fascicule choisi.
  */
 function QuetesInitiales({ quetes, jeu, inactif, recuperer, onAller }: { quetes: QueteInitialeEtat[]; jeu: CatalogueJeu; inactif: string | null; onAller: (d: Destination) => void; recuperer: (code: CodeQueteInitiale, fascicule: string | null) => Promise<ReponseQueteInitiale | { erreur: string }> }) {
-  const [fascicule, setFascicule] = useState(jeu.fascicules[0]?.manifeste.id ?? '')
+  // Un pli offert ne vient que d'un fascicule débloqué (ADR 0068).
+  const deblocage = useDeblocage()
+  const ouverts = jeu.fascicules.filter((f) => !deblocage || deblocage.debloques.has(f.manifeste.id))
+  const [choix, setFascicule] = useState(ouverts[0]?.manifeste.id ?? '')
+  const fascicule = ouverts.some((f) => f.manifeste.id === choix) ? choix : (ouverts[0]?.manifeste.id ?? '')
   const [enCours, setEnCours] = useState<CodeQueteInitiale | null>(null)
   const [message, setMessage] = useState<{ texte: string; ton: 'win' | 'fail' } | null>(null)
   if (quetes.length === 0 || (quetes.every((q) => q.recuperee) && !message)) return null
@@ -480,7 +491,7 @@ function QuetesInitiales({ quetes, jeu, inactif, recuperer, onAller }: { quetes:
         <div className="quete-pied">
           <label className="quete-k" htmlFor="pli-initial-fascicule">Fascicule des plis</label>
           <select id="pli-initial-fascicule" value={fascicule} onChange={(e) => setFascicule(e.target.value)}>
-            {jeu.fascicules.map((f) => (
+            {ouverts.map((f) => (
               <option key={f.manifeste.id} value={f.manifeste.id}>
                 {libelleFascicule(f)}
               </option>
@@ -521,6 +532,7 @@ interface Props {
  * récompense : rien n'arrive dans la réserve sans qu'il sache d'où cela vient.
  */
 export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recuperer, recupererPalier, recupererCarte, recupererCadeau, recupererQueteInitiale, recupererQueteDuJour, inactif }: Props) {
+  const deblocage = useDeblocage()
   const quetes = quetesDeFascicule(jeu, etat)
   const aRecuperer = quetes.filter((q) => q.etat === 'a_recuperer')
   const longues = quetesAuLongCours(jeu, etat)
@@ -534,7 +546,8 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
   // Sans onglet choisi, le premier onglet où une récompense attend passe devant.
   const onglet = vue.quete ?? ONGLETS.find(([o]) => attente[o] > 0)?.[0] ?? 'journalieres'
   const fascicule = vue.fascicule ?? 'tous'
-  const affichees = jeu.fascicules.filter((f) => fascicule === 'tous' || f.numero === fascicule)
+  // Tous les fascicules : les seuls débloqués ; un fascicule verrouillé ne s'affiche que filtré (ADR 0068).
+  const affichees = jeu.fascicules.filter((f) => (fascicule === 'tous' ? !deblocage || deblocage.debloques.has(f.manifeste.id) : f.numero === fascicule))
   // L'onglet choisi d'office s'inscrit dans l'adresse : récupérer la dernière récompense ne le change pas.
   const fixerOnglet = () => {
     if (vue.quete === null) onChangerVue({ quete: onglet }, { remplacer: true })
@@ -647,12 +660,18 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
           />
           {affichees.map((f) => {
             const siennes = quetes.filter((q) => q.fascicule.numero === f.numero)
+            const verrouille = deblocage ? !deblocage.debloques.has(f.manifeste.id) : false
             return (
               <section key={f.numero} className="quetes-fascicule" aria-label={`Jalons du fascicule ${f.manifeste.nom ?? f.numero}`}>
                 <h2 className="quetes-titre">
                   <TitreFascicule fascicule={f} />
                 </h2>
-                {siennes.length === 0 ? (
+                {verrouille ? (
+                  <p className="cb-note quetes-verrou">
+                    <Icone nom="verrou" />
+                    Fascicule verrouillé. {conditionDeblocage(jeu, f)} pour ouvrir ses jalons.
+                  </p>
+                ) : siennes.length === 0 ? (
                   <p className="cb-note">Aucun jalon pour ce fascicule.</p>
                 ) : (
                   <ol className="quetes-liste">
