@@ -546,7 +546,8 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
   // Sans onglet choisi, le premier onglet où une récompense attend passe devant.
   const onglet = vue.quete ?? ONGLETS.find(([o]) => attente[o] > 0)?.[0] ?? 'journalieres'
   const fascicule = vue.fascicule ?? 'tous'
-  const affichees = jeu.fascicules.filter((f) => fascicule === 'tous' || f.numero === fascicule)
+  // Tous les fascicules : les seuls débloqués ; un fascicule verrouillé ne s'affiche que filtré (ADR 0068).
+  const affichees = jeu.fascicules.filter((f) => (fascicule === 'tous' ? !deblocage || deblocage.debloques.has(f.manifeste.id) : f.numero === fascicule))
   // L'onglet choisi d'office s'inscrit dans l'adresse : récupérer la dernière récompense ne le change pas.
   const fixerOnglet = () => {
     if (vue.quete === null) onChangerVue({ quete: onglet }, { remplacer: true })

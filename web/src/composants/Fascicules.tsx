@@ -90,7 +90,8 @@ export function SelecteurFascicules({ jeu, entrees, actif, onChoisir, urlMedia, 
       )}
       <div ref={bande} className="cb-fasc" role="group" aria-label="Complétude par fascicule, touchez pour filtrer">
         {[...jeu.fascicules]
-          .sort((a, b) => b.numero - a.numero)
+          // Les fascicules débloqués d'abord, puis les verrouillés (ADR 0068).
+          .sort((a, b) => Number(deblocage ? !deblocage.debloques.has(a.manifeste.id) : false) - Number(deblocage ? !deblocage.debloques.has(b.manifeste.id) : false) || b.numero - a.numero)
           .map((f, rang) => {
             const c = completude(entrees.filter((e) => e.fascicule === f.numero))
             const choisi = actif === f.numero

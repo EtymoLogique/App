@@ -239,7 +239,9 @@ function Choix({
 }) {
   const deblocage = useDeblocage()
   if (jeu.fascicules.length === 0) return <p className="pk-empty">Aucun fascicule n’est encore paru.</p>
-  const parus = [...jeu.fascicules].sort((a, b) => b.numero - a.numero)
+  // Les fascicules débloqués d'abord, du plus récent au plus ancien, puis les verrouillés (ADR 0068).
+  const ouvert = (f: FasciculeParu) => (!deblocage || deblocage.debloques.has(f.manifeste.id) ? 0 : 1)
+  const parus = [...jeu.fascicules].sort((a, b) => ouvert(a) - ouvert(b) || b.numero - a.numero)
   const prochain = prochainFascicule(jeu)
   return (
     <div className="pk-chooser">

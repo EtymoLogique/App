@@ -32,7 +32,9 @@ export function precedent(jeu: Pick<CatalogueJeu, 'fascicules'>, fascicule: Fasc
 export function conditionDeblocage(jeu: Pick<CatalogueJeu, 'fascicules'>, fascicule: FasciculeParu): string {
   const avant = precedent(jeu, fascicule)
   if (!avant) return 'Bientôt disponible'
-  return `Atteignez le 2ᵉ jalon de ${avant.manifeste.nom ?? `Fascicule ${avant.numero}`}`
+  const nom = avant.manifeste.nom ?? `Fascicule ${avant.numero}`
+  // Élision devant une voyelle ou un h : « d’Argile », « de Rosette ».
+  return `Atteignez le 2ᵉ jalon ${/^[aeiouyhàâäéèêëîïôöûüù]/i.test(nom) ? `d’${nom}` : `de ${nom}`}`
 }
 
 /** Vrai si ce jalon est celui qui débloque le fascicule suivant. */

@@ -33,8 +33,9 @@ describe('déblocage des fascicules', () => {
 
   it('nomme le fascicule précédent dans la condition', () => {
     expect(precedent(jeu, trois)?.numero).toBe(2)
-    expect(conditionDeblocage(jeu, deux)).toBe('Atteignez le 2ᵉ jalon de Incipit')
+    expect(conditionDeblocage(jeu, deux)).toBe('Atteignez le 2ᵉ jalon d’Incipit')
     expect(conditionDeblocage(jeu, trois)).toBe('Atteignez le 2ᵉ jalon de Lettrine')
+    expect(conditionDeblocage({ fascicules: [fascicule(1, 'Argile'), deux] }, deux)).toBe('Atteignez le 2ᵉ jalon d’Argile')
   })
 
   it('reconnaît le 2ᵉ jalon', () => {
