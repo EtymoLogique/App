@@ -1,4 +1,3 @@
-import { createPortal } from 'react-dom'
 import { type CSSProperties, createContext, useContext, type KeyboardEvent, type ReactNode, useCallback, useMemo, useRef, useState } from 'react'
 
 import type { Etat, QuestionRicochet, ReponseRicochet, SeanceRicochets } from '../contrat'
@@ -365,10 +364,10 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
 
 /**
  * Assembler (ADR 0067) : la définition du mot, deux colonnes de briques (préfixes, suffixes) ; on pose une brique de chaque
- * colonne dans l'assemblage, puis « Valider ». Rien n'est jugé avant : toucher une brique posée la retire. Une brique reste
- * une brique, sans sa glose, qui rendrait le mot déductible.
+ * colonne dans l'assemblage ; la seconde posée envoie la réponse, sans étape « Valider ». Tant qu'il n'en manque une, toucher
+ * une brique posée la retire. Une brique reste une brique, sans sa glose, qui rendrait le mot déductible.
  */
-function Assembler({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & { pied: HTMLElement | null }) {
+export function Assembler({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const unite = q.cartes[0] ?? ''
   const attendu = d.mots.get(unite)?.assemblage ?? []
   const colonne = (position: 'prefixe' | 'suffixe') => q.choix?.filter((b) => d.briques.get(b)?.position === position) ?? []
@@ -379,18 +378,18 @@ function Assembler({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & { pied
   const [valide, setValide] = useState(false)
   const carte = jeu.cartes.get(unite)
   const mot = motDe(jeu, unite)
-  const prete = prefixe !== null && suffixe !== null
-  const juste = valide && prete && juger(d, 'assembler', unite, [prefixe, suffixe]) === true
-  const valider = () => {
-    if (!prete || valide) return
-    setValide(true)
-    envoyer('assembler', unite, [prefixe, suffixe])
-    repondu()
-  }
+  const juste = valide && prefixe !== null && suffixe !== null && juger(d, 'assembler', unite, [prefixe, suffixe]) === true
+  // Les deux emplacements remplis, la réponse part aussitôt.
   const poser = (position: 'prefixe' | 'suffixe', b: string) => {
     if (valide) return
-    const [courante, changer] = position === 'prefixe' ? [prefixe, setPrefixe] : [suffixe, setSuffixe]
-    changer(courante === b ? null : b)
+    const debut = position === 'prefixe' ? (prefixe === b ? null : b) : prefixe
+    const fin = position === 'suffixe' ? (suffixe === b ? null : b) : suffixe
+    setPrefixe(debut)
+    setSuffixe(fin)
+    if (debut === null || fin === null) return
+    setValide(true)
+    envoyer('assembler', unite, [debut, fin])
+    repondu()
   }
   const brique = (id: string | null | undefined, ko = false) => {
     const b = id ? jeu.briques.get(id) : undefined
@@ -431,17 +430,6 @@ function Assembler({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & { pied
   }
   const debutJuste = prefixe === attendu[0]
   const finJuste = suffixe === attendu[1]
-  const statut = prete ? 'Touchez « Valider » pour assembler.' : 'Choisissez un préfixe et un suffixe.'
-  const commandes = (
-    <>
-      <p className="rico-statut" role="status" aria-live="polite">
-        {statut}
-      </p>
-      <button type="button" className="btn btn-primary" disabled={!prete} onClick={valider}>
-        Valider
-      </button>
-    </>
-  )
   return (
     <>
       <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
@@ -482,7 +470,6 @@ function Assembler({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & { pied
           </>
         )}
       </div>
-      {pied && !valide && createPortal(commandes, pied)}
     </>
   )
 }
@@ -580,7 +567,7 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
             {q.format === 'paires' ? (
               <Paires key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
             ) : q.format === 'assembler' ? (
-              <Assembler key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} pied={pied} />
+              <Assembler key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} />
             ) : q.format === 'decouper' ? (
               <DecoupeQuestion key={phase.i} q={q} jeu={jeu} d={d} envoyer={envoyer} repondu={repondu} pied={pied} />
             ) : (
@@ -596,6 +583,7 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
         {phase.t === 'fin' && <Recapitulatif jeu={jeu} reponses={reponses} />}
       </div>
       <footer className="rico-pied" ref={setPied}>
+        {phase.t === 'question' && !phase.repondu && q?.format === 'assembler' && <p className="rico-note">Touchez un préfixe et un suffixe.</p>}
         {phase.t === 'question' && !phase.repondu && q?.format !== 'paires' && q?.format !== 'decouper' && q?.format !== 'assembler' && <p className="rico-note">Touchez la bonne réponse.</p>}
         {phase.t === 'question' && phase.repondu && (
           <button type="button" className="btn btn-primary" onClick={suivant}>

@@ -28,13 +28,14 @@ export function jointureVoisine(depuis: number, sens: 1 | -1, n: number, coupes:
   return depuis
 }
 
-/** La jointure libre la plus proche de `depuis`, d'un côté ou de l'autre ; `null` quand toutes sont coupées. */
-export function jointureLibreProche(depuis: number, n: number, coupes: readonly number[]): number | null {
+/**
+ * Où la lame attend le joueur : une jointure libre tirée au hasard parmi celles qui ne sont pas une coupe attendue, pour
+ * qu'il ait toujours à la déplacer. Faute de mieux (toutes les libres sont attendues), n'importe quelle libre.
+ */
+export function jointureInitiale(n: number, coupes: readonly number[], attendu: readonly number[], hasard: () => number = Math.random): number | null {
   const libres = jointuresLibres(n, coupes)
-  return libres.reduce<number | null>((m, j) => (m === null || Math.abs(j - depuis) < Math.abs(m - depuis) ? j : m), null)
-}
-
-/** Où la lame attend le joueur à l'arrivée : vers 40 % du mot, sur une jointure libre. */
-export function jointureInitiale(n: number, coupes: readonly number[]): number | null {
-  return jointureLibreProche(Math.max(1, Math.round(n * 0.4)), n, coupes)
+  const leurres = libres.filter((j) => !attendu.includes(j))
+  const tirage = leurres.length > 0 ? leurres : libres
+  if (tirage.length === 0) return null
+  return tirage[Math.min(tirage.length - 1, Math.floor(hasard() * tirage.length))] ?? null
 }
