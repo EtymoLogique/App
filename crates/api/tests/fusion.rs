@@ -251,16 +251,15 @@ async fn une_parution_resynchronise_sans_rien_perdre(base: PgPool) {
     let (statut, _, _) = appeler(&banc.routeur, commun::post_pli(&jeton, &neuve)).await;
     assert_eq!(statut, StatusCode::CONFLICT);
 
-    // La resynchronisation accorde les graines du 2ᵉ fascicule, une seule fois.
+    // La resynchronisation n'accorde pas les graines du 2ᵉ fascicule : il reste
+    // verrouillé tant que le 2ᵉ jalon du premier n'est pas atteint (ADR 0068).
     let (_, _, sync) = appeler(&banc.routeur, get_etat(&jeton)).await;
     assert_eq!(sync["version_catalogue"], "v-essai-2");
+    assert_eq!(reserve(&sync), reserve(&apres));
+    assert_eq!(sync["fascicules_debloques"].as_array().unwrap().len(), 1);
     assert_eq!(
-        reserve(&sync),
-        vec![
-            (BIO.to_owned(), 1),
-            (GEO.to_owned(), 3),
-            (LOGIE.to_owned(), 1)
-        ]
+        sync["fascicules_debloques"][0]["fascicule_id"],
+        "fsc_00000000"
     );
     assert_eq!(sync["encre"], apres["encre"]);
     assert_eq!(sync["decouvertes"], apres["decouvertes"]);

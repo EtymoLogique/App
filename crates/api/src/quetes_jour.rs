@@ -19,6 +19,7 @@ use uuid::Uuid;
 
 use crate::carte_lecteur;
 use crate::erreur::ErreurApi;
+use crate::progression;
 use crate::ricochets::{self, Hasard};
 
 const fn texte(code: Code) -> &'static str {
@@ -217,10 +218,19 @@ async fn faisables(
             .await?
             .into_iter()
             .collect();
+    // La quête de table ne vise qu'un mot d'un fascicule débloqué (ADR 0068).
+    let debloques = progression::fascicules_debloques(&mut *tx, joueur).await?;
+    let ouverts: HashSet<&IdCatalogue> = jeu
+        .jalons
+        .iter()
+        .filter(|f| debloques.contains(&f.fascicule_id))
+        .flat_map(|f| &f.mots)
+        .collect();
     let mut deja = HashSet::new();
     for recette in &jeu.recettes {
         // `ricochets.mots` écarte déjà les mots légendaires ou qui en exigent une.
-        if !jeu.ricochets.mots.contains_key(&recette.mot_id)
+        if !ouverts.contains(&recette.mot_id)
+            || !jeu.ricochets.mots.contains_key(&recette.mot_id)
             || trouves.contains(recette.mot_id.as_str())
             || deja.contains(&recette.mot_id)
         {

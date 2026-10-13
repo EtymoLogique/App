@@ -112,6 +112,19 @@ pub struct Etat {
     /// Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées.
     #[serde(default)]
     pub quetes_initiales: Vec<QueteInitialeEtat>,
+    /// Fascicules parus que le joueur a débloqués (ADR 0068), triés par
+    /// fascicule. Vide dans une réponse enregistrée avant ce champ, ou sans
+    /// catalogue : le client tient alors tous les fascicules parus pour débloqués.
+    #[serde(default)]
+    pub fascicules_debloques: Vec<FasciculeDebloque>,
+}
+
+/// Un fascicule débloqué par le joueur (ADR 0068).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FasciculeDebloque {
+    pub fascicule_id: IdCatalogue,
+    pub debloque_le: DateTime<Utc>,
 }
 
 /// Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
@@ -699,6 +712,9 @@ pub struct ReponseFusion {
     /// Jalons atteints par cette découverte, à annoncer.
     #[serde(default)]
     pub jalons: Vec<IdCatalogue>,
+    /// Fascicules débloqués par cette découverte, à annoncer (ADR 0068).
+    #[serde(default)]
+    pub fascicules_debloques: Vec<IdCatalogue>,
     /// État confirmé après la commande.
     pub etat: Etat,
 }

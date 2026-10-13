@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::cadeau::CadeauDeBienvenue;
+use etymo_domaine::deblocage::{self, Maillon};
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
@@ -26,6 +27,8 @@ pub struct Jeu {
     pub plis: Vec<PliJeu>,
     /// Jalons de chaque fascicule paru.
     pub jalons: Vec<JalonsJeu>,
+    /// Fascicules parus par numéro, chacun avec le jalon qui ouvre le suivant (ADR 0068).
+    pub chaine: Vec<Maillon>,
     /// Briques légendaires : leurs recettes restent secrètes (ADR 0015).
     pub legendaires: HashSet<IdCatalogue>,
     /// Brique-mot par mot (unité) : la découverte d'un mot ingrédient en offre un exemplaire.
@@ -332,7 +335,21 @@ impl Jeu {
                 .mots
                 .extend(ricochets.mots.iter().map(|m| (m.id.clone(), m.clone())));
         }
+        jeu.chaine = chaine(fascicules);
         jeu.ecarter_les_legendaires_des_ricochets();
         jeu
     }
+}
+
+/// Fascicules parus par numéro, chacun avec le jalon qui ouvre le suivant (ADR 0068).
+fn chaine(fascicules: &[FasciculeCharge]) -> Vec<Maillon> {
+    let mut parus: Vec<_> = fascicules.iter().map(|f| &f.manifeste).collect();
+    parus.sort_by_key(|m| m.numero);
+    parus
+        .into_iter()
+        .map(|m| Maillon {
+            fascicule_id: m.id.clone(),
+            jalon: m.jalons.get(deblocage::RANG_JALON).map(|j| j.id.clone()),
+        })
+        .collect()
 }
