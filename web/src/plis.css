@@ -572,3 +572,16 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 @keyframes pkgHalo { from { opacity: 0.9; transform: scale(0.95); } to { opacity: 0; transform: scale(1.35); } }
 @media (prefers-reduced-motion: reduce) { .pkg-rays, .pkg-carte, .pkg-carte::after, .pkg-cell .pk-flash { animation: none; transition: none; } }
 :root[data-mouvement="reduit"] :is(.pkg-rays, .pkg-carte, .pkg-carte::after, .pkg-cell .pk-flash) { animation: none; transition: none; }
+
+/* Fascicule verrouillé (ADR 0068) : visible, avec sa condition, mais son pli ne s'ouvre pas. */
+.pk-fasc { position: relative; }
+.pk-fasc.is-locked { border-style: dashed; background: transparent; cursor: default; }
+.pk-fasc.is-locked .jk-mini { opacity: 0.45; }
+.pk-fasc-verrou { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--ink); font-weight: 700; }
+.pk-fasc-verrou .ic { flex: none; width: 18px; height: 18px; }
+/* Corail : un fascicule tout juste débloqué attend le joueur. */
+.pk-fasc-nouveau {
+  position: absolute; top: -10px; right: -10px;
+  padding: 2px 8px; border: 1.5px solid var(--ink); background: var(--c-action); color: var(--fixed-ink);
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+}

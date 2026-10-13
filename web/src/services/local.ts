@@ -59,6 +59,23 @@ export function memoriserTable(table: (string | null)[]): Promise<void> {
   return set('table', table, stockage())
 }
 
+/**
+ * Fascicules débloqués que le joueur a déjà vus (ADR 0068) : les autres portent
+ * la pastille « nouveau ». `null` tant que rien n'est mémorisé.
+ */
+export async function fasciculesConnus(): Promise<Set<string> | null> {
+  try {
+    const connus: unknown = await get('fascicules_connus', stockage())
+    return Array.isArray(connus) && connus.every((f) => typeof f === 'string') ? new Set(connus) : null
+  } catch {
+    return null
+  }
+}
+
+export function memoriserFasciculesConnus(connus: ReadonlySet<string>): Promise<void> {
+  return set('fascicules_connus', [...connus], stockage()).catch(() => undefined)
+}
+
 /** Oublie la partie locale ; le serveur garde la progression confirmée. */
 export function effacerPartie(): Promise<void> {
   return clear(stockage())

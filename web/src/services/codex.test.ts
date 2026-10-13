@@ -154,3 +154,14 @@ describe('codex', () => {
 })
 
 const decouverte = { mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }
+
+describe('codex d’un fascicule verrouillé (ADR 0068)', () => {
+  it('ne montre que les cartes trouvées, sans silhouette', () => {
+    const c = catalogue()
+    const deblocage = { fascicules_debloques: [{ fascicule_id: 'fsc_autre', debloque_le: '2026-10-12T00:00:00Z' }] }
+    const entrees = construireCodex(c, etat({ ...deblocage, reserve: [ex(GEO, 2)] }))
+    expect(entrees.every((e) => e.trouvee)).toBe(true)
+    expect(entrees.map((e) => e.libelle)).toContain('géo-')
+    expect(entrees.find((e) => e.id === MOT)).toBeUndefined()
+  })
+})

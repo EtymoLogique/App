@@ -13,7 +13,14 @@ const RAISONS: Record<string, string> = {
 
 export type Retour =
   | { etat: 'prevision'; prevision: Prevision }
-  | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */ jalons?: string[] }
+  | {
+      etat: 'confirme'
+      issue: IssueFusion
+      /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */
+      jalons?: string[]
+      /** Fascicules que cette découverte débloque (ADR 0068). */
+      fascicules?: string[]
+    }
   | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' }
 
 type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
@@ -32,6 +39,8 @@ interface Props {
   aRecuperer: ReadonlySet<string>
   /** Mène aux quêtes, où attend la récompense d'un jalon atteint. */
   onQuetes: () => void
+  /** Mène au pli d'un fascicule tout juste débloqué. */
+  onFascicule: (fascicule: string) => void
 }
 
 function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
@@ -48,7 +57,7 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
  * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
  * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes, onFascicule }: Props) {
   let contenu: React.ReactNode
   // Ce que dit le retour : quand elle change, l'ancien message sort et le nouveau entre.
   const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : (retour?.etat ?? `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`)
@@ -63,6 +72,7 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
       case 'decouverte': {
         const gouttes = issue.gouttes ?? 0
         const jalon = (retour.jalons ?? []).some((id) => aRecuperer.has(id))
+        const ouverts = (retour.fascicules ?? []).map((id) => jeu.fascicules.find((f) => f.manifeste.id === id)).filter((f) => f !== undefined)
         contenu = (
           <div className="retour">
             <Ligne ton="win">
@@ -79,6 +89,16 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
                 </div>
               </>
             )}
+            {ouverts.map((f) => (
+              <div key={f.manifeste.id}>
+                <p className="panel-tip">Nouveau fascicule ouvert&nbsp;: {f.manifeste.nom ?? `Fascicule ${f.numero}`}&nbsp;!</p>
+                <div className="rangee">
+                  <button type="button" className="btn btn-secondary btn-s" onClick={() => onFascicule(f.manifeste.id)}>
+                    Ouvrir son pli
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )
         break

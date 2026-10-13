@@ -80,3 +80,9 @@
   .tampon-sceau, .tampon-numero { width: 28px; height: 28px; }
   .tampon-sceau { border-radius: 8px; box-shadow: 2px 2px 0 var(--pop-shadow); font-size: 12px; }
 }
+
+/* Déblocage des fascicules (ADR 0068). */
+.quetes-verrou { display: flex; align-items: center; gap: 8px; }
+.quetes-verrou .ic { flex: none; }
+.quete-deblocage { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ink); font-size: 12px; font-weight: 700; }
+.quete-deblocage .ic { flex: none; width: 16px; height: 16px; }

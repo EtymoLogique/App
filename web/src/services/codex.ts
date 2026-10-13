@@ -7,6 +7,7 @@ import type { Carte, Confiance, Etat, Forme, Rarete } from '../contrat'
 import type { TriCodex } from './route'
 import { type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
 import { correspond } from './recherche'
+import { fasciculesDebloques } from './deblocage'
 
 export type TypeCarte = 'mot' | 'prefixe' | 'suffixe' | 'langue'
 
@@ -243,7 +244,10 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
         .filter((e) => e.type !== 'langue' && e.trouvee && e.formes.some((f) => f.langueId === langue.id))
         .reduce<string | null>((date, e) => plusTot(date ?? undefined, e.trouveeLe ?? undefined), null)
   }
-  return entrees
+  // Un fascicule verrouillé ne montre que ses cartes déjà trouvées, sans silhouette (ADR 0068).
+  const debloques = fasciculesDebloques(jeu, etat)
+  const ouverts = new Set(jeu.fascicules.filter((f) => debloques.has(f.manifeste.id)).map((f) => f.numero))
+  return entrees.filter((e) => e.trouvee || ouverts.has(e.fascicule))
 }
 
 /** Complétude : les légendaires ne comptent jamais, pour garder le suspense (ADR 0015). */

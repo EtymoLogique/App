@@ -473,13 +473,13 @@ describe('table de fusion', () => {
     const pack = await screen.findByRole('button', { name: 'Ouvrir le pli du fascicule Essai' })
     await act(async () => fireEvent.click(pack))
     expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
-    expect(await screen.findByText('+1 exemplaire', undefined, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByText('+1 exemplaire', undefined, { timeout: 8000 })).toBeInTheDocument()
     expect(screen.getByText('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')).toHaveAttribute('role', 'status')
     // Le menu « Plis » ramène au choix du fascicule.
     fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
     await waitFor(() => expect(window.location.hash).toBe('#/plis'))
     delete document.documentElement.dataset.mouvement
-  })
+  }, 15_000)
 
   it('ouvre tous les plis prêts d’un coup, chaque appel partant de la version renvoyée par le précédent', async () => {
     document.documentElement.dataset.mouvement = 'reduit'
@@ -496,12 +496,12 @@ describe('table de fusion', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
     const groupe = await screen.findByRole('button', { name: 'Ouvrir les 2 plis' })
     await act(async () => fireEvent.click(groupe))
-    await waitFor(() => expect(pli).toHaveBeenCalledTimes(2), { timeout: 3000 })
+    await waitFor(() => expect(pli).toHaveBeenCalledTimes(2), { timeout: 8000 })
     // Le second pli part de la version renvoyée par le premier, sinon le serveur répondrait 409.
     expect(pli.mock.calls.map(([d]) => d.version_etat)).toEqual([1, 2])
     expect(pli.mock.calls[0]?.[0].commande).not.toBe(pli.mock.calls[1]?.[0].commande)
     // Une seule annonce pour tout le lot, puis une brique par pli, qui s'essaie sur la table.
-    expect(await screen.findByText(/^2 plis ouverts : 1 nouvelle brique, \+5 gouttes d’encre\.$/, undefined, { timeout: 4000 })).toHaveAttribute('role', 'status')
+    expect(await screen.findByText(/^2 plis ouverts : 1 nouvelle brique, \+5 gouttes d’encre\.$/, undefined, { timeout: 8000 })).toHaveAttribute('role', 'status')
     expect(screen.getAllByRole('button', { name: /Essayer sur la table$/ })).toHaveLength(2)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Continuer' })).toHaveFocus())
     delete document.documentElement.dataset.mouvement

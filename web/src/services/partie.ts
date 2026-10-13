@@ -206,7 +206,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         await new Promise((fin) => setTimeout(fin, mouvementReduit() ? 0 : DUREE_FUSION_MS))
         setFusion(null)
         confirmer(reponse.etat)
-        setRetour({ etat: 'confirme', issue, jalons: reponse.jalons ?? [] })
+        setRetour({ etat: 'confirme', issue, jalons: reponse.jalons ?? [], fascicules: reponse.fascicules_debloques ?? [] })
         setTable(casesVides())
         // Une brique-mot ne se consomme jamais : pas de « −1 ».
         const usees = proposition.filter((id) => catalogue.briques.get(id)?.nature !== 'mot')
