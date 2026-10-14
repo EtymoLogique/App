@@ -7,10 +7,12 @@ import { Connexion } from './Connexion'
 
 const confirmation = { issue: 'compte_cree', pseudo: 'camille-4821', pseudo_confirme: false } as const
 
-function rendu(confirmerCompte: ReturnType<typeof vi.fn>) {
+function rendu(confirmerCompte: ReturnType<typeof vi.fn>, serveur = etat()) {
   const api = {
     demandeCompte: vi.fn().mockResolvedValue({ defi: 'defi-1', renvoyer_dans_s: 60 }),
     confirmerCompte,
+    oublierSession: vi.fn(),
+    etat: vi.fn().mockResolvedValue(serveur),
   } as unknown as ClientApi
   const onConfirme = vi.fn().mockResolvedValue(undefined)
   render(<Connexion api={api} etat={etat()} enLigne onConfirme={onConfirme} />)
@@ -56,6 +58,16 @@ describe('connexion par e-mail (I-31)', () => {
       fireEvent.change(code, { target: { value: '123456' } })
     })
     expect(await screen.findByRole('alert')).toHaveTextContent('Demandez un nouveau code.')
+  })
+
+  it('un rejeu après une réponse perdue réussit si le serveur a déjà rattaché l’appareil', async () => {
+    const { onConfirme } = rendu(vi.fn().mockRejectedValue(new ErreurApi(410, 'expire', 'expiré')), { ...etat(), compte: { pseudo: 'camille-4821', pseudo_confirme: false } })
+    const code = await jusquAuCode()
+    await act(async () => {
+      fireEvent.change(code, { target: { value: '123456' } })
+    })
+    await waitFor(() => expect(onConfirme).toHaveBeenCalledWith({ ...confirmation, issue: 'connecte' }))
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('prévient avant de remplacer une partie invitée, « Annuler » par défaut', async () => {

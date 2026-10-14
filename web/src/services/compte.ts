@@ -61,13 +61,28 @@ export function essaisRestants(n: number): string {
   return `Ce code ne correspond pas. Il vous reste ${n} essai${n > 1 ? 's' : ''}.`
 }
 
+/**
+ * Défi déjà consommé : si une première confirmation a réussi mais que sa
+ * réponse s'est perdue, le rejeu reçoit `410`. L'état du serveur, relu sur une
+ * session rouverte, dit alors si l'appareil a un compte : c'est un succès.
+ */
+async function dejaRattache(api: ClientApi): Promise<ReponseConfirmation | null> {
+  try {
+    api.oublierSession()
+    const { compte } = await api.etat()
+    return compte ? { issue: 'connecte', pseudo: compte.pseudo, pseudo_confirme: compte.pseudo_confirme } : null
+  } catch {
+    return null
+  }
+}
+
 export async function confirmer(api: ClientApi, demande: DemandeConfirmation): Promise<Confirmation> {
   try {
     return await api.confirmerCompte(demande)
   } catch (e) {
     if (e instanceof ErreurApi && e.details.avertissement) return { avertissement: e.details.avertissement }
     if (e instanceof ErreurApi && e.details.essais_restants != null) return { erreur: essaisRestants(e.details.essais_restants) }
-    if (e instanceof ErreurApi && e.statut === 410) return { erreur: 'Demandez un nouveau code.' }
+    if (e instanceof ErreurApi && e.statut === 410) return (await dejaRattache(api)) ?? { erreur: 'Demandez un nouveau code.' }
     if (e instanceof ErreurApi && e.statut === 409) return { erreur: 'Cet appareil a déjà un compte.' }
     return { erreur: message(e) }
   }
