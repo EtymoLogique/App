@@ -86,6 +86,7 @@ const TRACES = {
     </>
   ),
   coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  fermer: <path d="M6 6l12 12M18 6L6 18" />,
   verrou: (
     <>
       <rect x="5" y="11" width="14" height="9.5" rx="2" />

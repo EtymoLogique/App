@@ -7,6 +7,8 @@ interface Props {
   onChanger: (modif: Partial<R>) => void
   /** Défini hors production seulement : le bouton n'apparaît pas sans lui. */
   onReinitialiser?: () => Promise<string | null>
+  /** Groupe « Compte », en tête (I-33). */
+  compte?: React.ReactNode
 }
 
 function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
@@ -68,10 +70,11 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
   )
 }
 
-/** Réglages (I-24), contenu du MVP en cours : apparence, mouvement, sons et vibrations, profil, licences. */
-export function Reglages({ reglages, onChanger, onReinitialiser }: Props) {
+/** Réglages (I-24), contenu du MVP en cours : compte, apparence, mouvement, sons et vibrations, licences. */
+export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props) {
   return (
     <div className="reglages">
+      {compte}
       <Choix<Theme>
         nom="theme"
         legende="Apparence"
@@ -103,12 +106,6 @@ export function Reglages({ reglages, onChanger, onReinitialiser }: Props) {
         ]}
         onChoisir={(retours) => onChanger({ retours })}
       />
-      <section className="reglage">
-        <h2>Profil invité</h2>
-        <p className="panel-tip">
-          Votre progression est liée à cet appareil. Aucun nom ni adresse électronique n’est demandé.
-        </p>
-      </section>
       {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
       <section className="reglage">
         <h2>Licences</h2>

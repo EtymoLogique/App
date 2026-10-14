@@ -557,7 +557,7 @@ describe('table de fusion', () => {
   it('n’offre pas la réinitialisation en production', async () => {
     history.replaceState(null, '', '#/reglages')
     render(<App api={client()} catalogue={lecteur} />)
-    await waitFor(() => expect(screen.getByText('Profil invité')).toBeVisible())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Sauvegarder ma progression/ })).toBeVisible())
     expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument()
   })
 
