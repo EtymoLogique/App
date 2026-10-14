@@ -13,4 +13,5 @@ workspace = true
 chrono = { version = "0.4.45", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"
+unicode-normalization = "0.1.25"
 utoipa = "6.0.0"

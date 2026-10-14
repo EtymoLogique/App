@@ -666,6 +666,7 @@ dependencies = [
  "chrono",
  "serde",
  "thiserror",
+ "unicode-normalization",
  "utoipa",
 ]
 
