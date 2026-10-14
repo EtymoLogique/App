@@ -61,6 +61,10 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Hors production : ouvre POST /dev/reset et le bouton « Réinitialiser » des Réglages.
 export ETYMO_REINITIALISATION="${ETYMO_REINITIALISATION:-true}"
 export RUST_LOG="${RUST_LOG:-info}"
+# Comptes (ADR 0070) : les e-mails de connexion s'écrivent dans .local/courriels/ (ignoré par Git).
+export ETYMO_COURRIEL="${ETYMO_COURRIEL:-file://$racine/.local/courriels}"
+export ETYMO_CLE_COURRIEL="${ETYMO_CLE_COURRIEL:-developpement-local-uniquement-courriel-0123456789}"
+export ETYMO_URL_PWA="${ETYMO_URL_PWA:-http://localhost:$port_pwa}"
 
 for outil in docker cargo npm watchexec sqlx; do
   command -v "$outil" >/dev/null || {

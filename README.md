@@ -24,9 +24,9 @@ La suite du travail est dans la [roadmap](docs/roadmap.md).
 
 | Commande | Rôle | Variables |
 |---|---|---|
-| *(aucune)* ou `servir` | Sert l’API sur `PORT` (8080), applique les migrations, relit l’index du catalogue toutes les 60 s | `DATABASE_URL`, `ETYMO_CATALOGUE_URL`, `ETYMO_CLE_SIGNATURE_SESSION`, `ETYMO_ORIGINES_PWA` |
+| *(aucune)* ou `servir` | Sert l’API sur `PORT` (8080), applique les migrations, relit l’index du catalogue toutes les 60 s | `DATABASE_URL`, `ETYMO_CATALOGUE_URL`, `ETYMO_CLE_SIGNATURE_SESSION`, `ETYMO_ORIGINES_PWA` ; comptes : voir plus bas |
 | `publier-fascicules` | Tâche de parution : promeut de `staging/` vers `public/` les fascicules dont la date est passée, puis écrit `public/index.json` | `ETYMO_S3`, `ETYMO_BUCKET_CATALOGUE`, `ETYMO_S3_POINT`, `ETYMO_S3_REGION` |
-| `purger` | Supprime les commandes, les quêtes du jour et les réponses de ricochets du jour de plus de 30 jours (durées dans `crates/taches/src/purges.rs`) ; à planifier chaque jour | `DATABASE_URL` |
+| `purger` | Supprime les commandes, les quêtes du jour et les réponses de ricochets du jour de plus de 30 jours, les demandes de connexion de plus d’un jour et les parties invitées (sans compte) inactives depuis 6 mois (durées dans `crates/taches/src/purges.rs`) ; à planifier chaque jour | `DATABASE_URL` |
 | `agreger-jour` | Tâche quotidienne, **juste après minuit GMT** : écrit les agrégats du jour achevé (joueurs actifs, retour au 1ᵉʳ, 7ᵉ et 30ᵉ jour, tampons, quêtes terminées, séances de ricochets, joueurs actifs sans découverte depuis deux jours). `--jour AAAA-MM-JJ` pour rejouer | `DATABASE_URL` |
 | `agreger-mois` | Tâche mensuelle, dans les premières minutes du mois : rétention par mois d'arrivée, passage d'un mois au suivant. `--mois AAAA-MM` pour rejouer | `DATABASE_URL` |
 | `statistiques` | Écrit en JSON les cohortes et indicateurs ; tout nombre décrivant moins de 50 joueurs est absent (ADR 0050) | `DATABASE_URL` |
@@ -35,13 +35,27 @@ La suite du travail est dans la [roadmap](docs/roadmap.md).
 
 `ETYMO_CATALOGUE_URL` est le point de terminaison du bucket du catalogue ; l’API lit, sans clé, son préfixe `public/`. Les secrets ne sont jamais journalisés.
 
+Comptes facultatifs ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md)) : toutes ces variables sont facultatives. Sans `ETYMO_COURRIEL`, `POST /compte/demande` et `POST /compte/confirmation` répondent `503` et le reste de l’API fonctionne. Avec `ETYMO_COURRIEL`, une variable manquante arrête le démarrage.
+
+| Variable | Rôle |
+|---|---|
+| `ETYMO_COURRIEL` | `tem` (Scaleway Transactional Email) ou `file:///dossier` (un `.eml` par e-mail, en local et dans les tests). |
+| `ETYMO_CLE_COURRIEL` | Secret, 32 octets au moins : clé HMAC des empreintes d’adresse. **Ne change jamais** : la perdre rend tous les comptes introuvables. |
+| `ETYMO_URL_PWA` | Adresse de la PWA, base des liens `…/#/connexion?defi=…&jeton=…`. |
+| `ETYMO_TEM_CLE` | Secret : clé d’API Scaleway (`X-Auth-Token`), droit `TransactionalEmailEmailApiCreate`. `tem` seulement. |
+| `ETYMO_TEM_PROJET` | Projet Scaleway de l’envoi. `tem` seulement. |
+| `ETYMO_COURRIEL_EXPEDITEUR` | `noreply@etymologique.fr` en prod, `noreply@horsprod.etymologique.fr` hors prod. `tem` seulement. |
+
 ## API
 
 | Route | Rôle |
 |---|---|
 | `GET /sante` | État du service et version du catalogue chargée. |
-| `POST /session` | Ouvre la session d’un profil invité : identifiant d’installation (UUID v4) et secret de 256 bits, générés par la PWA. Le serveur n’en garde que l’empreinte SHA-256 et rend un jeton HMAC valable 15 minutes. |
+| `POST /session` | Ouvre la session d’un appareil : identifiant d’installation (UUID v4) et secret de 256 bits, générés par la PWA. Le serveur n’en garde que l’empreinte SHA-256 et rend un jeton HMAC valable 15 minutes, pour la partie invitée de l’appareil ou celle de son compte. |
 | `GET /etat` | Synchronise le joueur : accorde une fois les graines de chaque fascicule paru ([ADR 0030](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0030-reserve-de-depart-par-fascicule.md)), puis renvoie l’état confirmé : réserve et découvertes. Jeton requis. |
+| `POST /compte/demande` | Envoie un e-mail avec un lien et un code à 6 chiffres, valables 15 minutes ; réponse `202` identique que l’adresse ait un compte ou non. 3 e-mails toutes les 15 minutes par adresse. Jeton requis. |
+| `POST /compte/confirmation` | Confirme le défi par le code (5 essais) ou le jeton du lien : crée le compte depuis la partie invitée, ou rattache l’appareil au compte (`409` avec un avertissement si une partie invitée serait effacée, `410` si le défi a expiré). Jeton requis. |
+| `PUT /compte/pseudo` · `POST /compte/deconnexion` · `DELETE /compte` | Pseudo (`409` avec une proposition s’il est pris), détacher l’appareil, tout effacer (`{"confirmation":"SUPPRIMER"}`). Jeton requis. |
 | `POST /fusion` | Tente une fusion : de 2 à 4 briques ordonnées. Issues : `decouverte` (un exemplaire de chaque brique consommé, mot ajouté au codex), `connue`, `exclue`, `presque` (`ordre` ou `incomplet`), `echec`, `reserve_insuffisante`. Seule une découverte modifie l’état : elle exige `version_etat` et `version_catalogue` à jour (sinon `409`) et elle seule est enregistrée pour l’idempotence. Jeton requis. |
 
 Chaque requête refuse les propriétés inconnues, et son corps est borné à 8 Kio. Le débit est limité en mémoire, par adresse réseau pour `/session` et par profil ailleurs : aucune adresse n’est stockée. CORS n’accepte que l’origine de la PWA.
