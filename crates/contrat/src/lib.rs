@@ -117,6 +117,103 @@ pub struct Etat {
     /// catalogue : le client tient alors tous les fascicules parus pour débloqués.
     #[serde(default)]
     pub fascicules_debloques: Vec<FasciculeDebloque>,
+    /// Compte facultatif (ADR 0070) ; absent pour une partie invitée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compte: Option<CompteEtat>,
+}
+
+/// Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne
+/// la garde pas.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompteEtat {
+    pub pseudo: String,
+    /// Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par
+    /// défaut : il reste alors privé.
+    pub pseudo_confirme: bool,
+}
+
+/// Demande d'un lien et d'un code de connexion par e-mail (ADR 0070). La même
+/// demande crée un compte depuis la partie invitée ou ouvre un compte existant.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCompte {
+    /// Adresse électronique : elle sert à l'envoi, puis le serveur n'en garde qu'une empreinte.
+    #[schema(max_length = 254)]
+    pub courriel: String,
+}
+
+/// Réponse identique, que l'adresse ait déjà un compte ou non.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseDemandeCompte {
+    /// Défi à confirmer par le code ou le lien de l'e-mail.
+    pub defi: Uuid,
+    /// Délai avant de proposer « Renvoyer », en secondes.
+    pub renvoyer_dans_s: u32,
+}
+
+/// Confirmation d'un défi, par le jeton du lien ou par le code à 6 chiffres :
+/// exactement l'un des deux.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeConfirmation {
+    pub defi: Uuid,
+    /// Jeton du lien, en base64url.
+    #[serde(default)]
+    #[schema(max_length = 43)]
+    pub jeton: Option<String>,
+    /// Code de l'e-mail, 6 chiffres.
+    #[serde(default)]
+    #[schema(pattern = "^[0-9]{6}$")]
+    pub code: Option<String>,
+    /// Remplace la partie invitée de cet appareil par celle du compte, après
+    /// l'avertissement d'un `409`.
+    #[serde(default)]
+    pub remplacer_invite: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum IssueConfirmation {
+    /// La partie invitée est devenue un compte, sans rien perdre.
+    CompteCree,
+    /// Cet appareil joue désormais la partie du compte.
+    Connecte,
+}
+
+/// Défi confirmé : le client rouvre sa session, son ancien jeton ne vaut plus.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseConfirmation {
+    pub issue: IssueConfirmation,
+    pub pseudo: String,
+    pub pseudo_confirme: bool,
+}
+
+/// Nouveau pseudo, ou pseudo par défaut confirmé tel quel.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandePseudo {
+    /// 3 à 24 caractères : lettres minuscules sans accent, chiffres, traits d'union isolés.
+    #[schema(min_length = 3, max_length = 24, pattern = "^[a-z0-9]+(-[a-z0-9]+)*$")]
+    pub pseudo: String,
+}
+
+/// Suppression du compte et de toute la progression, sur tous les appareils.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeSuppression {
+    /// Doit valoir `SUPPRIMER`.
+    pub confirmation: String,
+}
+
+/// Ce que l'appareil perdrait en ouvrant le compte : sa partie invitée.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AvertissementRemplacement {
+    pub decouvertes: u32,
+    pub gouttes: u32,
 }
 
 /// Un fascicule débloqué par le joueur (ADR 0068).
@@ -775,6 +872,15 @@ pub enum StatutSante {
 pub struct Erreur {
     pub code: CodeErreur,
     pub message: String,
+    /// Code de connexion faux : essais restants avant d'en demander un nouveau.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub essais_restants: Option<u8>,
+    /// Connexion refusée sans `remplacer_invite` : la partie invitée qui serait effacée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avertissement: Option<AvertissementRemplacement>,
+    /// Pseudo déjà pris : un pseudo libre proche.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposition: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -787,6 +893,8 @@ pub enum CodeErreur {
     TropDeRequetes,
     Indisponible,
     Interne,
+    /// Défi de connexion expiré, déjà utilisé ou épuisé (`410`).
+    Expire,
 }
 
 #[cfg(test)]

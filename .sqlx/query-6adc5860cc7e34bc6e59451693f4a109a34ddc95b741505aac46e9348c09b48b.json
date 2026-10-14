@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO defi_connexion (id, appareil_id, intention, empreinte_courriel, pseudo_propose, empreinte_jeton, empreinte_code, expire_le)\n         VALUES ($1, $2, $3, $4, $5, $6, $7, now() + interval '15 minutes')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Text",
+        "Bytea",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6adc5860cc7e34bc6e59451693f4a109a34ddc95b741505aac46e9348c09b48b"
+}

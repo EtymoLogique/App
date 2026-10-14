@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM joueur j WHERE j.id = $1\n           AND NOT EXISTS (SELECT 1 FROM appareil a WHERE a.joueur_id = j.id)\n           AND NOT EXISTS (SELECT 1 FROM compte c WHERE c.joueur_id = j.id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "24f54956da1e7032a4ecf9f5f0421cfbf0a68cab27ab23c8d5e537a4d78546ff"
+}

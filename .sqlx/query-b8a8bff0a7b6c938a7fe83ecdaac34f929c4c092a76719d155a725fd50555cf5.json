@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE appareil SET derniere_activite = now() WHERE id = $1 RETURNING joueur_id, empreinte_secret",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "joueur_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "empreinte_secret",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b8a8bff0a7b6c938a7fe83ecdaac34f929c4c092a76719d155a725fd50555cf5"
+}

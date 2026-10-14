@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO compte (joueur_id, empreinte_courriel, pseudo) VALUES ($1, $2, $3)\n             ON CONFLICT (pseudo) DO NOTHING RETURNING joueur_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "joueur_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5aff8779f87e8b169f3c659f845a5b1b04f1c2422d266fb98cb5aa6c10f29e91"
+}

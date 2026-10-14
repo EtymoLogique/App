@@ -18,7 +18,7 @@ Chaque jalon se termine par une démonstration en hors-prod (`develop`, [ADR 002
 | **J7 — Observabilité et vie privée** | Télémétrie pseudonyme (identifiant renouvelé tous les 30 jours), indicateurs minimaux du game-design, agrégats, purges quotidiennes, journaux structurés sans PII | Tableau des indicateurs en hors-prod | Infra : Cockpit, tâches planifiées |
 | **J8 — Durcissement et lancement** | CSP et en-têtes par le CDN, limites de débit, audits, démarrage à froid sous 1 s au p95, domaine, tests utilisateurs, `v1.0.0` | MVP en prod | Infra : CDN, domaine ; Content : fascicule 1 relu (`--publication`) |
 
-Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-appareil (un ADR préalable est requis, [ADR 0007](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0007-etat-et-economie-autoritaires.md)), fonctions sociales, contenu communautaire.
+Hors MVP, comme le prévoit le game-design : paiements, fonctions sociales, contenu communautaire. Les comptes et le multi-appareil, d’abord hors MVP ([ADR 0007](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0007-etat-et-economie-autoritaires.md)), y entrent avec l’[ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md) : voir le jalon « Comptes ».
 
 ## J0 — Socle et squelette ambulant
 
@@ -241,7 +241,7 @@ Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose
 | Télémétrie brute (90 jours) et agrégats : aucune table n'existe encore, la purge viendra avec elles (J7) | en attente |
 | Audit des journaux : seuls les `tracing::` de `catalogue.rs`, `main.rs`, `erreur.rs`, `parution.rs` et `purges.rs` écrivent ; ils ne portent que des nombres, des versions et des causes internes ; pas de couche HTTP qui trace les requêtes. Test `journaux.rs` : un secret, un jeton, un identifiant d'installation et une adresse réseau envoyés en requête (et en erreur) n'apparaissent jamais dans le journal | fait |
 | Planifier `etymo-api purger` chaque jour (Serverless Job) | **à faire dans Infra** |
-| Durée de conservation d'un profil invité inactif | question ouverte du modèle de données, non tranchée |
+| Durée de conservation d'un profil invité inactif : 6 mois sans compte, puis effacé ; un compte ne l'est jamais ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md)) | fait |
 
 ### Cohortes de rétention (App#28, [ADR 0050](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0050-cohortes-de-retention-et-statistiques-du-joueur.md), proposé)
 
@@ -305,6 +305,21 @@ Les 53 animations de `plans/todo/animations-propositions.html`, avec la version 
 | Plis : paquet posé (plus de suivi du pointeur) avec halo jaune et léger zoom au survol quand il attend, entrée posée puis cachetée, sceau qui ne pulse qu’après 3 s, cire qui chauffe, rayons écrits plus discrets, plume au rythme humain et ratures tracées à chaque ouverture, paquet qui se retourne puis révélation qui se retourne (plus de coup de sabre ni d’éclats de lettres), révélation réduite au titre, à la brique et à deux boutons (« Essayer sur la table » pose la brique à sa place), anticipation rare, accord du légendaire, jauge de garantie en crans identiques, historique (pastille « new » ou « +1 » sur la brique, grille alignée) qui n’apparaît qu’à la révélation, inconnues qui scintillent à tour de rôle, jauge d’énergie au cran sans boucle | fait |
 | Compteurs : glissé court (480 ms) ; mouvement réduit : fondus de 120 ms, révélation du pli en trois temps | fait |
 | Réglage « Sons et vibrations » (activés, coupés), `data-retours` sur `<html>` | fait |
+
+## Comptes ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md), EtymoLogique/Design#27)
+
+Écart au périmètre initial : les comptes étaient hors MVP. Ils restent facultatifs, ne donnent aucun avantage de jeu et seront requis pour les achats en euros.
+
+| Tâche | État |
+|---|---|
+| Migration : `appareil` (reprise de chaque profil invité, jetons en cours toujours valables), `compte`, `defi_connexion` ; empreintes seulement | fait |
+| Domaine : normalisation de l'adresse, pseudo par défaut `x-1234`, règle du pseudo | fait |
+| API : `/session` multi-appareil ; `/compte/demande`, `/compte/confirmation` (code ou lien, 15 min, 5 essais, usage unique), `/compte/pseudo`, `/compte/deconnexion`, `DELETE /compte` ; `Etat.compte` ; envoi TEM ou fichier ; limites par adresse réseau, profil et adresse électronique | fait |
+| Purges : demandes de connexion après un jour, invités sans compte inactifs depuis 6 mois | fait |
+| PWA : `#/connexion` (I-31), relance « Sauvegardez votre progression » (I-32), compte dans les Réglages (I-33) ; e-mail (I-34) | fait |
+| Écart à valider : la confirmation ne porte ni clé d'idempotence ni `version_etat` ; le défi à usage unique la rend idempotente (un rejeu reçoit `410`) | à valider |
+| Recette locale (`./scripts/dev.sh`, e-mails dans `.local/courriels/`) | à faire |
+| Recette horsprod après validation DNS du domaine d'envoi (SPF, DKIM, DMARC à `pass`) | à faire, après Infra `dns_pose = true` |
 
 ## Outillage hors-prod
 

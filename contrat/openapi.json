@@ -202,12 +202,348 @@
         ]
       }
     },
+    "/compte": {
+      "delete": {
+        "tags": [
+          "compte"
+        ],
+        "summary": "Supprime le joueur et toute sa progression, sur tous ses appareils :\ncompte, appareils, codex, réserve, encre… Définitif.",
+        "operationId": "supprimer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSuppression"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Compte et progression effacés"
+          },
+          "400": {
+            "description": "Confirmation absente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/compte/confirmation": {
+      "post": {
+        "tags": [
+          "compte"
+        ],
+        "summary": "Confirme un défi par le code ou par le jeton du lien. Création : la partie\nde l'appareil demandeur devient un compte. Connexion : cet appareil joue la\npartie du compte ; s'il portait une partie invitée avec une progression,\nil faut `remplacer_invite`, sinon `409` avec ce qui serait perdu.",
+        "operationId": "confirmer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeConfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Compte créé ou ouvert : rouvrir la session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code faux (`essais_restants`) ou requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Partie invitée à remplacer (`avertissement`), ou profil qui a déjà un compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Défi expiré, utilisé ou épuisé : demander un nouveau code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Comptes désactivés",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/compte/deconnexion": {
+      "post": {
+        "tags": [
+          "compte"
+        ],
+        "summary": "Détache cet appareil : le client repart d'un profil invité neuf. La partie\nreste sur le compte ; une partie invitée sans autre appareil est effacée.",
+        "operationId": "deconnecter",
+        "responses": {
+          "204": {
+            "description": "Appareil détaché"
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/compte/demande": {
+      "post": {
+        "tags": [
+          "compte"
+        ],
+        "summary": "Envoie un lien et un code de connexion à l'adresse donnée. La réponse est\nla même que l'adresse ait un compte ou non : seul un profil qui a déjà un\ncompte et en demande un autre reçoit `409`.",
+        "operationId": "demander",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCompte"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "E-mail envoyé si l'adresse peut ouvrir un compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseDemandeCompte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Adresse invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ce profil a déjà un compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corps de plus de 1 Kio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Trop de demandes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Envoi impossible ou désactivé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/compte/pseudo": {
+      "put": {
+        "tags": [
+          "compte"
+        ],
+        "summary": "Confirme ou change le pseudo ; il devient alors public quand une vue\ncompétitive existera. Un pseudo pris reçoit `409` avec une proposition.",
+        "operationId": "changer_pseudo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandePseudo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pseudo confirmé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteEtat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Pseudo invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session absente ou expirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Partie invitée : aucun compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Pseudo déjà pris (`proposition`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erreur"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/dev/reset": {
       "post": {
         "tags": [
           "hors-production"
         ],
-        "summary": "Remet le joueur à zéro, pour la recette hors production : codex vide,\nréserve vide (les graines des fascicules parus ne sont pas rendues),\n10 000 gouttes. Route absente (`404`) en production.",
+        "summary": "Remet le joueur à zéro, pour la recette hors production : codex vide,\nréserve vide (les graines des fascicules parus ne sont pas rendues),\n10 000 gouttes. Le compte, son pseudo et les appareils restent (ADR 0070).\nRoute absente (`404`) en production.",
         "operationId": "reinitialiser",
         "responses": {
           "200": {
@@ -1319,8 +1655,8 @@
         "tags": [
           "profil"
         ],
-        "summary": "Ouvre ou renouvelle la session d'un profil invité.",
-        "description": "Au premier appel pour une installation, le profil est créé avec\nl'empreinte du secret. Ensuite, le même secret doit être présenté.",
+        "summary": "Ouvre ou renouvelle la session d'un appareil.",
+        "description": "Au premier appel pour une installation, l'appareil et sa partie invitée\nsont créés avec l'empreinte du secret. Ensuite, le même secret doit être\nprésenté ; le jeton désigne la partie de l'appareil, celle de son compte\ns'il est connecté (ADR 0070).",
         "operationId": "session",
         "requestBody": {
           "content": {
@@ -1379,6 +1715,27 @@
   },
   "components": {
     "schemas": {
+      "AvertissementRemplacement": {
+        "type": "object",
+        "description": "Ce que l'appareil perdrait en ouvrant le compte : sa partie invitée.",
+        "required": [
+          "decouvertes",
+          "gouttes"
+        ],
+        "properties": {
+          "decouvertes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "gouttes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "BTreeMap_LibelleTexte": {
         "type": "object",
         "additionalProperties": {
@@ -1896,7 +2253,8 @@
           "conflit",
           "trop_de_requetes",
           "indisponible",
-          "interne"
+          "interne",
+          "expire"
         ]
       },
       "CodeQueteDuJour": {
@@ -1961,6 +2319,24 @@
             }
           }
         }
+      },
+      "CompteEtat": {
+        "type": "object",
+        "description": "Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne\nla garde pas.",
+        "required": [
+          "pseudo",
+          "pseudo_confirme"
+        ],
+        "properties": {
+          "pseudo": {
+            "type": "string"
+          },
+          "pseudo_confirme": {
+            "type": "boolean",
+            "description": "Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par\ndéfaut : il reste alors privé."
+          }
+        },
+        "additionalProperties": false
       },
       "CompteurPli": {
         "type": "object",
@@ -2105,6 +2481,55 @@
             "type": "integer",
             "format": "int64",
             "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeCompte": {
+        "type": "object",
+        "description": "Demande d'un lien et d'un code de connexion par e-mail (ADR 0070). La même\ndemande crée un compte depuis la partie invitée ou ouvre un compte existant.",
+        "required": [
+          "courriel"
+        ],
+        "properties": {
+          "courriel": {
+            "type": "string",
+            "description": "Adresse électronique : elle sert à l'envoi, puis le serveur n'en garde qu'une empreinte.",
+            "maxLength": 254
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeConfirmation": {
+        "type": "object",
+        "description": "Confirmation d'un défi, par le jeton du lien ou par le code à 6 chiffres :\nexactement l'un des deux.",
+        "required": [
+          "defi"
+        ],
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Code de l'e-mail, 6 chiffres.",
+            "pattern": "^[0-9]{6}$"
+          },
+          "defi": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jeton": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Jeton du lien, en base64url.",
+            "maxLength": 43
+          },
+          "remplacer_invite": {
+            "type": "boolean",
+            "description": "Remplace la partie invitée de cet appareil par celle du compte, après\nl'avertissement d'un `409`."
           }
         },
         "additionalProperties": false
@@ -2270,6 +2695,23 @@
             "type": "integer",
             "format": "int64",
             "description": "`version_etat` connue du client."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandePseudo": {
+        "type": "object",
+        "description": "Nouveau pseudo, ou pseudo par défaut confirmé tel quel.",
+        "required": [
+          "pseudo"
+        ],
+        "properties": {
+          "pseudo": {
+            "type": "string",
+            "description": "3 à 24 caractères : lettres minuscules sans accent, chiffres, traits d'union isolés.",
+            "maxLength": 24,
+            "minLength": 3,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
           }
         },
         "additionalProperties": false
@@ -2444,6 +2886,20 @@
             "maxLength": 43,
             "minLength": 43,
             "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DemandeSuppression": {
+        "type": "object",
+        "description": "Suppression du compte et de toute la progression, sur tous les appareils.",
+        "required": [
+          "confirmation"
+        ],
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "description": "Doit valoir `SUPPRIMER`."
           }
         },
         "additionalProperties": false
@@ -2677,11 +3133,38 @@
           "message"
         ],
         "properties": {
+          "avertissement": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AvertissementRemplacement",
+                "description": "Connexion refusée sans `remplacer_invite` : la partie invitée qui serait effacée."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "code": {
             "$ref": "#/components/schemas/CodeErreur"
           },
+          "essais_restants": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Code de connexion faux : essais restants avant d'en demander un nouveau.",
+            "minimum": 0
+          },
           "message": {
             "type": "string"
+          },
+          "proposition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pseudo déjà pris : un pseudo libre proche."
           }
         },
         "additionalProperties": false
@@ -2715,6 +3198,17 @@
               {
                 "$ref": "#/components/schemas/CarteDeLecteurEtat",
                 "description": "Carte de lecteur (ADR 0045) ; absente avant App#21."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compte": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompteEtat",
+                "description": "Compte facultatif (ADR 0070) ; absent pour une partie invitée."
               },
               {
                 "type": "null"
@@ -3066,6 +3560,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "IssueConfirmation": {
+        "type": "string",
+        "enum": [
+          "compte_cree",
+          "connecte"
+        ]
       },
       "IssueFusion": {
         "oneOf": [
@@ -4018,6 +4519,49 @@
         },
         "additionalProperties": false
       },
+      "ReponseConfirmation": {
+        "type": "object",
+        "description": "Défi confirmé : le client rouvre sa session, son ancien jeton ne vaut plus.",
+        "required": [
+          "issue",
+          "pseudo",
+          "pseudo_confirme"
+        ],
+        "properties": {
+          "issue": {
+            "$ref": "#/components/schemas/IssueConfirmation"
+          },
+          "pseudo": {
+            "type": "string"
+          },
+          "pseudo_confirme": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReponseDemandeCompte": {
+        "type": "object",
+        "description": "Réponse identique, que l'adresse ait déjà un compte ou non.",
+        "required": [
+          "defi",
+          "renvoyer_dans_s"
+        ],
+        "properties": {
+          "defi": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Défi à confirmer par le code ou le lien de l'e-mail."
+          },
+          "renvoyer_dans_s": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai avant de proposer « Renvoyer », en secondes.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "ReponseFusion": {
         "type": "object",
         "required": [
@@ -4667,6 +5211,10 @@
     {
       "name": "profil",
       "description": "Profil invité, sans donnée personnelle"
+    },
+    {
+      "name": "compte",
+      "description": "Compte facultatif, connexion par lien et code e-mail (ADR 0070)"
     },
     {
       "name": "jeu",

@@ -6,7 +6,8 @@
 
 import { useCallback, useSyncExternalStore } from 'react'
 
-export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'ricochets' | 'reglages'
+/** `connexion` (I-31) n'a pas d'entrée dans la navigation : on y vient des Réglages, de la relance ou du lien d'un e-mail. */
+export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'ricochets' | 'reglages' | 'connexion'
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc' | 'date' | 'maitrise'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
@@ -33,7 +34,7 @@ export interface Route {
   fascicule: number | null
 }
 
-const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'ricochets', 'reglages']
+const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'ricochets', 'reglages', 'connexion']
 const QUETES: OngletQuetes[] = ['journalieres', 'ponctuelles', 'fascicules', 'au-long-cours']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc', 'date', 'maitrise']

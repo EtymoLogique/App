@@ -32,6 +32,11 @@ function estProfil(valeur: unknown): valeur is DemandeSession {
   return typeof installation === 'string' && typeof secret === 'string' && /^[A-Za-z0-9_-]{43}$/.test(secret)
 }
 
+/** Remplace le profil par un neuf, après une déconnexion ou une suppression (ADR 0070). */
+export function remplacerProfil(): Promise<void> {
+  return set(CLE, nouveauProfil(), stockage())
+}
+
 /** Renvoie le profil de cette installation, en le créant au premier lancement. */
 export async function profilLocal(): Promise<DemandeSession> {
   const existant: unknown = await get(CLE, stockage())

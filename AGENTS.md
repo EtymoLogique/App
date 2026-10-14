@@ -18,7 +18,7 @@ Si le code s’écarte d’un ADR, ou si deux sources se contredisent, signalez 
 - **D’abord un logiciel qui marche, ensuite les tests.** Faire fonctionner l’application comme elle a été conçue prime sur l’écriture de tests : livrez d’abord une fonctionnalité qui marche de bout en bout, puis ajoutez les tests qui la protègent.
 - **Le serveur fait foi** pour toute mutation : réserve, codex, énergie, plis, encre, sabliers. Le client ne transforme jamais une erreur en succès local.
 - **Chaque commande est une transaction**, porte une clé d’idempotence et la `version_etat` connue du client.
-- **Aucune donnée personnelle** : ni nom, ni adresse électronique, ni adresse réseau stockée. Les journaux ne contiennent ni secret, ni jeton, ni corps de requête, ni identifiant de joueur.
+- **Données personnelles** : ni nom ni adresse réseau stockés ; jamais d’adresse électronique en clair, seulement son empreinte HMAC ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md)) ; le pseudo est une donnée personnelle possible. Les journaux ne contiennent ni secret, ni jeton, ni corps de requête, ni identifiant de joueur, ni adresse, ni code, ni jeton de connexion.
 - **Requêtes SQL paramétrées** et vérifiées à la compilation (`sqlx::query!`). Jamais de SQL construit par concaténation.
 - **Validation côté serveur** : `deny_unknown_fields` sur toute requête, taille bornée, formats vérifiés (UUID v4, secret de 256 bits).
 - **La base de progression ne copie aucun texte du catalogue** : des identifiants opaques et des nombres.

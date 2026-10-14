@@ -5,7 +5,7 @@ import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
 import { type BriqueJeu, type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir, texteDuMot } from './jeu'
-import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
+import { completerEtat, effacerPartie, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 import { nombrePourRemplir } from './plis'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
@@ -494,9 +494,28 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     }
   }, [api, confirmer])
 
+  /**
+   * Après une connexion à un compte, une déconnexion ou une suppression (ADR 0070) :
+   * la session et la partie locale sont celles d'un autre joueur. On les oublie,
+   * puis le serveur redonne l'état.
+   */
+  const changerDePartie = useCallback(async () => {
+    api.oublierSession()
+    await effacerPartie()
+    etatCourant.current = null
+    setEtat(null)
+    setTable(casesVides())
+    setNouvelles(new Set())
+    setFiche(null)
+    setRetour(null)
+    await synchroniser()
+  }, [api, synchroniser])
+
   return {
     jeu,
     etat,
+    synchroniser,
+    changerDePartie,
     reinitialisable,
     reinitialiser,
     ouvrirPli,

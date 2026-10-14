@@ -800,3 +800,56 @@ button.disc { font: inherit; cursor: pointer; }
 /* Prix en gouttes : la goutte au trait, de la couleur du texte du bouton. */
 .btn-prix { gap: 6px; min-width: 72px; padding: 8px 12px; font-variant-numeric: tabular-nums; }
 .btn-prix .prix { min-width: 2ch; text-align: right; }
+
+/* ---------- Compte facultatif (ADR 0070) : connexion (I-31), relance (I-32), Réglages (I-33) ---------- */
+/* Danger (design système) : Corail profond, réservé aux actions irréversibles, jamais pour un échec de jeu. */
+.btn-danger { background: var(--c-action-deep); color: #fffbf3; box-shadow: 4px 4px 0 var(--pop-shadow); }
+.btn-danger:not(:disabled):hover { box-shadow: 6px 6px 0 var(--pop-shadow); }
+.btn-danger:not(:disabled):active { box-shadow: 1px 1px 0 var(--pop-shadow); }
+
+/* Champ de saisie : étiquette au-dessus, 16 px pour que iOS ne zoome pas. */
+.saisie { display: grid; gap: 6px; }
+.saisie > span:first-child { color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.saisie input { min-height: 48px; padding: 10px 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--paper); color: var(--ink); font: inherit; font-size: 16px; }
+.saisie input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Connexion : plein écran sur mobile ; sur ordinateur, le panneau et l'explication à côté. */
+.connexion { display: grid; gap: 18px; max-width: 880px; }
+.connexion-panneau { min-width: 0; margin: 0; }
+.connexion-etape { display: grid; gap: 14px; }
+.connexion-etape h2 { font-family: var(--serif); font-size: 24px; line-height: 1.15; }
+.connexion-etape p { margin: 0; }
+.connexion-erreur { margin: 0; color: var(--c-action-deep); font-weight: 700; }
+:root[data-theme="nocturne"] .connexion-erreur { color: var(--c-action); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .connexion-erreur { color: var(--c-action); } }
+.connexion-atouts { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.connexion-atouts li { display: grid; gap: 2px; padding: 12px 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.connexion-atouts span { color: var(--ink-2); font-size: 14px; }
+@media (min-width: 761px) {
+  .connexion { grid-template-columns: minmax(0, 1fr) 260px; align-items: start; }
+  .connexion > .banniere { grid-column: 1 / -1; }
+}
+
+/* Code à 6 chiffres : une seule saisie (collage, code proposé par le système), six cases dessinées dessous. */
+.code-cases { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-width: 360px; }
+.code-case { display: grid; place-items: center; height: 56px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--paper); font-family: var(--mono); font-size: 24px; font-weight: 700; }
+.code-cases:focus-within .code-case.active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+.saisie .code-saisie { position: absolute; min-height: 0; border-radius: 0; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent; font-size: 16px; outline: none; }
+
+/* Relance : une carte en ligne sous la table, refermable, jamais un dialogue. */
+.relance-compte { display: grid; gap: 10px; padding: 18px 20px; border: 1.5px solid var(--fixed-ink); border-radius: var(--radius); background: var(--cream); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.relance-compte h2 { font-family: var(--serif); font-size: 21px; line-height: 1.2; }
+.relance-compte p { margin: 0; }
+.relance-risque { color: var(--ink-2); font-size: 13px; }
+
+/* Compte dans les Réglages : des lignes à toucher, l'adresse jamais affichée. */
+.compte-pseudo, .compte-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.compte-pseudo > span:first-child, .compte-ligne > span:first-child { display: grid; gap: 2px; }
+.compte-pseudo b { font-family: var(--mono); font-size: 17px; overflow-wrap: anywhere; }
+.compte-pseudo small, .compte-ligne small { color: var(--ink-2); font-size: 13px; }
+.compte-ligne { min-height: 56px; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.compte-ligne:disabled { opacity: 0.5; cursor: not-allowed; }
+.compte-ligne:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.etiquette-privee { flex: none; padding: 3px 10px; border: 1.5px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+/* Feuilles ouvertes depuis un groupe des Réglages : titre de dialogue, pas d'en-tête de groupe. */
+.reglage .dialogue h2 { font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: 0; text-transform: none; }

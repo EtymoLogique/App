@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Boutique } from './composants/Boutique'
+import { CompteReglages } from './composants/CompteReglages'
+import { Connexion } from './composants/Connexion'
 import { CarteSeule, Codex } from './composants/Codex'
 import { Indices } from './composants/Indices'
 import { Icone } from './composants/Icone'
@@ -8,6 +10,7 @@ import { Navigation, type Onglet } from './composants/Navigation'
 import { Plis } from './composants/Plis'
 import { Quetes } from './composants/Quetes'
 import { Reglages } from './composants/Reglages'
+import { RelanceCompte } from './composants/RelanceCompte'
 import { Ricochets } from './composants/Ricochets'
 import { ReserveModale } from './composants/ReserveModale'
 import { Resultat } from './composants/Resultat'
@@ -15,6 +18,9 @@ import { Table } from './composants/Table'
 import type { ClientApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { construireCodex } from './services/codex'
+import * as compte from './services/compte'
+import type { ReponseConfirmation } from './contrat'
+import { memoriserRelance, souvenirRelance } from './services/local'
 import { indiceCourant } from './services/indices'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
 import { FournisseurDeblocage, useDeblocageEtat } from './services/deblocage'
@@ -130,6 +136,35 @@ export function App({ api, catalogue }: Props) {
     focusFusion.current = false
     boutonFusion.current?.focus({ preventScroll: true })
   }, [reserveOuverte])
+  // Compte facultatif (ADR 0070) : la relance attend une table vide, sans fusion, carte ni rituel en cours.
+  const [souvenir, setSouvenir] = useState<compte.SouvenirRelance | null>(null)
+  useEffect(() => {
+    void souvenirRelance().then(setSouvenir)
+  }, [])
+  const occupe = partie.table.length > 0 || partie.enAttente || partie.fusion !== null || partie.fiche !== null || gel !== null || reserveOuverte !== null || indices
+  const relance = etat && souvenir && !occupe && compte.doitRelancer(etat, souvenir)
+  const fermerRelance = () => {
+    if (!etat) return
+    const suite = compte.fermerRelance(etat)
+    setSouvenir(suite)
+    void memoriserRelance(suite)
+  }
+  const { synchroniser, changerDePartie } = partie
+  const compteConfirme = useCallback(
+    async (reponse: ReponseConfirmation) => {
+      // Connecté : l'appareil joue une autre partie. Compte créé : la même, avec son compte.
+      await (reponse.issue === 'connecte' ? changerDePartie() : synchroniser())
+      naviguer({ onglet: 'reglages' })
+    },
+    [changerDePartie, synchroniser, naviguer],
+  )
+  const quitter = async (action: (api: ClientApi) => Promise<string | null>) => {
+    const erreur = await action(api)
+    if (erreur) return erreur
+    await changerDePartie()
+    naviguer({ onglet: 'table' })
+    return null
+  }
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
@@ -270,6 +305,7 @@ export function App({ api, catalogue }: Props) {
                         </>
                       )}
                     </section>
+                    {relance && <RelanceCompte decouvertes={etat.decouvertes.length} onSauvegarder={() => naviguer({ onglet: 'connexion' })} onFermer={fermerRelance} />}
                   </div>
 
 
@@ -360,7 +396,33 @@ export function App({ api, catalogue }: Props) {
 
             <section {...ecran('reglages')}>
               <EnTete titre="Réglages" id="titre-reglages" />
-              <Reglages reglages={reglages} onChanger={changer} onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined} />
+              <Reglages
+                reglages={reglages}
+                onChanger={changer}
+                onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined}
+                compte={
+                  etat && (
+                    <CompteReglages
+                      compte={etat.compte}
+                      enLigne={enLigne}
+                      onSauvegarder={() => naviguer({ onglet: 'connexion' })}
+                      changerPseudo={async (pseudo) => {
+                        const r = await compte.changerPseudo(api, pseudo)
+                        if ('erreur' in r) return r
+                        await synchroniser()
+                        return null
+                      }}
+                      deconnecter={() => quitter(compte.deconnecter)}
+                      supprimer={() => quitter(compte.supprimer)}
+                    />
+                  )
+                }
+              />
+            </section>
+
+            <section {...ecran('connexion')}>
+              <EnTete titre={etat?.compte ? 'Se connecter' : 'Sauvegarder'} id="titre-connexion" />
+              {onglet === 'connexion' && <Connexion api={api} etat={etat} enLigne={enLigne} onConfirme={compteConfirme} />}
             </section>
           </main>
         </div>

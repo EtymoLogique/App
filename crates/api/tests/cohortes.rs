@@ -27,8 +27,8 @@ async fn profils(
     precedent: Option<&str>,
 ) {
     sqlx::query(
-        "INSERT INTO joueur (id, empreinte_secret, cree_le, derniere_activite, mois_activite_precedente)
-         SELECT gen_random_uuid(), decode(repeat('00', 32), 'hex'), $1::date::timestamptz,
+        "INSERT INTO joueur (id, cree_le, derniere_activite, mois_activite_precedente)
+         SELECT gen_random_uuid(), $1::date::timestamptz,
                 CASE WHEN g <= $3 THEN $4::date::timestamptz + interval '10 hours' ELSE $1::date::timestamptz END,
                 CASE WHEN g <= $3 THEN $5::date END
          FROM generate_series(1, $2) AS g",

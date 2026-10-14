@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM compte WHERE empreinte_courriel = $1) AS \"connue!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "connue!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "111685124a6829cb02a643b8e44b5e10055dbc72d8584ed41859c34aa7f9761c"
+}

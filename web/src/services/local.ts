@@ -5,6 +5,7 @@
 import { clear, createStore, get, set, type UseStore } from 'idb-keyval'
 
 import type { Etat } from '../contrat'
+import { SOUVENIR_VIERGE, type SouvenirRelance, estSouvenir } from './compte'
 import { TABLE_MAX } from './jeu'
 
 let magasin: UseStore | undefined
@@ -74,6 +75,20 @@ export async function fasciculesConnus(): Promise<Set<string> | null> {
 
 export function memoriserFasciculesConnus(connus: ReadonlySet<string>): Promise<void> {
   return set('fascicules_connus', [...connus], stockage()).catch(() => undefined)
+}
+
+/** Mémoire de la relance « Sauvegardez votre progression » sur cet appareil (I-32). */
+export async function souvenirRelance(): Promise<SouvenirRelance> {
+  try {
+    const souvenir: unknown = await get('relance', stockage())
+    return estSouvenir(souvenir) ? souvenir : SOUVENIR_VIERGE
+  } catch {
+    return SOUVENIR_VIERGE
+  }
+}
+
+export function memoriserRelance(souvenir: SouvenirRelance): Promise<void> {
+  return set('relance', souvenir, stockage()).catch(() => undefined)
 }
 
 /** Oublie la partie locale ; le serveur garde la progression confirmée. */

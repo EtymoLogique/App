@@ -22,7 +22,8 @@ use uuid::Uuid;
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
 use crate::{
-    EtatApp, carte_lecteur, debit, progression, quetes_initiales, quetes_jour, ricochets, secret,
+    EtatApp, carte_lecteur, compte, debit, progression, quetes_initiales, quetes_jour, ricochets,
+    secret,
 };
 
 pub fn routes() -> Router<Arc<EtatApp>> {
@@ -43,6 +44,7 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/cadeau", post(recuperer_cadeau))
         .route("/quete-initiale", post(recuperer_quete_initiale))
         .route("/quete-du-jour", post(recuperer_quete_du_jour))
+        .merge(compte::routes())
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -52,7 +54,8 @@ pub fn routes_hors_prod() -> Router<Arc<EtatApp>> {
 
 /// Remet le joueur à zéro, pour la recette hors production : codex vide,
 /// réserve vide (les graines des fascicules parus ne sont pas rendues),
-/// 10 000 gouttes. Route absente (`404`) en production.
+/// 10 000 gouttes. Le compte, son pseudo et les appareils restent (ADR 0070).
+/// Route absente (`404`) en production.
 #[utoipa::path(post, path = "/dev/reset", tag = "hors-production", security(("session" = [])),
     responses(
         (status = 200, description = "Joueur remis à zéro, état confirmé", body = Etat),
@@ -100,10 +103,12 @@ pub async fn sante(State(app): State<Arc<EtatApp>>) -> Json<Sante> {
     })
 }
 
-/// Ouvre ou renouvelle la session d'un profil invité.
+/// Ouvre ou renouvelle la session d'un appareil.
 ///
-/// Au premier appel pour une installation, le profil est créé avec
-/// l'empreinte du secret. Ensuite, le même secret doit être présenté.
+/// Au premier appel pour une installation, l'appareil et sa partie invitée
+/// sont créés avec l'empreinte du secret. Ensuite, le même secret doit être
+/// présenté ; le jeton désigne la partie de l'appareil, celle de son compte
+/// s'il est connecté (ADR 0070).
 #[utoipa::path(post, path = "/session", tag = "profil", request_body = DemandeSession,
     responses(
         (status = 200, description = "Session ouverte", body = Session),
@@ -126,38 +131,84 @@ pub async fn session(
         ErreurApi::RequeteInvalide("secret : 256 bits en base64url attendus".into())
     })?;
 
-    let cree = sqlx::query_scalar!(
-        "INSERT INTO joueur (id, empreinte_secret) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id",
-        demande.installation,
-        &empreinte[..],
-    )
-    .fetch_optional(&app.base)
-    .await?
-    .is_some();
-
-    if !cree {
-        let connue = sqlx::query_scalar!(
-            "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,
-                 mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')
-                     THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,
-                 derniere_activite = now()
-             WHERE id = $1 RETURNING empreinte_secret",
-            demande.installation,
-        )
-        .fetch_optional(&app.base)
-        .await?
-        .ok_or(ErreurApi::NonAuthentifie)?;
-        if !secret::egales(&connue, &empreinte) {
+    let cree = creer_appareil(&app, demande.installation, &empreinte).await?;
+    let joueur = if let Some(joueur) = cree {
+        joueur
+    } else {
+        let connu = sqlx::query!(
+                "UPDATE appareil SET derniere_activite = now() WHERE id = $1 RETURNING joueur_id, empreinte_secret",
+                demande.installation,
+            )
+            .fetch_optional(&app.base)
+            .await?
+            .ok_or(ErreurApi::NonAuthentifie)?;
+        if !secret::egales(&connu.empreinte_secret, &empreinte) {
             return Err(ErreurApi::NonAuthentifie);
         }
-    }
+        sqlx::query!(
+                "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,
+                     mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')
+                         THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,
+                     derniere_activite = now()
+                 WHERE id = $1",
+                connu.joueur_id,
+            )
+            .execute(&app.base)
+            .await?;
+        connu.joueur_id
+    };
 
-    let (jeton, expire_le) = app.signataire.emettre(demande.installation, Utc::now());
+    let (jeton, expire_le) = app
+        .signataire
+        .emettre(joueur, demande.installation, Utc::now());
     Ok(Json(Session {
         jeton,
         expire_le,
-        nouveau: cree,
+        nouveau: cree.is_some(),
     }))
+}
+
+/// Crée l'appareil et sa partie invitée, sauf s'il existe déjà (`None`).
+/// La partie prend l'identifiant de l'installation, sauf s'il est déjà pris :
+/// celle d'un compte dont cet appareil d'origine s'est déconnecté.
+async fn creer_appareil(
+    app: &EtatApp,
+    installation: Uuid,
+    empreinte: &[u8],
+) -> Result<Option<Uuid>, ErreurApi> {
+    let mut tx = app.base.begin().await?;
+    let joueur = match sqlx::query_scalar!(
+        "INSERT INTO joueur (id) VALUES ($1) ON CONFLICT (id) DO NOTHING RETURNING id",
+        installation,
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    {
+        Some(joueur) => joueur,
+        None => {
+            sqlx::query_scalar!(
+                "INSERT INTO joueur (id) VALUES ($1) RETURNING id",
+                Uuid::new_v4()
+            )
+            .fetch_one(&mut *tx)
+            .await?
+        }
+    };
+    // Deux premières sessions simultanées : la seconde attend la première, puis retombe sur la vérification.
+    let cree = sqlx::query_scalar!(
+        "INSERT INTO appareil (id, joueur_id, empreinte_secret) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id",
+        installation,
+        joueur,
+        empreinte,
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if cree.is_none() {
+        tx.rollback().await?;
+        return Ok(None);
+    }
+    tx.commit().await?;
+    Ok(Some(joueur))
 }
 
 /// Synchronise le joueur : marque les jalons atteints depuis une parution

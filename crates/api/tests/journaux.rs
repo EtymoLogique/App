@@ -90,3 +90,71 @@ async fn aucune_donnee_personnelle_dans_les_journaux(base: PgPool) {
         assert!(!ecrit.contains(valeur), "{nom} dans le journal : {ecrit}");
     }
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn ni_adresse_ni_code_ni_lien_dans_les_journaux(base: PgPool) {
+    let journal = Capture::default();
+    let _garde = tracing::subscriber::set_default(
+        tracing_subscriber::fmt()
+            .with_writer(journal.clone())
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    );
+    let banc = commun::banc_courriel(base).await;
+    let jeton = commun::session(&banc.routeur).await;
+    let adresse = "camille.martin@exemple.fr";
+    let (_, _, reponse) = appeler(
+        &banc.routeur,
+        post(&jeton, "/compte/demande", &json!({ "courriel": adresse })),
+    )
+    .await;
+    let defi = reponse["defi"].as_str().unwrap().to_owned();
+    let eml = std::fs::read_dir(banc.dossier.path().join("courriels"))
+        .unwrap()
+        .map(|e| std::fs::read_to_string(e.unwrap().path()).unwrap())
+        .next()
+        .unwrap();
+    let code: String = eml
+        .lines()
+        .find(|l| l.starts_with("Subject:"))
+        .unwrap()
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect();
+    let lien = eml
+        .split("&jeton=")
+        .nth(1)
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .to_owned();
+    // Un code faux, une adresse invalide, puis le bon code.
+    for corps in [
+        json!({ "defi": defi, "code": "000000" }),
+        json!({ "defi": defi, "jeton": lien, "code": code }),
+        json!({ "defi": defi, "code": code }),
+    ] {
+        appeler(&banc.routeur, post(&jeton, "/compte/confirmation", &corps)).await;
+    }
+    appeler(
+        &banc.routeur,
+        post(
+            &jeton,
+            "/compte/demande",
+            &json!({ "courriel": "pas-une@adresse" }),
+        ),
+    )
+    .await;
+
+    let ecrit = String::from_utf8_lossy(&journal.0.lock().unwrap()).into_owned();
+    assert!(!ecrit.is_empty(), "le journal capture bien");
+    for (nom, valeur) in [
+        ("adresse", adresse),
+        ("adresse invalide", "pas-une@adresse"),
+        ("code", code.as_str()),
+        ("jeton du lien", lien.as_str()),
+    ] {
+        assert!(!ecrit.contains(valeur), "{nom} dans le journal : {ecrit}");
+    }
+}

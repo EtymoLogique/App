@@ -1,17 +1,20 @@
 // Client de l'API de jeu. Le serveur fait foi (ADR 0007) : le client
 // n'invente jamais un résultat à partir d'une erreur.
 
-import type { DemandeAchatSablier, DemandeCadeau, DemandeQueteDuJour, DemandeQueteInitiale, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCadeau, ReponseQueteDuJour, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
+import type { CompteEtat, DemandeCompte, DemandeConfirmation, DemandePseudo, DemandeSuppression, ReponseConfirmation, ReponseDemandeCompte, DemandeAchatSablier, DemandeCadeau, DemandeQueteDuJour, DemandeQueteInitiale, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCadeau, ReponseQueteDuJour, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
 import { profilLocal } from './profil'
 
 export class ErreurApi extends Error {
   readonly statut: number
   readonly code: Erreur['code'] | 'reseau'
+  /** Corps complet de l'erreur : essais restants, avertissement, proposition (ADR 0070). */
+  readonly details: Partial<Erreur>
 
-  constructor(statut: number, code: ErreurApi['code'], message: string) {
+  constructor(statut: number, code: ErreurApi['code'], message: string, details: Partial<Erreur> = {}) {
     super(message)
     this.statut = statut
     this.code = code
+    this.details = details
   }
 }
 
@@ -38,7 +41,7 @@ export class ClientApi {
     const corps: unknown = await reponse.json().catch(() => undefined)
     if (!reponse.ok) {
       const erreur = corps as Partial<Erreur> | undefined
-      throw new ErreurApi(reponse.status, erreur?.code ?? 'interne', erreur?.message ?? reponse.statusText)
+      throw new ErreurApi(reponse.status, erreur?.code ?? 'interne', erreur?.message ?? reponse.statusText, erreur ?? {})
     }
     return corps as T
   }
@@ -76,6 +79,52 @@ export class ClientApi {
       }
       throw e
     }
+  }
+
+  /** Oublie la session : la prochaine requête la rouvre, après une connexion ou un changement de profil. */
+  oublierSession(): void {
+    this.session = undefined
+  }
+
+  /** Envoie un lien et un code par e-mail (ADR 0070) ; la réponse ne dit pas si l'adresse a un compte. */
+  demandeCompte(demande: DemandeCompte): Promise<ReponseDemandeCompte> {
+    return this.authentifie('/compte/demande', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Confirme un défi par code ou par lien : `400` code faux, `409` partie invitée à remplacer, `410` défi expiré. */
+  confirmerCompte(demande: DemandeConfirmation): Promise<ReponseConfirmation> {
+    return this.authentifie('/compte/confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Confirme ou change le pseudo : `409` s'il est pris, avec une proposition. */
+  changerPseudo(demande: DemandePseudo): Promise<CompteEtat> {
+    return this.authentifie('/compte/pseudo', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
+  }
+
+  /** Détache cet appareil de sa partie. */
+  deconnecter(): Promise<void> {
+    return this.authentifie('/compte/deconnexion', { method: 'POST' })
+  }
+
+  /** Efface le compte et toute la progression, sur tous les appareils. */
+  supprimerCompte(demande: DemandeSuppression): Promise<void> {
+    return this.authentifie('/compte', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(demande),
+    })
   }
 
   /** Hors production : remet le joueur à zéro (codex vide, 10 000 gouttes). Route absente (`404`) en production. */

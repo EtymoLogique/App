@@ -41,6 +41,8 @@ async fn main() -> anyhow::Result<()> {
                 commandes = rapport.commandes,
                 quetes_du_jour = rapport.quetes_du_jour,
                 ricochets_du_jour = rapport.ricochets_du_jour,
+                defis_connexion = rapport.defis_connexion,
+                invites_inactifs = rapport.invites_inactifs,
                 "purges terminées"
             );
             Ok(())
@@ -105,6 +107,7 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
         limiteurs: Limiteurs::default(),
         recharge: chrono::TimeDelta::seconds(i64::from(config.recharge_s.max(1))),
         reinitialisation: config.reinitialisation,
+        courriel: etymo_api::courriel::Courriel::depuis_config(&config.courriel)?,
     });
 
     let relecture = Arc::clone(&etat);

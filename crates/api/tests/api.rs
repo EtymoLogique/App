@@ -44,7 +44,7 @@ async fn cree_puis_reprend_un_profil_invite(base: PgPool) {
 
     // Le secret n'est jamais stocké, seulement son empreinte.
     let empreinte: Vec<u8> =
-        sqlx::query_scalar("SELECT empreinte_secret FROM joueur WHERE id = $1")
+        sqlx::query_scalar("SELECT empreinte_secret FROM appareil WHERE id = $1")
             .bind(installation)
             .fetch_one(&base)
             .await
@@ -118,9 +118,11 @@ async fn etat_exige_un_jeton_valide(base: PgPool) {
     assert_eq!(statut, StatusCode::UNAUTHORIZED);
 
     // Un jeton bien signé pour un profil inexistant ne donne rien non plus.
-    let (jeton, _) = Signataire::nouveau(&[3; 32])
-        .unwrap()
-        .emettre(Uuid::new_v4(), chrono::Utc::now());
+    let (jeton, _) = Signataire::nouveau(&[3; 32]).unwrap().emettre(
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+        chrono::Utc::now(),
+    );
     let (statut, _, _) = appeler(&banc.routeur, get_etat(&jeton)).await;
     assert_eq!(statut, StatusCode::UNAUTHORIZED);
 }
@@ -167,9 +169,8 @@ async fn cors_limite_a_l_origine_de_la_pwa(base: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn purge_les_commandes_de_plus_de_30_jours(base: PgPool) {
     let joueur = Uuid::new_v4();
-    sqlx::query("INSERT INTO joueur (id, empreinte_secret) VALUES ($1, $2)")
+    sqlx::query("INSERT INTO joueur (id) VALUES ($1)")
         .bind(joueur)
-        .bind(vec![0u8; 32])
         .execute(&base)
         .await
         .unwrap();

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pseudo, pseudo_confirme FROM compte WHERE joueur_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pseudo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "pseudo_confirme",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "da98bb6334ed8b09fd5fc18ae92190360cab2fc0fe3a87718f764084155dd61f"
+}

@@ -9,6 +9,7 @@ use axum::body::Body;
 use axum::http::{HeaderValue, Request, StatusCode, header};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use etymo_api::courriel::{Courriel, Expediteur};
 use etymo_api::{CatalogueVivant, EtatApp, Limiteurs, Signataire, routeur};
 use etymo_catalogue::{INDEX, LecteurDossier, essai};
 use http_body_util::BodyExt;
@@ -30,7 +31,29 @@ pub async fn banc(base: PgPool, limiteurs: Limiteurs) -> Banc {
 }
 
 pub async fn banc_avec(base: PgPool, limiteurs: Limiteurs, reinitialisation: bool) -> Banc {
+    banc_complet(base, limiteurs, reinitialisation, false).await
+}
+
+/// Banc dont les e-mails de connexion s'écrivent dans `dossier/courriels`.
+pub async fn banc_courriel(base: PgPool) -> Banc {
+    banc_complet(base, Limiteurs::default(), false, true).await
+}
+
+async fn banc_complet(
+    base: PgPool,
+    limiteurs: Limiteurs,
+    reinitialisation: bool,
+    courriel: bool,
+) -> Banc {
     let dossier = tempfile::tempdir().unwrap();
+    let courriel = courriel.then(|| {
+        Courriel::nouveau(
+            &[5; 32],
+            "https://pwa.exemple.test",
+            Expediteur::Fichier(dossier.path().join("courriels")),
+        )
+        .unwrap()
+    });
     let manifeste = essai::fascicule(dossier.path(), 0, "2026-10-01T08:00:00+02:00");
     essai::calendrier(
         dossier.path(),
@@ -47,6 +70,7 @@ pub async fn banc_avec(base: PgPool, limiteurs: Limiteurs, reinitialisation: boo
         limiteurs,
         recharge: etymo_domaine::energie::RECHARGE,
         reinitialisation,
+        courriel,
     });
     Banc {
         routeur: routeur(etat.clone(), &[HeaderValue::from_static(ORIGINE)]),
