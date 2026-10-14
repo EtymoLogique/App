@@ -41,6 +41,10 @@ describe('lien de connexion', () => {
     expect(lienDeConnexion()).toEqual({ defi: 'd-1', jeton: 'abc_-' })
     oublierLien()
     expect(lienDeConnexion()).toBeNull()
+    // Un second lien ouvert dans la PWA déjà chargée (hashchange) est lu à son tour.
+    window.history.replaceState(null, '', '/#/connexion?defi=d-2&jeton=xyz')
+    expect(lienDeConnexion()).toEqual({ defi: 'd-2', jeton: 'xyz' })
+    expect(window.location.hash).toBe('#/connexion')
   })
 
   it('ignore une autre route', async () => {

@@ -62,8 +62,8 @@ export function Connexion({ api, etat, enLigne, onConfirme }: Props) {
   const [erreur, setErreur] = useState<string | null>(null)
   const [remplacement, setRemplacement] = useState<{ defi: string; preuve: Preuve; avertissement: AvertissementRemplacement } | null>(null)
   const maintenant = useMaintenant()
-  // Le lien ne se confirme qu'une fois, même si l'effet est rejoué (StrictMode).
-  const lienEnvoye = useRef(false)
+  // Un lien ne se confirme qu'une fois, même si l'effet est rejoué (StrictMode).
+  const lienEnvoye = useRef<string | null>(null)
 
   const valider = useCallback(
     async (d: string, preuve: Preuve, remplacer_invite = false) => {
@@ -82,9 +82,10 @@ export function Connexion({ api, etat, enLigne, onConfirme }: Props) {
   )
 
   useEffect(() => {
-    if (!lien || lienEnvoye.current || !enLigne) return
-    lienEnvoye.current = true
+    if (!lien || lienEnvoye.current === lien.jeton || !enLigne) return
+    lienEnvoye.current = lien.jeton
     oublierLien()
+    setDefi(lien.defi)
     // oxlint-disable-next-line react/set-state-in-effect -- la confirmation part une fois, à l'arrivée par le lien.
     void valider(lien.defi, { jeton: lien.jeton })
   }, [lien, enLigne, valider])

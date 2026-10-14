@@ -14,18 +14,21 @@ export interface LienConnexion {
 let lienLu: LienConnexion | null | undefined
 
 /**
- * Défi et jeton du lien de l'e-mail (`#/connexion?defi=…&jeton=…`), lus une
- * seule fois au chargement puis retirés de l'adresse : ils ne restent ni dans
- * l'historique ni dans un favori. Le fragment n'est jamais envoyé au serveur.
+ * Défi et jeton du lien de l'e-mail (`#/connexion?defi=…&jeton=…`), retirés de
+ * l'adresse dès qu'ils y sont lus, au chargement comme quand la PWA ouverte
+ * reçoit le lien : ils ne restent ni dans l'historique ni dans un favori. Le
+ * fragment n'est jamais envoyé au serveur.
  */
 export function lienDeConnexion(): LienConnexion | null {
-  if (lienLu !== undefined) return lienLu
   const [chemin = '', requete = ''] = window.location.hash.replace(/^#\/?/, '').split('?')
   const params = new URLSearchParams(requete)
-  const defi = params.get('defi')
-  const jeton = params.get('jeton')
-  lienLu = chemin === 'connexion' && defi && jeton ? { defi, jeton } : null
-  if (chemin === 'connexion' && (params.has('defi') || params.has('jeton'))) history.replaceState(history.state, '', '#/connexion')
+  if (chemin === 'connexion' && (params.has('defi') || params.has('jeton'))) {
+    const defi = params.get('defi')
+    const jeton = params.get('jeton')
+    lienLu = defi && jeton ? { defi, jeton } : null
+    history.replaceState(history.state, '', '#/connexion')
+  }
+  lienLu ??= null
   return lienLu
 }
 

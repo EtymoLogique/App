@@ -834,7 +834,7 @@ button.disc { font: inherit; cursor: pointer; }
 .code-cases { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-width: 360px; }
 .code-case { display: grid; place-items: center; height: 56px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--paper); font-family: var(--mono); font-size: 24px; font-weight: 700; }
 .code-cases:focus-within .code-case.active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
-.code-saisie { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent; font-size: 16px; outline: none; }
+.saisie .code-saisie { position: absolute; min-height: 0; border-radius: 0; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent; font-size: 16px; outline: none; }
 
 /* Relance : une carte en ligne sous la table, refermable, jamais un dialogue. */
 .relance-compte { display: grid; gap: 10px; padding: 18px 20px; border: 1.5px solid var(--fixed-ink); border-radius: var(--radius); background: var(--cream); box-shadow: 4px 4px 0 var(--pop-shadow); }
@@ -851,3 +851,5 @@ button.disc { font: inherit; cursor: pointer; }
 .compte-ligne:disabled { opacity: 0.5; cursor: not-allowed; }
 .compte-ligne:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .etiquette-privee { flex: none; padding: 3px 10px; border: 1.5px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+/* Feuilles ouvertes depuis un groupe des Réglages : titre de dialogue, pas d'en-tête de groupe. */
+.reglage .dialogue h2 { font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: 0; text-transform: none; }
