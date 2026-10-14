@@ -4,7 +4,10 @@
 
 import type { AvertissementRemplacement, CompteEtat, DemandeConfirmation, Etat, ReponseConfirmation, ReponseDemandeCompte } from '../contrat'
 import { type ClientApi, ErreurApi } from './api'
-import { remplacerProfil } from './profil'
+import { memoriserCompteQuitte, remplacerProfil } from './profil'
+
+/** Ce que vient faire le joueur sur l'écran de connexion : seuls les textes changent, pas la demande. */
+export type ModeConnexion = 'sauvegarde' | 'connexion'
 
 export interface LienConnexion {
   defi: string
@@ -76,13 +79,22 @@ async function dejaRattache(api: ClientApi): Promise<ReponseConfirmation | null>
   }
 }
 
+/** L'appareil a un compte : il n'a plus à proposer de s'y reconnecter. */
+async function rattache(reponse: ReponseConfirmation): Promise<ReponseConfirmation> {
+  await memoriserCompteQuitte(false)
+  return reponse
+}
+
 export async function confirmer(api: ClientApi, demande: DemandeConfirmation): Promise<Confirmation> {
   try {
-    return await api.confirmerCompte(demande)
+    return await rattache(await api.confirmerCompte(demande))
   } catch (e) {
     if (e instanceof ErreurApi && e.details.avertissement) return { avertissement: e.details.avertissement }
     if (e instanceof ErreurApi && e.details.essais_restants != null) return { erreur: essaisRestants(e.details.essais_restants) }
-    if (e instanceof ErreurApi && e.statut === 410) return (await dejaRattache(api)) ?? { erreur: 'Demandez un nouveau code.' }
+    if (e instanceof ErreurApi && e.statut === 410) {
+      const deja = await dejaRattache(api)
+      return deja ? await rattache(deja) : { erreur: 'Demandez un nouveau code.' }
+    }
     if (e instanceof ErreurApi && e.statut === 409) return { erreur: 'Cet appareil a déjà un compte.' }
     return { erreur: message(e) }
   }
@@ -103,7 +115,10 @@ export async function changerPseudo(api: ClientApi, pseudo: string): Promise<Com
   }
 }
 
-/** Détache l'appareil, puis repart d'un profil invité neuf. Renvoie un message d'erreur, ou `null`. */
+/**
+ * Détache l'appareil, puis repart d'un profil invité neuf qui se souvient du
+ * compte quitté. Renvoie un message d'erreur, ou `null`.
+ */
 export async function deconnecter(api: ClientApi): Promise<string | null> {
   try {
     await api.deconnecter()
@@ -111,6 +126,7 @@ export async function deconnecter(api: ClientApi): Promise<string | null> {
     return message(e)
   }
   await remplacerProfil()
+  await memoriserCompteQuitte(true)
   return null
 }
 
@@ -138,13 +154,14 @@ export const SOUVENIR_VIERGE: SouvenirRelance = { fermee_le_jour_de_jeu: null, j
 /**
  * La carte « Sauvegardez votre progression » (I-32) : pour un invité, à la
  * 3ᵉ découverte, à chaque jalon atteint depuis la dernière fermeture, sinon
- * tous les 7 jours de jeu depuis la dernière fermeture.
+ * tous les 7 jours de jeu depuis la dernière fermeture. Après une déconnexion,
+ * elle propose de se reconnecter dès le retour à la table.
  */
-export function doitRelancer(etat: Etat, souvenir: SouvenirRelance): boolean {
+export function doitRelancer(etat: Etat, souvenir: SouvenirRelance, compteQuitte = false): boolean {
   if (etat.compte) return false
   const vus = new Set(souvenir.jalons_vus)
   if ((etat.jalons_atteints ?? []).some((j) => !vus.has(j))) return true
-  if (souvenir.fermee_le_jour_de_jeu === null) return etat.decouvertes.length >= 3
+  if (souvenir.fermee_le_jour_de_jeu === null) return compteQuitte || etat.decouvertes.length >= 3
   return (etat.jours_de_jeu ?? 1) - souvenir.fermee_le_jour_de_jeu >= 7
 }
 

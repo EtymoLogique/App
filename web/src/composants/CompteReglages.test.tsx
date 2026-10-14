@@ -5,17 +5,20 @@ import { CompteReglages } from './CompteReglages'
 
 const actions = () => ({
   onSauvegarder: vi.fn(),
+  onSeConnecter: vi.fn(),
   changerPseudo: vi.fn().mockResolvedValue(null),
   deconnecter: vi.fn().mockResolvedValue(null),
   supprimer: vi.fn().mockResolvedValue(null),
 })
 
 describe('compte dans les Réglages (I-33)', () => {
-  it('en invité, une seule ligne : « Sauvegarder ma progression »', () => {
+  it('en invité : « Sauvegarder ma progression » et « J’ai déjà un compte »', () => {
     const a = actions()
     render(<CompteReglages compte={undefined} enLigne {...a} />)
     fireEvent.click(screen.getByRole('button', { name: /Sauvegarder ma progression/ }))
     expect(a.onSauvegarder).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /J’ai déjà un compte/ }))
+    expect(a.onSeConnecter).toHaveBeenCalled()
     expect(screen.queryByText('Se déconnecter')).toBeNull()
   })
 

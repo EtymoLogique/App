@@ -26,6 +26,11 @@ describe('relance « Sauvegardez votre progression »', () => {
     expect(doitRelancer({ ...avant, jalons_atteints: ['jal_00000001', 'jal_00000002'] }, souvenir)).toBe(true)
   })
 
+  it('après une déconnexion, elle revient tout de suite, puis suit les mêmes règles', () => {
+    expect(doitRelancer(etat(), SOUVENIR_VIERGE, true)).toBe(true)
+    expect(doitRelancer(etat(), fermerRelance(etat()), true)).toBe(false)
+  })
+
   it('un jalon atteint suffit, même avant la 3ᵉ découverte', () => {
     expect(doitRelancer(etat({ jalons_atteints: ['jal_00000001'] }), SOUVENIR_VIERGE)).toBe(true)
   })

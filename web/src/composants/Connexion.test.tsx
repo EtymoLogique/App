@@ -2,12 +2,13 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { type ClientApi, ErreurApi } from '../services/api'
+import type { ModeConnexion } from '../services/compte'
 import { etat } from '../test/fixtures'
 import { Connexion } from './Connexion'
 
 const confirmation = { issue: 'compte_cree', pseudo: 'camille-4821', pseudo_confirme: false } as const
 
-function rendu(confirmerCompte: ReturnType<typeof vi.fn>, serveur = etat()) {
+function rendu(confirmerCompte: ReturnType<typeof vi.fn>, serveur = etat(), mode?: ModeConnexion, onMode?: (mode: ModeConnexion) => void) {
   const api = {
     demandeCompte: vi.fn().mockResolvedValue({ defi: 'defi-1', renvoyer_dans_s: 60 }),
     confirmerCompte,
@@ -15,7 +16,7 @@ function rendu(confirmerCompte: ReturnType<typeof vi.fn>, serveur = etat()) {
     etat: vi.fn().mockResolvedValue(serveur),
   } as unknown as ClientApi
   const onConfirme = vi.fn().mockResolvedValue(undefined)
-  render(<Connexion api={api} etat={etat()} enLigne onConfirme={onConfirme} />)
+  render(<Connexion api={api} etat={etat()} enLigne mode={mode} onMode={onMode} onConfirme={onConfirme} />)
   return { api, onConfirme }
 }
 
@@ -27,6 +28,22 @@ async function jusquAuCode() {
 }
 
 describe('connexion par e-mail (I-31)', () => {
+  it('en connexion, parle du compte existant et propose de revenir à la sauvegarde', () => {
+    const onMode = vi.fn()
+    rendu(vi.fn(), etat(), 'connexion', onMode)
+    expect(screen.getByRole('heading', { name: 'Retrouvez votre compte' })).toBeInTheDocument()
+    expect(screen.queryByText('Retrouvez votre partie')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder ma progression' }))
+    expect(onMode).toHaveBeenCalledWith('sauvegarde')
+  })
+
+  it('en sauvegarde, propose « Déjà un compte ? Se connecter »', () => {
+    const onMode = vi.fn()
+    rendu(vi.fn(), etat(), 'sauvegarde', onMode)
+    fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    expect(onMode).toHaveBeenCalledWith('connexion')
+  })
+
   it('demande un code, puis confirme dès le 6ᵉ chiffre collé', async () => {
     const confirmer = vi.fn().mockResolvedValue(confirmation)
     const { api, onConfirme } = rendu(confirmer)

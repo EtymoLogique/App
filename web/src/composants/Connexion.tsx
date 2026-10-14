@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { AvertissementRemplacement, Etat, ReponseConfirmation } from '../contrat'
 import type { ClientApi } from '../services/api'
-import { confirmer, demander, lienDeConnexion, oublierLien } from '../services/compte'
+import { type ModeConnexion, confirmer, demander, lienDeConnexion, oublierLien } from '../services/compte'
 import { useMaintenant } from '../services/horloge'
 import { useDialogue } from './useDialogue'
 
@@ -17,6 +17,10 @@ interface Props {
   api: ClientApi
   etat: Etat | null
   enLigne: boolean
+  /** Sauvegarder la partie invitée, ou ouvrir un compte existant : seuls les textes changent. */
+  mode?: ModeConnexion
+  /** Passer d'un mode à l'autre ; absent, pas de lien pour le faire. */
+  onMode?: (mode: ModeConnexion) => void
   /** Défi confirmé : la partie de l'appareil a pu changer. */
   onConfirme: (reponse: ReponseConfirmation) => Promise<void>
 }
@@ -52,7 +56,7 @@ function Remplacement({ avertissement, onAnnuler, onConfirmer }: { avertissement
  * crée un compte depuis la partie invitée et ouvre un compte existant ; il ne dit
  * jamais si l'adresse est connue.
  */
-export function Connexion({ api, etat, enLigne, onConfirme }: Props) {
+export function Connexion({ api, etat, enLigne, mode = 'sauvegarde', onMode, onConfirme }: Props) {
   const lien = lienDeConnexion()
   const [courriel, setCourriel] = useState('')
   const [defi, setDefi] = useState<string | null>(lien?.defi ?? null)
@@ -129,8 +133,17 @@ export function Connexion({ api, etat, enLigne, onConfirme }: Props) {
             }}
           >
             <p className="panel-k">Étape 1 sur 2</p>
-            <h2>Gardez votre partie avec une adresse électronique</h2>
-            <p>Pas de mot de passe : nous vous envoyons un code à chaque connexion.</p>
+            {mode === 'connexion' ? (
+              <>
+                <h2>Retrouvez votre compte</h2>
+                <p>Saisissez l’adresse de votre compte : nous vous envoyons un code pour ouvrir votre partie sur cet appareil.</p>
+              </>
+            ) : (
+              <>
+                <h2>Gardez votre partie avec une adresse électronique</h2>
+                <p>Pas de mot de passe : nous vous envoyons un code à chaque connexion.</p>
+              </>
+            )}
             <label className="saisie">
               <span>Adresse électronique</span>
               <input type="email" name="email" autoComplete="email" inputMode="email" required maxLength={254} value={courriel} onChange={(e) => setCourriel(e.target.value)} />
@@ -139,6 +152,14 @@ export function Connexion({ api, etat, enLigne, onConfirme }: Props) {
             <button type="submit" className="btn btn-primary" disabled={envoi || courriel.trim() === ''}>
               {envoi ? 'Envoi…' : 'Recevoir un code'}
             </button>
+            {onMode && (
+              <p className="panel-tip">
+                {mode === 'connexion' ? 'Pas encore de compte ? ' : 'Déjà un compte ? '}
+                <button type="button" className="btn-texte" onClick={() => onMode(mode === 'connexion' ? 'sauvegarde' : 'connexion')}>
+                  {mode === 'connexion' ? 'Sauvegarder ma progression' : 'Se connecter'}
+                </button>
+              </p>
+            )}
           </form>
         ) : (
           <form
@@ -204,20 +225,22 @@ export function Connexion({ api, etat, enLigne, onConfirme }: Props) {
           </form>
         )}
       </fieldset>
-      <ul className="connexion-atouts">
-        <li>
-          <b>Retrouvez votre partie</b>
-          <span>Sur un autre téléphone ou un ordinateur</span>
-        </li>
-        <li>
-          <b>Rien n’est perdu</b>
-          <span>{mots > 0 ? `Vos ${pluriel(mots, 'mot')}, votre réserve et votre encre restent` : 'Votre réserve et votre encre restent'}</span>
-        </li>
-        <li>
-          <b>Votre adresse reste secrète</b>
-          <span>Nous n’en gardons qu’une empreinte</span>
-        </li>
-      </ul>
+      {mode === 'sauvegarde' && (
+        <ul className="connexion-atouts">
+          <li>
+            <b>Retrouvez votre partie</b>
+            <span>Sur un autre téléphone ou un ordinateur</span>
+          </li>
+          <li>
+            <b>Rien n’est perdu</b>
+            <span>{mots > 0 ? `Vos ${pluriel(mots, 'mot')}, votre réserve et votre encre restent` : 'Votre réserve et votre encre restent'}</span>
+          </li>
+          <li>
+            <b>Votre adresse reste secrète</b>
+            <span>Nous n’en gardons qu’une empreinte</span>
+          </li>
+        </ul>
+      )}
       {remplacement && (
         <Remplacement
           avertissement={remplacement.avertissement}
