@@ -45,6 +45,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/compte": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Supprime le joueur et toute sa progression, sur tous ses appareils :
+         *     compte, appareils, codex, réserve, encre… Définitif.
+         */
+        delete: operations["supprimer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirme un défi par le code ou par le jeton du lien. Création : la partie
+         *     de l'appareil demandeur devient un compte. Connexion : cet appareil joue la
+         *     partie du compte ; s'il portait une partie invitée avec une progression,
+         *     il faut `remplacer_invite`, sinon `409` avec ce qui serait perdu.
+         */
+        post: operations["confirmer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/deconnexion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Détache cet appareil : le client repart d'un profil invité neuf. La partie
+         *     reste sur le compte ; une partie invitée sans autre appareil est effacée.
+         */
+        post: operations["deconnecter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/demande": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envoie un lien et un code de connexion à l'adresse donnée. La réponse est
+         *     la même que l'adresse ait un compte ou non : seul un profil qui a déjà un
+         *     compte et en demande un autre reçoit `409`.
+         */
+        post: operations["demander"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/pseudo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirme ou change le pseudo ; il devient alors public quand une vue
+         *     compétitive existera. Un pseudo pris reçoit `409` avec une proposition.
+         */
+        put: operations["changer_pseudo"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dev/reset": {
         parameters: {
             query?: never;
@@ -57,7 +160,8 @@ export interface paths {
         /**
          * Remet le joueur à zéro, pour la recette hors production : codex vide,
          *     réserve vide (les graines des fascicules parus ne sont pas rendues),
-         *     10 000 gouttes. Route absente (`404`) en production.
+         *     10 000 gouttes. Le compte, son pseudo et les appareils restent (ADR 0070).
+         *     Route absente (`404`) en production.
          */
         post: operations["reinitialiser"];
         delete?: never;
@@ -350,9 +454,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Ouvre ou renouvelle la session d'un profil invité.
-         * @description Au premier appel pour une installation, le profil est créé avec
-         *     l'empreinte du secret. Ensuite, le même secret doit être présenté.
+         * Ouvre ou renouvelle la session d'un appareil.
+         * @description Au premier appel pour une installation, l'appareil et sa partie invitée
+         *     sont créés avec l'empreinte du secret. Ensuite, le même secret doit être
+         *     présenté ; le jeton désigne la partie de l'appareil, celle de son compte
+         *     s'il est connecté (ADR 0070).
          */
         post: operations["session"];
         delete?: never;
@@ -365,6 +471,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Ce que l'appareil perdrait en ouvrant le compte : sa partie invitée. */
+        AvertissementRemplacement: {
+            /** Format: int32 */
+            decouvertes: number;
+            /** Format: int32 */
+            gouttes: number;
+        };
         BTreeMap_LibelleTexte: {
             [key: string]: {
                 texte: string;
@@ -518,7 +631,7 @@ export interface components {
         /** @description Chemin haché d'un fichier de l'artefact, relatif au préfixe publié. */
         Chemin: string;
         /** @enum {string} */
-        CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
+        CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne" | "expire";
         /**
          * @description Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
          * @enum {string}
@@ -536,6 +649,18 @@ export interface components {
             parties: components["schemas"]["Partie"][];
             preferee?: boolean;
             transformations?: components["schemas"]["Transformation"][];
+        };
+        /**
+         * @description Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne
+         *     la garde pas.
+         */
+        CompteEtat: {
+            pseudo: string;
+            /**
+             * @description Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par
+             *     défaut : il reste alors privé.
+             */
+            pseudo_confirme: boolean;
         };
         CompteurPli: {
             fascicule_id: components["schemas"]["IdCatalogue"];
@@ -609,6 +734,31 @@ export interface components {
              * @description `version_etat` connue du client.
              */
             version_etat: number;
+        };
+        /**
+         * @description Demande d'un lien et d'un code de connexion par e-mail (ADR 0070). La même
+         *     demande crée un compte depuis la partie invitée ou ouvre un compte existant.
+         */
+        DemandeCompte: {
+            /** @description Adresse électronique : elle sert à l'envoi, puis le serveur n'en garde qu'une empreinte. */
+            courriel: string;
+        };
+        /**
+         * @description Confirmation d'un défi, par le jeton du lien ou par le code à 6 chiffres :
+         *     exactement l'un des deux.
+         */
+        DemandeConfirmation: {
+            /** @description Code de l'e-mail, 6 chiffres. */
+            code?: string | null;
+            /** Format: uuid */
+            defi: string;
+            /** @description Jeton du lien, en base64url. */
+            jeton?: string | null;
+            /**
+             * @description Remplace la partie invitée de cet appareil par celle du compte, après
+             *     l'avertissement d'un `409`.
+             */
+            remplacer_invite?: boolean;
         };
         /** @description Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table. */
         DemandeFusion: {
@@ -693,6 +843,11 @@ export interface components {
              * @description `version_etat` connue du client.
              */
             version_etat: number;
+        };
+        /** @description Nouveau pseudo, ou pseudo par défaut confirmé tel quel. */
+        DemandePseudo: {
+            /** @description 3 à 24 caractères : lettres minuscules sans accent, chiffres, traits d'union isolés. */
+            pseudo: string;
         };
         /** @description Commande de récupération de la récompense d'une quête du jour faite. */
         DemandeQueteDuJour: {
@@ -779,6 +934,11 @@ export interface components {
             installation: string;
             /** @description Secret aléatoire de 256 bits, en base64url sans remplissage. */
             secret: string;
+        };
+        /** @description Suppression du compte et de toute la progression, sur tous les appareils. */
+        DemandeSuppression: {
+            /** @description Doit valoir `SUPPRIMER`. */
+            confirmation: string;
         };
         /**
          * @description Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.
@@ -869,8 +1029,16 @@ export interface components {
         };
         /** @description Erreur renvoyée par l'API. Le message est destiné au diagnostic, pas au joueur. */
         Erreur: {
+            avertissement?: components["schemas"]["AvertissementRemplacement"] | null;
             code: components["schemas"]["CodeErreur"];
+            /**
+             * Format: int32
+             * @description Code de connexion faux : essais restants avant d'en demander un nouveau.
+             */
+            essais_restants?: number | null;
             message: string;
+            /** @description Pseudo déjà pris : un pseudo libre proche. */
+            proposition?: string | null;
         };
         /**
          * @description Projection de l'état confirmé du joueur : des identifiants et des nombres,
@@ -879,6 +1047,7 @@ export interface components {
         Etat: {
             cadeau_de_bienvenue?: components["schemas"]["CadeauEtat"] | null;
             carte_de_lecteur?: components["schemas"]["CarteDeLecteurEtat"] | null;
+            compte?: components["schemas"]["CompteEtat"] | null;
             /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
             compteurs_plis: components["schemas"]["CompteurPli"][];
             /** @description Mots découverts, dans l'ordre de leur découverte. */
@@ -1017,6 +1186,8 @@ export interface components {
             niveau: number;
             recette_id: components["schemas"]["IdCatalogue"];
         };
+        /** @enum {string} */
+        IssueConfirmation: "compte_cree" | "connecte";
         /** @description Issue d'une fusion. Seule une découverte consomme des exemplaires. */
         IssueFusion: {
             /**
@@ -1314,6 +1485,25 @@ export interface components {
         ReponseCarteDeLecteur: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
+        };
+        /** @description Défi confirmé : le client rouvre sa session, son ancien jeton ne vaut plus. */
+        ReponseConfirmation: {
+            issue: components["schemas"]["IssueConfirmation"];
+            pseudo: string;
+            pseudo_confirme: boolean;
+        };
+        /** @description Réponse identique, que l'adresse ait déjà un compte ou non. */
+        ReponseDemandeCompte: {
+            /**
+             * Format: uuid
+             * @description Défi à confirmer par le code ou le lien de l'e-mail.
+             */
+            defi: string;
+            /**
+             * Format: int32
+             * @description Délai avant de proposer « Renvoyer », en secondes.
+             */
+            renvoyer_dans_s: number;
         };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
@@ -1672,6 +1862,280 @@ export interface operations {
             };
             /** @description Aucun catalogue publié */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    supprimer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeSuppression"];
+            };
+        };
+        responses: {
+            /** @description Compte et progression effacés */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Confirmation absente */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    confirmer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Compte créé ou ouvert : rouvrir la session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseConfirmation"];
+                };
+            };
+            /** @description Code faux (`essais_restants`) ou requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Partie invitée à remplacer (`avertissement`), ou profil qui a déjà un compte */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Défi expiré, utilisé ou épuisé : demander un nouveau code */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Comptes désactivés */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    deconnecter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Appareil détaché */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    demander: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCompte"];
+            };
+        };
+        responses: {
+            /** @description E-mail envoyé si l'adresse peut ouvrir un compte */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseDemandeCompte"];
+                };
+            };
+            /** @description Adresse invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Ce profil a déjà un compte */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Corps de plus de 1 Kio */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de demandes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Envoi impossible ou désactivé */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    changer_pseudo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandePseudo"];
+            };
+        };
+        responses: {
+            /** @description Pseudo confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteEtat"];
+                };
+            };
+            /** @description Pseudo invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Partie invitée : aucun compte */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Pseudo déjà pris (`proposition`) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

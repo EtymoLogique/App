@@ -3,7 +3,9 @@
 
 pub mod carte_lecteur;
 pub mod catalogue;
+pub mod compte;
 pub mod config;
+pub mod courriel;
 pub mod debit;
 pub mod erreur;
 pub mod extraction;
@@ -44,12 +46,14 @@ pub struct EtatApp {
     pub recharge: chrono::TimeDelta,
     /// Route de réinitialisation du joueur : hors production seulement.
     pub reinitialisation: bool,
+    /// E-mails de connexion des comptes (ADR 0070) ; `None` : comptes désactivés.
+    pub courriel: Option<courriel::Courriel>,
 }
 
 pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::list(origines.iter().cloned()))
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
         .max_age(std::time::Duration::from_secs(600));
 

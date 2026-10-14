@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM defi_connexion WHERE cree_le < now() - interval '1 day'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "859df013c98746bccf57caefa545bf5de865a213e6ddca062e8c91f2851eb2bf"
+}

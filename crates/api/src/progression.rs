@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
 use etymo_contrat::{
-    CadeauEtat, CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires, FasciculeDebloque,
-    IndiceObtenu, OuverturePli, ProgressionQuete, SabliersEtat,
+    CadeauEtat, CompteEtat, CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires,
+    FasciculeDebloque, IndiceObtenu, OuverturePli, ProgressionQuete, SabliersEtat,
 };
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::carte_de_lecteur;
@@ -143,7 +143,19 @@ pub async fn etat(
         // En dernier : elles lisent la carte de lecteur et les ricochets du jour.
         quetes_initiales: quetes_initiales::etat(&mut *tx, joueur, jeu, maintenant).await?,
         fascicules_debloques: lire_fascicules_debloques(&mut *tx, joueur).await?,
+        compte: compte_etat(&mut *tx, joueur).await?,
     })
+}
+
+/// Compte du joueur, absent pour une partie invitée (ADR 0070).
+async fn compte_etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Option<CompteEtat>, ErreurApi> {
+    Ok(sqlx::query_as!(
+        CompteEtat,
+        "SELECT pseudo, pseudo_confirme FROM compte WHERE joueur_id = $1",
+        joueur
+    )
+    .fetch_optional(tx)
+    .await?)
 }
 
 /// Niveaux d'indice obtenus, par recette puis par niveau.

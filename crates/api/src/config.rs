@@ -101,6 +101,39 @@ pub struct ConfigServeur {
     /// Fermée par défaut ; ne jamais l'activer en production.
     #[arg(long, env = "ETYMO_REINITIALISATION", default_value_t = false, action = clap::ArgAction::Set)]
     pub reinitialisation: bool,
+
+    #[command(flatten)]
+    pub courriel: ConfigCourriel,
+}
+
+/// E-mails de connexion des comptes (ADR 0070). Sans `ETYMO_COURRIEL`, la
+/// demande et la confirmation répondent `503` ; le reste de l'API fonctionne.
+#[derive(Debug, Clone, Args)]
+pub struct ConfigCourriel {
+    /// Envoi : `tem` (Scaleway Transactional Email) ou `file:///dossier` en local.
+    #[arg(long, env = "ETYMO_COURRIEL")]
+    pub courriel: Option<String>,
+
+    /// Clé HMAC des empreintes d'adresse, 32 octets au moins. Ne change jamais :
+    /// la perdre rend tous les comptes introuvables.
+    #[arg(long, env = "ETYMO_CLE_COURRIEL", hide_env_values = true)]
+    pub cle_courriel: Option<String>,
+
+    /// Clé d'API de Scaleway, en-tête `X-Auth-Token`.
+    #[arg(long, env = "ETYMO_TEM_CLE", hide_env_values = true)]
+    pub tem_cle: Option<String>,
+
+    /// Projet Scaleway de l'envoi (`project_id`).
+    #[arg(long, env = "ETYMO_TEM_PROJET")]
+    pub tem_projet: Option<String>,
+
+    /// Adresse d'expédition, `noreply@…`.
+    #[arg(long, env = "ETYMO_COURRIEL_EXPEDITEUR")]
+    pub expediteur: Option<String>,
+
+    /// Adresse de la PWA, base des liens de connexion.
+    #[arg(long, env = "ETYMO_URL_PWA")]
+    pub url_pwa: Option<String>,
 }
 
 #[derive(Debug, Clone, Args)]
