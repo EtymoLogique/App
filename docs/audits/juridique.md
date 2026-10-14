@@ -209,28 +209,28 @@ Dès qu'un pseudo est montré à d'autres joueurs, le jeu héberge un contenu fo
 
 Il faut aussi des règles de modération des pseudos, déjà prévues par l'ADR 0070, et une réflexion sur le pseudo par défaut, qui peut contenir un nom.
 
-## Écarts à ouvrir (une issue chacun, **non créées** : à décider)
+## Écarts et issues de suivi (créées le 2026-10-14)
 
-| N° | Titre proposé | Échéance | Gravité |
-|---|---|---|---|
-| L1 | Corriger « aucune donnée personnelle » dans l'audit avant lancement et dans l'ADR 0050 | maintenant | faible |
-| L2 | Créer la SAS avant la bêta, ou choisir le régime de l'éditeur | bêta | bloquant |
-| L3 | Rédiger et publier les mentions légales | bêta | bloquant |
-| L4 | Rédiger et publier la politique de confidentialité, avec un lien sous le champ d'adresse de `Connexion.tsx` | bêta | bloquant |
-| L5 | Rédiger et publier des CGU légères (objets sans valeur et non cessibles, équilibrage, perte de la partie invitée, pseudo, licences) | bêta | bloquant |
-| L6 | Permettre à un invité d'effacer sa partie côté serveur | bêta | moyen |
-| L7 | Fixer la durée de conservation des comptes inactifs et de `ouverture_pli`, puis les purger | bêta | moyen |
-| L8 | Ajouter une adresse de contact et une procédure d'accès et de portabilité | bêta | moyen |
-| L9 | Réglages › Licences : liens vers le dépôt public, vers l'AGPL et la CC BY-SA, et notices des dépendances | bêta | moyen |
-| L10 | Obtenir de Scaleway les durées de conservation (TEM, Edge Services, Cockpit) et archiver l'accord de sous-traitance | bêta | moyen |
-| L11 | Tenir le registre des traitements et la procédure de violation de données | bêta | moyen |
-| L12 | Ajouter une clause de cession de droits (ou de licence CC BY-SA) dans chaque contrat de prestataire, logo compris | avant la première livraison | bloquant |
-| L13 | Vérifier l'attribution des transcriptions venues de Wiktextract, s'il en reste | bêta | faible |
-| L14 | Corriger la justification de l'ADR 0036 (bonne pratique, pas obligation légale) | maintenant | faible |
-| L15 | Décider où vit l'identifiant de télémétrie (serveur ou appareil) et faire valider le régime (RGPD seul, exemption CNIL ou consentement) ; information et opposition dans les Réglages (complète E3) | J7 | bloquant |
-| L16 | ADR : support durable, reçu et pièces comptables, face à « aucune adresse conservée » | boutique | bloquant |
-| L17 | CGV, médiateur de la consommation, TVA et OSS, revue par territoire | boutique | bloquant |
-| L18 | Revue DSA et modération des pseudos avant tout affichage public | vue compétitive | bloquant |
+| N° | Titre proposé | Échéance | Gravité | Issue |
+|---|---|---|---|---|
+| L1 | Corriger « aucune donnée personnelle » dans l'audit avant lancement et dans l'ADR 0050 | maintenant | faible | [Design#29](https://github.com/EtymoLogique/Design/issues/29), [App#71](https://github.com/EtymoLogique/App/issues/71) |
+| L2 | Créer la SAS avant la bêta, ou choisir le régime de l'éditeur | bêta | bloquant | [Design#35](https://github.com/EtymoLogique/Design/issues/35) |
+| L3 | Rédiger et publier les mentions légales | bêta | bloquant | [App#64](https://github.com/EtymoLogique/App/issues/64) |
+| L4 | Rédiger et publier la politique de confidentialité, avec un lien sous le champ d'adresse de `Connexion.tsx` | bêta | bloquant | [App#65](https://github.com/EtymoLogique/App/issues/65) |
+| L5 | Rédiger et publier des CGU légères (objets sans valeur et non cessibles, équilibrage, perte de la partie invitée, pseudo, licences) | bêta | bloquant | [App#66](https://github.com/EtymoLogique/App/issues/66) |
+| L6 | Permettre à un invité d'effacer sa partie côté serveur | bêta | moyen | [App#67](https://github.com/EtymoLogique/App/issues/67) |
+| L7 | Fixer la durée de conservation des comptes inactifs et de `ouverture_pli`, puis les purger | bêta | moyen | [Design#30](https://github.com/EtymoLogique/Design/issues/30), [App#68](https://github.com/EtymoLogique/App/issues/68) |
+| L8 | Ajouter une adresse de contact et une procédure d'accès et de portabilité | bêta | moyen | [App#69](https://github.com/EtymoLogique/App/issues/69) |
+| L9 | Réglages › Licences : liens vers le dépôt public, vers l'AGPL et la CC BY-SA, et notices des dépendances | bêta | moyen | [App#70](https://github.com/EtymoLogique/App/issues/70) |
+| L10 | Obtenir de Scaleway les durées de conservation (TEM, Edge Services, Cockpit) et archiver l'accord de sous-traitance | bêta | moyen | [Infra#11](https://github.com/EtymoLogique/Infra/issues/11) |
+| L11 | Tenir le registre des traitements et la procédure de violation de données | bêta | moyen | [Design#37](https://github.com/EtymoLogique/Design/issues/37) |
+| L12 | Ajouter une clause de cession de droits (ou de licence CC BY-SA) dans chaque contrat de prestataire, logo compris | avant la première livraison | bloquant | [Design#36](https://github.com/EtymoLogique/Design/issues/36) |
+| L13 | Vérifier l'attribution des transcriptions venues de Wiktextract, s'il en reste | bêta | faible | — (aucune trace de Wiktextract dans Content au 2026-10-14) |
+| L14 | Corriger la justification de l'ADR 0036 (bonne pratique, pas obligation légale) | maintenant | faible | [Design#29](https://github.com/EtymoLogique/Design/issues/29) |
+| L15 | Décider où vit l'identifiant de télémétrie (serveur ou appareil) et faire valider le régime (RGPD seul, exemption CNIL ou consentement) ; information et opposition dans les Réglages (complète E3) | J7 | bloquant | [Design#31](https://github.com/EtymoLogique/Design/issues/31) |
+| L16 | ADR : support durable, reçu et pièces comptables, face à « aucune adresse conservée » | boutique | bloquant | [Design#32](https://github.com/EtymoLogique/Design/issues/32) |
+| L17 | CGV, médiateur de la consommation, TVA et OSS, revue par territoire | boutique | bloquant | [Design#33](https://github.com/EtymoLogique/Design/issues/33) |
+| L18 | Revue DSA et modération des pseudos avant tout affichage public | vue compétitive | bloquant | [Design#34](https://github.com/EtymoLogique/Design/issues/34) |
 
 ## Sources consultées (secondaires, à confirmer)
 
