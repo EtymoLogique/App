@@ -6,6 +6,7 @@ import type { ReponseFusion, ReponsePli } from './contrat'
 import { ClientApi, ErreurApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { effacerPartie } from './services/local'
+import { memoriserCompteQuitte } from './services/profil'
 import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtures'
 
 function client(fusion?: ClientApi['fusion']): ClientApi {
@@ -44,6 +45,7 @@ describe('table de fusion', () => {
   beforeEach(async () => {
     lecteur = lecteurFictif()
     await effacerPartie()
+    await memoriserCompteQuitte(false)
     history.replaceState(null, '', '/')
   })
 
@@ -552,6 +554,21 @@ describe('table de fusion', () => {
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Douze sabliers contre 120 gouttes' })))
     await waitFor(() => expect(emploi).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 2, nombre: 1 })))
     delete document.documentElement.dataset.mouvement
+  })
+
+  it('après une déconnexion, la table propose de se reconnecter, et l’écran s’ouvre en connexion', async () => {
+    const api = client()
+    let serveur = etat({ compte: { pseudo: 'camille-4821', pseudo_confirme: true } })
+    vi.spyOn(api, 'etat').mockImplementation(async () => serveur)
+    vi.spyOn(api, 'deconnecter').mockImplementation(async () => {
+      serveur = etat()
+    })
+    history.replaceState(null, '', '#/reglages')
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /Se déconnecter/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Se reconnecter' }))
+    expect(await screen.findByRole('heading', { name: 'Retrouvez votre compte' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Se connecter' })).toBeVisible()
   })
 
   it('n’offre pas la réinitialisation en production', async () => {

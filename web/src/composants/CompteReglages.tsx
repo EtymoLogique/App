@@ -11,6 +11,7 @@ interface Props {
   compte: CompteEtat | null | undefined
   enLigne: boolean
   onSauvegarder: () => void
+  onSeConnecter: () => void
   changerPseudo: (pseudo: string) => Promise<Retour>
   deconnecter: () => Promise<string | null>
   supprimer: () => Promise<string | null>
@@ -119,7 +120,7 @@ function Suppression({ supprimer, onFermer }: { supprimer: Props['supprimer']; o
 }
 
 /** Le compte dans les Réglages (I-33). L'adresse n'y figure jamais : le serveur ne la garde pas. */
-export function CompteReglages({ compte, enLigne, onSauvegarder, changerPseudo, deconnecter, supprimer }: Props) {
+export function CompteReglages({ compte, enLigne, onSauvegarder, onSeConnecter, changerPseudo, deconnecter, supprimer }: Props) {
   const [ouvert, setOuvert] = useState<'pseudo' | 'suppression' | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
@@ -133,6 +134,13 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, changerPseudo, 
           <span>
             <b>Sauvegarder ma progression</b>
             <small>Retrouvez votre partie sur un autre appareil</small>
+          </span>
+          <span aria-hidden="true">›</span>
+        </button>
+        <button type="button" className="compte-ligne" onClick={onSeConnecter}>
+          <span>
+            <b>J’ai déjà un compte</b>
+            <small>Se connecter avec son adresse électronique</small>
           </span>
           <span aria-hidden="true">›</span>
         </button>
@@ -171,7 +179,7 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, changerPseudo, 
       >
         <span>
           <b>Se déconnecter</b>
-          <small>Cet appareil repartira d’une partie invitée</small>
+          <small>Cet appareil repartira d’une partie invitée. Reconnectez-vous à tout moment avec votre adresse.</small>
         </span>
         <span aria-hidden="true">›</span>
       </button>
