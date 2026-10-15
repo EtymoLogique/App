@@ -153,7 +153,7 @@ export function Connexion({ api, etat, enLigne, mode = 'sauvegarde', onMode, onC
               {envoi ? 'Envoi…' : 'Recevoir un code'}
             </button>
             <p className="panel-tip">
-              Votre adresse sert à envoyer le code et n’est pas conservée. <a href="/donnees-personnelles.html">Données personnelles</a>
+              Votre adresse sert à envoyer le code et n’est pas conservée. {mode === 'connexion' ? '' : 'En créant un compte, vous acceptez les '}<a href="/conditions-utilisation.html">conditions d’utilisation</a>{mode === 'connexion' ? ' · ' : ' et la '}<a href="/donnees-personnelles.html">politique de confidentialité</a>.
             </p>
             {onMode && (
               <p className="panel-tip">

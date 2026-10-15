@@ -162,7 +162,7 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
           navigateFallback: '/index.html',
           // Fichiers des robots : le service worker ne les remplace jamais par la coque.
-          navigateFallbackDenylist: [/^\/(?:robots\.txt|sitemap\.xml|llms\.txt|mentions-legales\.html|donnees-personnelles\.html)$/],
+          navigateFallbackDenylist: [/^\/(?:robots\.txt|sitemap\.xml|llms\.txt|mentions-legales\.html|donnees-personnelles\.html|conditions-utilisation\.html)$/],
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
