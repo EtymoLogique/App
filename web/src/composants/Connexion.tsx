@@ -152,6 +152,9 @@ export function Connexion({ api, etat, enLigne, mode = 'sauvegarde', onMode, onC
             <button type="submit" className="btn btn-primary" disabled={envoi || courriel.trim() === ''}>
               {envoi ? 'Envoi…' : 'Recevoir un code'}
             </button>
+            <p className="panel-tip">
+              Votre adresse sert à envoyer le code et n’est pas conservée. <a href="/donnees-personnelles.html">Données personnelles</a>
+            </p>
             {onMode && (
               <p className="panel-tip">
                 {mode === 'connexion' ? 'Pas encore de compte ? ' : 'Déjà un compte ? '}

@@ -113,7 +113,7 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props
           Code sous licence AGPL 3.0 ou ultérieure, contenu sous CC BY-SA 4.0. Le nom et le logo ÉtymoLogique sont réservés.
         </p>
         <p className="panel-tip">
-          <a href="/mentions-legales.html">Mentions légales</a>
+          <a href="/mentions-legales.html">Mentions légales</a> · <a href="/donnees-personnelles.html">Données personnelles</a>
         </p>
       </section>
     </div>

@@ -8,3 +8,7 @@ p, dd { color: var(--ink-2); }
 dt { margin-top: 12px; font-weight: 600; }
 dd { margin: 0; }
 a { color: inherit; }
+ul { color: var(--ink-2); }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { padding: 8px; border-bottom: 1px solid var(--ink-2); text-align: left; vertical-align: top; color: var(--ink-2); }
+th { color: var(--ink); }
