@@ -457,8 +457,7 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 
 
 /*
- * Boutique (ADR 0018, 0039) : échanges de ressources du jeu, puis achats en
- * euros, fermés. Palette du pli : l’encre et les sabliers sont en Ambre ; le
+ * Boutique (ADR 0018, 0039) : échanges de ressources du jeu. Palette du pli : l’encre et les sabliers sont en Ambre ; le
  * Corail reste à l’action principale.
  */
 .bq { display: grid; gap: 32px; }
@@ -492,13 +491,6 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .btn.pk-lot.is-reco { border-color: var(--c-pli-deep); border-width: 2px; }
 .pk-lot-texte { font-size: 11px; }
 .bq-manque { color: var(--ink-3); font-family: var(--mono); font-size: 11px; text-align: center; }
-/* Achats en euros : fermés, en pointillés (interfaces, « plus tard »). */
-.bq-bientot { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border: 1px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
-.bq-bientot .ic { width: 12px; height: 12px; }
-.bq-ferme { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 20px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-2); }
-.bq-ferme > .ic { width: 32px; height: 32px; color: var(--ink-3); }
-.bq-ferme p { font-size: 14px; line-height: 1.5; }
-.bq-ferme b { color: var(--ink); }
 
 /* Mouvement réduit : la révélation apparaît sans se retourner. */
 @media (prefers-reduced-motion: reduce) { .pk-reveal { animation: none; } }

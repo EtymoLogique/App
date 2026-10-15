@@ -136,6 +136,10 @@ pub struct ConfigCourriel {
     #[arg(long, env = "ETYMO_CLE_COURRIEL", hide_env_values = true)]
     pub cle_courriel: Option<String>,
 
+    /// Jeton de vérification du webhook Ko-fi (ADR 0078). Absent : le webhook répond `503`.
+    #[arg(long, env = "ETYMO_KOFI_TOKEN", hide_env_values = true)]
+    pub kofi_token: Option<String>,
+
     /// Clé d'API de Scaleway, en-tête `X-Auth-Token`.
     #[arg(long, env = "ETYMO_TEM_CLE", hide_env_values = true)]
     pub tem_cle: Option<String>,

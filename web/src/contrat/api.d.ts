@@ -661,6 +661,11 @@ export interface components {
              *     défaut : il reste alors privé.
              */
             pseudo_confirme: boolean;
+            /**
+             * @description Vrai si l'adresse du compte a un abonnement Ko-fi actif (ADR 0078) : la
+             *     PWA ne présente alors plus la modale de soutien. Aucun avantage de jeu.
+             */
+            soutien?: boolean;
         };
         CompteurPli: {
             fascicule_id: components["schemas"]["IdCatalogue"];

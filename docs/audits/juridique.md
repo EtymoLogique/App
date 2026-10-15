@@ -1,13 +1,12 @@
-# Audit juridique : CGU, CGV, RGPD et obligations voisines
+# Audit juridique : CGU, RGPD et obligations voisines
 
-Relevé du 2026-10-14, sur l'état des dépôts App, Design et Infra à cette date (comptes de l'ADR 0070 compris). Comme l'[audit avant lancement](avant-lancement.md), il sépare ce que **le code prouve** de ce qui est **une règle de droit à faire confirmer**. Les règles citées le sont de mémoire ou d'après des sources secondaires : chacune est à valider par le conseil prévu au plan financier (2 500 € en M3 pour CGU et RGPD, 4 000 € en M6 pour la boutique). Ce document n'est pas un avis juridique.
+Relevé du 2026-10-14, sur l'état des dépôts App, Design et Infra à cette date (comptes de l'ADR 0070 compris). Comme l'[audit avant lancement](avant-lancement.md), il sépare ce que **le code prouve** de ce qui est **une règle de droit à faire confirmer**. Les règles citées le sont de mémoire ou d'après des sources secondaires : chacune est à valider par le conseil prévu au plan financier (2 500 € en M3 pour CGU et RGPD). Ce document n'est pas un avis juridique.
 
 Le relevé suit les **échéances**, parce que chaque obligation naît à un jalon différent :
 
 1. bêta ouverte en production (janvier 2027, ADR 0048) ;
 2. télémétrie (J7, ADR 0010 et 0050) ;
-3. boutique en euros (M7, ADR 0018) ;
-4. pseudos visibles par d'autres joueurs (vue compétitive, plus tard).
+3. pseudos visibles par d'autres joueurs (vue compétitive, plus tard).
 
 ## 1. Ce qui change le cadrage
 
@@ -107,7 +106,7 @@ Ce sont tous des traceurs **strictement nécessaires** au service demandé (art.
 Rien n'impose formellement des CGU à un service gratuit. Mais les comptes créent une relation contractuelle, et plusieurs règles du jeu doivent être opposables aux joueurs :
 
 - le compte est facultatif, et le service est fourni en bêta, sans garantie de disponibilité ;
-- **les objets du jeu** (briques, encre, sabliers, plis) n'ont aucune valeur monétaire, ne se cèdent pas et ne s'échangent pas contre de l'argent. Cette clause tient aussi le jeu hors du régime JONUM, décrit au § 5 ;
+- **les objets du jeu** (briques, encre, sabliers, plis) n'ont aucune valeur monétaire, ne se cèdent pas et ne s'échangent pas contre de l'argent. Cette clause tient aussi le jeu hors du régime JONUM ;
 - l'**équilibrage peut changer** (ADR 0009, ADR 0048 : « les paramètres peuvent changer en cours de route ») ;
 - la **perte de la partie invitée** : 6 mois sans activité, ou stockage du navigateur effacé ;
 - le **remplacement de la partie invitée** par celle du compte, à la connexion ;
@@ -161,44 +160,7 @@ Dans les deux cas, il faut :
 - un **interrupteur d'opposition** dans les Réglages ;
 - une mise à jour de la politique et du registre.
 
-## 5. Bloquant avant la boutique en euros (M7, ADR 0018)
-
-### Le conflit principal : les CGV exigent un support durable, et le jeu ne garde aucune adresse
-
-La vente à distance de contenu numérique impose :
-
-- une **confirmation du contrat sur un support durable** (C. consom., art. L221-13), qui doit mentionner la renonciation au droit de rétractation ;
-- la renonciation elle-même : pour un contenu numérique, l'exception de l'article L221-28 suppose un accord exprès, une renonciation expresse **et** cette confirmation ;
-- la **conservation des pièces comptables** pendant 10 ans (C. com., art. L123-22), et la fourniture d'une facture à la demande du client.
-
-Tout cela suppose de joindre l'acheteur. Cela heurte l'ADR 0070 (« le jeu ne peut écrire à un joueur qu'au moment où il demande à se connecter »), qui renvoie déjà cette décision à l'ouverture des achats. Deux pistes, à trancher dans un ADR :
-
-1. laisser le **prestataire de paiement** envoyer le reçu et garder l'adresse de facturation. Il la collecte de toute façon, et il est alors un responsable distinct. Le jeu ne garde que l'identifiant de transaction, comme le prévoit déjà l'ADR 0018 ;
-2. conserver l'adresse **des seuls acheteurs**, chiffrée, pour la durée comptable.
-
-La première piste garde la promesse de l'ADR 0070 : à privilégier, sous réserve que le conseil confirme que le reçu du prestataire vaut confirmation du contrat.
-
-### Le reste des CGV
-
-- **Informations précontractuelles** (art. L221-5) : prix TTC (déjà prévu), caractéristiques, identité du vendeur, droit de rétractation et garanties légales.
-- **Bouton de commande** portant « commande avec obligation de paiement » ou une formule équivalente sans ambiguïté (art. L221-14).
-- **Rétractation** : le choix de l'ADR 0018 (remboursable 14 jours tant qu'aucun sablier n'est utilisé, renonciation avant le premier usage) est **plus généreux que la loi**, ce qui est permis. Mais l'exécution commence quand les sabliers arrivent dans la réserve. Les CGV doivent donc décrire ce mécanisme exactement, et la renonciation doit précéder l'usage, pas seulement le suivre. Faire valider ce cas précis.
-- **Garantie légale de conformité** du contenu numérique (art. L224-25-1 et suivants).
-- **Médiateur de la consommation** : désignation obligatoire, avec ses coordonnées dans les CGV (art. L612-1 et L616-1). Coût annuel modeste.
-- **Plateforme européenne de règlement en ligne des litiges** : fermée le 20 juillet 2025 (règlement 2024/3228). **Ne pas mettre** le lien qu'on trouve encore dans de vieux modèles de CGV.
-- **TVA** : le plan compte 20 %. Pour des services électroniques vendus à des particuliers d'autres États membres, la TVA du pays de l'acheteur s'applique au-delà de 10 000 € de ventes intra-UE par an, déclarée par le guichet unique OSS. En dessous, la TVA française suffit. Vérifier aussi la franchise en base de la SAS.
-- **Accessibilité** : l'European Accessibility Act s'applique depuis juin 2025 aux services de commerce en ligne. Les microentreprises (moins de 10 personnes et au plus 2 M€ de chiffre d'affaires) en sont exemptées. ÉtymoLogique le sera probablement, mais l'audit d'accessibilité (E4 à E8) reste utile.
-
-### Hasard, mineurs et territoires
-
-- **Jeux d'argent** (CSI, art. L320-1) : il faut un sacrifice financier, le hasard et une espérance de gain. Les objets du jeu ne valent rien et ne se cèdent pas : il n'y a pas d'espérance de gain. **Le jeu n'est pas un jeu d'argent**, même avec la boutique.
-- **JONUM** (loi SREN, art. 40 et 41, décret de février 2026) : le régime vise les objets numériques **monétisables**, c'est-à-dire cessibles. Il ne s'applique pas tant que la clause de non-cessibilité des CGU tient. **Ne jamais ouvrir d'échange entre joueurs** sans nouvelle revue.
-- **Belgique et Pays-Bas** : la revue par territoire est déjà prévue par l'ADR 0018. Le sablier est déterministe, mais il accélère un tirage. La position belge sur les coffres payants est stricte, et le blocage par territoire prévu est le bon garde-fou.
-- **PEGI** : il ne concerne que les magasins d'applications. Si le jeu y est publié un jour, le sablier pourrait être lu comme un « objet aléatoire payant » et valoir PEGI 16, ce qui exclut le public scolaire. À anticiper avant toute publication sur un magasin.
-- **Mineurs et paiement** : un mineur peut faire seul les « actes courants » (C. civ., art. 1148), et quelques euros en relèvent probablement. Le plafond mensuel par défaut prévu par l'ADR 0018 est la bonne réponse. Ne pas s'engager sur un contrôle d'âge qu'une PWA ne peut pas tenir.
-- **Pratiques commerciales** : la vitrine dit « gratuit et sans publicité ». Elle reste vraie si tout s'obtient en jouant (ADR 0018). Sinon, ce serait une pratique trompeuse.
-
-## 6. Plus tard : pseudos visibles par d'autres joueurs
+## 5. Plus tard : pseudos visibles par d'autres joueurs
 
 Dès qu'un pseudo est montré à d'autres joueurs, le jeu héberge un contenu fourni par ses utilisateurs. Le règlement sur les services numériques (DSA) impose alors, **même aux petites structures** :
 
@@ -228,14 +190,9 @@ Il faut aussi des règles de modération des pseudos, déjà prévues par l'ADR 
 | L13 | Vérifier l'attribution des transcriptions venues de Wiktextract, s'il en reste | bêta | faible | — (aucune trace de Wiktextract dans Content au 2026-10-14) |
 | L14 | Corriger la justification de l'ADR 0036 (bonne pratique, pas obligation légale) | maintenant | faible | [Design#29](https://github.com/EtymoLogique/Design/issues/29) |
 | L15 | Décider où vit l'identifiant de télémétrie (serveur ou appareil) et faire valider le régime (RGPD seul, exemption CNIL ou consentement) ; information et opposition dans les Réglages (complète E3) | J7 | bloquant | [Design#31](https://github.com/EtymoLogique/Design/issues/31) |
-| L16 | ADR : support durable, reçu et pièces comptables, face à « aucune adresse conservée » | boutique | bloquant | [Design#32](https://github.com/EtymoLogique/Design/issues/32) |
-| L17 | CGV, médiateur de la consommation, TVA et OSS, revue par territoire | boutique | bloquant | [Design#33](https://github.com/EtymoLogique/Design/issues/33) |
 | L18 | Revue DSA et modération des pseudos avant tout affichage public | vue compétitive | bloquant | [Design#34](https://github.com/EtymoLogique/Design/issues/34) |
 
 ## Sources consultées (secondaires, à confirmer)
 
 - Exemption CNIL pour la mesure d'audience : [fiche CNIL (Piwik)](https://Cnil.fr/sites/cnil/files/atoms/files/exemption_pour_la_mesure_daudience_sans_consentement_piwik.pdf), [Taylor Wessing](https://www.taylorwessing.com/fr/insights-and-events/insights/2020/10/french-data-protection-authority-publishes-new-guidelines)
-- Fermeture de la plateforme ODR : [CMS](https://cms.law/en/aut/legal-updates/the-odr-platform-is-closing-what-businesses-need-to-know), [iubenda](https://www.iubenda.com/en/blog/discontinuation-of-the-european-online-dispute-resolution-odr-platform/)
-- Régime JONUM : [Bird & Bird](https://cm.twobirds.com/en/insights/2025/france/loi-sren-nouvelle-definition-et-nouveau-regime-pour-les-jeux-a-objets-numeriques-monetisables-jonum), [Dreyfus](https://www.dreyfus.fr/en/2026/06/29/what-is-the-legal-status-of-games-involving-monetisable-digital-objects-jonum/)
-- Probabilités et PEGI : [KultureGeek](https://kulturegeek.fr/news-174715/sony-microsoft-nintendo-obliger-detailler-probabilite-loot-boxes-jeux-video), [Tech Insider](https://tech-insider.org/fr/loot-boxes-pegi-16-2026/)
 - Scaleway TEM : [suivi dans Cockpit](https://www.scaleway.com/en/docs/transactional-email/how-to/monitor-transactional-email-cockpit.md), [tarifs Cockpit](https://www.scaleway.com/en/pricing/managed-services/), [AhaSend (chiffre non sourcé)](https://ahasend.com/scaleway-alternative)

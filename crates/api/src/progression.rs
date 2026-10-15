@@ -148,11 +148,18 @@ pub async fn etat(
 }
 
 /// Compte du joueur, absent pour une partie invitée (ADR 0070).
-async fn compte_etat(tx: &mut PgConnection, joueur: Uuid) -> Result<Option<CompteEtat>, ErreurApi> {
+pub(crate) async fn compte_etat(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+) -> Result<Option<CompteEtat>, ErreurApi> {
     Ok(sqlx::query_as!(
         CompteEtat,
-        "SELECT pseudo, pseudo_confirme FROM compte WHERE joueur_id = $1",
-        joueur
+        r#"SELECT pseudo, pseudo_confirme,
+            EXISTS (SELECT 1 FROM soutien s WHERE s.empreinte_courriel = compte.empreinte_courriel
+                AND s.dernier_paiement > now() - make_interval(days => $2)) AS "soutien!"
+        FROM compte WHERE joueur_id = $1"#,
+        joueur,
+        crate::soutien::JOURS_ACTIF
     )
     .fetch_optional(tx)
     .await?)

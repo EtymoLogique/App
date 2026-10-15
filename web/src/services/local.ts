@@ -6,6 +6,7 @@ import { clear, createStore, get, set, type UseStore } from 'idb-keyval'
 
 import type { Etat } from '../contrat'
 import { SOUVENIR_VIERGE, type SouvenirRelance, estSouvenir } from './compte'
+import { SOUVENIR_SOUTIEN_VIERGE, type SouvenirSoutien, estSouvenirSoutien } from './soutien'
 import { TABLE_MAX } from './jeu'
 
 let magasin: UseStore | undefined
@@ -89,6 +90,20 @@ export async function souvenirRelance(): Promise<SouvenirRelance> {
 
 export function memoriserRelance(souvenir: SouvenirRelance): Promise<void> {
   return set('relance', souvenir, stockage()).catch(() => undefined)
+}
+
+/** Mémoire de la modale de soutien Ko-fi sur cet appareil (ADR 0078). */
+export async function souvenirSoutien(): Promise<SouvenirSoutien> {
+  try {
+    const souvenir: unknown = await get('soutien', stockage())
+    return estSouvenirSoutien(souvenir) ? souvenir : SOUVENIR_SOUTIEN_VIERGE
+  } catch {
+    return SOUVENIR_SOUTIEN_VIERGE
+  }
+}
+
+export function memoriserSoutien(souvenir: SouvenirSoutien): Promise<void> {
+  return set('soutien', souvenir, stockage()).catch(() => undefined)
 }
 
 /** Oublie la partie locale ; le serveur garde la progression confirmée. */

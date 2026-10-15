@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT pseudo, pseudo_confirme,\n            EXISTS (SELECT 1 FROM soutien s WHERE s.empreinte_courriel = compte.empreinte_courriel\n                AND s.dernier_paiement > now() - make_interval(days => $2)) AS \"soutien!\"\n        FROM compte WHERE joueur_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pseudo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "pseudo_confirme",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "soutien!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "84cb445d6b469e2a614fa603b0420a5ea8a210039618fce3ff0c9218dd575b50"
+}

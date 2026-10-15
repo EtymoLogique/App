@@ -9,6 +9,8 @@ interface Props {
   onReinitialiser?: () => Promise<string | null>
   /** Groupe « Compte », en tête (I-33). */
   compte?: React.ReactNode
+  /** Carte « Soutenir » (ADR 0078), tout en haut. */
+  soutien?: React.ReactNode
 }
 
 function Choix<T extends string>({ nom, legende, valeur, options, onChoisir }: {
@@ -71,9 +73,10 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
 }
 
 /** Réglages (I-24), contenu du MVP en cours : compte, apparence, mouvement, sons et vibrations, licences et contact. */
-export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props) {
+export function Reglages({ reglages, onChanger, onReinitialiser, compte, soutien }: Props) {
   return (
     <div className="reglages">
+      {soutien}
       {compte}
       <Choix<Theme>
         nom="theme"

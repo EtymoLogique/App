@@ -147,6 +147,12 @@ button { font: inherit; }
 }
 .navigation-panneau[hidden] { display: none; }
 .navigation-burger[aria-expanded="true"] { color: var(--ink); }
+/* Soutien Ko-fi (ADR 0078) : dans le rail seulement ; sur mobile, la carte des Réglages et la modale suffisent. */
+.navigation-soutien { display: none; }
+.soutien-carte { padding: 18px 20px; border: 1.5px solid var(--fixed-ink); border-radius: var(--radius); background: var(--cream); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.soutien-carte h2, .soutien-modale h2 { font-family: var(--serif); }
+.soutien-carte .btn, .soutien-modale .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.soutien-carte .btn .ic, .soutien-modale .btn .ic { width: 18px; height: 18px; }
 .navigation-panneau button { grid-auto-flow: column; align-items: center; justify-content: start; gap: 12px; width: 100%; padding: 0 12px; border-radius: 8px; color: var(--ink); font-size: 14px; }
 .navigation-panneau button:hover { background: var(--paper-2); }
 .navigation-panneau button .count { position: static; }
@@ -191,6 +197,9 @@ button { font: inherit; }
   .navigation button.en-burger { display: grid; }
   .navigation .navigation-burger, .navigation .navigation-panneau { display: none; }
   .navigation button[data-onglet="reglages"] { margin-top: auto; }
+  .navigation-soutien { display: grid; justify-items: center; gap: 3px; width: 72px; padding: 8px 0 6px; border-radius: 12px; color: var(--ink-3); font-size: 11px; font-weight: 700; text-decoration: none; }
+  .navigation-soutien:hover { color: var(--ink); }
+  .navigation-soutien .ic { width: 22px; height: 22px; }
   /* Pile centrée entre deux filets : icônes et nombres alignés en deux colonnes, sans marge perdue. */
   .navigation-ressources {
     order: 0; display: grid; grid-template-columns: 16px auto; justify-content: center; align-items: center; gap: 6px 8px;
