@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 import react from '@vitejs/plugin-react'
@@ -102,6 +102,29 @@ function referencement(env: Record<string, string | undefined>): Plugin {
 }
 
 /**
+ * Notices des dépendances embarquées (MIT : la notice suit les copies). Émet
+ * `licences-dependances.txt` depuis `node_modules`, sans dépendre des commentaires de Vite.
+ */
+function licencesDependances(): Plugin {
+  // ponytail: liste à la main ; `scheduler` est la dépendance directe de react-dom.
+  const paquets = ['react', 'react-dom', 'scheduler', 'idb-keyval']
+  return {
+    name: 'etymo-licences-dependances',
+    apply: 'build',
+    generateBundle() {
+      const texte = paquets.map((nom) => {
+        const dossier = path.resolve('node_modules', nom)
+        const { version, license } = JSON.parse(readFileSync(path.join(dossier, 'package.json'), 'utf8')) as { version: string; license: string }
+        const fichier = readdirSync(dossier).find((f) => /^licen[cs]e/i.test(f))
+        if (!fichier) throw new Error(`Aucun fichier de licence pour ${nom}.`)
+        return `${nom} ${version} (${license})\n\n${readFileSync(path.join(dossier, fichier), 'utf8').trim()}\n`
+      })
+      this.emitFile({ type: 'asset', fileName: 'licences-dependances.txt', source: texte.join(`\n${'-'.repeat(72)}\n\n`) })
+    },
+  }
+}
+
+/**
  * Développement : sert sous `/catalogue/` le préfixe `public/` d'un bucket
  * simulé sur disque (`ETYMO_BUCKET_LOCAL`), comme le ferait le CDN.
  */
@@ -134,7 +157,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       catalogueLocal(env.ETYMO_BUCKET_LOCAL),
-      ...(mode === 'test' ? [] : [csp(env), referencement(env)]),
+      ...(mode === 'test' ? [] : [csp(env), referencement(env), licencesDependances()]),
       VitePWA({
         // Enregistré par `MiseAJour` : une nouvelle version attend l'accord du joueur.
         registerType: 'prompt',
@@ -162,7 +185,7 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
           navigateFallback: '/index.html',
           // Fichiers des robots : le service worker ne les remplace jamais par la coque.
-          navigateFallbackDenylist: [/^\/(?:robots\.txt|sitemap\.xml|llms\.txt|mentions-legales\.html|donnees-personnelles\.html|conditions-utilisation\.html)$/],
+          navigateFallbackDenylist: [/^\/(?:robots\.txt|sitemap\.xml|llms\.txt|licences-dependances\.txt|mentions-legales\.html|donnees-personnelles\.html|conditions-utilisation\.html)$/],
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {

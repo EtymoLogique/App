@@ -113,6 +113,12 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props
           Code sous licence AGPL 3.0 ou ultérieure, contenu sous CC BY-SA 4.0. Le nom et le logo ÉtymoLogique sont réservés.
         </p>
         <p className="panel-tip">
+          <a href="https://github.com/EtymoLogique/App" rel="noreferrer">Code source</a> · <a href="https://www.gnu.org/licenses/agpl-3.0.html" rel="noreferrer">Texte de l’AGPL 3.0</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.fr" rel="noreferrer">Texte de la CC BY-SA 4.0</a> · <a href="/licences-dependances.txt">Licences des dépendances</a>
+        </p>
+        <p className="panel-tip">
+          Les données lexicales viennent de <a href="https://www.wikidata.org/" rel="noreferrer">Wikidata</a> (CC0).
+        </p>
+        <p className="panel-tip">
           Une question, ou une demande sur vos données (accès, copie, effacement) : <a href="mailto:contact@etymologique.fr">contact@etymologique.fr</a>. Réponse sous un mois.
         </p>
         <p className="panel-tip">
