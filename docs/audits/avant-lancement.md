@@ -63,7 +63,7 @@ Non vérifiable ici, **à faire avec un appareil** :
 |---|---|---|
 | E1 | Lancer `cargo audit` et `npm audit` chaque semaine, pas seulement à chaque PR | faible |
 | E2 | Vérifier que la limitation par adresse reste juste si l'API n'est plus derrière le proxy | faible |
-| E3 | Rédiger l'information sur la collecte et les contrôles avant d'activer la télémétrie | bloquant avant J7 |
+| E3 | Rédiger l'information sur la collecte et les contrôles avant d'activer la télémétrie (texte et opposition décidés par l'ADR 0072 du dépôt Design ; à implémenter, avis du conseil à obtenir) | bloquant avant J7 |
 | E4 | Contrôler les contrastes rendus sur les neuf écrans, jour et nuit | moyen |
 | E5 | Parcourir l'application au clavier seul, séance de ricochets comprise | moyen |
 | E6 | Passer un lecteur d'écran sur les parcours principaux | moyen |
