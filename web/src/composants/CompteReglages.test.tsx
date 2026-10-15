@@ -34,6 +34,11 @@ describe('compte dans les Réglages (I-33)', () => {
     expect(a.supprimer).toHaveBeenCalled()
   })
 
+  it('annonce l’effacement d’un compte inactif depuis 3 ans (ADR 0071)', () => {
+    render(<CompteReglages compte={{ pseudo: 'camille-4821', pseudo_confirme: true }} enLigne {...actions()} />)
+    expect(screen.getByText('Un compte inactif depuis 3 ans est effacé.')).toBeInTheDocument()
+  })
+
   it('le pseudo par défaut est marqué « Privé » ; la suppression exige SUPPRIMER', () => {
     const a = actions()
     render(<CompteReglages compte={{ pseudo: 'camille-4821', pseudo_confirme: false }} enLigne {...a} />)

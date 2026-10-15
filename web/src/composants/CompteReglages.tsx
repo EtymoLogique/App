@@ -194,6 +194,7 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, onSeConnecter, 
         <span aria-hidden="true">›</span>
       </button>
       {erreur && <p role="alert" className="connexion-erreur">{erreur}</p>}
+      <p><small>Un compte inactif depuis 3 ans est effacé.</small></p>
       <div>
         <button type="button" className="btn btn-danger" disabled={!enLigne} onClick={() => setOuvert('suppression')}>
           Supprimer mon compte

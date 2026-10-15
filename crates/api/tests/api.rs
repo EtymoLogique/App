@@ -273,3 +273,43 @@ async fn purge_les_donnees_du_jour_de_plus_de_trente_jours(base: PgPool) {
             .unwrap();
     assert!(restantes >= 2);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn agrege_puis_efface_les_plis_de_plus_de_douze_mois(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    appeler(&banc.routeur, get_etat(&jeton)).await;
+    // Deux plis d'un mois révolu (doublon, nouvelle) et un pli récent.
+    for (ouvert, resultat) in [
+        ("now() - interval '14 months'", "doublon"),
+        ("now() - interval '14 months'", "doublon"),
+        ("now() - interval '14 months'", "nouvelle"),
+        ("now() - interval '2 months'", "nouvelle"),
+    ] {
+        sqlx::query(&format!(
+            "INSERT INTO ouverture_pli (joueur_id, fascicule_id, origine, brique_id, resultat, regle, encre, version_equilibrage, ouvert_le)
+             SELECT id, 'fsc_00000000', 'energie', 'brq_00000000', '{resultat}', 'tirage', 0, 'v1', {ouvert} FROM joueur"
+        ))
+        .execute(&base)
+        .await
+        .unwrap();
+    }
+    let rapport = etymo_taches::purger(&base).await.unwrap();
+    assert_eq!(rapport.plis_agreges, 3);
+    let restants: i64 = sqlx::query_scalar("SELECT count(*) FROM ouverture_pli")
+        .fetch_one(&base)
+        .await
+        .unwrap();
+    assert_eq!(restants, 1);
+    let agregats: Vec<(String, i32, i32)> =
+        sqlx::query_as("SELECT resultat, plis, joueurs FROM plis_agreges ORDER BY resultat")
+            .fetch_all(&base)
+            .await
+            .unwrap();
+    assert_eq!(
+        agregats,
+        vec![("doublon".into(), 2, 1), ("nouvelle".into(), 1, 1)]
+    );
+    // Rien à refaire : un second passage n'efface ni n'ajoute rien.
+    assert_eq!(etymo_taches::purger(&base).await.unwrap().plis_agreges, 0);
+}
