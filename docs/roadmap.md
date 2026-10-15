@@ -132,7 +132,8 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | `POST /sablier/achat` : 10 gouttes le sablier, sans plafond, `403` sans assez d’encre ; `POST /sablier` : sabliers détenus seulement, sans plafond, `403` énergie pleine ou sabliers insuffisants ; idempotents (ADR 0039) | fait |
 | `POST /indice` : indice au choix de 1 à 3 (`400` hors barème), déjà obtenu (`409`), recette inconnue ou légendaire (`400`), découverte (`409`), encre (`403`) | fait |
 | Jalons accordés dans la découverte et à la synchronisation (`GET /etat`) ; pli de jalon (`ouverture_pli` d’origine `jalon`, règle `deterministe`), encre si réserve pleine ; sabliers sans plafond | fait |
-| PWA : onglet Boutique (`#/boutique`) avec les échanges (encre contre sabliers, lots de 1, 3 et 12, sans plafond) et l’achat de gouttes en euros « Bientôt ouvert », verrouillé ; raccourci sous les plis en chargement (« Faire avancer le temps avec des sabliers », sinon « Acheter des sabliers », qui ouvre les trois lots de la boutique et avance le temps d’un seul clic) ; ressources (plis prêts, gouttes, sabliers) dans la navigation, compteurs animés, gouttes et nouveautés affichées après le rituel du pli ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
+| PWA : onglet Boutique (`#/boutique`) avec les échanges (encre contre sabliers, lots de 1, 3 et 12, sans plafond) ; raccourci sous les plis en chargement (« Faire avancer le temps avec des sabliers », sinon « Acheter des sabliers », qui ouvre les trois lots de la boutique et avance le temps d’un seul clic) ; ressources (plis prêts, gouttes, sabliers) dans la navigation, compteurs animés, gouttes et nouveautés affichées après le rituel du pli ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
+| Soutien par dons Ko-fi (ADR 0078) : webhook `POST /soutien/kofi`, table `soutien` (empreinte et date), `compte.soutien` dans l’état ; carte en tête des Réglages, lien dans le rail, modale de rappel (5 découvertes et 3 jours, puis 30 jours de jeu) épargnant les abonnés | fait, reste le secret `ETYMO_KOFI_TOKEN` à poser en production |
 | Recette locale : 3 découvertes → pli de jalon (philo-, -iste) ; 3 sabliers → recharge −3 h ; indices 1 → 5 : 200 → 45 gouttes ; Objectifs 3 / 6 | fait |
 | Rareté des mots (ADR 0040, proposé) : plus haute rareté des briques de la recette la moins rare ; forme au codex et dans la fiche (« Rare ! », « Légendaire ! ») ; `encre_decouverte` de l’équilibrage créditée à la découverte | fait (Content : équilibrage `2026-09-28c`) ; 2 gouttes par découverte vérifiées en hors-prod |
 | Image J4 de l’API épinglée dans Infra (`9e48455`), *Plan* puis *Apply* horsprod ; PWA `8f0dbfe03d1c` ; catalogue `d6d91be93d05` paru | fait |
@@ -309,7 +310,7 @@ Les 53 animations de `plans/todo/animations-propositions.html`, avec la version 
 
 ## Comptes ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md), EtymoLogique/Design#27)
 
-Écart au périmètre initial : les comptes étaient hors MVP. Ils restent facultatifs, ne donnent aucun avantage de jeu et seront requis pour les achats en euros.
+Écart au périmètre initial : les comptes étaient hors MVP. Ils restent facultatifs, ne donnent aucun avantage de jeu.
 
 | Tâche | État |
 |---|---|

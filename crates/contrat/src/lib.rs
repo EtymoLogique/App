@@ -131,6 +131,10 @@ pub struct CompteEtat {
     /// Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par
     /// défaut : il reste alors privé.
     pub pseudo_confirme: bool,
+    /// Vrai si l'adresse du compte a un abonnement Ko-fi actif (ADR 0078) : la
+    /// PWA ne présente alors plus la modale de soutien. Aucun avantage de jeu.
+    #[serde(default)]
+    pub soutien: bool,
 }
 
 /// Demande d'un lien et d'un code de connexion par e-mail (ADR 0070). La même

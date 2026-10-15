@@ -71,6 +71,7 @@ async fn banc_complet(
         recharge: etymo_domaine::energie::RECHARGE,
         reinitialisation,
         courriel,
+        kofi_token: Some("jeton-kofi-essai".into()),
     });
     Banc {
         routeur: routeur(etat.clone(), &[HeaderValue::from_static(ORIGINE)]),

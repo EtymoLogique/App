@@ -11,6 +11,7 @@ import { Plis } from './composants/Plis'
 import { Quetes } from './composants/Quetes'
 import { Reglages } from './composants/Reglages'
 import { RelanceCompte } from './composants/RelanceCompte'
+import { CarteSoutien, ModaleSoutien } from './composants/Soutien'
 import { Ricochets } from './composants/Ricochets'
 import { ReserveModale } from './composants/ReserveModale'
 import { Resultat } from './composants/Resultat'
@@ -20,7 +21,8 @@ import type { LecteurCatalogue } from './services/catalogue'
 import { construireCodex } from './services/codex'
 import * as compte from './services/compte'
 import type { ReponseConfirmation } from './contrat'
-import { memoriserRelance, souvenirRelance } from './services/local'
+import { memoriserRelance, memoriserSoutien, souvenirRelance, souvenirSoutien } from './services/local'
+import { SOUVENIR_SOUTIEN_VIERGE, type SouvenirSoutien, carteMasquee, doitSolliciter, estAbonne, fermerSoutien, masquerCarte } from './services/soutien'
 import { compteQuitte } from './services/profil'
 import { indiceCourant } from './services/indices'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
@@ -141,9 +143,12 @@ export function App({ api, catalogue }: Props) {
   const [souvenir, setSouvenir] = useState<compte.SouvenirRelance | null>(null)
   // Déconnecté d'un compte : la relance et l'écran de connexion proposent d'y revenir.
   const [quitte, setQuitte] = useState(false)
+  // Soutien Ko-fi (ADR 0078) : la modale attend le même calme que la relance, et lui cède la place.
+  const [souvenirDon, setSouvenirDon] = useState<SouvenirSoutien | null>(null)
   const [modeConnexion, setModeConnexion] = useState<compte.ModeConnexion>('sauvegarde')
   useEffect(() => {
     void souvenirRelance().then(setSouvenir)
+    void souvenirSoutien().then(setSouvenirDon)
     void compteQuitte().then((q) => {
       setQuitte(q)
       if (q) setModeConnexion('connexion')
@@ -155,6 +160,20 @@ export function App({ api, catalogue }: Props) {
   }
   const occupe = partie.table.length > 0 || partie.enAttente || partie.fusion !== null || partie.fiche !== null || gel !== null || reserveOuverte !== null || indices
   const relance = etat && souvenir && !occupe && compte.doitRelancer(etat, souvenir, quitte)
+  const soutien = etat && souvenirDon && enLigne && !occupe && !relance && doitSolliciter(etat, souvenirDon)
+  const masquerCarteSoutien = () => {
+    const suite = masquerCarte(souvenirDon ?? SOUVENIR_SOUTIEN_VIERGE)
+    setSouvenirDon(suite)
+    void memoriserSoutien(suite)
+  }
+  // Tant que le souvenir n'est pas lu, la carte reste cachée : pas de clignotement.
+  const carteSoutien = souvenirDon && !carteMasquee(souvenirDon) ? <CarteSoutien abonne={estAbonne(etat ?? null)} onMasquer={masquerCarteSoutien} /> : null
+  const fermerSoutienModale = () => {
+    if (!etat) return
+    const suite = fermerSoutien(etat, souvenirDon ?? SOUVENIR_SOUTIEN_VIERGE)
+    setSouvenirDon(suite)
+    void memoriserSoutien(suite)
+  }
   const fermerRelance = () => {
     if (!etat) return
     const suite = compte.fermerRelance(etat)
@@ -178,6 +197,7 @@ export function App({ api, catalogue }: Props) {
     await changerDePartie()
     // La partie effacée emporte la relance refermée : le nouvel invité repart de zéro.
     setSouvenir(compte.SOUVENIR_VIERGE)
+    setSouvenirDon(SOUVENIR_SOUTIEN_VIERGE)
     naviguer({ onglet: 'table' })
     return null
   }
@@ -322,6 +342,7 @@ export function App({ api, catalogue }: Props) {
                       )}
                     </section>
                     {relance && <RelanceCompte decouvertes={etat.decouvertes.length} reconnexion={quitte} onOuvrir={() => ouvrirConnexion(quitte ? 'connexion' : 'sauvegarde')} onFermer={fermerRelance} />}
+                    {soutien && <ModaleSoutien onFermer={fermerSoutienModale} />}
                   </div>
 
 
@@ -387,7 +408,7 @@ export function App({ api, catalogue }: Props) {
 
                 <section {...ecran('boutique')}>
                   <EnTete titre="Boutique" id="titre-boutique" />
-                  <Boutique etat={etat} acheter={partie.acheterSabliers} />
+                  <Boutique etat={etat} acheter={partie.acheterSabliers} soutien={carteSoutien} />
                 </section>
 
                 {/* Fusion réussie, nouvelle ou déjà connue : la carte s'ouvre, la même qu'au codex. */}
@@ -413,6 +434,7 @@ export function App({ api, catalogue }: Props) {
             <section {...ecran('reglages')}>
               <EnTete titre="Réglages" id="titre-reglages" />
               <Reglages
+                soutien={carteSoutien}
                 reglages={reglages}
                 onChanger={changer}
                 onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined}

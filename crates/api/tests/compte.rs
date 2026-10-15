@@ -158,7 +158,7 @@ async fn un_invite_cree_son_compte_par_code(base: PgPool) {
     let apres = etat(&banc, &jeton).await;
     assert_eq!(
         apres["compte"],
-        json!({ "pseudo": pseudo, "pseudo_confirme": false })
+        json!({ "pseudo": pseudo, "pseudo_confirme": false, "soutien": false })
     );
     assert_eq!(apres["decouvertes"].as_array().unwrap().len(), 1);
 
@@ -349,7 +349,7 @@ async fn le_pseudo_se_confirme_ou_se_change(base: PgPool) {
     assert_eq!(statut, StatusCode::OK, "{corps}");
     assert_eq!(
         etat(&banc, &jeton2).await["compte"],
-        json!({ "pseudo": "elodie-lit", "pseudo_confirme": true })
+        json!({ "pseudo": "elodie-lit", "pseudo_confirme": true, "soutien": false })
     );
 
     // Une partie invitée n'a pas de pseudo.
@@ -576,4 +576,87 @@ async fn sans_envoi_les_comptes_repondent_503(base: PgPool) {
     // Corps borné à 1 Kio.
     let (statut, _) = demander(&banc, &jeton, &"a".repeat(2000)).await;
     assert_eq!(statut, StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+/// Webhook Ko-fi : `data=<JSON>` en formulaire, tout encodé en pourcentage.
+async fn kofi(banc: &Banc, jeton: &str, abonnement: bool, courriel: &str) -> StatusCode {
+    let data = json!({ "verification_token": jeton, "is_subscription_payment": abonnement, "email": courriel, "message": "Merci !" });
+    let corps: String = data
+        .to_string()
+        .bytes()
+        .map(|o| format!("%{o:02X}"))
+        .collect();
+    let requete = Request::post("/soutien/kofi")
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .body(Body::from(format!("data={corps}")))
+        .unwrap();
+    appeler(&banc.routeur, requete).await.0
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool) {
+    let banc = banc_courriel(base.clone()).await;
+    let jeton = session_de(&banc.routeur, Uuid::new_v4(), 1).await;
+    creer_compte(&banc, &jeton, "camille.martin@exemple.fr").await;
+    assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], false);
+
+    assert_eq!(
+        kofi(&banc, "mauvais", true, "camille.martin@exemple.fr").await,
+        StatusCode::UNAUTHORIZED
+    );
+    // Un don ponctuel n'est pas un abonnement.
+    assert_eq!(
+        kofi(
+            &banc,
+            "jeton-kofi-essai",
+            false,
+            "camille.martin@exemple.fr"
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], false);
+
+    // L'adresse est comparée normalisée, comme pour la connexion.
+    assert_eq!(
+        kofi(
+            &banc,
+            "jeton-kofi-essai",
+            true,
+            " Camille.Martin@Exemple.fr"
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], true);
+
+    // Un abonnement échu depuis plus de 45 jours ne compte plus.
+    sqlx::query("UPDATE soutien SET dernier_paiement = now() - interval '46 days'")
+        .execute(&base)
+        .await
+        .unwrap();
+    assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], false);
+
+    // La suppression du compte efface la ligne.
+    assert_eq!(
+        kofi(&banc, "jeton-kofi-essai", true, "camille.martin@exemple.fr").await,
+        StatusCode::OK
+    );
+    let (statut, _, _) = appeler(
+        &banc.routeur,
+        Request::delete("/compte")
+            .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                json!({ "confirmation": "SUPPRIMER" }).to_string(),
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(statut, StatusCode::NO_CONTENT);
+    let restantes: i64 = sqlx::query_scalar("SELECT count(*) FROM soutien")
+        .fetch_one(&base)
+        .await
+        .unwrap();
+    assert_eq!(restantes, 0);
 }

@@ -18,6 +18,7 @@ pub mod quetes_jour;
 pub mod ricochets;
 pub mod routes;
 pub mod secret;
+pub mod soutien;
 
 use std::sync::Arc;
 
@@ -49,6 +50,8 @@ pub struct EtatApp {
     pub reinitialisation: bool,
     /// E-mails de connexion des comptes (ADR 0070) ; `None` : comptes désactivés.
     pub courriel: Option<courriel::Courriel>,
+    /// Jeton de vérification du webhook Ko-fi (ADR 0078) ; `None` : webhook en `503`.
+    pub kofi_token: Option<String>,
 }
 
 pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {

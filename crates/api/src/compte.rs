@@ -430,10 +430,13 @@ pub async fn changer_pseudo(
     .await;
     match mise_a_jour {
         Ok(r) if r.rows_affected() == 0 => Err(ErreurApi::Interdit("aucun compte")),
-        Ok(_) => Ok(Json(CompteEtat {
-            pseudo: demande.pseudo,
-            pseudo_confirme: true,
-        })),
+        Ok(_) => {
+            let mut connexion = app.base.acquire().await?;
+            crate::progression::compte_etat(&mut connexion, joueur)
+                .await?
+                .map(Json)
+                .ok_or(ErreurApi::Interdit("aucun compte"))
+        }
         Err(sqlx::Error::Database(e)) if e.is_unique_violation() => {
             for proposition in candidats(&racine(&demande.pseudo))? {
                 let prise = sqlx::query_scalar!(
@@ -494,9 +497,15 @@ pub async fn supprimer(
             "confirmation : « SUPPRIMER » attendu".into(),
         ));
     }
-    sqlx::query!("DELETE FROM joueur WHERE id = $1", joueur)
-        .execute(&app.base)
-        .await?;
+    // L'abonnement Ko-fi (ADR 0078) part avec le compte.
+    sqlx::query!(
+        "WITH s AS (DELETE FROM soutien WHERE empreinte_courriel =
+            (SELECT empreinte_courriel FROM compte WHERE joueur_id = $1))
+         DELETE FROM joueur WHERE id = $1",
+        joueur
+    )
+    .execute(&app.base)
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -122,6 +122,7 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
         recharge: chrono::TimeDelta::seconds(i64::from(config.recharge_s.max(1))),
         reinitialisation: config.reinitialisation,
         courriel: etymo_api::courriel::Courriel::depuis_config(&config.courriel)?,
+        kofi_token: config.courriel.kofi_token.clone().filter(|t| !t.is_empty()),
     });
 
     let relecture = Arc::clone(&etat);

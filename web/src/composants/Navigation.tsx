@@ -5,6 +5,7 @@ import { Anneau } from './Anneau'
 import { Compteur } from './Compteur'
 import { Icone, type NomIcone } from './Icone'
 import { Sablier } from './Sabliers'
+import { LienSoutien } from './Soutien'
 
 export type { Onglet }
 
@@ -136,6 +137,7 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
         // Les ressources se lisent juste au-dessus des réglages.
         return id === 'reglages' && ressources ? [<Ressources key="ressources" {...ressources} />, bouton] : bouton
       })}
+      <LienSoutien />
       {cachees.length > 0 && (
         <>
           <button

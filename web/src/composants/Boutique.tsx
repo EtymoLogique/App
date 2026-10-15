@@ -5,20 +5,17 @@ import { useEnLigne } from '../services/reseau'
 
 import type { Etat, ReponseAchatSablier } from '../contrat'
 import { Compteur } from './Compteur'
-import { Icone } from './Icone'
 import { type Envoi, FeuilleEchanger, Sablier } from './Sabliers'
 
 interface Props {
   etat: Etat | null
   acheter: Envoi<ReponseAchatSablier>
+  /** Carte « Soutenir » (ADR 0078), absente quand le joueur l'a masquée. */
+  soutien?: React.ReactNode
 }
 
-/**
- * Boutique (ADR 0018, 0039) : d'abord les échanges entre ressources du jeu,
- * sans limite ; puis l'achat de gouttes en euros, fermé tant qu'aucun ADR
- * ne l'accepte.
- */
-export function Boutique({ etat, acheter }: Props) {
+/** Boutique (ADR 0018, 0039) : les échanges entre ressources du jeu, sans limite. */
+export function Boutique({ etat, acheter, soutien }: Props) {
   const enLigne = useEnLigne()
   const [lot, setLot] = useState<number | null>(null)
   const encre = etat?.encre ?? 0
@@ -75,26 +72,7 @@ export function Boutique({ etat, acheter }: Props) {
         </div>
       </section>
 
-      <section className="bq-section" aria-labelledby="bq-achats">
-        <div className="bq-tete">
-          <p className="pk-label">
-            Achats
-            <span className="bq-bientot">
-              <Icone nom="verrou" />
-              Bientôt ouvert
-            </span>
-          </p>
-          <h2 id="bq-achats">
-            Des gouttes, <em>en euros</em>
-          </h2>
-        </div>
-        <div className="bq-ferme">
-          <Icone nom="verrou" />
-          <p>
-            <b>Pas encore ouvert.</b> Des lots de gouttes d’encre à prix affiché, en nombre limité, sans offre à durée limitée ni relance. Tout ce qu’elles donnent s’obtient aussi en jouant.
-          </p>
-        </div>
-      </section>
+      {soutien}
 
       {lot !== null && etat && <FeuilleEchanger etat={etat} envoyer={acheter} initial={lot} onFermer={() => setLot(null)} />}
     </div>

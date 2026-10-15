@@ -2334,6 +2334,10 @@
           "pseudo_confirme": {
             "type": "boolean",
             "description": "Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par\ndéfaut : il reste alors privé."
+          },
+          "soutien": {
+            "type": "boolean",
+            "description": "Vrai si l'adresse du compte a un abonnement Ko-fi actif (ADR 0078) : la\nPWA ne présente alors plus la modale de soutien. Aucun avantage de jeu."
           }
         },
         "additionalProperties": false
