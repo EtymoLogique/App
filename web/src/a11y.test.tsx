@@ -58,6 +58,11 @@ describe('accessibilité (axe)', () => {
     expect(await violations()).toEqual([])
   })
 
+  it('la page statique des conditions d’utilisation n’a aucune violation détectable', async () => {
+    document.documentElement.innerHTML = readFileSync('public/conditions-utilisation.html', 'utf8')
+    expect(await violations()).toEqual([])
+  })
+
   it('la page statique des mentions légales n’a aucune violation détectable', async () => {
     document.documentElement.innerHTML = readFileSync('public/mentions-legales.html', 'utf8')
     expect(await violations()).toEqual([])
