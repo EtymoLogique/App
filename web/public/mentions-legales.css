@@ -1,0 +1,10 @@
+:root { --paper: #f3eee3; --ink: #0f1f19; --ink-2: #44564d; --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif; }
+@media (prefers-color-scheme: dark) { :root { --paper: #0f1f19; --ink: #f3eee3; --ink-2: #b8c6bd; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 system-ui, sans-serif; }
+main { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
+h1, h2 { font-family: var(--serif); letter-spacing: -0.02em; line-height: 1.15; }
+h2 { margin-top: 32px; font-size: 22px; }
+p, dd { color: var(--ink-2); }
+dt { margin-top: 12px; font-weight: 600; }
+dd { margin: 0; }
+a { color: inherit; }

@@ -3,6 +3,8 @@
 // calcule pas sous jsdom (aucune mise en page) : il se contrôle avec
 // `check_identity` et à la main. Un écart nouveau fait échouer ce test.
 
+import { readFileSync } from 'node:fs'
+
 import { render, screen } from '@testing-library/react'
 import axe from 'axe-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -48,6 +50,11 @@ describe('accessibilité (axe)', () => {
     await screen.findByRole('navigation', { name: 'Navigation principale' })
     // Laisse le catalogue et l'état se charger avant de mesurer.
     await new Promise((r) => setTimeout(r, 50))
+    expect(await violations()).toEqual([])
+  })
+
+  it('la page statique des mentions légales n’a aucune violation détectable', async () => {
+    document.documentElement.innerHTML = readFileSync('public/mentions-legales.html', 'utf8')
     expect(await violations()).toEqual([])
   })
 })

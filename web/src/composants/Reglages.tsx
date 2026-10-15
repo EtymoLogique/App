@@ -112,6 +112,9 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props
         <p className="panel-tip">
           Code sous licence AGPL 3.0 ou ultérieure, contenu sous CC BY-SA 4.0. Le nom et le logo ÉtymoLogique sont réservés.
         </p>
+        <p className="panel-tip">
+          <a href="/mentions-legales.html">Mentions légales</a>
+        </p>
       </section>
     </div>
   )
