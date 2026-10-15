@@ -1,6 +1,6 @@
 # AGENTS.md — ÉtymoLogique, dépôt App
 
-Ce dépôt contient la PWA et l’API de jeu. Le dossier de conception (ADR, modèle de données, game design) vit dans le dépôt [EtymoLogique](https://github.com/lunik/EtymoLogique) ; le catalogue, dans le dépôt privé Content ; l’hébergement, dans le dépôt Infra.
+Ce dépôt contient la PWA et l’API de jeu. Le dossier de conception (ADR, modèle de données, game design) vit dans le dépôt [EtymoLogique](https://github.com/lunik/EtymoLogique) ; le catalogue, dans le dépôt public Content ; l’hébergement, dans le dépôt Infra.
 
 La documentation, les libellés, les messages d’erreur et les identifiants du code sont **en français**. Seuls les messages de commit sont en anglais.
 
