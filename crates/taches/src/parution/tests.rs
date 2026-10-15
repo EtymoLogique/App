@@ -274,8 +274,8 @@ async fn en_production_un_fascicule_paru_retire_du_calendrier_reste_dans_l_index
 #[tokio::test]
 async fn hors_production_un_fascicule_retire_du_calendrier_quitte_l_index() {
     let (rapport, index) = retirer_apres_parution(false).await;
-    assert!(rapport.conserves.is_empty());
-    assert!(index.fascicules.is_empty());
+    assert_eq!(rapport.conserves.len(), 0);
+    assert_eq!(index.fascicules.len(), 0);
     assert_eq!(index.version, "v2");
 }
 

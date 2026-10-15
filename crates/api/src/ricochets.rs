@@ -924,7 +924,7 @@ mod tests {
                             .collect();
                         assert_eq!(classes.len(), PAIRES);
                     }
-                    FormatRicochet::Decouper => assert!(q.choix.is_empty()),
+                    FormatRicochet::Decouper => assert_eq!(q.choix.len(), 0),
                     FormatRicochet::Assembler => unreachable!("aucun mot ne s'assemble ici"),
                 }
             }
@@ -934,9 +934,12 @@ mod tests {
     #[test]
     fn peu_de_cartes_peu_de_questions() {
         let jeu = jeu();
-        assert!(tirer(&jeu, &[brique(1)], &mut Hasard::nouveau(1)).is_empty());
+        assert_eq!(tirer(&jeu, &[brique(1)], &mut Hasard::nouveau(1)).len(), 0);
         // Deux briques de même classe ne se posent pas de leurre l'une à l'autre.
-        assert!(tirer(&jeu, &[brique(1), brique(5)], &mut Hasard::nouveau(1)).is_empty());
+        assert_eq!(
+            tirer(&jeu, &[brique(1), brique(5)], &mut Hasard::nouveau(1)).len(),
+            0
+        );
         // Deux briques : chacune est cible à son tour, avec l'autre pour seul leurre.
         let deux = tirer(&jeu, &[brique(1), brique(2)], &mut Hasard::nouveau(1));
         assert_eq!(deux.len(), 2);

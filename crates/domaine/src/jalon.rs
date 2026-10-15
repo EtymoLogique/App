@@ -49,7 +49,7 @@ mod tests {
     #[test]
     fn une_seule_fois_et_au_seuil() {
         let jalons = [jalon("jal_00000003", 3), jalon("jal_00000006", 6)];
-        assert!(atteints(2, &jalons, &HashSet::new()).is_empty());
+        assert_eq!(atteints(2, &jalons, &HashSet::new()).len(), 0);
         assert_eq!(atteints(3, &jalons, &HashSet::new()), vec![&jalons[0]]);
         let deja = HashSet::from([jalons[0].id.clone()]);
         assert_eq!(atteints(7, &jalons, &deja), vec![&jalons[1]]);

@@ -120,7 +120,7 @@ async fn la_reponse_ne_dit_pas_si_l_adresse_est_connue(base: PgPool) {
                 .fetch_all(&base)
                 .await
                 .unwrap();
-        assert!(!lignes.is_empty());
+        assert_ne!(lignes, [] as [std::string::String; 0]);
         for ligne in lignes {
             assert!(!ligne.contains("exemple"), "{table} : {ligne}");
         }
@@ -581,11 +581,12 @@ async fn sans_envoi_les_comptes_repondent_503(base: PgPool) {
 /// Webhook Ko-fi : `data=<JSON>` en formulaire, tout encodé en pourcentage.
 async fn kofi(banc: &Banc, jeton: &str, abonnement: bool, courriel: &str) -> StatusCode {
     let data = json!({ "verification_token": jeton, "is_subscription_payment": abonnement, "email": courriel, "message": "Merci !" });
-    let corps: String = data
+    let corps = data
         .to_string()
         .bytes()
         .map(|o| format!("%{o:02X}"))
-        .collect();
+        .collect::<Vec<_>>()
+        .concat();
     let requete = Request::post("/soutien/kofi")
         .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(Body::from(format!("data={corps}")))

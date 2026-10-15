@@ -85,14 +85,14 @@ mod tests {
     fn un_jalon_d_un_fascicule_verrouille_n_ouvre_rien() {
         let debloques = HashSet::from([id("fsc_00000001")]);
         let atteints = HashSet::from([id("jal_00000002")]);
-        assert!(a_debloquer(&chaine(), &debloques, &atteints).is_empty());
+        assert_eq!(a_debloquer(&chaine(), &debloques, &atteints).len(), 0);
     }
 
     #[test]
     fn un_fascicule_debloque_le_reste_et_ouvre_la_suite() {
         // Un fascicule intermédiaire paru après coup ne reverrouille rien.
         let debloques = HashSet::from([id("fsc_00000001"), id("fsc_00000003")]);
-        assert!(a_debloquer(&chaine(), &debloques, &HashSet::new()).is_empty());
+        assert_eq!(a_debloquer(&chaine(), &debloques, &HashSet::new()).len(), 0);
         let mut suite = chaine();
         suite.push(Maillon {
             fascicule_id: id("fsc_00000004"),
@@ -110,6 +110,6 @@ mod tests {
         let mut chaine = chaine();
         chaine[0].jalon = None;
         let debloques = HashSet::from([id("fsc_00000001")]);
-        assert!(a_debloquer(&chaine, &debloques, &HashSet::new()).is_empty());
+        assert_eq!(a_debloquer(&chaine, &debloques, &HashSet::new()).len(), 0);
     }
 }
