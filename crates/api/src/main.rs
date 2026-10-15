@@ -69,6 +69,18 @@ async fn main() -> anyhow::Result<()> {
             tracing::info!("migrations appliquées");
             Ok(())
         }
+        Some(Commande::Exporter(config)) => {
+            let courriel = etymo_api::courriel::Courriel::nouveau(
+                config.cle_courriel.as_bytes(),
+                "",
+                etymo_api::courriel::Expediteur::Fichier(std::path::PathBuf::new()),
+            )?;
+            let donnees =
+                etymo_api::export::exporter(&connecter(&config.base)?, &courriel, &config.courriel)
+                    .await?;
+            println!("{}", serde_json::to_string_pretty(&donnees)?);
+            Ok(())
+        }
         Some(Commande::Openapi) => {
             print!("{}", openapi::json());
             Ok(())

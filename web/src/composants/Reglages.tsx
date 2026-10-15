@@ -70,7 +70,7 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
   )
 }
 
-/** Réglages (I-24), contenu du MVP en cours : compte, apparence, mouvement, sons et vibrations, licences. */
+/** Réglages (I-24), contenu du MVP en cours : compte, apparence, mouvement, sons et vibrations, licences et contact. */
 export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props) {
   return (
     <div className="reglages">
@@ -108,9 +108,12 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte }: Props
       />
       {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
       <section className="reglage">
-        <h2>Licences</h2>
+        <h2>Licences et contact</h2>
         <p className="panel-tip">
           Code sous licence AGPL 3.0 ou ultérieure, contenu sous CC BY-SA 4.0. Le nom et le logo ÉtymoLogique sont réservés.
+        </p>
+        <p className="panel-tip">
+          Une question, ou une demande sur vos données (accès, copie, effacement) : <a href="mailto:contact@etymologique.fr">contact@etymologique.fr</a>. Réponse sous un mois.
         </p>
         <p className="panel-tip">
           <a href="/mentions-legales.html">Mentions légales</a> · <a href="/donnees-personnelles.html">Données personnelles</a> · <a href="/conditions-utilisation.html">Conditions d’utilisation</a>

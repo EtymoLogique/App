@@ -8,6 +8,7 @@ pub mod config;
 pub mod courriel;
 pub mod debit;
 pub mod erreur;
+pub mod export;
 pub mod extraction;
 pub mod jeton;
 pub mod openapi;

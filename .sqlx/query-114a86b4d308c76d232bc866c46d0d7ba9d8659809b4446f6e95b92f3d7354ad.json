@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO compte (joueur_id, empreinte_courriel, pseudo) VALUES ($1, $2, 'camille')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "114a86b4d308c76d232bc866c46d0d7ba9d8659809b4446f6e95b92f3d7354ad"
+}

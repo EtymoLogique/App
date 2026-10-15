@@ -290,6 +290,7 @@ Seule la coque `/` s'indexe : les écrans vivent dans le fragment (ADR 0034) et 
 | `cargo audit` et `npm audit` en CI (déjà en place) ; résultat du jour : 0 vulnérabilité | fait |
 | Test d'accessibilité automatique (axe-core, neuf écrans, hors contraste) : deux écarts d'ordre des titres corrigés | fait |
 | Rapport [`docs/audits/avant-lancement.md`](audits/avant-lancement.md) : preuves, huit écarts proposés | fait |
+| Contact visible dans les Réglages ; procédure d'accès et de portabilité [`docs/procedure-acces-donnees.md`](procedure-acces-donnees.md) ; `etymo-api exporter --courriel` (testé) (App#69) | fait |
 | Contraste rendu, clavier seul, lecteur d'écran, mouvement réduit, texte d'information sur la collecte | **à faire à la main** (appareil, hors-prod) ; l'issue #31 reste ouverte tant que ces points ne sont pas passés |
 
 ## Animations retenues (relevé et décisions du 2026-10-01)

@@ -30,6 +30,9 @@ pub enum Commande {
     Statistiques(ConfigBase),
     /// Applique les migrations de schéma de la base de progression.
     Migrer(ConfigBase),
+    /// Écrit sur la sortie standard, en JSON, les données du joueur dont l'adresse est donnée
+    /// (accès et portabilité, RGPD art. 15 et 20). Vérifiez d'abord que le demandeur contrôle l'adresse.
+    Exporter(ConfigExport),
     /// Écrit le contrat OpenAPI sur la sortie standard.
     Openapi,
 }
@@ -39,6 +42,20 @@ pub struct ConfigBase {
     /// Adresse de la base de progression PostgreSQL.
     #[arg(long, env = "DATABASE_URL", hide_env_values = true)]
     pub database_url: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ConfigExport {
+    #[command(flatten)]
+    pub base: ConfigBase,
+
+    /// Clé HMAC des empreintes d'adresse (celle du serveur).
+    #[arg(long, env = "ETYMO_CLE_COURRIEL", hide_env_values = true)]
+    pub cle_courriel: String,
+
+    /// Adresse électronique du joueur.
+    #[arg(long)]
+    pub courriel: String,
 }
 
 #[derive(Debug, Clone, Args)]
