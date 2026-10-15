@@ -6,7 +6,7 @@ import { clear, createStore, get, set, type UseStore } from 'idb-keyval'
 
 import type { Etat } from '../contrat'
 import { SOUVENIR_VIERGE, type SouvenirRelance, estSouvenir } from './compte'
-import { SOUVENIR_SOUTIEN_VIERGE, type SouvenirSoutien, estSouvenirSoutien } from './soutien'
+import { SOUVENIR_SOUTIEN_VIERGE, type SouvenirSoutien, lireSouvenirSoutien } from './soutien'
 import { TABLE_MAX } from './jeu'
 
 let magasin: UseStore | undefined
@@ -96,7 +96,7 @@ export function memoriserRelance(souvenir: SouvenirRelance): Promise<void> {
 export async function souvenirSoutien(): Promise<SouvenirSoutien> {
   try {
     const souvenir: unknown = await get('soutien', stockage())
-    return estSouvenirSoutien(souvenir) ? souvenir : SOUVENIR_SOUTIEN_VIERGE
+    return lireSouvenirSoutien(souvenir)
   } catch {
     return SOUVENIR_SOUTIEN_VIERGE
   }

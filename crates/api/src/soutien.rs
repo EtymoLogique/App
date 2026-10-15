@@ -38,6 +38,43 @@ struct Paiement {
     is_subscription_payment: bool,
     #[serde(default)]
     email: String,
+    #[serde(default, rename = "type")]
+    genre: String,
+    #[serde(default)]
+    amount: String,
+    #[serde(default)]
+    currency: String,
+    #[serde(default)]
+    is_first_subscription_payment: bool,
+}
+
+/// Texte de la notification : ni adresse, ni nom, ni message du donateur. Chaque champ de Ko-fi est
+/// borné à un format connu avant d'entrer dans l'e-mail.
+fn notification(p: &Paiement) -> (String, String) {
+    let genre = match p.genre.as_str() {
+        "Donation" if p.is_subscription_payment => "don mensuel",
+        "Donation" => "don",
+        "Subscription" if p.is_first_subscription_payment => "nouvel abonnement",
+        "Subscription" => "renouvellement d'abonnement",
+        "Shop Order" => "commande boutique",
+        "Commission" => "commission",
+        _ => "événement",
+    };
+    let montant: String = p
+        .amount
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '.')
+        .take(10)
+        .collect();
+    let devise: String = p
+        .currency
+        .chars()
+        .filter(char::is_ascii_uppercase)
+        .take(3)
+        .collect();
+    let sujet = format!("Ko-fi : {genre}");
+    let texte = format!("Ko-fi a envoyé un webhook : {genre}, {montant} {devise}.");
+    (sujet, texte.trim_end().to_owned())
 }
 
 /// Webhook Ko-fi : toujours `200` pour un jeton valide, même si l'événement
@@ -64,6 +101,11 @@ async fn webhook(
         .execute(&app.base)
         .await?;
     }
+    // Un échec d'envoi ne fait pas rejouer le webhook par Ko-fi : la ligne est déjà écrite.
+    let (sujet, texte) = notification(&paiement);
+    let _ = courriel
+        .notifier(&app.kofi_notification, &sujet, &texte)
+        .await;
     sqlx::query!(
         "DELETE FROM soutien WHERE dernier_paiement < now() - make_interval(days => $1)",
         JOURS_PURGE

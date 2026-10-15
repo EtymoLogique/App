@@ -580,7 +580,7 @@ async fn sans_envoi_les_comptes_repondent_503(base: PgPool) {
 
 /// Webhook Ko-fi : `data=<JSON>` en formulaire, tout encodé en pourcentage.
 async fn kofi(banc: &Banc, jeton: &str, abonnement: bool, courriel: &str) -> StatusCode {
-    let data = json!({ "verification_token": jeton, "is_subscription_payment": abonnement, "email": courriel, "message": "Merci !" });
+    let data = json!({ "verification_token": jeton, "is_subscription_payment": abonnement, "email": courriel, "message": "Merci !", "type": "Donation", "amount": "3.00", "currency": "EUR", "from_name": "Camille" });
     let corps = data
         .to_string()
         .bytes()
@@ -605,6 +605,11 @@ async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool)
         kofi(&banc, "mauvais", true, "camille.martin@exemple.fr").await,
         StatusCode::UNAUTHORIZED
     );
+    assert_eq!(
+        notifications_kofi(&banc).len(),
+        0,
+        "jeton refusé : aucune notification"
+    );
     // Un don ponctuel n'est pas un abonnement.
     assert_eq!(
         kofi(
@@ -617,6 +622,23 @@ async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool)
         StatusCode::OK
     );
     assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], false);
+
+    // Chaque webhook valide prévient l'éditeur, sans adresse ni nom de donateur.
+    let notifications = notifications_kofi(&banc);
+    assert_eq!(notifications.len(), 1, "{notifications:?}");
+    assert!(
+        notifications[0].contains("To: contact@exemple.test"),
+        "{notifications:?}"
+    );
+    assert!(
+        notifications[0].contains("Subject: Ko-fi : don"),
+        "{notifications:?}"
+    );
+    assert!(notifications[0].contains("3.00 EUR"), "{notifications:?}");
+    assert!(
+        !notifications[0].to_lowercase().contains("camille"),
+        "{notifications:?}"
+    );
 
     // L'adresse est comparée normalisée, comme pour la connexion.
     assert_eq!(
@@ -660,4 +682,16 @@ async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool)
         .await
         .unwrap();
     assert_eq!(restantes, 0);
+}
+
+/// E-mails écrits pour l'éditeur (Ko-fi) : ceux qui ne sont pas des e-mails de connexion.
+fn notifications_kofi(banc: &Banc) -> Vec<String> {
+    let dossier = banc.dossier.path().join("courriels");
+    let Ok(entrees) = std::fs::read_dir(dossier) else {
+        return Vec::new();
+    };
+    entrees
+        .map(|e| std::fs::read_to_string(e.unwrap().path()).unwrap())
+        .filter(|texte| texte.contains("Subject: Ko-fi"))
+        .collect()
 }

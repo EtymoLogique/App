@@ -123,6 +123,22 @@ impl Courriel {
     ) -> Result<(), ErreurApi> {
         let lien = format!("{}/#/connexion?defi={defi}&jeton={jeton}", self.url_pwa);
         let (sujet, texte, html) = gabarit(code, &lien);
+        self.expedier(a, &sujet, &texte, &html).await
+    }
+
+    /// Prévient l'éditeur (ADR 0078) : texte brut, sans donnée de donateur.
+    pub async fn notifier(&self, a: &str, sujet: &str, texte: &str) -> Result<(), ErreurApi> {
+        self.expedier(a, sujet, texte, &format!("<p>{texte}</p>"))
+            .await
+    }
+
+    async fn expedier(
+        &self,
+        a: &str,
+        sujet: &str,
+        texte: &str,
+        html: &str,
+    ) -> Result<(), ErreurApi> {
         match &self.expediteur {
             Expediteur::Fichier(dossier) => {
                 let nom = format!(

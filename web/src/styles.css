@@ -153,6 +153,17 @@ button { font: inherit; }
 .soutien-carte h2, .soutien-modale h2 { font-family: var(--serif); }
 .soutien-carte .btn, .soutien-modale .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
 .soutien-carte .btn .ic, .soutien-modale .btn .ic { width: 18px; height: 18px; }
+.soutien-modale { gap: 16px; }
+.soutien-modale p, .soutien-carte p { margin: 0; line-height: 1.55; text-wrap: pretty; }
+/* Le bouton principal porte une ombre de 4 px : l'écart la dégage, et le lien garde une cible de 44 px. */
+.soutien-modale .rangee { gap: 6px 22px; margin-top: 4px; }
+.soutien-carte .btn-texte, .soutien-modale .btn-texte { min-height: 44px; padding: 0 4px; }
+.soutien-carte .btn { margin: 4px 4px 0 0; }
+@media (max-width: 760px) {
+  .soutien-modale .rangee { flex-direction: column; align-items: stretch; gap: 2px; }
+  .soutien-modale .btn { justify-content: center; }
+  .soutien-modale .btn-texte { text-align: center; }
+}
 .navigation-panneau button { grid-auto-flow: column; align-items: center; justify-content: start; gap: 12px; width: 100%; padding: 0 12px; border-radius: 8px; color: var(--ink); font-size: 14px; }
 .navigation-panneau button:hover { background: var(--paper-2); }
 .navigation-panneau button .count { position: static; }

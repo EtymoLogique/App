@@ -22,7 +22,8 @@ import { construireCodex } from './services/codex'
 import * as compte from './services/compte'
 import type { ReponseConfirmation } from './contrat'
 import { memoriserRelance, memoriserSoutien, souvenirRelance, souvenirSoutien } from './services/local'
-import { SOUVENIR_SOUTIEN_VIERGE, type SouvenirSoutien, carteMasquee, doitSolliciter, estAbonne, fermerSoutien, masquerCarte } from './services/soutien'
+import { usePresence } from './services/presence'
+import { INACTIVITE_MS, type SouvenirSoutien, ajouterTempsDeJeu, carteMasquee, doitSolliciter, estAbonne, fermerSoutien, masquerCarte } from './services/soutien'
 import { compteQuitte } from './services/profil'
 import { indiceCourant } from './services/indices'
 import { TABLE_MIN, decouvertePossible } from './services/jeu'
@@ -145,10 +146,15 @@ export function App({ api, catalogue }: Props) {
   const [quitte, setQuitte] = useState(false)
   // Soutien Ko-fi (ADR 0078) : la modale attend le même calme que la relance, et lui cède la place.
   const [souvenirDon, setSouvenirDon] = useState<SouvenirSoutien | null>(null)
+  const don = useRef<SouvenirSoutien | null>(null)
+  const [soutienOuvert, setSoutienOuvert] = useState(false)
   const [modeConnexion, setModeConnexion] = useState<compte.ModeConnexion>('sauvegarde')
   useEffect(() => {
     void souvenirRelance().then(setSouvenir)
-    void souvenirSoutien().then(setSouvenirDon)
+    void souvenirSoutien().then((lu) => {
+      don.current = lu
+      setSouvenirDon(lu)
+    })
     void compteQuitte().then((q) => {
       setQuitte(q)
       if (q) setModeConnexion('connexion')
@@ -160,19 +166,24 @@ export function App({ api, catalogue }: Props) {
   }
   const occupe = partie.table.length > 0 || partie.enAttente || partie.fusion !== null || partie.fiche !== null || gel !== null || reserveOuverte !== null || indices
   const relance = etat && souvenir && !occupe && compte.doitRelancer(etat, souvenir, quitte)
-  const soutien = etat && souvenirDon && enLigne && !occupe && !relance && doitSolliciter(etat, souvenirDon)
-  const masquerCarteSoutien = () => {
-    const suite = masquerCarte(souvenirDon ?? SOUVENIR_SOUTIEN_VIERGE)
-    setSouvenirDon(suite)
-    void memoriserSoutien(suite)
-  }
+  // Le souvenir change à plusieurs endroits (temps de jeu, masquage, fermeture) : la référence garde le dernier.
+  const changerDon = useCallback((modifier: (s: SouvenirSoutien) => SouvenirSoutien) => {
+    if (!don.current) return
+    don.current = modifier(don.current)
+    setSouvenirDon(don.current)
+    void memoriserSoutien(don.current)
+  }, [])
+  const ajouterTemps = useCallback((secondes: number) => changerDon((s) => ajouterTempsDeJeu(s, secondes)), [changerDon])
+  const inactif = usePresence(souvenirDon !== null, ajouterTemps, INACTIVITE_MS)
+  // La modale attend le même calme que la relance, puis un joueur resté une minute sans toucher l'écran.
+  // Une fois ouverte, elle reste jusqu'à sa fermeture, même si le joueur bouge.
+  const soutienPossible = !!(etat && souvenirDon && enLigne && !occupe && !relance && doitSolliciter(etat, souvenirDon))
+  if (soutienPossible && inactif && !soutienOuvert) setSoutienOuvert(true)
   // Tant que le souvenir n'est pas lu, la carte reste cachée : pas de clignotement.
-  const carteSoutien = souvenirDon && !carteMasquee(souvenirDon) ? <CarteSoutien abonne={estAbonne(etat ?? null)} onMasquer={masquerCarteSoutien} /> : null
+  const carteSoutien = souvenirDon && !carteMasquee(souvenirDon) ? <CarteSoutien abonne={estAbonne(etat ?? null)} onMasquer={() => changerDon(masquerCarte)} /> : null
   const fermerSoutienModale = () => {
-    if (!etat) return
-    const suite = fermerSoutien(etat, souvenirDon ?? SOUVENIR_SOUTIEN_VIERGE)
-    setSouvenirDon(suite)
-    void memoriserSoutien(suite)
+    setSoutienOuvert(false)
+    changerDon(fermerSoutien)
   }
   const fermerRelance = () => {
     if (!etat) return
@@ -197,7 +208,6 @@ export function App({ api, catalogue }: Props) {
     await changerDePartie()
     // La partie effacée emporte la relance refermée : le nouvel invité repart de zéro.
     setSouvenir(compte.SOUVENIR_VIERGE)
-    setSouvenirDon(SOUVENIR_SOUTIEN_VIERGE)
     naviguer({ onglet: 'table' })
     return null
   }
@@ -342,7 +352,7 @@ export function App({ api, catalogue }: Props) {
                       )}
                     </section>
                     {relance && <RelanceCompte decouvertes={etat.decouvertes.length} reconnexion={quitte} onOuvrir={() => ouvrirConnexion(quitte ? 'connexion' : 'sauvegarde')} onFermer={fermerRelance} />}
-                    {soutien && <ModaleSoutien onFermer={fermerSoutienModale} />}
+                    {soutienOuvert && <ModaleSoutien onFermer={fermerSoutienModale} />}
                   </div>
 
 

@@ -123,6 +123,7 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
         reinitialisation: config.reinitialisation,
         courriel: etymo_api::courriel::Courriel::depuis_config(&config.courriel)?,
         kofi_token: config.courriel.kofi_token.clone().filter(|t| !t.is_empty()),
+        kofi_notification: config.courriel.kofi_notification.clone(),
     });
 
     let relecture = Arc::clone(&etat);

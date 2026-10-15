@@ -1,35 +1,44 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Etat } from '../contrat'
-import { SOUVENIR_SOUTIEN_VIERGE, carteMasquee, doitSolliciter, fermerSoutien, masquerCarte } from './soutien'
+import { SOUVENIR_SOUTIEN_VIERGE, ajouterTempsDeJeu, carteMasquee, doitSolliciter, fermerSoutien, lireSouvenirSoutien, masquerCarte } from './soutien'
 
-const etat = (decouvertes: number, jours: number, soutien?: boolean) =>
-  ({ decouvertes: Array.from({ length: decouvertes }), jours_de_jeu: jours, compte: soutien === undefined ? null : { pseudo: 'a', pseudo_confirme: true, soutien } }) as unknown as Etat
+const JOUR = 86_400_000
+const etat = (soutien?: boolean) =>
+  ({ compte: soutien === undefined ? null : { pseudo: 'a', pseudo_confirme: true, soutien } }) as unknown as Etat
+const joue = (minutes: number) => ajouterTempsDeJeu(SOUVENIR_SOUTIEN_VIERGE, minutes * 60)
 
 describe('doitSolliciter', () => {
-  it('attend 5 découvertes et 3 jours de jeu', () => {
-    expect(doitSolliciter(etat(4, 9), SOUVENIR_SOUTIEN_VIERGE)).toBe(false)
-    expect(doitSolliciter(etat(5, 2), SOUVENIR_SOUTIEN_VIERGE)).toBe(false)
-    expect(doitSolliciter(etat(5, 3), SOUVENIR_SOUTIEN_VIERGE)).toBe(true)
+  it('attend 15 minutes de jeu', () => {
+    expect(doitSolliciter(etat(), joue(14))).toBe(false)
+    expect(doitSolliciter(etat(), joue(15))).toBe(true)
   })
-  it('ne revient qu\'après 30 jours de jeu', () => {
-    const vu = fermerSoutien(etat(9, 10), SOUVENIR_SOUTIEN_VIERGE)
-    expect(doitSolliciter(etat(9, 39), vu)).toBe(false)
-    expect(doitSolliciter(etat(9, 40), vu)).toBe(true)
+  it('ne revient qu\'après 7 jours', () => {
+    const vu = fermerSoutien(joue(40), 1000)
+    expect(doitSolliciter(etat(), vu, 1000 + 7 * JOUR - 1)).toBe(false)
+    expect(doitSolliciter(etat(), vu, 1000 + 7 * JOUR)).toBe(true)
   })
   it('épargne les abonnés, pas les comptes sans abonnement', () => {
-    expect(doitSolliciter(etat(9, 9, true), SOUVENIR_SOUTIEN_VIERGE)).toBe(false)
-    expect(doitSolliciter(etat(9, 9, false), SOUVENIR_SOUTIEN_VIERGE)).toBe(true)
+    expect(doitSolliciter(etat(true), joue(60))).toBe(false)
+    expect(doitSolliciter(etat(false), joue(60))).toBe(true)
   })
 })
 
 describe('carteMasquee', () => {
   it('revient après 30 jours, sans toucher à la modale', () => {
-    const jour = 86_400_000
-    const masquee = masquerCarte({ fermee_le_jour_de_jeu: 4 }, 1000)
-    expect(carteMasquee(masquee, 1000 + 29 * jour)).toBe(true)
-    expect(carteMasquee(masquee, 1000 + 30 * jour)).toBe(false)
+    const masquee = masquerCarte(SOUVENIR_SOUTIEN_VIERGE, 1000)
+    expect(carteMasquee(masquee, 1000 + 29 * JOUR)).toBe(true)
+    expect(carteMasquee(masquee, 1000 + 30 * JOUR)).toBe(false)
     expect(carteMasquee(SOUVENIR_SOUTIEN_VIERGE)).toBe(false)
-    expect(fermerSoutien(etat(9, 10), masquee).carte_masquee_le).toBe(1000)
+    expect(fermerSoutien(masquee, 5).carte_masquee_le).toBe(1000)
+  })
+})
+
+describe('lireSouvenirSoutien', () => {
+  it('repart du vierge pour une valeur absente, ancienne ou abîmée', () => {
+    expect(lireSouvenirSoutien(undefined)).toEqual(SOUVENIR_SOUTIEN_VIERGE)
+    expect(lireSouvenirSoutien({ fermee_le_jour_de_jeu: 4 })).toEqual(SOUVENIR_SOUTIEN_VIERGE)
+    expect(lireSouvenirSoutien({ temps_de_jeu_s: -3, fermee_le: 'x' })).toEqual(SOUVENIR_SOUTIEN_VIERGE)
+    expect(lireSouvenirSoutien({ temps_de_jeu_s: 90, fermee_le: 7, carte_masquee_le: null })).toEqual({ temps_de_jeu_s: 90, fermee_le: 7, carte_masquee_le: null })
   })
 })

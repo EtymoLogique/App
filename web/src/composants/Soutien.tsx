@@ -49,7 +49,7 @@ export function ModaleSoutien({ onFermer }: { onFermer: () => void }) {
   return (
     <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section ref={boite} className="dialogue soutien-modale" role="dialog" aria-modal="true" aria-labelledby="soutien-modale-titre" onClick={(e) => e.stopPropagation()}>
+      <section ref={boite} className="dialogue feuille soutien-modale" role="dialog" aria-modal="true" aria-labelledby="soutien-modale-titre" onClick={(e) => e.stopPropagation()}>
         <h2 id="soutien-modale-titre" className="jk-title">
           Un café pour ÉtymoLogique ?
         </h2>

@@ -72,6 +72,7 @@ async fn banc_complet(
         reinitialisation,
         courriel,
         kofi_token: Some("jeton-kofi-essai".into()),
+        kofi_notification: "contact@exemple.test".into(),
     });
     Banc {
         routeur: routeur(etat.clone(), &[HeaderValue::from_static(ORIGINE)]),

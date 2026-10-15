@@ -52,6 +52,8 @@ pub struct EtatApp {
     pub courriel: Option<courriel::Courriel>,
     /// Jeton de vérification du webhook Ko-fi (ADR 0078) ; `None` : webhook en `503`.
     pub kofi_token: Option<String>,
+    /// Adresse prévenue à chaque webhook Ko-fi reçu.
+    pub kofi_notification: String,
 }
 
 pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {

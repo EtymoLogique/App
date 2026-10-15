@@ -140,6 +140,14 @@ pub struct ConfigCourriel {
     #[arg(long, env = "ETYMO_KOFI_TOKEN", hide_env_values = true)]
     pub kofi_token: Option<String>,
 
+    /// Adresse prévenue à chaque webhook Ko-fi reçu (ADR 0078).
+    #[arg(
+        long,
+        env = "ETYMO_KOFI_NOTIFICATION",
+        default_value = "contact@etymologique.fr"
+    )]
+    pub kofi_notification: String,
+
     /// Clé d'API de Scaleway, en-tête `X-Auth-Token`.
     #[arg(long, env = "ETYMO_TEM_CLE", hide_env_values = true)]
     pub tem_cle: Option<String>,
