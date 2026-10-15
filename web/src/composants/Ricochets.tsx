@@ -391,36 +391,52 @@ export function Assembler({ q, jeu, d, envoyer, repondu }: QuestionProps) {
     envoyer('assembler', unite, [debut, fin])
     repondu()
   }
-  const brique = (id: string | null | undefined, ko = false) => {
+  const brique = (id: string | null | undefined) => {
     const b = id ? jeu.briques.get(id) : undefined
-    return b ? <Brique brique={{ ...b, glose: null }} taille="s" className={ko ? 'rico-brique-ko' : undefined} /> : null
+    return b ? <Brique brique={{ ...b, glose: null }} taille="s" /> : null
   }
   const colonneDe = (titre: string, position: 'prefixe' | 'suffixe', briques: string[], choisie: string | null) => (
     <div className="rico-colonne" role="group" aria-label={titre} onKeyDown={naviguerAuClavier}>
       <span className="rico-colonne-titre" aria-hidden="true">
         {titre}
       </span>
-      {briques.map((b) => (
-        <button
-          key={b}
-          type="button"
-          className={['rico-option', 'rico-case', choisie === b && 'prise', valide && b === attendu[position === 'prefixe' ? 0 : 1] && 'juste'].filter(Boolean).join(' ')}
-          aria-pressed={choisie === b}
-          disabled={valide}
-          onClick={() => poser(position, b)}
-        >
-          {brique(b)}
-        </button>
-      ))}
+      {briques.map((b) => {
+        // Mêmes états que les autres ricochets : touchée, bonne réponse (Encre), pas celle-ci (hachures).
+        const bonne = b === attendu[position === 'prefixe' ? 0 : 1]
+        const etat = !valide ? '' : bonne ? 'juste' : choisie === b ? 'rate' : ''
+        return (
+          <button
+            key={b}
+            type="button"
+            className={['rico-option', 'rico-case', choisie === b && !valide && 'prise', etat].filter(Boolean).join(' ')}
+            aria-pressed={choisie === b}
+            disabled={valide}
+            onClick={() => poser(position, b)}
+          >
+            {brique(b)}
+            {etat !== '' && <Rond etat={etat} />}
+          </button>
+        )
+      })}
     </div>
   )
   const emplacement = (position: 'prefixe' | 'suffixe', choisie: string | null, bonne: string | undefined) => {
     const nom = position === 'prefixe' ? 'Préfixe' : 'Suffixe'
     const ko = valide && choisie !== null && choisie !== bonne
     return choisie ? (
-      <button type="button" className={`rico-emplacement ${ko ? 'ko' : ''}`} disabled={valide} aria-label={`${nom} choisi, touchez pour le retirer`} onClick={() => poser(position, choisie)}>
-        {brique(choisie, ko)}
-        {valide && <span className="rico-etiquette">{ko ? 'Pas celui-ci' : 'Juste'}</span>}
+      <button
+        type="button"
+        className={['rico-emplacement', valide && (ko ? 'rate' : 'juste')].filter(Boolean).join(' ')}
+        disabled={valide}
+        aria-label={`${nom} choisi, touchez pour le retirer`}
+        onClick={() => poser(position, choisie)}
+      >
+        {brique(choisie)}
+        {valide && (
+          <span className="rico-etiquette">
+            <Rond etat={ko ? 'rate' : 'juste'} /> {ko ? 'Pas celui-ci' : 'Juste'}
+          </span>
+        )}
       </button>
     ) : (
       <span className="rico-emplacement vide" role="img" aria-label={`${nom} : pas encore choisi`}>
