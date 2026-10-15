@@ -454,6 +454,36 @@ async fn la_suppression_efface_tout(base: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn un_invite_efface_sa_partie(base: PgPool) {
+    let banc = banc_courriel(base.clone()).await;
+    let invite = Uuid::new_v4();
+    let jeton = session_de(&banc.routeur, invite, 1).await;
+    decouvrir(&base, invite).await;
+
+    let supprimer = |confirmation: &str| {
+        Request::delete("/compte")
+            .header(header::AUTHORIZATION, format!("Bearer {jeton}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                json!({ "confirmation": confirmation }).to_string(),
+            ))
+            .unwrap()
+    };
+    let (statut, _, _) = appeler(&banc.routeur, supprimer("supprimer")).await;
+    assert_eq!(statut, StatusCode::BAD_REQUEST);
+    let (statut, _, _) = appeler(&banc.routeur, supprimer("SUPPRIMER")).await;
+    assert_eq!(statut, StatusCode::NO_CONTENT);
+    for table in [
+        "joueur WHERE id",
+        "appareil WHERE joueur_id",
+        "decouverte WHERE joueur_id",
+    ] {
+        let requete = format!("SELECT count(*) FROM {table} = $1");
+        assert_eq!(nombre(&base, &requete, invite).await, 0, "{table}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn la_purge_efface_les_invites_inactifs_jamais_les_comptes(base: PgPool) {
     let banc = banc_courriel(base.clone()).await;
     let (invite, titulaire) = (Uuid::new_v4(), Uuid::new_v4());

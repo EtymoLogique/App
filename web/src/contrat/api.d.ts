@@ -56,8 +56,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Supprime le joueur et toute sa progression, sur tous ses appareils :
-         *     compte, appareils, codex, réserve, encre… Définitif.
+         * Supprime le joueur et toute sa progression, sur tous ses appareils, qu'il
+         *     ait un compte ou joue en invité (RGPD, art. 17) : compte, appareils, codex, réserve, encre… Définitif.
          */
         delete: operations["supprimer"];
         options?: never;

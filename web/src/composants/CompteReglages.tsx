@@ -83,7 +83,7 @@ function Pseudo({ actuel, changer, onFermer }: { actuel: string; changer: Props[
 }
 
 /** Supprimer le compte : « Supprimer » reste inactif tant que le mot n'est pas tapé, « Annuler » par défaut. */
-function Suppression({ supprimer, onFermer }: { supprimer: Props['supprimer']; onFermer: () => void }) {
+function Suppression({ invite, supprimer, onFermer }: { invite: boolean; supprimer: Props['supprimer']; onFermer: () => void }) {
   const [mot, setMot] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -99,8 +99,12 @@ function Suppression({ supprimer, onFermer }: { supprimer: Props['supprimer']; o
     <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
       <section ref={boite} className="dialogue feuille" role="alertdialog" aria-modal="true" aria-labelledby="suppression-titre" aria-describedby="suppression-texte" onClick={(e) => e.stopPropagation()}>
-        <h2 id="suppression-titre">Supprimer votre compte ?</h2>
-        <p id="suppression-texte">Votre codex, votre réserve, votre encre et vos sabliers seront effacés sur tous vos appareils. Cette action est définitive.</p>
+        <h2 id="suppression-titre">{invite ? 'Effacer votre partie ?' : 'Supprimer votre compte ?'}</h2>
+        <p id="suppression-texte">
+          {invite
+            ? 'Votre codex, votre réserve, votre encre et vos sabliers seront effacés de nos serveurs et de cet appareil. Cette action est définitive.'
+            : 'Votre codex, votre réserve, votre encre et vos sabliers seront effacés sur tous vos appareils. Cette action est définitive.'}
+        </p>
         <label className="saisie">
           <span>Tapez SUPPRIMER pour confirmer</span>
           <input value={mot} autoCapitalize="characters" autoComplete="off" spellCheck={false} onChange={(e) => setMot(e.target.value)} />
@@ -144,6 +148,12 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, onSeConnecter, 
           </span>
           <span aria-hidden="true">›</span>
         </button>
+        <div>
+          <button type="button" className="btn btn-danger" disabled={!enLigne} onClick={() => setOuvert('suppression')}>
+            Effacer ma partie
+          </button>
+        </div>
+        {ouvert === 'suppression' && <Suppression invite supprimer={supprimer} onFermer={fermer} />}
       </section>
     )
 
@@ -190,7 +200,7 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, onSeConnecter, 
         </button>
       </div>
       {ouvert === 'pseudo' && <Pseudo actuel={compte.pseudo} changer={changerPseudo} onFermer={fermer} />}
-      {ouvert === 'suppression' && <Suppression supprimer={supprimer} onFermer={fermer} />}
+      {ouvert === 'suppression' && <Suppression invite={false} supprimer={supprimer} onFermer={fermer} />}
     </section>
   )
 }
