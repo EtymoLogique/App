@@ -710,7 +710,7 @@ button.disc { font: inherit; cursor: pointer; }
   border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink-3);
 }
 .champ:focus-within { border-color: var(--ink); color: var(--ink); }
-.champ input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; outline: none; }
+.champ input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; outline: none; }
 .champ input::placeholder { color: var(--ink-3); }
 .champ kbd { padding: 0 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
