@@ -29,13 +29,13 @@ Les deux audits tournent déjà en CI sur chaque PR. Ils ne tournent pas sur un 
 Relevé à la lecture, sans test :
 
 - **E2 (faible)** : l'adresse réseau est la dernière entrée de `X-Forwarded-For` (`extraction.rs`). C'est juste derrière le proxy de Scaleway, qui l'ajoute ; si l'API était un jour joignable sans proxy, un client pourrait choisir sa propre clé de limitation. À revérifier si l'hébergement change.
-- Un jeton n'est pas révocable avant ses 15 minutes : acceptable pour un profil invité sans donnée personnelle.
+- Un jeton n'est pas révocable avant ses 15 minutes : acceptable pour un profil invité (données pseudonymisées seulement).
 
 ## Vie privée
 
 | Point | Preuve |
 |---|---|
-| Aucune donnée personnelle stockée | schéma : `joueur` ne porte que l'identifiant, l'empreinte du secret, des versions et des dates ; aucune adresse réseau |
+| Données pseudonymisées et minimisées : aucune adresse électronique ni adresse réseau en clair, ni nom | schéma : `joueur`, `appareil`, `compte` et `defi_connexion` ne portent que des identifiants, des empreintes (secret, HMAC de l'adresse), des versions et des dates. L'identifiant d'installation lié à l'activité et l'empreinte de l'adresse sont des données personnelles au sens du RGPD ; le pseudo en clair peut contenir un nom (écart L1, voir l'[audit juridique](juridique.md)) |
 | Journaux sans secret, jeton, identifiant de joueur ni adresse réseau | test `journaux.rs` (requêtes et erreurs portant ces valeurs) ; relevé des `tracing::` : seuls des nombres, des versions et des causes internes |
 | Conservation | `purger` (commandes, quêtes du jour, réponses de ricochets du jour : 30 jours) ; durées documentées dans `purges.rs` et le README |
 | Agrégats | aucun identifiant de joueur ; groupes de moins de 50 joueurs masqués (`cohortes.rs`, test) |
