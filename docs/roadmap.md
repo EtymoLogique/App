@@ -315,7 +315,7 @@ Les 53 animations de `plans/todo/animations-propositions.html`, avec la version 
 | Migration : `appareil` (reprise de chaque profil invité, jetons en cours toujours valables), `compte`, `defi_connexion` ; empreintes seulement | fait |
 | Domaine : normalisation de l'adresse, pseudo par défaut `x-1234`, règle du pseudo | fait |
 | API : `/session` multi-appareil ; `/compte/demande`, `/compte/confirmation` (code ou lien, 15 min, 5 essais, usage unique), `/compte/pseudo`, `/compte/deconnexion`, `DELETE /compte` ; `Etat.compte` ; envoi TEM ou fichier ; limites par adresse réseau, profil et adresse électronique | fait |
-| Purges : demandes de connexion après un jour, invités sans compte inactifs depuis 6 mois | fait |
+| Purges : demandes de connexion après un jour, invités sans compte inactifs depuis 6 mois, comptes inactifs depuis 3 ans, détail des plis agrégé après 12 mois (App#68, ADR 0071) | fait |
 | PWA : `#/connexion` (I-31), relance « Sauvegardez votre progression » (I-32), compte dans les Réglages (I-33) ; e-mail (I-34) | fait |
 | Écart à valider : la confirmation ne porte ni clé d'idempotence ni `version_etat` ; le défi à usage unique la rend idempotente (un rejeu reçoit `410`) | à valider |
 | Recette locale (`./scripts/dev.sh`, e-mails dans `.local/courriels/`) | à faire |

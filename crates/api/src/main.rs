@@ -43,6 +43,8 @@ async fn main() -> anyhow::Result<()> {
                 ricochets_du_jour = rapport.ricochets_du_jour,
                 defis_connexion = rapport.defis_connexion,
                 invites_inactifs = rapport.invites_inactifs,
+                comptes_inactifs = rapport.comptes_inactifs,
+                plis_agreges = rapport.plis_agreges,
                 "purges terminées"
             );
             Ok(())

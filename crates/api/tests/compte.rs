@@ -519,6 +519,40 @@ async fn la_purge_efface_les_invites_inactifs_jamais_les_comptes(base: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn la_purge_efface_les_comptes_inactifs_depuis_trois_ans(base: PgPool) {
+    let banc = banc_courriel(base.clone()).await;
+    let (ancien, actif) = (Uuid::new_v4(), Uuid::new_v4());
+    for (appareil, adresse) in [(ancien, "ancien@exemple.fr"), (actif, "actif@exemple.fr")] {
+        let jeton = session_de(&banc.routeur, appareil, 1).await;
+        creer_compte(&banc, &jeton, adresse).await;
+    }
+    // 35 mois : encore gardé ; 37 mois : effacé avec toute sa progression.
+    sqlx::query("UPDATE joueur SET derniere_activite = now() - interval '35 months' WHERE id = $1")
+        .bind(actif)
+        .execute(&base)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE joueur SET derniere_activite = now() - interval '37 months' WHERE id = $1")
+        .bind(ancien)
+        .execute(&base)
+        .await
+        .unwrap();
+
+    let rapport = etymo_taches::purger(&base).await.unwrap();
+    assert_eq!(rapport.comptes_inactifs, 1);
+    for (table, id, attendu) in [
+        ("joueur WHERE id", ancien, 0),
+        ("compte WHERE joueur_id", ancien, 0),
+        ("appareil WHERE joueur_id", ancien, 0),
+        ("joueur WHERE id", actif, 1),
+        ("compte WHERE joueur_id", actif, 1),
+    ] {
+        let requete = format!("SELECT count(*) FROM {table} = $1");
+        assert_eq!(nombre(&base, &requete, id).await, attendu, "{table}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn sans_envoi_les_comptes_repondent_503(base: PgPool) {
     let banc = banc(base, Limiteurs::default()).await;
     let jeton = session_de(&banc.routeur, Uuid::new_v4(), 1).await;

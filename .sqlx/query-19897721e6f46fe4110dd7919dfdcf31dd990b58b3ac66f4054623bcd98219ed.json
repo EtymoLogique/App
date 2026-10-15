@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM joueur j WHERE EXISTS (SELECT 1 FROM compte c WHERE c.joueur_id = j.id)\n           AND j.derniere_activite < now() - make_interval(months => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "19897721e6f46fe4110dd7919dfdcf31dd990b58b3ac66f4054623bcd98219ed"
+}
