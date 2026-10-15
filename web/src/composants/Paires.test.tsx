@@ -59,4 +59,14 @@ describe('Paires', () => {
     expect(envoyer).toHaveBeenCalledWith('paires', GEO, 'sns_1')
     expect(envoyer).toHaveBeenCalledWith('paires', LOGIE, 'sns_2')
   })
+
+  it('chaque case garde la place de son numéro, reliée ou non : les colonnes ne bougent pas', () => {
+    monter()
+    const numeros = () => [...document.querySelectorAll('.rico-paire')].map((e) => e.querySelectorAll('.rico-numero').length)
+    expect(numeros()).toEqual([1, 1, 1, 1])
+    fireEvent.click(brique(0))
+    fireEvent.click(sens('terre'))
+    expect(numeros()).toEqual([1, 1, 1, 1])
+    expect(document.querySelectorAll('.rico-numero.vide')).toHaveLength(2)
+  })
 })

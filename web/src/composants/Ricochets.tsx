@@ -309,10 +309,13 @@ export function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
               onClick={() => toucher('brique', b)}
             >
               <BriqueSansGlose jeu={jeu} id={b} taille="s" />
-              {liens.has(b) && (
+              {/* Place du numéro toujours réservée : relier une paire ne redimensionne pas les colonnes. */}
+              {liens.has(b) ? (
                 <span className="rico-numero" aria-label={`paire ${numero(b)}`}>
                   {numero(b)}
                 </span>
+              ) : (
+                <span className="rico-numero vide" aria-hidden="true" />
               )}
             </button>
           ))}
@@ -330,11 +333,9 @@ export function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
                 onClick={() => toucher('sens', s)}
               >
                 <span className="rico-option-texte">«&nbsp;{d.gloses.get(s) ?? '…'}&nbsp;»</span>
-                {b && (
-                  <span className="rico-numero" aria-hidden="true">
-                    {numero(b)}
-                  </span>
-                )}
+                <span className={b ? 'rico-numero' : 'rico-numero vide'} aria-hidden="true">
+                  {b && numero(b)}
+                </span>
               </button>
             )
           })}
