@@ -476,8 +476,8 @@ pub async fn deconnecter(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Supprime le joueur et toute sa progression, sur tous ses appareils :
-/// compte, appareils, codex, réserve, encre… Définitif.
+/// Supprime le joueur et toute sa progression, sur tous ses appareils, qu'il
+/// ait un compte ou joue en invité (RGPD, art. 17) : compte, appareils, codex, réserve, encre… Définitif.
 #[utoipa::path(delete, path = "/compte", tag = "compte", security(("session" = [])), request_body = DemandeSuppression,
     responses(
         (status = 204, description = "Compte et progression effacés"),

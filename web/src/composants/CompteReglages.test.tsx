@@ -22,6 +22,18 @@ describe('compte dans les Réglages (I-33)', () => {
     expect(screen.queryByText('Se déconnecter')).toBeNull()
   })
 
+  it('en invité : « Effacer ma partie » exige SUPPRIMER', () => {
+    const a = actions()
+    render(<CompteReglages compte={undefined} enLigne {...a} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Effacer ma partie' }))
+    expect(screen.getByText('Effacer votre partie ?')).toBeInTheDocument()
+    const supprimer = screen.getByRole('button', { name: 'Supprimer' })
+    expect(supprimer).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Tapez SUPPRIMER pour confirmer'), { target: { value: 'SUPPRIMER' } })
+    fireEvent.click(supprimer)
+    expect(a.supprimer).toHaveBeenCalled()
+  })
+
   it('le pseudo par défaut est marqué « Privé » ; la suppression exige SUPPRIMER', () => {
     const a = actions()
     render(<CompteReglages compte={{ pseudo: 'camille-4821', pseudo_confirme: false }} enLigne {...a} />)

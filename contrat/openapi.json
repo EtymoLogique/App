@@ -207,7 +207,7 @@
         "tags": [
           "compte"
         ],
-        "summary": "Supprime le joueur et toute sa progression, sur tous ses appareils :\ncompte, appareils, codex, réserve, encre… Définitif.",
+        "summary": "Supprime le joueur et toute sa progression, sur tous ses appareils, qu'il\nait un compte ou joue en invité (RGPD, art. 17) : compte, appareils, codex, réserve, encre… Définitif.",
         "operationId": "supprimer",
         "requestBody": {
           "content": {
