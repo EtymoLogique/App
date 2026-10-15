@@ -21,7 +21,6 @@ use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
-use crate::soutien;
 use crate::{
     EtatApp, carte_lecteur, compte, debit, progression, quetes_initiales, quetes_jour, ricochets,
     secret,
@@ -46,7 +45,6 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/quete-initiale", post(recuperer_quete_initiale))
         .route("/quete-du-jour", post(recuperer_quete_du_jour))
         .merge(compte::routes())
-        .merge(soutien::routes())
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.

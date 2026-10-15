@@ -67,9 +67,14 @@ pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
     if etat.reinitialisation {
         routes = routes.merge(routes::routes_hors_prod());
     }
+    // Le webhook Ko-fi a sa propre limite, plus large ; les autres routes gardent la leur.
+    let webhook = soutien::routes()
+        .with_state(Arc::clone(&etat))
+        .layer(RequestBodyLimitLayer::new(soutien::CORPS_WEBHOOK_MAX));
     routes
         .with_state(etat)
         .layer(RequestBodyLimitLayer::new(CORPS_MAX))
+        .merge(webhook)
         .layer(cors)
         .layer(SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,

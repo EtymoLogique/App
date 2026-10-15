@@ -21,6 +21,10 @@ pub const JOURS_ACTIF: i32 = 45;
 /// Les lignes plus vieilles que cela sont purgées à chaque webhook.
 const JOURS_PURGE: i32 = 90;
 
+/// Un webhook Ko-fi porte un message libre et, pour une commande, une adresse de livraison, le tout
+/// encodé en pourcentage : bien au-delà des 8 Kio des commandes de jeu.
+pub const CORPS_WEBHOOK_MAX: usize = 64 * 1024;
+
 pub fn routes() -> Router<Arc<EtatApp>> {
     Router::new().route("/soutien/kofi", post(webhook))
 }
@@ -30,31 +34,28 @@ struct Formulaire {
     data: String,
 }
 
-/// Seuls champs lus. Pas de `deny_unknown_fields` : Ko-fi est libre d'en ajouter.
+/// Seuls champs lus. Pas de `deny_unknown_fields` : Ko-fi est libre d'en ajouter. Tout champ peut valoir
+/// `null` (message, adresse d'un don anonyme…) : un champ absent ou nul vaut sa valeur vide.
 #[derive(Deserialize)]
 struct Paiement {
     verification_token: String,
-    #[serde(default)]
-    is_subscription_payment: bool,
-    #[serde(default)]
-    email: String,
-    #[serde(default, rename = "type")]
-    genre: String,
-    #[serde(default)]
-    amount: String,
-    #[serde(default)]
-    currency: String,
-    #[serde(default)]
-    is_first_subscription_payment: bool,
+    is_subscription_payment: Option<bool>,
+    email: Option<String>,
+    #[serde(rename = "type")]
+    genre: Option<String>,
+    amount: Option<String>,
+    currency: Option<String>,
+    is_first_subscription_payment: Option<bool>,
 }
 
 /// Texte de la notification : ni adresse, ni nom, ni message du donateur. Chaque champ de Ko-fi est
 /// borné à un format connu avant d'entrer dans l'e-mail.
 fn notification(p: &Paiement) -> (String, String) {
-    let genre = match p.genre.as_str() {
-        "Donation" if p.is_subscription_payment => "don mensuel",
-        "Donation" => "don",
-        "Subscription" if p.is_first_subscription_payment => "nouvel abonnement",
+    let abonnement = p.is_subscription_payment == Some(true);
+    let genre = match p.genre.as_deref().unwrap_or_default() {
+        "Donation" if abonnement => "don mensuel",
+        "Donation" | "Tip" => "don",
+        "Subscription" if p.is_first_subscription_payment == Some(true) => "nouvel abonnement",
         "Subscription" => "renouvellement d'abonnement",
         "Shop Order" => "commande boutique",
         "Commission" => "commission",
@@ -62,12 +63,16 @@ fn notification(p: &Paiement) -> (String, String) {
     };
     let montant: String = p
         .amount
+        .as_deref()
+        .unwrap_or_default()
         .chars()
         .filter(|c| c.is_ascii_digit() || *c == '.')
         .take(10)
         .collect();
     let devise: String = p
         .currency
+        .as_deref()
+        .unwrap_or_default()
         .chars()
         .filter(char::is_ascii_uppercase)
         .take(3)
@@ -91,8 +96,9 @@ async fn webhook(
     if !secret::egales(paiement.verification_token.as_bytes(), attendu.as_bytes()) {
         return Err(ErreurApi::NonAuthentifie);
     }
-    let adresse = etymo_domaine::compte::normaliser_courriel(&paiement.email);
-    if let (true, Some(adresse)) = (paiement.is_subscription_payment, adresse) {
+    let adresse =
+        etymo_domaine::compte::normaliser_courriel(paiement.email.as_deref().unwrap_or_default());
+    if let (true, Some(adresse)) = (paiement.is_subscription_payment == Some(true), adresse) {
         sqlx::query!(
             "INSERT INTO soutien (empreinte_courriel, dernier_paiement) VALUES ($1, now())
              ON CONFLICT (empreinte_courriel) DO UPDATE SET dernier_paiement = now()",

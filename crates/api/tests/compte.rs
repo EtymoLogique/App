@@ -579,8 +579,7 @@ async fn sans_envoi_les_comptes_repondent_503(base: PgPool) {
 }
 
 /// Webhook Ko-fi : `data=<JSON>` en formulaire, tout encodé en pourcentage.
-async fn kofi(banc: &Banc, jeton: &str, abonnement: bool, courriel: &str) -> StatusCode {
-    let data = json!({ "verification_token": jeton, "is_subscription_payment": abonnement, "email": courriel, "message": "Merci !", "type": "Donation", "amount": "3.00", "currency": "EUR", "from_name": "Camille" });
+async fn kofi_brut(banc: &Banc, data: &Value) -> StatusCode {
     let corps = data
         .to_string()
         .bytes()
@@ -592,6 +591,11 @@ async fn kofi(banc: &Banc, jeton: &str, abonnement: bool, courriel: &str) -> Sta
         .body(Body::from(format!("data={corps}")))
         .unwrap();
     appeler(&banc.routeur, requete).await.0
+}
+
+async fn kofi(banc: &Banc, jeton: &str, abonnement: bool, courriel: &str) -> StatusCode {
+    let data = json!({ "verification_token": jeton, "is_subscription_payment": abonnement, "email": courriel, "message": "Merci !", "type": "Donation", "amount": "3.00", "currency": "EUR", "from_name": "Camille" });
+    kofi_brut(banc, &data).await
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -694,4 +698,95 @@ fn notifications_kofi(banc: &Banc) -> Vec<String> {
         .map(|e| std::fs::read_to_string(e.unwrap().path()).unwrap())
         .filter(|texte| texte.contains("Subject: Ko-fi"))
         .collect()
+}
+
+/// Les quatre exemples de la documentation de Ko-fi, plus un message très long et des champs nuls.
+#[sqlx::test(migrations = "../../migrations")]
+async fn le_webhook_kofi_accepte_les_formats_documentes(base: PgPool) {
+    let banc = banc_courriel(base.clone()).await;
+    let jeton = session_de(&banc.routeur, Uuid::new_v4(), 1).await;
+    creer_compte(&banc, &jeton, "jo.example@example.com").await;
+    let t = "jeton-kofi-essai";
+    let commun = |genre: &str, abonnement: bool, premier: bool| {
+        json!({
+            "verification_token": t, "message_id": "38853a4a-4ddf-4db3-bd62-0c57fb5bb768", "timestamp": "2026-10-15T20:38:27Z",
+            "type": genre, "is_public": true, "from_name": "Jo Example", "message": null, "amount": "3.00",
+            "url": "https://ko-fi.com/Home/CoffeeShop?txid=00000000-1111-2222-3333-444444444444",
+            "email": "jo.example@example.com", "currency": "USD", "is_subscription_payment": abonnement,
+            "is_first_subscription_payment": premier, "kofi_transaction_id": "00000000-1111-2222-3333-444444444444",
+            "shop_items": null, "tier_name": null, "shipping": null, "discord_username": "Jo#4105", "discord_userid": "012345678901234567",
+        })
+    };
+
+    // Don unique : ne marque pas le compte.
+    assert_eq!(
+        kofi_brut(&banc, &commun("Donation", false, false)).await,
+        StatusCode::OK
+    );
+    // Commande boutique, avec adresse de livraison : ne marque pas, et l'adresse n'entre pas dans l'e-mail.
+    let mut commande = commun("Shop Order", false, false);
+    commande["amount"] = json!("27.95");
+    commande["shop_items"] =
+        json!([{ "direct_link_code": "1a2b3c4d5e", "variation_name": "Blue", "quantity": 1 }]);
+    commande["shipping"] = json!({ "full_name": "Ko-fi Mail Room", "street_address": "123 The Old Exchange, High Street", "city": "Bigville", "country": "United States" });
+    assert_eq!(kofi_brut(&banc, &commande).await, StatusCode::OK);
+    assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], false);
+    // Un adresse absente (don anonyme) ou un champ nul n'est pas une erreur.
+    let mut anonyme = commun("Tip", false, false);
+    anonyme["email"] = Value::Null;
+    anonyme["amount"] = Value::Null;
+    assert_eq!(kofi_brut(&banc, &anonyme).await, StatusCode::OK);
+    // Premier paiement d'abonnement, puis renouvellement avec palier : le compte est marqué.
+    assert_eq!(
+        kofi_brut(&banc, &commun("Subscription", true, true)).await,
+        StatusCode::OK
+    );
+    assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], true);
+    let mut palier = commun("Subscription", true, false);
+    palier["tier_name"] = json!("Bronze");
+    assert_eq!(kofi_brut(&banc, &palier).await, StatusCode::OK);
+    // Un message très long, accentué : plus de 8 Kio une fois encodé, accepté jusqu'à 64 Kio.
+    let mut long = commun("Donation", false, false);
+    long["message"] = json!("é".repeat(3000));
+    assert_eq!(kofi_brut(&banc, &long).await, StatusCode::OK);
+    long["message"] = json!("é".repeat(30_000));
+    assert_eq!(kofi_brut(&banc, &long).await, StatusCode::PAYLOAD_TOO_LARGE);
+
+    let sujets: Vec<String> = notifications_kofi(&banc)
+        .iter()
+        .filter_map(|n| {
+            n.lines()
+                .find(|l| l.starts_with("Subject:"))
+                .map(str::to_owned)
+        })
+        .collect();
+    assert_eq!(
+        sujets
+            .iter()
+            .filter(|s| s.contains("commande boutique"))
+            .count(),
+        1,
+        "{sujets:?}"
+    );
+    assert_eq!(
+        sujets
+            .iter()
+            .filter(|s| s.contains("nouvel abonnement"))
+            .count(),
+        1,
+        "{sujets:?}"
+    );
+    assert_eq!(
+        sujets
+            .iter()
+            .filter(|s| s.contains("renouvellement"))
+            .count(),
+        1,
+        "{sujets:?}"
+    );
+    assert!(
+        notifications_kofi(&banc)
+            .iter()
+            .all(|n| !n.contains("Bigville") && !n.contains("jo.example"))
+    );
 }
