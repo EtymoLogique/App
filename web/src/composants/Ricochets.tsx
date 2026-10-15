@@ -260,11 +260,11 @@ function DecoupeQuestion({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & 
 }
 
 /**
- * Paires : on relie librement chaque brique à un sens, dans un sens ou dans l'autre (touchée de nouveau, une paire se refait),
- * puis on valide. Rien n'est jugé avant : après validation, les paires justes en Encre, les fausses
- * en pointillé, et le bon sens de chaque brique ratée pour apprendre.
+ * Paires : on relie librement chaque brique à un sens, dans un sens ou dans l'autre (touchée de nouveau, une paire se refait) ;
+ * la dernière paire reliée envoie les réponses, sans étape « Valider ». Rien n'est jugé avant : ensuite, les paires justes
+ * en Encre, les fausses en pointillé, et le bon sens de chaque brique ratée pour apprendre.
  */
-function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
+export function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const sens = useMemo(() => melanger(q.cartes.map((b) => d.briques.get(b)?.sens ?? '')), [q, d])
   // Premier élément touché, d'une colonne ou de l'autre ; le second, dans l'autre colonne, fait la paire.
   const [choisie, setChoisie] = useState<{ cote: 'brique' | 'sens'; id: string } | null>(null)
@@ -272,20 +272,20 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const [valide, setValide] = useState(false)
   const relier = (b: string, s: string) => {
     // Un sens ne va qu'à une brique : il quitte son ancienne paire.
-    const suite = new Map([...liens].filter(([, v]) => v !== s))
-    setLiens(suite.set(b, s))
+    const suite = new Map([...liens].filter(([, v]) => v !== s)).set(b, s)
+    setLiens(suite)
     setChoisie(null)
+    // Toutes les briques reliées, la réponse part aussitôt.
+    if (suite.size < q.cartes.length) return
+    setValide(true)
+    for (const [brique, sens] of suite) envoyer('paires', brique, sens)
+    repondu()
   }
   const toucher = (cote: 'brique' | 'sens', id: string) => {
     if (choisie && choisie.cote !== cote) return cote === 'brique' ? relier(id, choisie.id) : relier(choisie.id, id)
     setChoisie(choisie?.id === id ? null : { cote, id })
   }
   const pris = (id: string) => choisie?.id === id
-  const valider = () => {
-    setValide(true)
-    for (const [b, s] of liens) envoyer('paires', b, s)
-    repondu()
-  }
   const juste = (b: string) => juger(d, 'paires', b, liens.get(b) ?? '') === true
   const etat = (b: string | undefined) => (!b || !liens.has(b) ? '' : !valide ? 'relie' : juste(b) ? 'juste' : 'rate')
   // Numéro fixe par brique : le même des deux côtés, sans bouger quand une paire se refait.
@@ -341,11 +341,6 @@ function Paires({ q, jeu, d, envoyer, repondu }: QuestionProps) {
         </div>
       </div>
       {!valide && <p className="rico-note rico-aide">Touchez une brique et son sens, dans l’ordre que vous voulez.</p>}
-      {!valide && liens.size === q.cartes.length && (
-        <button type="button" className="btn btn-primary rico-valider" onClick={valider}>
-          Valider les paires
-        </button>
-      )}
       <div className="rico-verdict" role="status" aria-live="polite">
         {valide && (
           <>
