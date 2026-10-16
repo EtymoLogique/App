@@ -16,6 +16,7 @@ import {
   libelleMaitrise,
   recentes,
   rechercher,
+  exemplesDe,
   savoirPlus,
   silhouetteDe,
 } from '../services/codex'
@@ -219,7 +220,9 @@ function jouerRetournement(carte: HTMLElement | null, versDos: boolean) {
   ombre?.animate([{ scale: '1 1', opacity: 1 }, { scale: '0.06 0.94', opacity: 0.6, translate: '0 18px', offset: 0.5 }, { scale: '1 1', opacity: 1 }], { duration: 600, easing: 'ease-in-out' })
 }
 
-type Dos = 'formes' | 'savoir'
+type Dos = 'formes' | 'exemples' | 'savoir'
+
+const LIBELLES_DOS: Record<Dos, string> = { formes: 'Formes', exemples: 'Exemples', savoir: 'En savoir plus' }
 
 /** Bouton de retournement de la carte agrandie : même composant pour « En savoir plus » et « Retourner ». */
 function BoutonRetournement({ libelle, onClick, ref }: { libelle: string; onClick: (bouton: HTMLButtonElement) => void; ref?: React.Ref<HTMLButtonElement> }) {
@@ -282,7 +285,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   // Face montrée : null = recto, sinon le contenu du verso. `plus` (adresse) ouvre le verso sur « En savoir plus ».
   const [dos, setDos] = useState<Dos | null>(plus && savoirPlus(entree, jeu) ? 'savoir' : null)
   const ouvreur = useRef<HTMLButtonElement | null>(null)
-  const onglets = useRef<Record<Dos, HTMLButtonElement | null>>({ formes: null, savoir: null })
+  const onglets = useRef<Record<Dos, HTMLButtonElement | null>>({ formes: null, exemples: null, savoir: null })
   const retour = useRef<HTMLButtonElement>(null)
   const fermer = useRef<HTMLButtonElement>(null)
   const enveloppe = useRef<HTMLDivElement>(null)
@@ -364,7 +367,9 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const parties = [...(composition?.parties ?? [])].sort((a, b) => a.rang - b.rang)
   const segments = parties.filter((p) => p.segment_debut != null && p.segment_fin != null && jeu.cartes.has(p.unite_id))
   const savoir = savoirPlus(entree, jeu)
-  const face: Dos | null = dos === 'savoir' && !savoir ? 'formes' : dos
+  const exemples = exemplesDe(entree)
+  const volets: Dos[] = ['formes', ...(exemples.length > 0 ? (['exemples'] as const) : []), ...(savoir ? (['savoir'] as const) : [])]
+  const face: Dos | null = dos && !volets.includes(dos) ? 'formes' : dos
   const retournee = face !== null
   const retourner = (vers: Dos | null, bouton?: HTMLButtonElement | null) => {
     if (bouton) ouvreur.current = bouton
@@ -385,7 +390,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       premier.current = false
       if (face === null) return
     }
-    const cible = () => (face ? (savoir ? onglets.current[face] : retour.current) : ouvreur.current)?.focus()
+    const cible = () => (face ? (volets.length > 1 ? onglets.current[face] : retour.current) : ouvreur.current)?.focus()
     // La face d'arrivée reste visibility: hidden jusqu'à mi-retournement (codex.css) : un focus() immédiat échouerait.
     // Le focus suit la fin de cette transition ; le minuteur ne sert que si elle ne vient pas.
     const arrivee = carte.current?.querySelector<HTMLElement>(face ? '.big-back' : '.big-front')
@@ -571,7 +576,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
         )}
       </nav>
       <p className="sr-only" aria-live="polite">
-        {face === null ? 'Recto' : face === 'formes' ? 'Verso : formes' : 'Verso : en savoir plus'}
+        {face === null ? 'Recto' : `Verso : ${LIBELLES_DOS[face].toLowerCase()}`}
       </p>
       <div ref={enveloppe} className="big-wrap">
         <div className="big-ombre" aria-hidden="true" />
@@ -686,9 +691,9 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           <div className="big-face big-back" aria-hidden={!retournee} inert={!retournee}>
             {haut}
             <div className="bf-body bb-body">
-              {savoir && (
+              {volets.length > 1 && (
                 <div className="bb-tabs" role="tablist" aria-label="Contenu du verso">
-                  {(['formes', 'savoir'] as const).map((d) => (
+                  {volets.map((d, i) => (
                     <button
                       key={d}
                       ref={(el) => {
@@ -701,9 +706,13 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                       aria-controls={`panneau-${d}`}
                       tabIndex={face === d ? 0 : -1}
                       onClick={() => retourner(d)}
-                      onKeyDown={(ev) => (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && retourner(d === 'formes' ? 'savoir' : 'formes')}
+                      onKeyDown={(ev) => {
+                        const pas = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0
+                        const suivant = volets[(i + pas + volets.length) % volets.length]
+                        if (pas !== 0 && suivant) retourner(suivant)
+                      }}
                     >
-                      {d === 'formes' ? 'Formes' : 'En savoir plus'}
+                      {LIBELLES_DOS[d]}
                     </button>
                   ))}
                 </div>
@@ -711,7 +720,15 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
               <div id="panneau-savoir" className="bb-panel bb-savoir" role="tabpanel" aria-labelledby="onglet-savoir" hidden={face !== 'savoir'}>
                 {contenuSavoir}
               </div>
-              <div id="panneau-formes" className="bb-panel" role={savoir ? 'tabpanel' : undefined} aria-labelledby={savoir ? 'onglet-formes' : undefined} hidden={face === 'savoir'}>
+              <div id="panneau-exemples" className="bb-panel bb-exemples" role="tabpanel" aria-labelledby="onglet-exemples" hidden={face !== 'exemples'}>
+                <p className="more-k">Pour se représenter</p>
+                <ul className="more-list">
+                  {exemples.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              </div>
+              <div id="panneau-formes" className="bb-panel" role={volets.length > 1 ? 'tabpanel' : undefined} aria-labelledby={volets.length > 1 ? 'onglet-formes' : undefined} hidden={face === 'savoir' || face === 'exemples'}>
               <p className="bb-title">{entree.type === 'langue' ? `Formes en ${entree.libelle.toLowerCase()}` : 'Formes trouvées'}</p>
               {entree.formes.length === 0 || !entree.trouvee ? (
                 <p className="bf-note">Découvrez cette carte pour révéler ses formes dans chaque langue.</p>

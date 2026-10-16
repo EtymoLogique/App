@@ -123,6 +123,9 @@ pub struct LibellesSens {
     pub glose: Option<String>,
     #[serde(default)]
     pub definition: Option<String>,
+    /// Exemples concrets pour se représenter le mot, montrés au dos de la carte.
+    #[serde(default)]
+    pub exemples: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

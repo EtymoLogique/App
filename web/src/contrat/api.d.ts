@@ -492,6 +492,8 @@ export interface components {
         BTreeMap_LibellesSens: {
             [key: string]: {
                 definition?: string | null;
+                /** @description Exemples concrets pour se représenter le mot, montrés au dos de la carte. */
+                exemples?: string[];
                 glose?: string | null;
             };
         };
