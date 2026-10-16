@@ -627,7 +627,7 @@ async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool)
     );
     assert_eq!(etat(&banc, &jeton).await["compte"]["soutien"], false);
 
-    // Chaque webhook valide prévient l'éditeur, sans adresse ni nom de donateur.
+    // Chaque webhook valide prévient l'éditeur, avec le nom, l'adresse et le message du donateur.
     let notifications = notifications_kofi(&banc);
     assert_eq!(notifications.len(), 1, "{notifications:?}");
     assert!(
@@ -638,11 +638,13 @@ async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool)
         notifications[0].contains("Subject: Ko-fi : don"),
         "{notifications:?}"
     );
-    assert!(notifications[0].contains("3.00 EUR"), "{notifications:?}");
     assert!(
-        !notifications[0].to_lowercase().contains("camille"),
+        notifications[0].contains("3,00\u{a0}EUR"),
         "{notifications:?}"
     );
+    for attendu in ["Camille", "camille.martin@exemple.fr", "Merci !"] {
+        assert!(notifications[0].contains(attendu), "{notifications:?}");
+    }
 
     // L'adresse est comparée normalisée, comme pour la connexion.
     assert_eq!(
@@ -688,6 +690,35 @@ async fn un_abonnement_kofi_marque_le_compte_sans_garder_l_adresse(base: PgPool)
     assert_eq!(restantes, 0);
 }
 
+/// Chaque webhook purge les lignes de plus de 90 jours, et seulement elles.
+#[sqlx::test(migrations = "../../migrations")]
+async fn le_webhook_kofi_purge_les_abonnements_anciens(base: PgPool) {
+    let banc = banc_courriel(base.clone()).await;
+    sqlx::query(
+        "INSERT INTO soutien VALUES (decode(repeat('01', 32), 'hex'), now() - interval '91 days'),
+                                    (decode(repeat('02', 32), 'hex'), now() - interval '50 days')",
+    )
+    .execute(&base)
+    .await
+    .unwrap();
+    assert_eq!(
+        kofi(
+            &banc,
+            "jeton-kofi-essai",
+            false,
+            "camille.martin@exemple.fr"
+        )
+        .await,
+        StatusCode::OK
+    );
+    let restantes: Vec<i32> =
+        sqlx::query_scalar("SELECT get_byte(empreinte_courriel, 0) FROM soutien")
+            .fetch_all(&base)
+            .await
+            .unwrap();
+    assert_eq!(restantes, vec![2]);
+}
+
 /// E-mails écrits pour l'éditeur (Ko-fi) : ceux qui ne sont pas des e-mails de connexion.
 fn notifications_kofi(banc: &Banc) -> Vec<String> {
     let dossier = banc.dossier.path().join("courriels");
@@ -723,7 +754,7 @@ async fn le_webhook_kofi_accepte_les_formats_documentes(base: PgPool) {
         kofi_brut(&banc, &commun("Donation", false, false)).await,
         StatusCode::OK
     );
-    // Commande boutique, avec adresse de livraison : ne marque pas, et l'adresse n'entre pas dans l'e-mail.
+    // Commande boutique, avec adresse de livraison : ne marque pas, et la livraison n'entre pas dans l'e-mail.
     let mut commande = commun("Shop Order", false, false);
     commande["amount"] = json!("27.95");
     commande["shop_items"] =
@@ -787,6 +818,6 @@ async fn le_webhook_kofi_accepte_les_formats_documentes(base: PgPool) {
     assert!(
         notifications_kofi(&banc)
             .iter()
-            .all(|n| !n.contains("Bigville") && !n.contains("jo.example"))
+            .all(|n| !n.contains("Bigville"))
     );
 }
