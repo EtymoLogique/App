@@ -126,10 +126,15 @@ impl Courriel {
         self.expedier(a, &sujet, &texte, &html).await
     }
 
-    /// Prévient l'éditeur (ADR 0078) : texte brut, sans donnée de donateur.
-    pub async fn notifier(&self, a: &str, sujet: &str, texte: &str) -> Result<(), ErreurApi> {
-        self.expedier(a, sujet, texte, &format!("<p>{texte}</p>"))
-            .await
+    /// Prévient l'éditeur d'un webhook Ko-fi (ADR 0078). Le HTML arrive déjà échappé.
+    pub async fn notifier(
+        &self,
+        a: &str,
+        sujet: &str,
+        texte: &str,
+        html: &str,
+    ) -> Result<(), ErreurApi> {
+        self.expedier(a, sujet, texte, html).await
     }
 
     async fn expedier(
