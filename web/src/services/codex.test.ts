@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
-import { cabinet, completude, construireCodex, familles, recentes, rechercher, savoirPlus } from './codex'
+import { cabinet, completude, construireCodex, exemplesDe, familles, recentes, rechercher, savoirPlus } from './codex'
 
 function catalogue() {
   const c = jeu()
@@ -85,6 +85,22 @@ describe('codex', () => {
     ])
     const apres = familles(construireCodex(catalogue(), etat({ reserve: [ex(GEO, 1)], decouvertes: [decouverte] })), catalogue())
     expect(apres.map((f) => [f.brique.libelle, f.trouves])).toEqual([['géo-', 1]])
+  })
+
+  it('donne les exemples d’une carte trouvée seulement, sans doublon, dans l’ordre des sens', () => {
+    const c = catalogue()
+    const mot = c.cartes.get(MOT)!
+    c.cartes.set(MOT, {
+      ...mot,
+      sens: [
+        { id: 'sns_0000m072', rang: 2, libelles: { fr: { exemples: ['Second.', 'Premier.'] } } },
+        { id: 'sns_0000m071', rang: 1, libelles: { fr: { exemples: ['Premier.'] } } },
+      ],
+    })
+    const inconnue = construireCodex(c, etat()).find((e) => e.id === MOT)!
+    expect(exemplesDe(inconnue)).toEqual([])
+    const trouvee = construireCodex(c, etat({ decouvertes: [decouverte] })).find((e) => e.id === MOT)!
+    expect(exemplesDe(trouvee)).toEqual(['Premier.', 'Second.'])
   })
 
   it('explique l’histoire d’une carte trouvée, sans rien d’une carte à trouver', () => {
