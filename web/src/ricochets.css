@@ -222,14 +222,22 @@
 .rico-assembler { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .rico-colonne { display: grid; gap: 8px; align-content: start; }
 .rico-colonne-titre { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-align: center; text-transform: uppercase; color: var(--ink-2); }
-.rico-option.rico-case { justify-content: center; min-height: 48px; padding: 6px 10px; }
-.rico-option.rico-case.prise { box-shadow: 0 0 0 3px var(--c-action); }
+/* Sélection, bonne réponse et faux : ceux des autres ricochets (.prise, .juste, .rate), sans style propre. */
+.rico-option.rico-case { justify-content: center; gap: 8px; min-height: 48px; padding: 6px 10px; }
 .rico-assemblage { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px; border: 1.5px dashed var(--ink-3); border-radius: 12px; }
 .rico-assemblage b { font-family: var(--mono); color: var(--ink-2); }
 .rico-emplacement { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; min-width: 84px; min-height: 48px; justify-content: center; padding: 4px 8px; border: 0; border-radius: 10px; background: none; cursor: pointer; }
 .rico-emplacement:disabled { cursor: default; }
 .rico-emplacement.vide { border: 1.5px dashed var(--ink-3); color: var(--ink-3); font-family: var(--serif); font-size: 18px; cursor: default; }
 .rico-emplacement:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-/* Brique fausse : Sable, pointillé, sans ombre. Jamais de rouge. */
-.rico-brique-ko { filter: grayscale(1); opacity: 0.55; box-shadow: none; border-style: dashed; }
+.rico-etiquette .rico-rond { width: 14px; height: 14px; vertical-align: -3px; }
+/* Après la réponse, l'emplacement prend l'état des choix : Encre pour le juste, hachures en pointillé pour le faux. Jamais de rouge. */
+.rico-emplacement.juste { border: 1.5px solid var(--ink); border-radius: 12px; background: var(--ink); color: var(--cream); }
+.rico-emplacement.juste .rico-rond circle { fill: var(--cream); stroke: var(--cream); }
+.rico-emplacement.juste .rico-rond path { stroke: var(--ink); stroke-width: 2.25; }
+.rico-emplacement.rate {
+  border: 1.5px dashed var(--ink-3); border-radius: 12px; color: var(--ink-3);
+  background: repeating-linear-gradient(-45deg, var(--paper-2) 0 6px, transparent 6px 12px);
+}
+.rico-emplacement.rate .brick { filter: grayscale(1); opacity: 0.55; box-shadow: none; }
 .rico-lecon-assemblage { line-height: 1.8; }
