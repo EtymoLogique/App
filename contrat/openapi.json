@@ -1809,6 +1809,13 @@
                 "null"
               ]
             },
+            "exemples": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exemples concrets pour se représenter le mot, montrés au dos de la carte."
+            },
             "glose": {
               "type": [
                 "string",
@@ -1825,6 +1832,13 @@
                 "string",
                 "null"
               ]
+            },
+            "exemples": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exemples concrets pour se représenter le mot, montrés au dos de la carte."
             },
             "glose": {
               "type": [

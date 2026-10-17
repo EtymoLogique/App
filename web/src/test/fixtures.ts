@@ -32,7 +32,7 @@ export const cartes: Carte[] = [
     nature: 'mot',
     langue_id: FR,
     formes: [{ id: 'frm_0000m070', texte: 'géologie', role: 'canonique', systeme_ecriture_id: LATN }],
-    sens: [{ id: 'sns_0000m070', rang: 1, libelles: { fr: { definition: 'Science de la Terre.' } } }],
+    sens: [{ id: 'sns_0000m070', rang: 1, libelles: { fr: { definition: 'Science de la Terre.', exemples: ['Une falaise dont les couches de roche sont visibles.'] } } }],
     compositions: [
       {
         id: 'cmp_0000000a',

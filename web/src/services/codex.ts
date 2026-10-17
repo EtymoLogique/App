@@ -458,6 +458,17 @@ export function savoirPlus(entree: EntreeCodex, jeu: CatalogueJeu): SavoirPlus |
   }
 }
 
+/**
+ * Exemples concrets d'une carte trouvée, pour se représenter un mot peu
+ * imaginable : ceux de ses sens, dans l'ordre des sens, sans doublon.
+ */
+export function exemplesDe(entree: EntreeCodex): string[] {
+  const carte = entree.carte
+  if (!carte || !entree.trouvee) return []
+  const exemples = [...carte.sens].sort((a, b) => a.rang - b.rang).flatMap((s) => s.libelles.fr?.exemples ?? [])
+  return [...new Set(exemples)]
+}
+
 export type { Forme }
 
 // ------------------------------------------------------------------ cabinet
