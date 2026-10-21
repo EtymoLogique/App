@@ -98,6 +98,20 @@ const TRACES = {
       <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
     </>
   ),
+  // Logos des réseaux sociaux du projet, au trait comme les autres icônes.
+  instagram: (
+    <>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
+      <circle cx="12" cy="12" r="3.8" />
+      <path d="M17 7h.01" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="M4 4l11.7 16H20L8.3 4z" />
+      <path d="M4 20l6.8-6.8M13.2 10.8L20 4" />
+    </>
+  ),
 } as const
 
 export type NomIcone = keyof typeof TRACES
