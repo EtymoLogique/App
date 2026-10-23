@@ -2293,6 +2293,41 @@
           "premiere_carte"
         ]
       },
+      "Collection": {
+        "type": "object",
+        "description": "Quête de collection d'un fascicule (App#90) : tous ses préfixes, tous ses\nsuffixes, tous ses mots d'une rareté. Le catalogue en publie les membres,\nhors légendaires (ADR 0043) ; sa récompense se récupère comme un palier.",
+        "required": [
+          "id",
+          "critere",
+          "membres"
+        ],
+        "properties": {
+          "critere": {
+            "$ref": "#/components/schemas/CritereCollection"
+          },
+          "encre": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdCatalogue",
+            "description": "Identifiant de palier : la récupération passe par `palier_recupere`."
+          },
+          "membres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdCatalogue"
+            },
+            "description": "Briques (préfixes, suffixes) ou mots (raretés) à réunir."
+          },
+          "sabliers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "CompositionCarte": {
         "type": "object",
         "required": [
@@ -2389,6 +2424,17 @@
           "probable",
           "discutee",
           "non_retenue"
+        ]
+      },
+      "CritereCollection": {
+        "type": "string",
+        "description": "Ce qu'une quête de collection rassemble (App#90) : la liste fermée.",
+        "enum": [
+          "prefixes",
+          "suffixes",
+          "mots_communs",
+          "mots_peu_communs",
+          "mots_rares"
         ]
       },
       "Decouverte": {
@@ -3314,6 +3360,13 @@
             },
             "description": "Prix de chaque indice, en gouttes : silhouette, sens littéral, définition."
           },
+          "progression_collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressionCollection"
+            },
+            "description": "Quêtes de collection des fascicules débloqués (App#90) ; vide avant ce\nchamp ou sans catalogue. Leur récupération passe par `paliers_recuperes`."
+          },
           "progression_quetes": {
             "type": "array",
             "items": {
@@ -3800,6 +3853,13 @@
               "$ref": "#/components/schemas/CarteManifeste"
             }
           },
+          "collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Collection"
+            },
+            "description": "Quêtes de collection du fascicule (App#90), membres hors légendaires."
+          },
           "compteurs": {},
           "exclusions": {
             "oneOf": [
@@ -4106,6 +4166,35 @@
           "prefixe",
           "suffixe"
         ]
+      },
+      "ProgressionCollection": {
+        "type": "object",
+        "description": "Progression d'une quête de collection (App#90), d'un fascicule débloqué\nseulement : un fascicule verrouillé n'expose aucun total (ADR 0069).",
+        "required": [
+          "palier_id",
+          "fascicule_id",
+          "progression",
+          "total"
+        ],
+        "properties": {
+          "fascicule_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "palier_id": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "progression": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "ProgressionQuete": {
         "type": "object",

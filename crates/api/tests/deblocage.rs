@@ -146,3 +146,21 @@ async fn un_seul_jalon_ne_debloque_rien(base: PgPool) {
     assert_eq!(statut, StatusCode::OK, "{corps}");
     assert_eq!(debloques(&corps["etat"]), vec![PREMIER]);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn les_collections_d_un_fascicule_verrouille_ne_se_montrent_pas(base: PgPool) {
+    let banc = banc(base, Limiteurs::default()).await;
+    publier(&banc, true).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(debloques(&etat), vec![PREMIER]);
+    // Aucun total d'un fascicule verrouillé (ADR 0069, App#90).
+    let fascicules: Vec<&str> = etat["progression_collections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["fascicule_id"].as_str().unwrap())
+        .collect();
+    assert!(!fascicules.is_empty());
+    assert!(fascicules.iter().all(|f| *f == PREMIER), "{fascicules:?}");
+}

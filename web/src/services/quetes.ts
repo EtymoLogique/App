@@ -3,7 +3,7 @@
 // récupérer. Le serveur fait foi : un jalon n'est « à récupérer » que s'il le
 // dit atteint.
 
-import type { Etat, Jalon, Palier, QueteLongCours } from '../contrat'
+import type { Collection, CritereCollection, Etat, Jalon, Palier, QueteLongCours } from '../contrat'
 import { fasciculesDebloques } from './deblocage'
 import type { CatalogueJeu, FasciculeParu } from './jeu'
 
@@ -98,6 +98,41 @@ export function quetesAuLongCours(jeu: CatalogueJeu, etat: Etat | null): QueteLo
   })
 }
 
+/** Intitulés des quêtes de collection (App#90), dans l'ordre d'affichage. */
+export const CRITERES: Record<CritereCollection, string> = {
+  prefixes: 'Tous les préfixes',
+  suffixes: 'Tous les suffixes',
+  mots_communs: 'Tous les mots communs',
+  mots_peu_communs: 'Tous les mots peu communs',
+  mots_rares: 'Tous les mots rares',
+}
+const ORDRE_CRITERES = Object.keys(CRITERES) as CritereCollection[]
+
+export interface QueteCollection {
+  collection: Collection
+  fascicule: FasciculeParu
+  /** Comme un palier : son seuil est le total, sa récompense celle de la collection. */
+  suivi: PalierSuivi
+}
+
+/**
+ * Quêtes de collection (App#90) : tous les préfixes, tous les suffixes, tous les
+ * mots d'une rareté d'un fascicule. Le serveur compte, et ne renvoie que les
+ * fascicules débloqués : un fascicule verrouillé n'expose aucun total (ADR 0069).
+ * La récompense se récupère comme un palier (ADR 0042).
+ */
+export function quetesDeCollection(jeu: CatalogueJeu, etat: Etat | null): QueteCollection[] {
+  const recuperes = new Set(etat?.paliers_recuperes ?? [])
+  return (etat?.progression_collections ?? []).flatMap((p) => {
+    const fascicule = jeu.fascicules.find((f) => f.manifeste.id === p.fascicule_id)
+    const collection = fascicule?.manifeste.collections?.find((c) => c.id === p.palier_id)
+    if (!fascicule || !collection || p.total === 0) return []
+    const palier: Palier = { id: collection.id, seuil: p.total, encre: collection.encre, sabliers: collection.sabliers }
+    const etatPalier: EtatJalon = recuperes.has(collection.id) ? 'recupere' : p.progression >= p.total ? 'a_recuperer' : 'en_cours'
+    return [{ collection, fascicule, suivi: { palier, avancee: Math.min(p.progression, p.total), etat: etatPalier } }]
+  }).sort((a, b) => a.fascicule.numero - b.fascicule.numero || ORDRE_CRITERES.indexOf(a.collection.critere) - ORDRE_CRITERES.indexOf(b.collection.critere))
+}
+
 /** Récompenses qui attendent le joueur, jalons et paliers : le compteur de la navigation. */
 export function recompensesARecuperer(jeu: CatalogueJeu | null, etat: Etat | null): number {
   if (!jeu || !etat) return 0
@@ -105,5 +140,6 @@ export function recompensesARecuperer(jeu: CatalogueJeu | null, etat: Etat | nul
   const cartes = etat.carte_de_lecteur?.a_recuperer ?? 0
   const cadeau = etat.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? 1 : 0
   const initiales = (etat.quetes_initiales ?? []).filter((q) => q.faite && !q.recuperee).length
-  return quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + paliers + cartes + cadeau + initiales
+  const collections = quetesDeCollection(jeu, etat).filter((q) => q.suivi.etat === 'a_recuperer').length
+  return quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + paliers + cartes + cadeau + initiales + collections
 }

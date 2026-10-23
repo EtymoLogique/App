@@ -9,7 +9,7 @@ use etymo_domaine::deblocage::{self, Maillon};
 use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
-use etymo_domaine::quete::{CarteQuete, Famille, Mesures, QueteLongCours};
+use etymo_domaine::quete::{CarteQuete, Collection, Famille, Mesures, QueteLongCours};
 
 use crate::carte::Nature;
 use crate::format::{BriqueRicochet, Difficulte, MotRicochet, Role};
@@ -43,6 +43,8 @@ pub struct Jeu {
     pub mesures: Mesures,
     /// Cadeau de bienvenue déclaré par l'index (ADR 0046), réduit à ses briques publiées.
     pub cadeau: Option<CadeauDeBienvenue>,
+    /// Quêtes de collection de chaque fascicule paru (App#90), par identifiant de fascicule.
+    pub collections: Vec<(IdCatalogue, Vec<Collection>)>,
 }
 
 /// Données de jugement des ricochets, par carte.
@@ -129,6 +131,14 @@ impl Jeu {
 }
 
 impl Jeu {
+    /// Ce qui se lit sur l'ensemble des fascicules parus : la chaîne de
+    /// déblocage, les quêtes de collection, les ricochets sans légendaire.
+    fn completer(&mut self, fascicules: &[FasciculeCharge]) {
+        self.chaine = chaine(fascicules);
+        self.collections = collections(fascicules);
+        self.ecarter_les_legendaires_des_ricochets();
+    }
+
     /// Un ricochet ne vise ni une légendaire ni un mot qui en exige une : même
     /// règle que les recettes secrètes (ADR 0015), le contenu l'applique déjà.
     fn ecarter_les_legendaires_des_ricochets(&mut self) {
@@ -335,10 +345,19 @@ impl Jeu {
                 .mots
                 .extend(ricochets.mots.iter().map(|m| (m.id.clone(), m.clone())));
         }
-        jeu.chaine = chaine(fascicules);
-        jeu.ecarter_les_legendaires_des_ricochets();
+        jeu.completer(fascicules);
         jeu
     }
+}
+
+/// Quêtes de collection de chaque fascicule paru qui en déclare (App#90).
+fn collections(fascicules: &[FasciculeCharge]) -> Vec<(IdCatalogue, Vec<Collection>)> {
+    fascicules
+        .iter()
+        .map(|f| &f.manifeste)
+        .filter(|m| !m.collections.is_empty())
+        .map(|m| (m.id.clone(), m.collections.clone()))
+        .collect()
 }
 
 /// Fascicules parus par numéro, chacun avec le jalon qui ouvre le suivant (ADR 0068).

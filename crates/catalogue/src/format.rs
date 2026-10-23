@@ -10,7 +10,7 @@ use etymo_domaine::IdCatalogue;
 use etymo_domaine::cadeau::CadeauDeBienvenue;
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
-use etymo_domaine::quete::QueteLongCours;
+use etymo_domaine::quete::{Collection, QueteLongCours};
 use serde::{Deserialize, Serialize};
 
 use crate::Chemin;
@@ -88,6 +88,9 @@ pub struct Manifeste {
     /// De quoi juger un ricochet sans lire un texte (ADR 0044).
     #[serde(default)]
     pub ricochets: RicochetsManifeste,
+    /// Quêtes de collection du fascicule (App#90), membres hors légendaires.
+    #[serde(default)]
+    pub collections: Vec<Collection>,
 }
 
 /// Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte.

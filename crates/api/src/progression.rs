@@ -8,7 +8,8 @@ use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
 use etymo_contrat::{
     CadeauEtat, CompteEtat, CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires,
-    FasciculeDebloque, IndiceObtenu, OuverturePli, ProgressionQuete, SabliersEtat,
+    FasciculeDebloque, IndiceObtenu, OuverturePli, ProgressionCollection, ProgressionQuete,
+    SabliersEtat,
 };
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::carte_de_lecteur;
@@ -144,7 +145,39 @@ pub async fn etat(
         quetes_initiales: quetes_initiales::etat(&mut *tx, joueur, jeu, maintenant).await?,
         fascicules_debloques: lire_fascicules_debloques(&mut *tx, joueur).await?,
         compte: compte_etat(&mut *tx, joueur).await?,
+        progression_collections: progression_collections(&mut *tx, joueur, jeu).await?,
     })
+}
+
+/// Quêtes de collection des fascicules débloqués (App#90), à la valeur du codex.
+async fn progression_collections(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: Option<&Jeu>,
+) -> Result<Vec<ProgressionCollection>, ErreurApi> {
+    let Some(jeu) = jeu.filter(|j| !j.collections.is_empty()) else {
+        return Ok(Vec::new());
+    };
+    let debloques = fascicules_debloques(&mut *tx, joueur).await?;
+    let mots = mots_decouverts(&mut *tx, joueur).await?;
+    let briques = briques_connues(&mut *tx, joueur).await?;
+    let codex = Codex {
+        mots: &mots,
+        briques: &briques,
+    };
+    Ok(jeu
+        .collections
+        .iter()
+        .filter(|(f, _)| debloques.contains(f))
+        .flat_map(|(f, quetes)| {
+            quetes.iter().map(|q| ProgressionCollection {
+                palier_id: q.id.clone(),
+                fascicule_id: f.clone(),
+                progression: q.progression(&codex),
+                total: q.total(),
+            })
+        })
+        .collect())
 }
 
 /// Compte du joueur, absent pour une partie invitée (ADR 0070).
@@ -1233,30 +1266,47 @@ pub async fn recuperer_palier(
     commande: Uuid,
     palier_id: &IdCatalogue,
 ) -> Result<(), ErreurApi> {
-    let (quete, palier) = jeu
-        .quetes
-        .iter()
-        .find_map(|q| {
-            q.paliers
-                .iter()
-                .find(|p| &p.id == palier_id)
-                .map(|p| (q, p))
-        })
-        .ok_or_else(|| ErreurApi::RequeteInvalide("palier : inconnu".into()))?;
-    let progression = progression_quetes(&mut *tx, joueur, jeu)
-        .await?
-        .into_iter()
-        .find(|p| p.quete_id == quete.id)
-        .map_or(0, |p| p.progression);
-    if !quete::atteint(palier, progression) {
-        return Err(ErreurApi::Interdit("palier pas encore atteint"));
-    }
+    let (encre, sabliers) = if let Some((quete, palier)) = jeu.quetes.iter().find_map(|q| {
+        q.paliers
+            .iter()
+            .find(|p| &p.id == palier_id)
+            .map(|p| (q, p))
+    }) {
+        let progression = progression_quetes(&mut *tx, joueur, jeu)
+            .await?
+            .into_iter()
+            .find(|p| p.quete_id == quete.id)
+            .map_or(0, |p| p.progression);
+        if !quete::atteint(palier, progression) {
+            return Err(ErreurApi::Interdit("palier pas encore atteint"));
+        }
+        (palier.encre, palier.sabliers)
+    } else {
+        // Quête de collection (App#90) : un fascicule verrouillé ne se récupère pas.
+        let collection = jeu
+            .collections
+            .iter()
+            .flat_map(|(_, q)| q)
+            .find(|q| &q.id == palier_id)
+            .ok_or_else(|| ErreurApi::RequeteInvalide("palier : inconnu".into()))?;
+        let progression = progression_collections(&mut *tx, joueur, Some(jeu))
+            .await?
+            .into_iter()
+            .find(|p| &p.palier_id == palier_id);
+        match progression {
+            None => return Err(ErreurApi::Interdit("fascicule verrouillé")),
+            Some(p) if p.progression < p.total => {
+                return Err(ErreurApi::Interdit("palier pas encore atteint"));
+            }
+            Some(_) => (collection.encre, collection.sabliers),
+        }
+    };
     let maintenant = Utc::now();
     let nouveau = sqlx::query_scalar!(
         "INSERT INTO palier_recupere (joueur_id, palier_id, recupere_le) VALUES ($1, $2, $3)
          ON CONFLICT DO NOTHING RETURNING palier_id",
         joueur,
-        palier.id.as_str(),
+        palier_id.as_str(),
         maintenant,
     )
     .fetch_optional(&mut *tx)
@@ -1264,7 +1314,7 @@ pub async fn recuperer_palier(
     if nouveau.is_none() {
         return Err(ErreurApi::Conflit("palier déjà récupéré"));
     }
-    let gouttes = i32::try_from(palier.encre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    let gouttes = i32::try_from(encre).map_err(|e| ErreurApi::Interne(e.to_string()))?;
     crediter_encre(
         &mut *tx,
         joueur,
@@ -1274,7 +1324,7 @@ pub async fn recuperer_palier(
         maintenant,
     )
     .await?;
-    let sabliers = i32::try_from(palier.sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
+    let sabliers = i32::try_from(sabliers).map_err(|e| ErreurApi::Interne(e.to_string()))?;
     crediter_sabliers(
         &mut *tx,
         joueur,

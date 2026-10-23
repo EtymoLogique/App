@@ -146,6 +146,51 @@ impl Mesures {
     }
 }
 
+/// Ce qu'une quête de collection rassemble (App#90) : la liste fermée.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CritereCollection {
+    Prefixes,
+    Suffixes,
+    MotsCommuns,
+    MotsPeuCommuns,
+    MotsRares,
+}
+
+/// Quête de collection d'un fascicule (App#90) : tous ses préfixes, tous ses
+/// suffixes, tous ses mots d'une rareté. Le catalogue en publie les membres,
+/// hors légendaires (ADR 0043) ; sa récompense se récupère comme un palier.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Collection {
+    /// Identifiant de palier : la récupération passe par `palier_recupere`.
+    pub id: IdCatalogue,
+    pub critere: CritereCollection,
+    #[serde(default)]
+    pub encre: u32,
+    #[serde(default)]
+    pub sabliers: u32,
+    /// Briques (préfixes, suffixes) ou mots (raretés) à réunir.
+    pub membres: Vec<IdCatalogue>,
+}
+
+impl Collection {
+    /// Membres déjà au codex : un mot découvert, une brique connue.
+    #[must_use]
+    pub fn progression<S: std::hash::BuildHasher>(&self, codex: &Codex<'_, S>) -> u32 {
+        let n = self
+            .membres
+            .iter()
+            .filter(|m| codex.mots.contains(*m) || codex.briques.contains(*m))
+            .count();
+        u32::try_from(n).unwrap_or(u32::MAX)
+    }
+
+    #[must_use]
+    pub fn total(&self) -> u32 {
+        u32::try_from(self.membres.len()).unwrap_or(u32::MAX)
+    }
+}
+
 /// Palier atteint à cette progression.
 #[must_use]
 pub fn atteint(palier: &Palier, progression: u32) -> bool {
@@ -288,5 +333,24 @@ mod tests {
         };
         assert!(!atteint(&palier, 2));
         assert!(atteint(&palier, 3));
+    }
+
+    #[test]
+    fn une_collection_compte_ses_membres_au_codex() {
+        let collection = Collection {
+            id: id("pal_00000c01"),
+            critere: CritereCollection::Prefixes,
+            encre: 20,
+            sabliers: 1,
+            membres: vec![id("brq_00000001"), id("brq_00000002"), id("unt_00000003")],
+        };
+        let briques = HashSet::from([id("brq_00000001"), id("brq_00000009")]);
+        let mots = HashSet::from([id("unt_00000003")]);
+        let codex = Codex {
+            mots: &mots,
+            briques: &briques,
+        };
+        assert_eq!(collection.progression(&codex), 2);
+        assert_eq!(collection.total(), 3);
     }
 }

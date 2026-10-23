@@ -120,6 +120,10 @@ pub struct Etat {
     /// Compte facultatif (ADR 0070) ; absent pour une partie invitée.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compte: Option<CompteEtat>,
+    /// Quêtes de collection des fascicules débloqués (App#90) ; vide avant ce
+    /// champ ou sans catalogue. Leur récupération passe par `paliers_recuperes`.
+    #[serde(default)]
+    pub progression_collections: Vec<ProgressionCollection>,
 }
 
 /// Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne
@@ -569,6 +573,17 @@ pub struct ReponseRicochet {
     pub carte: CarteRicochet,
     /// État confirmé après la commande.
     pub etat: Etat,
+}
+
+/// Progression d'une quête de collection (App#90), d'un fascicule débloqué
+/// seulement : un fascicule verrouillé n'expose aucun total (ADR 0069).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressionCollection {
+    pub palier_id: IdCatalogue,
+    pub fascicule_id: IdCatalogue,
+    pub progression: u32,
+    pub total: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
