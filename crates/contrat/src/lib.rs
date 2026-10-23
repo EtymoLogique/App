@@ -120,6 +120,18 @@ pub struct Etat {
     /// Compte facultatif (ADR 0070) ; absent pour une partie invitée.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compte: Option<CompteEtat>,
+    /// Paires déjà essayées sans succès depuis la dernière parution (App#89),
+    /// dans l'ordre des cases, triées. Vide avant ce champ ou après une parution.
+    #[serde(default)]
+    pub essais: Vec<Essai>,
+}
+
+/// Une paire essayée sans succès (échec ou « presque ») : ni issue, ni date.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Essai {
+    pub gauche: IdCatalogue,
+    pub droite: IdCatalogue,
 }
 
 /// Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne

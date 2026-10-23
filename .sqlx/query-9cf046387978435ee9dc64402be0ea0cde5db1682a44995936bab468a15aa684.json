@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO essai (joueur_id, gauche, droite, fascicule_juge)\n         SELECT $1, $2, $3, $4\n         WHERE (SELECT count(*) FROM exemplaire WHERE joueur_id = $1 AND brique_id IN ($2, $3)) = (CASE WHEN $2 = $3 THEN 1 ELSE 2 END)\n           AND (SELECT count(*) FROM essai WHERE joueur_id = $1) < $5\n         ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9cf046387978435ee9dc64402be0ea0cde5db1682a44995936bab468a15aa684"
+}

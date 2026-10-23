@@ -328,3 +328,19 @@ export function entrelacer<T>(elements: T[], taille: (e: T) => number): T[] {
   }
   return suite
 }
+
+/** Clé d'un essai : les deux briques dans l'ordre des cases. */
+export const cleEssai = (gauche: string, droite: string) => `${gauche}|${droite}`
+
+/**
+ * Mémoire des essais (App#89) : pourquoi la paire `[gauche, droite]` est déjà connue du joueur,
+ * ou `null` s'il ne l'a jamais essayée. Un mot au codex se déduit de la règle de fusion ; un échec
+ * ou un « presque » n'est montré que si le serveur l'a noté : rien de ce que le joueur ignore.
+ */
+export function raisonEssai(paire: [string, string], jeu: CatalogueJeu, decouverts: Set<string>, essais: Set<string>): string | null {
+  const prevision = prevoir(paire, jeu, decouverts)
+  if (prevision.type === 'connue') return 'au codex'
+  if (!essais.has(cleEssai(...paire))) return null
+  if (prevision.type === 'presque') return prevision.motif === 'ordre' ? 'presque : inversez' : 'presque'
+  return prevision.type === 'echec' ? 'aucune recette' : null
+}

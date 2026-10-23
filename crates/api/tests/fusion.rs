@@ -143,8 +143,145 @@ async fn les_essais_rates_ne_coutent_rien(base: PgPool) {
             appeler(&banc.routeur, post_fusion(&jeton, &fusion(&etat, &briques))).await;
         assert_eq!(statut, StatusCode::OK, "{reponse}");
         assert_eq!(reponse["issue"], issue, "{briques:?}");
-        assert_eq!(reponse["etat"], etat, "rien ne change");
+        let mut apres = reponse["etat"].clone();
+        apres["essais"] = etat["essais"].clone();
+        assert_eq!(apres, etat, "rien ne change, hors la mémoire des essais");
     }
+}
+
+fn essais(etat: &Value) -> Vec<(String, String)> {
+    etat["essais"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["gauche"].as_str().unwrap().to_owned(),
+                e["droite"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn la_memoire_des_essais_note_les_echecs_et_les_presque(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(essais(&etat), vec![]);
+
+    // Un « presque », un échec, et une exclusion (que le client calcule seul) ; bio- n'est pas en réserve.
+    for briques in [[LOGIE, GEO], [GEO, GEO], [BIO, GEO], [BIO, LOGIE]] {
+        let (statut, _, _) =
+            appeler(&banc.routeur, post_fusion(&jeton, &fusion(&etat, &briques))).await;
+        assert_eq!(statut, StatusCode::OK);
+    }
+    // Rejoué, un essai ne se note qu'une fois ; ni commande, ni version.
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&etat, &[GEO, GEO])),
+    )
+    .await;
+    let (_, _, apres) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(
+        essais(&apres),
+        vec![
+            (GEO.to_owned(), GEO.to_owned()),
+            (LOGIE.to_owned(), GEO.to_owned())
+        ]
+    );
+    assert_eq!(apres["version_etat"], etat["version_etat"]);
+    let commandes: i64 = sqlx::query_scalar("SELECT count(*) FROM commande")
+        .fetch_one(&base)
+        .await
+        .unwrap();
+    assert_eq!(commandes, 0);
+    // Rien d'autre que deux briques et le fascicule : ni issue, ni date.
+    let colonnes: Vec<String> = sqlx::query_scalar(
+        "SELECT column_name::text FROM information_schema.columns WHERE table_name = 'essai' ORDER BY ordinal_position",
+    )
+    .fetch_all(&base)
+    .await
+    .unwrap();
+    assert_eq!(
+        colonnes,
+        ["joueur_id", "gauche", "droite", "fascicule_juge"]
+    );
+
+    // Une découverte ne se note pas.
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&apres, &[GEO, LOGIE])),
+    )
+    .await;
+    let (_, _, apres) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(essais(&apres).len(), 2);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn une_parution_oublie_tous_les_essais(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&etat, &[GEO, GEO])),
+    )
+    .await;
+    // Simule une parution : l'essai a été jugé sous un fascicule plus ancien.
+    sqlx::query("UPDATE essai SET fascicule_juge = 'fsc_00000999'")
+        .execute(&base)
+        .await
+        .unwrap();
+    let (_, _, apres) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    assert_eq!(essais(&apres), vec![]);
+    // Le prochain essai efface en bloc les lignes d'avant.
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&etat, &[LOGIE, GEO])),
+    )
+    .await;
+    let lignes: i64 = sqlx::query_scalar("SELECT count(*) FROM essai")
+        .fetch_one(&base)
+        .await
+        .unwrap();
+    assert_eq!(lignes, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn la_memoire_des_essais_est_plafonnee(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&etat, &[GEO, GEO])),
+    )
+    .await;
+    let fascicule: String = sqlx::query_scalar("SELECT fascicule_juge FROM essai")
+        .fetch_one(&base)
+        .await
+        .unwrap();
+    // Remplit la mémoire jusqu'au plafond avec des paires fictives.
+    sqlx::query(
+        "INSERT INTO essai (joueur_id, gauche, droite, fascicule_juge)
+         SELECT joueur_id, 'brq_' || lpad(n::text, 8, '0'), 'brq_00000000', $1 FROM essai, generate_series(1, $2) n",
+    )
+    .bind(&fascicule)
+    .bind(i32::try_from(etymo_api::progression::PLAFOND_ESSAIS).unwrap() - 1)
+    .execute(&base)
+    .await
+    .unwrap();
+    appeler(
+        &banc.routeur,
+        post_fusion(&jeton, &fusion(&etat, &[LOGIE, GEO])),
+    )
+    .await;
+    let lignes: i64 = sqlx::query_scalar("SELECT count(*) FROM essai")
+        .fetch_one(&base)
+        .await
+        .unwrap();
+    assert_eq!(lignes, etymo_api::progression::PLAFOND_ESSAIS);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
