@@ -1,4 +1,4 @@
-import { Fragment, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
   CERTITUDES,
@@ -30,6 +30,8 @@ import { bandeau } from './bandeau'
 import { FormeRarete } from './Rarete'
 import { Filet, Galet } from './Maitrise'
 import { Jaquette, SelecteurFascicules, TitreFascicule } from './Fascicules'
+import { Constellation } from './Constellation'
+import { useDeblocage } from '../services/deblocage'
 
 type Tri = TriCodex
 const TRIS: [Tri, string][] = [
@@ -53,6 +55,7 @@ const VUES: [VueCodex, string][] = [
   ['tout', 'Tout'],
   ['recentes', 'Récentes'],
   ['familles', 'Familles'],
+  ['reseau', 'Réseau'],
   ['cabinet', 'Cabinet'],
 ]
 
@@ -947,6 +950,12 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
   const lesFamilles = familles(entrees, jeu)
   const aCompleter = lesFamilles.filter((f) => f.trouves < f.mots.length)
   const stats = cabinet(entrees, jeu)
+  // Vue Réseau : seuls les fascicules débloqués y entrent (ADR 0069) ; sans contexte, tous les parus.
+  const deblocage = useDeblocage()
+  const debloques = useMemo(
+    () => new Set(jeu.fascicules.filter((f) => !deblocage || deblocage.debloques.has(f.manifeste.id)).map((f) => f.numero)),
+    [jeu, deblocage],
+  )
 
   // Précédente et suivante : l'ordre de ce qui est affiché.
   const sequence = enRecherche
@@ -955,7 +964,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
       ? dernieres
       : vue.vue === 'familles'
         ? lesFamilles.flatMap((f) => f.mots)
-        : vue.vue === 'cabinet'
+        : vue.vue === 'cabinet' || vue.vue === 'reseau'
           ? []
           : visibles.filter((e) => !replie(e))
 
@@ -1024,7 +1033,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
               </>
             ) : (
               <>
-                Vue <em>{{ tout: 'globale', familles: 'des familles', cabinet: 'du cabinet' }[vue.vue]}</em>
+                Vue <em>{{ tout: 'globale', familles: 'des familles', reseau: 'en réseau', cabinet: 'du cabinet' }[vue.vue]}</em>
               </>
             )}
           </h2>
@@ -1141,6 +1150,8 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
             ))}
           </div>
         )
+      ) : vue.vue === 'reseau' ? (
+        <Constellation jeu={jeu} entrees={entrees} debloques={debloques} onOuvrir={naviguer} />
       ) : vue.vue === 'cabinet' ? (
         <div className="cab">
           <section className="cab-stats" aria-labelledby="cab-titre">
