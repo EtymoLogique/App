@@ -75,3 +75,32 @@ export function indicesDisponibles(jeu: CatalogueJeu, entree: EntreeCodex): numb
 export function indiceSuivant(jeu: CatalogueJeu, entree: EntreeCodex, obtenus: Set<number>): number | undefined {
   return indicesDisponibles(jeu, entree).find((n) => !obtenus.has(n))
 }
+
+/** Une enquête : une carte à trouver dont au moins un indice est acheté, et ce qui l'a été. */
+export interface Enquete {
+  entree: EntreeCodex
+  recette: RecetteJeu
+  /** Indices obtenus, dans l'ordre d'affichage (`INDICES`), avec leur contenu. */
+  obtenus: { niveau: number; titre: string; contenu: ContenuIndice }[]
+}
+
+/**
+ * Enquêtes en cours (App#88) : les cartes à trouver dont le joueur a acheté au moins un indice,
+ * par n° croissant, jusqu'à la découverte du mot. Seul ce qui a été payé s'y lit (ADR 0051) :
+ * ni le mot, ni ses briques, ni s'il se forme avec la réserve. Jamais une légendaire ; un
+ * fascicule verrouillé n'a déjà plus de silhouette dans le codex.
+ */
+export function enquetesEnCours(jeu: CatalogueJeu, entrees: EntreeCodex[], etat: Etat | null): Enquete[] {
+  if (!etat?.indices?.length) return []
+  return ciblesIndice(jeu, entrees)
+    .map(({ entree, recette }) => {
+      const achetes = indicesObtenus(etat, recette.id)
+      const obtenus = INDICES.filter((i) => achetes.has(i.niveau)).flatMap(({ niveau, titre }) => {
+        const contenu = contenuIndice(jeu, entree, niveau)
+        return contenu ? [{ niveau, titre, contenu }] : []
+      })
+      return { entree, recette, obtenus }
+    })
+    .filter((e) => e.obtenus.length > 0)
+    .sort((a, b) => a.entree.n - b.entree.n)
+}
