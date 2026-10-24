@@ -1068,6 +1068,11 @@ export interface components {
             /** @description Pseudo déjà pris : un pseudo libre proche. */
             proposition?: string | null;
         };
+        /** @description Une paire essayée sans succès (échec ou « presque ») : ni issue, ni date. */
+        Essai: {
+            droite: components["schemas"]["IdCatalogue"];
+            gauche: components["schemas"]["IdCatalogue"];
+        };
         /**
          * @description Projection de l'état confirmé du joueur : des identifiants et des nombres,
          *     jamais de texte du catalogue (ADR 0027).
@@ -1087,6 +1092,11 @@ export interface components {
             encre: number;
             /** @description Charges de pli, à l'horloge du serveur (ADR 0020). */
             energie: components["schemas"]["EnergieEtat"];
+            /**
+             * @description Paires déjà essayées sans succès depuis la dernière parution (App#89),
+             *     dans l'ordre des cases, triées. Vide avant ce champ ou après une parution.
+             */
+            essais?: components["schemas"]["Essai"][];
             /**
              * @description Fascicules parus que le joueur a débloqués (ADR 0068), triés par
              *     fascicule. Vide dans une réponse enregistrée avant ce champ, ou sans

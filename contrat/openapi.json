@@ -3233,6 +3233,23 @@
         },
         "additionalProperties": false
       },
+      "Essai": {
+        "type": "object",
+        "description": "Une paire essayée sans succès (échec ou « presque ») : ni issue, ni date.",
+        "required": [
+          "gauche",
+          "droite"
+        ],
+        "properties": {
+          "droite": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          },
+          "gauche": {
+            "$ref": "#/components/schemas/IdCatalogue"
+          }
+        },
+        "additionalProperties": false
+      },
       "Etat": {
         "type": "object",
         "description": "Projection de l'état confirmé du joueur : des identifiants et des nombres,\njamais de texte du catalogue (ADR 0027).",
@@ -3302,6 +3319,13 @@
           "energie": {
             "$ref": "#/components/schemas/EnergieEtat",
             "description": "Charges de pli, à l'horloge du serveur (ADR 0020)."
+          },
+          "essais": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Essai"
+            },
+            "description": "Paires déjà essayées sans succès depuis la dernière parution (App#89),\ndans l'ordre des cases, triées. Vide avant ce champ ou après une parution."
           },
           "fascicules_debloques": {
             "type": "array",

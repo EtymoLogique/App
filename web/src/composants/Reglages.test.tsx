@@ -16,4 +16,10 @@ describe('Réglages : contact (RGPD art. 13)', () => {
     expect(screen.getByRole('link', { name: /CC BY-SA 4\.0/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Licences des dépendances' })).toHaveAttribute('href', '/licences-dependances.txt')
   })
+
+  it('renvoie vers les réseaux sociaux du projet', () => {
+    render(<Reglages reglages={{ theme: 'systeme', mouvement: 'systeme', retours: 'actifs' }} onChanger={() => {}} />)
+    expect(screen.getByRole('link', { name: 'Instagram' })).toHaveAttribute('href', 'https://www.instagram.com/etymologique_fr/')
+    expect(screen.getByRole('link', { name: 'X' })).toHaveAttribute('href', 'https://x.com/etymologique_fr')
+  })
 })

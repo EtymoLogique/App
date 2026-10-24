@@ -344,6 +344,8 @@ pub async fn fusion(
         Issue::Presque { motif } => IssueFusion::Presque { motif },
         Issue::Echec => IssueFusion::Echec,
     };
+    // Mémoire des essais (App#89) : un échec ou un « presque » se note, avant l'état renvoyé.
+    let essai = progression::noter_essai(&mut tx, joueur, jeu, &demande.briques, &issue).await?;
     let reponse = ReponseFusion {
         etat: etat_courant(&app, &mut tx, joueur).await?,
         issue,
@@ -362,8 +364,11 @@ pub async fn fusion(
         .execute(&mut *tx)
         .await?;
         tx.commit().await?;
+    } else if essai {
+        // Ni commande ni version : l'essai noté se rejoue sans effet (ON CONFLICT DO NOTHING).
+        tx.commit().await?;
     } else {
-        // Une proposition qui ne modifie rien ne laisse aucune ligne (modèle de données §7).
+        // Une autre proposition qui ne modifie rien ne laisse aucune ligne (modèle de données §7).
         tx.rollback().await?;
     }
     Ok(Json(reponse))
