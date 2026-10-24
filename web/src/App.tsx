@@ -4,6 +4,7 @@ import { Boutique } from './composants/Boutique'
 import { CompteReglages } from './composants/CompteReglages'
 import { Connexion } from './composants/Connexion'
 import { CarteSeule, Codex } from './composants/Codex'
+import { Enquetes } from './composants/Enquetes'
 import { Indices } from './composants/Indices'
 import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
@@ -25,7 +26,7 @@ import { memoriserRelance, memoriserSoutien, souvenirRelance, souvenirSoutien } 
 import { usePresence } from './services/presence'
 import { INACTIVITE_MS, type SouvenirSoutien, ajouterTempsDeJeu, carteMasquee, doitSolliciter, estAbonne, fermerSoutien, masquerCarte } from './services/soutien'
 import { compteQuitte } from './services/profil'
-import { indiceCourant } from './services/indices'
+import { enquetesEnCours, indiceCourant } from './services/indices'
 import { TABLE_MIN, cleEssai, decouvertePossible, raisonEssai } from './services/jeu'
 import { FournisseurDeblocage, useDeblocageEtat } from './services/deblocage'
 import { usePartie } from './services/partie'
@@ -101,6 +102,7 @@ export function App({ api, catalogue }: Props) {
   const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : null)
   // Sans silhouette à indicer, l'indice n'afficherait rien : le bouton disparaît.
   const indiceDisponible = catalogueJeu ? indiceCourant(catalogueJeu, entrees, etat) !== null : false
+  const enquetes = useMemo(() => (catalogueJeu ? enquetesEnCours(catalogueJeu, entrees, etat) : []), [catalogueJeu, entrees, etat])
   // Mémoire des essais (App#89) : les paires notées par le serveur et les mots déjà au codex.
   const raisonPaire = useMemo(() => {
     if (!catalogueJeu || !etat) return undefined
@@ -359,6 +361,7 @@ export function App({ api, catalogue }: Props) {
                         </>
                       )}
                     </section>
+                    <Enquetes enquetes={enquetes} lireMedia={lireMedia} />
                     {relance && <RelanceCompte decouvertes={etat.decouvertes.length} reconnexion={quitte} onOuvrir={() => ouvrirConnexion(quitte ? 'connexion' : 'sauvegarde')} onFermer={fermerRelance} />}
                     {soutienOuvert && <ModaleSoutien onFermer={fermerSoutienModale} />}
                   </div>

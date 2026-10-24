@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import type { Mouvement, Reglages as R, Retours, Theme } from '../services/reglages'
+import { Icone } from './Icone'
 
 interface Props {
   reglages: R
@@ -72,7 +73,7 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
   )
 }
 
-/** Réglages (I-24), contenu du MVP en cours : compte, apparence, mouvement, sons et vibrations, licences et contact. */
+/** Réglages (I-24), contenu du MVP en cours : compte, apparence, mouvement, sons et vibrations, réseaux sociaux, licences et contact. */
 export function Reglages({ reglages, onChanger, onReinitialiser, compte, soutien }: Props) {
   return (
     <div className="reglages">
@@ -110,6 +111,14 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte, soutien
         onChoisir={(retours) => onChanger({ retours })}
       />
       {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
+      <section className="reglage">
+        <h2>Suivre le projet</h2>
+        <p className="panel-tip">Suivez-nous pour soutenir le jeu et ne rien manquer de son actualité.</p>
+        <div className="segments">
+          <a className="btn btn-secondary" href="https://www.instagram.com/etymologique_fr/" rel="noreferrer" aria-label="Instagram" title="Instagram"><Icone nom="instagram" /></a>
+          <a className="btn btn-secondary" href="https://x.com/etymologique_fr" rel="noreferrer" aria-label="X" title="X"><Icone nom="x" /></a>
+        </div>
+      </section>
       <section className="reglage">
         <h2>Licences et contact</h2>
         <p className="panel-tip">

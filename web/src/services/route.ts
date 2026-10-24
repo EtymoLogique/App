@@ -11,7 +11,7 @@ export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'ricoc
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc' | 'date' | 'maitrise'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
-export type VueCodex = 'tout' | 'recentes' | 'familles' | 'cabinet'
+export type VueCodex = 'tout' | 'recentes' | 'familles' | 'reseau' | 'cabinet'
 /** Onglets des quêtes (ADR 0042, 0045) : journalières, récompenses de fascicule, puis quêtes au long cours. */
 export type OngletQuetes = 'journalieres' | 'ponctuelles' | 'fascicules' | 'au-long-cours'
 
@@ -38,7 +38,7 @@ const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'rico
 const QUETES: OngletQuetes[] = ['journalieres', 'ponctuelles', 'fascicules', 'au-long-cours']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc', 'date', 'maitrise']
-const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'cabinet']
+const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'reseau', 'cabinet']
 const IDENTIFIANT = /^(unt|lng)_[0-9a-hjkmnp-tv-z]{8}$/
 const FASCICULE = /^fsc_[0-9a-hjkmnp-tv-z]{8}$/
 
