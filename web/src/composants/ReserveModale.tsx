@@ -68,6 +68,8 @@ interface Props {
   /** La table vient d'être complétée depuis la modale, qui va se fermer. */
   onComplete: () => void
   onFermer: () => void
+  /** Mémoire des essais (App#89) : pourquoi une paire, dans l'ordre des cases, est déjà connue, ou `null`. */
+  raisonEssai?: (paire: [string, string]) => string | null
 }
 
 /** « 1ʳᵉ », « 2ᵉ » : rang de la brique dans le mot. */
@@ -80,7 +82,7 @@ function ordinal(rang: number): string {
  * la table en petit : on voit où va chaque brique, et on la retire d'un toucher.
  * Table complète, elle se ferme d'elle-même : il ne reste qu'à fusionner.
  */
-export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, onPoser, onRetirer, onComplete, onFermer }: Props) {
+export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, onPoser, onRetirer, onComplete, onFermer, raisonEssai }: Props) {
   const [boite, fermer] = useDialogue<HTMLElement>(onFermer, fermerEnVol)
   // Le message reste dans la modale : un message de la table s'afficherait derrière le voile.
   const [message, setMessage] = useState<string | null>(null)
@@ -162,6 +164,13 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setAnnonce(`${libelle(id)} retirée de la case ${i + 1}. Choisissez la ${ordinal(i)} brique.`)
   }
 
+  // Une brique sur la table, une case à remplir : la réserve range à part ce qui a déjà été essayé avec elle.
+  const posee = posees.length === 1 ? posees[0] : undefined
+  const memoire =
+    raisonEssai && posee !== undefined && !complete && cible >= 0
+      ? { posee, raison: (b: string) => raisonEssai(cible === 0 ? [b, posee] : [posee, b]) }
+      : null
+
   const compte = `${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}`
   const consigne = complete || cible < 0 ? 'La table est prête' : `Choisissez la ${ordinal(cible)} brique`
   // Toujours une ligne d'aide, pour que la feuille ne change pas de hauteur à la première pose.
@@ -239,7 +248,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
             {message}
           </p>
         )}
-        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} onAjouter={choisir} onIndisponible={setMessage} />
+        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} memoire={memoire} onAjouter={choisir} onIndisponible={setMessage} />
       </section>
     </div>
   )

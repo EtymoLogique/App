@@ -38,6 +38,7 @@ pub async fn exporter(base: &PgPool, courriel: &Courriel, adresse: &str) -> anyh
             'ricochets', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM ricochet t WHERE t.joueur_id = j.id),
             'ricochets_du_jour', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM ricochet_jour t WHERE t.joueur_id = j.id),
             'paliers_recuperes', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM palier_recupere t WHERE t.joueur_id = j.id),
+            'essais', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM essai t WHERE t.joueur_id = j.id),
             'quetes_du_jour', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM quete_jour t WHERE t.joueur_id = j.id),
             'tampons', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM tampon t WHERE t.joueur_id = j.id),
             'cartes_lecteur_recuperees', (SELECT coalesce(jsonb_agg(to_jsonb(t) - 'joueur_id'), '[]') FROM carte_lecteur_recuperee t WHERE t.joueur_id = j.id),

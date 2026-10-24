@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, TimeDelta, Utc};
 use etymo_catalogue::Jeu;
 use etymo_contrat::{
-    CadeauEtat, CompteEtat, CompteurPli, Decouverte, EnergieEtat, Etat, Exemplaires,
-    FasciculeDebloque, IndiceObtenu, OuverturePli, ProgressionQuete, SabliersEtat,
+    CadeauEtat, CompteEtat, CompteurPli, Decouverte, EnergieEtat, Essai, Etat, Exemplaires,
+    FasciculeDebloque, IndiceObtenu, IssueFusion, OuverturePli, ProgressionQuete, SabliersEtat,
 };
 use etymo_domaine::IdCatalogue;
 use etymo_domaine::carte_de_lecteur;
@@ -144,7 +144,80 @@ pub async fn etat(
         quetes_initiales: quetes_initiales::etat(&mut *tx, joueur, jeu, maintenant).await?,
         fascicules_debloques: lire_fascicules_debloques(&mut *tx, joueur).await?,
         compte: compte_etat(&mut *tx, joueur).await?,
+        essais: lire_essais(&mut *tx, joueur, jeu).await?,
     })
+}
+
+/// Plafond de la mémoire des essais, par joueur (App#89) : au-delà, un essai n'est plus noté.
+pub const PLAFOND_ESSAIS: i64 = 3000;
+
+/// Dernier fascicule paru : la mémoire des essais ne vaut que jusqu'à la parution suivante.
+fn fascicule_juge(jeu: &Jeu) -> Option<&IdCatalogue> {
+    jeu.chaine.last().map(|m| &m.fascicule_id)
+}
+
+/// Paires essayées depuis la dernière parution ; les plus anciennes ne se lisent plus.
+async fn lire_essais(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: Option<&Jeu>,
+) -> Result<Vec<Essai>, ErreurApi> {
+    let Some(fascicule) = jeu.and_then(fascicule_juge) else {
+        return Ok(Vec::new());
+    };
+    sqlx::query!(
+        "SELECT gauche, droite FROM essai WHERE joueur_id = $1 AND fascicule_juge = $2 ORDER BY gauche, droite",
+        joueur,
+        fascicule.as_str()
+    )
+    .fetch_all(tx)
+    .await?
+    .into_iter()
+    .map(|l| Ok(Essai { gauche: id(&l.gauche)?, droite: id(&l.droite)? }))
+    .collect()
+}
+
+/// Note un essai sans succès (App#89) : un échec ou un « presque », si le
+/// joueur connaît les deux briques. Renvoie vrai pour un essai à noter.
+/// Une parution oublie en bloc les essais d'avant : de vieilles paires peuvent
+/// devenir des mots, et une purge paire par paire désignerait les familles du
+/// nouveau fascicule. Sans ligne de commande ni changement de version : la
+/// mémoire est une aide, pas un état de jeu.
+pub async fn noter_essai(
+    tx: &mut PgConnection,
+    joueur: Uuid,
+    jeu: &Jeu,
+    briques: &[IdCatalogue],
+    issue: &IssueFusion,
+) -> Result<bool, ErreurApi> {
+    if !matches!(issue, IssueFusion::Echec | IssueFusion::Presque { .. }) {
+        return Ok(false);
+    }
+    let ([gauche, droite], Some(fascicule)) = (briques, fascicule_juge(jeu)) else {
+        return Ok(true);
+    };
+    sqlx::query!(
+        "DELETE FROM essai WHERE joueur_id = $1 AND fascicule_juge <> $2",
+        joueur,
+        fascicule.as_str()
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        "INSERT INTO essai (joueur_id, gauche, droite, fascicule_juge)
+         SELECT $1, $2, $3, $4
+         WHERE (SELECT count(*) FROM exemplaire WHERE joueur_id = $1 AND brique_id IN ($2, $3)) = (CASE WHEN $2 = $3 THEN 1 ELSE 2 END)
+           AND (SELECT count(*) FROM essai WHERE joueur_id = $1) < $5
+         ON CONFLICT DO NOTHING",
+        joueur,
+        gauche.as_str(),
+        droite.as_str(),
+        fascicule.as_str(),
+        PLAFOND_ESSAIS
+    )
+    .execute(&mut *tx)
+    .await?;
+    Ok(true)
 }
 
 /// Compte du joueur, absent pour une partie invitée (ADR 0070).
@@ -1576,6 +1649,9 @@ pub async fn reinitialiser(tx: &mut PgConnection, joueur: Uuid) -> Result<(), Er
     .execute(&mut *tx)
     .await?;
     sqlx::query!("DELETE FROM palier_recupere WHERE joueur_id = $1", joueur)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query!("DELETE FROM essai WHERE joueur_id = $1", joueur)
         .execute(&mut *tx)
         .await?;
     sqlx::query!("DELETE FROM commande WHERE joueur_id = $1", joueur)

@@ -397,6 +397,12 @@ button.brick:hover { transform: translate(-2px, -3px) rotate(-1.5deg); box-shado
 button.brick:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); cursor: grabbing; }
 /* Rationnement : exemplaires tous posés (désactivé) ou épuisés (pointillé = ce qui manque). */
 .brick.is-out { opacity: 0.4; box-shadow: none; cursor: not-allowed; }
+/* Mémoire des essais (App#89) : déjà essayée avec la brique de la table. Sable, libellé en Encre secondaire,
+   sans ombre ; elle reste jouable, puisque se tromper ne coûte rien (ni désactivée, ni épuisée). */
+.brick.is-essayee[data-kind] { border-color: var(--ink-3); background: var(--paper-2); color: var(--ink-2); box-shadow: none; }
+.tray-memoire { display: grid; gap: 4px; }
+.tray-intertitre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-2); font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.tray-intertitre .bchip { font-family: var(--serif); letter-spacing: 0; text-transform: none; }
 .brick.is-spent {
   border-style: dashed; box-shadow: none; cursor: not-allowed;
   background: repeating-linear-gradient(135deg, var(--paper-2) 0 6px, var(--cream) 6px 12px);

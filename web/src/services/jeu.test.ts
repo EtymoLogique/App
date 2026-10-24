@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, jeu } from '../test/fixtures'
-import { entrelacer, prevoir, prochainFascicule, rareteMot } from './jeu'
+import { cleEssai, entrelacer, prevoir, prochainFascicule, raisonEssai, rareteMot } from './jeu'
 
 describe('prévisualisation d’une fusion', () => {
   it('suit les mêmes règles que le serveur', () => {
@@ -56,5 +56,23 @@ describe('prochainFascicule', () => {
   it('ne dit rien sans date, ou une fois la date passée', () => {
     expect(prochainFascicule({ prochaineParution: null }, maintenant)).toBeNull()
     expect(prochainFascicule({ prochaineParution: '2026-10-01T07:00:00Z' }, maintenant)).toBeNull()
+  })
+})
+
+describe('mémoire des essais', () => {
+  const j = jeu()
+  const aucun = new Set<string>()
+
+  it('déduit un mot déjà au codex, sans ligne du serveur', () => {
+    expect(raisonEssai([GEO, LOGIE], j, new Set([MOT]), aucun)).toBe('au codex')
+    // Jamais trouvé : rien ne dit que la paire est bonne.
+    expect(raisonEssai([GEO, LOGIE], j, aucun, aucun)).toBeNull()
+  })
+
+  it('ne montre un échec ou un « presque » que s’il a été essayé, dans cet ordre', () => {
+    expect(raisonEssai([LOGIE, GEO], j, aucun, aucun)).toBeNull()
+    expect(raisonEssai([LOGIE, GEO], j, aucun, new Set([cleEssai(LOGIE, GEO)]))).toBe('presque : inversez')
+    expect(raisonEssai([GEO, GEO], j, aucun, new Set([cleEssai(GEO, GEO)]))).toBe('aucune recette')
+    expect(raisonEssai([GEO, GEO], j, aucun, new Set([cleEssai(LOGIE, GEO)]))).toBeNull()
   })
 })

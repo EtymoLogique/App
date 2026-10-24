@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
+import { mouvementReduit } from '../services/animation'
 import type { BriqueJeu } from '../services/jeu'
 import { NATURES, entrelacer, naturesDeCase } from '../services/jeu'
 import { correspond } from '../services/recherche'
-import { ContenuBrique } from './Brique'
+import { ContenuBrique, PetiteBrique } from './Brique'
 
 export const TYPE_GLISSE = 'application/x-etymo-brique'
 
@@ -27,6 +28,11 @@ interface Props {
   consommees?: string[]
   /** Dernière brique posée ou retirée : sa pastille se contracte (−1) ou gonfle (+1), à chaque nouvelle `cle`. */
   touchee?: { brique: string; cle: number; sens: 'plus' | 'moins' } | null
+  /**
+   * Mémoire des essais (App#89) : la brique posée sur la table, et pourquoi chaque brique
+   * a déjà été essayée avec elle (« aucune recette », « au codex »), ou `null`.
+   */
+  memoire?: { posee: string; raison: (brique: string) => string | null } | null
 }
 
 /** Largeur relative d'une brique : son libellé (serif, grand) ou sa ligne de type et de sens (mono, petite). */
@@ -43,7 +49,7 @@ function exemplaires(n: number): string {
  * par briques disponibles puis récentes. Un toucher ou un clic pose la brique sur la table
  * (jeu.html) ; on peut aussi la glisser sur un emplacement.
  */
-export function Reserve({ reserve, briques, table, zone = null, onAjouter, onIndisponible, consommees = [], touchee = null }: Props) {
+export function Reserve({ reserve, briques, table, zone = null, onAjouter, onIndisponible, consommees = [], touchee = null, memoire = null }: Props) {
   const [recherche, setRecherche] = useState('')
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const champ = useRef<HTMLInputElement>(null)
@@ -88,10 +94,45 @@ export function Reserve({ reserve, briques, table, zone = null, onAjouter, onInd
     return (zone === null || naturesDeCase(zone).includes(b.nature)) && dansLeFiltre(e, filtreActif) && correspond(recherche, b.libelle, b.glose)
   })
   const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
-  const visibles = [
-    ...entrelacer(trouvees.filter((e) => e.exemplaires > 0), taille),
-    ...entrelacer(trouvees.filter((e) => e.exemplaires <= 0), taille),
+  // Mémoire des essais : les briques déjà essayées avec celle de la table passent en fin de liste, grisées.
+  // Les autres gardent l'ordre habituel : rien ne dit qu'une paire jamais essayée est bonne.
+  const raisons = new Map(
+    memoire
+      ? trouvees.flatMap((e) => {
+          const r = memoire.raison(e.brique_id)
+          return r ? [[e.brique_id, r] as const] : []
+        })
+      : [],
+  )
+  const ordonner = (liste: Exemplaires[]) => [
+    ...entrelacer(liste.filter((e) => e.exemplaires > 0), taille),
+    ...entrelacer(liste.filter((e) => e.exemplaires <= 0), taille),
   ]
+  const visibles = ordonner(trouvees.filter((e) => !raisons.has(e.brique_id)))
+  const essayees = ordonner(trouvees.filter((e) => raisons.has(e.brique_id)))
+
+  // Les briques glissent vers leur nouvelle place quand la partition change (FLIP, 240 ms).
+  const plateau = useRef<HTMLDivElement>(null)
+  const places = useRef(new Map<string, DOMRect>())
+  const partition = [...raisons.keys()].sort().join(' ')
+  const partitionAvant = useRef(partition)
+  useLayoutEffect(() => {
+    const boutons = plateau.current?.querySelectorAll<HTMLElement>('[data-brique]') ?? []
+    const anime = partitionAvant.current !== partition && !mouvementReduit()
+    partitionAvant.current = partition
+    const suivantes = new Map<string, DOMRect>()
+    for (const el of boutons) {
+      const id = el.dataset.brique ?? ''
+      const apres = el.getBoundingClientRect()
+      suivantes.set(id, apres)
+      const avant = places.current.get(id)
+      if (!anime || !avant || typeof el.animate !== 'function') continue
+      const dx = avant.left - apres.left
+      const dy = avant.top - apres.top
+      if (dx || dy) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
+    }
+    places.current = suivantes
+  })
 
   return (
     <>
@@ -138,62 +179,86 @@ export function Reserve({ reserve, briques, table, zone = null, onAjouter, onInd
 
       {connues.length === 0 ? (
         <p className="panel-tip">Votre réserve est vide pour le moment.</p>
-      ) : visibles.length === 0 ? (
+      ) : visibles.length + essayees.length === 0 ? (
         <p className="panel-tip">Aucune brique ne correspond. Essayez un sens, comme « vie » ou « terre ».</p>
       ) : (
-        <ul className="tray" aria-label="Briques de la réserve">
-          {visibles.map(({ brique_id, exemplaires: possedes }) => {
-            const brique = briques.get(brique_id) as BriqueJeu
-            const libres = disponibles(brique_id)
-            const epuisee = possedes === 0
-            const indisponible = epuisee
-              ? `Plus aucun exemplaire de ${brique.libelle}. Ouvrez un pli pour en retrouver.`
-              : libres <= 0
-                ? `Tous vos exemplaires de ${brique.libelle} sont déjà sur la table.`
-                : null
-            const nom = `${brique.libelle}${brique.glose ? ` (${brique.glose})` : ''}`
-            const classes = ['brick', epuisee ? 'is-spent' : libres <= 0 ? 'is-out' : ''].filter(Boolean).join(' ')
-            return (
-              <li key={brique_id}>
-                <button
-                  type="button"
-                  className={classes}
-                  data-kind={NATURES[brique.nature]}
-                  aria-disabled={indisponible !== null}
-                  aria-label={
-                    epuisee
-                      ? `${nom} : épuisée. Revient dans les plis`
+        <div ref={plateau} className="tray-memoire">
+          {[visibles, essayees].map((liste, rangListe) =>
+            liste.length === 0 ? null : (
+              <div key={rangListe}>
+                {rangListe === 1 && memoire && briques.get(memoire.posee) && (
+                  <p className="tray-intertitre">
+                    Déjà essayées avec <PetiteBrique brique={briques.get(memoire.posee) as BriqueJeu} /> · {essayees.length}
+                  </p>
+                )}
+                <ul className="tray" aria-label={rangListe === 0 ? 'Briques de la réserve' : 'Briques déjà essayées avec celle de la table'}>
+                  {liste.map(({ brique_id, exemplaires: possedes }) => {
+                    const brique = briques.get(brique_id) as BriqueJeu
+                    const libres = disponibles(brique_id)
+                    const epuisee = possedes === 0
+                    const indisponible = epuisee
+                      ? `Plus aucun exemplaire de ${brique.libelle}. Ouvrez un pli pour en retrouver.`
                       : libres <= 0
-                        ? `${nom} : tous vos exemplaires sont sur la table`
-                        : `Poser ${nom} sur la table. ${exemplaires(libres)}`
-                  }
-                  draggable={indisponible === null}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(TYPE_GLISSE, brique_id)
-                    e.dataTransfer.effectAllowed = 'copy'
-                  }}
-                  onClick={(e) => (indisponible === null ? onAjouter(brique_id, e.currentTarget) : onIndisponible(indisponible))}
-                >
-                  <ContenuBrique brique={brique} />
-                  {brique.nature !== 'mot' && (
-                    <span
-                      key={touchee?.brique === brique_id ? touchee.cle : 0}
-                      className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? `rebond ${touchee.sens}` : ''].filter(Boolean).join(' ')}
-                      aria-hidden="true"
-                    >
-                      {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
-                    </span>
-                  )}
-                  {consommees.includes(brique_id) && (
-                    <span className="b-minus" aria-hidden="true">
-                      −1
-                    </span>
-                  )}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+                        ? `Tous vos exemplaires de ${brique.libelle} sont déjà sur la table.`
+                        : null
+                    const nom = `${brique.libelle}${brique.glose ? ` (${brique.glose})` : ''}`
+                    const raison = raisons.get(brique_id)
+                    const classes = ['brick', epuisee ? 'is-spent' : libres <= 0 ? 'is-out' : '', raison ? 'is-essayee' : ''].filter(Boolean).join(' ')
+                    return (
+                      <li key={brique_id}>
+                        <button
+                          type="button"
+                          className={classes}
+                          data-kind={NATURES[brique.nature]}
+                          data-brique={brique_id}
+                          aria-disabled={indisponible !== null}
+                          aria-label={
+                            epuisee
+                              ? `${nom} : épuisée. Revient dans les plis`
+                              : libres <= 0
+                                ? `${nom} : tous vos exemplaires sont sur la table`
+                                : `Poser ${nom} sur la table. ${exemplaires(libres)}${raison ? `. Déjà essayée : ${raison}` : ''}`
+                          }
+                          draggable={indisponible === null}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(TYPE_GLISSE, brique_id)
+                            e.dataTransfer.effectAllowed = 'copy'
+                          }}
+                          onClick={(e) => (indisponible === null ? onAjouter(brique_id, e.currentTarget) : onIndisponible(indisponible))}
+                        >
+                          {raison ? (
+                            <>
+                              <span className="b-label" lang="fr">
+                                {brique.libelle}
+                              </span>
+                              <span className="b-meta">{raison}</span>
+                            </>
+                          ) : (
+                            <ContenuBrique brique={brique} />
+                          )}
+                          {brique.nature !== 'mot' && (
+                            <span
+                              key={touchee?.brique === brique_id ? touchee.cle : 0}
+                              className={['b-count', epuisee ? 'zero' : '', touchee?.brique === brique_id ? `rebond ${touchee.sens}` : ''].filter(Boolean).join(' ')}
+                              aria-hidden="true"
+                            >
+                              {epuisee ? 'épuisée' : `×${Math.max(libres, 0)}`}
+                            </span>
+                          )}
+                          {consommees.includes(brique_id) && (
+                            <span className="b-minus" aria-hidden="true">
+                              −1
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ),
+          )}
+        </div>
       )}
     </>
   )

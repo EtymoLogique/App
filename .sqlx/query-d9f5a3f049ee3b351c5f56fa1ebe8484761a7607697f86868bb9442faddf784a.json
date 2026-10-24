@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT gauche, droite FROM essai WHERE joueur_id = $1 AND fascicule_juge = $2 ORDER BY gauche, droite",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "gauche",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "droite",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d9f5a3f049ee3b351c5f56fa1ebe8484761a7607697f86868bb9442faddf784a"
+}
