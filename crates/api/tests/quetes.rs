@@ -7,7 +7,8 @@ mod commun;
 use axum::http::StatusCode;
 use etymo_api::Limiteurs;
 use etymo_catalogue::essai::{
-    GEO, LOGIE, PALIER_ELISION, PALIER_LANGUE_1, PALIER_LANGUE_3, PALIER_RICOCHETS, QUETE_LANGUE,
+    COLLECTION_MOTS, COLLECTION_PREFIXES, GEO, LOGIE, PALIER_ELISION, PALIER_LANGUE_1,
+    PALIER_LANGUE_3, PALIER_RICOCHETS, QUETE_LANGUE,
 };
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -99,4 +100,51 @@ async fn un_palier_pas_encore_atteint_ou_inconnu_est_refuse(base: PgPool) {
     assert_eq!(statut, StatusCode::BAD_REQUEST);
     let (statut, _) = recuperer(&banc, &jeton, etat, PALIER_ELISION).await;
     assert_eq!(statut, StatusCode::OK);
+}
+
+// ------------------------------------------------------------ quêtes de collection (App#90)
+
+fn collection(etat: &Value, palier: &str) -> (u64, u64) {
+    etat["progression_collections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["palier_id"] == palier)
+        .map_or((u64::MAX, u64::MAX), |p| {
+            (
+                p["progression"].as_u64().unwrap(),
+                p["total"].as_u64().unwrap(),
+            )
+        })
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn une_collection_se_recupere_une_fois_complete(base: PgPool) {
+    let banc = banc(base.clone(), Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    // Graines : géo- et -logie ; bio- manque aux préfixes, le mot n'est pas trouvé.
+    assert_eq!(collection(&etat, COLLECTION_PREFIXES), (1, 2));
+    assert_eq!(collection(&etat, COLLECTION_MOTS), (0, 1));
+    let (statut, _) = recuperer(&banc, &jeton, &etat, COLLECTION_MOTS).await;
+    assert_eq!(statut, StatusCode::FORBIDDEN);
+
+    let demande = commande(&etat, json!({ "briques": [GEO, LOGIE] }));
+    let (_, _, reponse) = appeler(&banc.routeur, post_fusion(&jeton, &demande)).await;
+    let etat = reponse["etat"].clone();
+    assert_eq!(collection(&etat, COLLECTION_MOTS), (1, 1));
+    // Le mot offre sa brique-mot bio- : les deux préfixes sont réunis.
+    assert_eq!(collection(&etat, COLLECTION_PREFIXES), (2, 2));
+
+    let encre = somme_mouvements(&base, "encre").await;
+    let (statut, reponse) = recuperer(&banc, &jeton, &etat, COLLECTION_PREFIXES).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(somme_mouvements(&base, "encre").await, encre + 20);
+    assert_eq!(somme_mouvements(&base, "sablier").await, 1);
+    assert_eq!(
+        reponse["etat"]["paliers_recuperes"],
+        json!([COLLECTION_PREFIXES])
+    );
+    let (statut, _) = recuperer(&banc, &jeton, &reponse["etat"], COLLECTION_PREFIXES).await;
+    assert_eq!(statut, StatusCode::CONFLICT);
 }

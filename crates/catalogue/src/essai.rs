@@ -41,6 +41,9 @@ pub const PALIER_LANGUE_1: &str = "pal_0000000a";
 pub const PALIER_LANGUE_3: &str = "pal_0000000b";
 pub const PALIER_ELISION: &str = "pal_0000000c";
 pub const PALIER_RICOCHETS: &str = "pal_0000000d";
+/// Quêtes de collection du fascicule d'essai (App#90) : ses deux préfixes, son mot commun.
+pub const COLLECTION_PREFIXES: &str = "pal_000c0001";
+pub const COLLECTION_MOTS: &str = "pal_000c0002";
 
 /// Écrit un fascicule minimal (une carte, une recette, des exclusions, une
 /// jaquette, des graines) et renvoie le chemin de son manifeste.
@@ -138,6 +141,10 @@ pub fn fascicule_avec_jalons(racine: &Path, numero: u32, parution: &str, jalons:
             }
         },
         "jalons": jalons,
+        "collections": [
+            { "id": COLLECTION_PREFIXES, "critere": "prefixes", "encre": 20, "sabliers": 1, "membres": [BIO, GEO] },
+            { "id": COLLECTION_MOTS, "critere": "mots_communs", "encre": 20, "sabliers": 0, "membres": [MOT] }
+        ],
         "graines": [
             { "brique_id": GEO, "exemplaires": 2 },
             { "brique_id": LOGIE, "exemplaires": 1 }

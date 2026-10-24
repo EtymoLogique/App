@@ -644,6 +644,22 @@ export interface components {
          * @enum {string}
          */
         CodeQueteInitiale: "trois_mots" | "transformation" | "premiers_ricochets" | "premiere_carte";
+        /**
+         * @description Quête de collection d'un fascicule (App#90) : tous ses préfixes, tous ses
+         *     suffixes, tous ses mots d'une rareté. Le catalogue en publie les membres,
+         *     hors légendaires (ADR 0043) ; sa récompense se récupère comme un palier.
+         */
+        Collection: {
+            critere: components["schemas"]["CritereCollection"];
+            /** Format: int32 */
+            encre?: number;
+            /** @description Identifiant de palier : la récupération passe par `palier_recupere`. */
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Briques (préfixes, suffixes) ou mots (raretés) à réunir. */
+            membres: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
         CompositionCarte: {
             fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
@@ -684,6 +700,11 @@ export interface components {
         };
         /** @enum {string} */
         Confiance: "etablie" | "probable" | "discutee" | "non_retenue";
+        /**
+         * @description Ce qu'une quête de collection rassemble (App#90) : la liste fermée.
+         * @enum {string}
+         */
+        CritereCollection: "prefixes" | "suffixes" | "mots_communs" | "mots_peu_communs" | "mots_rares";
         Decouverte: {
             /** Format: date-time */
             decouverte_le: string;
@@ -1104,6 +1125,11 @@ export interface components {
             /** @description Prix de chaque indice, en gouttes : silhouette, sens littéral, définition. */
             prix_indices?: number[];
             /**
+             * @description Quêtes de collection des fascicules débloqués (App#90) ; vide avant ce
+             *     champ ou sans catalogue. Leur récupération passe par `paliers_recuperes`.
+             */
+            progression_collections?: components["schemas"]["ProgressionCollection"][];
+            /**
              * @description Progression de chaque quête au long cours, calculée par le serveur sur
              *     le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
              */
@@ -1259,6 +1285,8 @@ export interface components {
         };
         Manifeste: {
             cartes?: components["schemas"]["CarteManifeste"][];
+            /** @description Quêtes de collection du fascicule (App#90), membres hors légendaires. */
+            collections?: components["schemas"]["Collection"][];
             compteurs?: unknown;
             exclusions?: components["schemas"]["Chemin"] | null;
             /** Format: int32 */
@@ -1359,6 +1387,18 @@ export interface components {
          * @enum {string}
          */
         PositionBrique: "prefixe" | "suffixe";
+        /**
+         * @description Progression d'une quête de collection (App#90), d'un fascicule débloqué
+         *     seulement : un fascicule verrouillé n'expose aucun total (ADR 0069).
+         */
+        ProgressionCollection: {
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            palier_id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            progression: number;
+            /** Format: int32 */
+            total: number;
+        };
         ProgressionQuete: {
             /** Format: int32 */
             progression: number;

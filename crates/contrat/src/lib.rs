@@ -124,6 +124,10 @@ pub struct Etat {
     /// dans l'ordre des cases, triées. Vide avant ce champ ou après une parution.
     #[serde(default)]
     pub essais: Vec<Essai>,
+    /// Quêtes de collection des fascicules débloqués (App#90) ; vide avant ce
+    /// champ ou sans catalogue. Leur récupération passe par `paliers_recuperes`.
+    #[serde(default)]
+    pub progression_collections: Vec<ProgressionCollection>,
 }
 
 /// Une paire essayée sans succès (échec ou « presque ») : ni issue, ni date.
@@ -581,6 +585,17 @@ pub struct ReponseRicochet {
     pub carte: CarteRicochet,
     /// État confirmé après la commande.
     pub etat: Etat,
+}
+
+/// Progression d'une quête de collection (App#90), d'un fascicule débloqué
+/// seulement : un fascicule verrouillé n'expose aucun total (ADR 0069).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressionCollection {
+    pub palier_id: IdCatalogue,
+    pub fascicule_id: IdCatalogue,
+    pub progression: u32,
+    pub total: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
