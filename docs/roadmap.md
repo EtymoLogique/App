@@ -91,6 +91,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Ricochets, PWA : moins de touchers ([ADR 0068](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0068-ricochets-moins-de-touchers-pour-decouper-et-assembler.md)) : la lame de découpe arrive, et repart après chaque coupe, sur une jointure tirée au hasard qui n’est jamais une coupe attendue ; *Assembler* envoie la réponse à la seconde brique posée, sans « Valider » ; tests du composant `Assembler` | fait |
 | Ricochets, PWA : *Paires* envoie les réponses à la dernière paire reliée, sans « Valider les paires », comme *Découper* et *Assembler* ; la place du numéro de paire est réservée, les colonnes ne se redimensionnent plus à chaque paire reliée ; tests du composant `Paires` | fait |
 | « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la carte du codex (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
+| Vue Réseau (App#91) : la constellation en deux rives (1ʳᵉ case à gauche, 2ᵉ à droite, une bande par fascicule débloqué, ordre alphabétique, rangées de 44 px), dernière découverte en Corail, barre de famille Rosée, antennes chiffrées dans la vue « Tous », famille suivie dans un panneau collé, liste en repli ; calculée côté client (`services/constellation.ts`), sans légendaire ni fascicule verrouillé | fait en local ; ADR et maquette à écrire dans Design |
 
 ### Exigence reportée à J6
 
