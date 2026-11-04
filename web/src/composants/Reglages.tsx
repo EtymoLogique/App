@@ -109,6 +109,15 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte, soutien
         ]}
         onChoisir={(retours) => onChanger({ retours })}
       />
+      <section className="reglage">
+        <h2>Application</h2>
+        <p className="panel-tip">Relance ÉtymoLogique et relit votre partie sur le serveur. Votre table en cours est conservée.</p>
+        <div className="segments">
+          <button type="button" className="btn btn-secondary" onClick={() => window.location.reload()}>
+            Recharger l’application
+          </button>
+        </div>
+      </section>
       {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
       {/* Le soutien vient après les réglages du joueur, à côté des autres façons d'aider le projet. */}
       {soutien}

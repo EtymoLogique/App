@@ -3,6 +3,7 @@
 
 import type { CompteEtat, DemandeCompte, DemandeConfirmation, DemandePseudo, DemandeSuppression, ReponseConfirmation, ReponseDemandeCompte, DemandeAchatSablier, DemandeCadeau, DemandeQueteDuJour, DemandeQueteInitiale, DemandeCarteDeLecteur, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeRicochet, DemandeSablier, Erreur, Etat, ReponseAchatSablier, ReponseCadeau, ReponseQueteDuJour, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session } from '../contrat'
 import { profilLocal } from './profil'
+import { commencerAppel, signalerJoignable } from './reseau'
 
 export class ErreurApi extends Error {
   readonly statut: number
@@ -21,29 +22,125 @@ export class ErreurApi extends Error {
 /** Marge avant l'expiration du jeton à partir de laquelle on le renouvelle. */
 const MARGE_MS = 60_000
 
+/** Relances d'un appel pendant un démarrage à froid de l'API ou de la base. */
+export interface Relance {
+  /** Délai d'un essai : au-delà, la requête est abandonnée puis relancée. */
+  delaiMs: number
+  /** Pauses entre deux essais ; leur nombre borne les relances. */
+  pausesMs: number[]
+  /** Temps total accordé à un appel, relances comprises. */
+  budgetMs: number
+}
+
+// ponytail: valeurs à recaler sur un démarrage à froid mesuré en hors-prod (curl après 30 min sans trafic).
+// L'essai dure un peu plus que l'attente d'une connexion à la base côté serveur (20 s).
+export const RELANCE: Relance = { delaiMs: 25_000, pausesMs: [1_000, 2_000, 4_000], budgetMs: 45_000 }
+
+/** Pannes passagères : réseau, passerelle, API ou base qui démarrent. */
+const PASSAGERS = new Set([502, 503, 504])
+
+function passagere(e: unknown): e is ErreurApi {
+  return e instanceof ErreurApi && (e.code === 'reseau' || PASSAGERS.has(e.statut))
+}
+
+const pause = (ms: number) => new Promise((fin) => setTimeout(fin, ms))
+
 export class ClientApi {
   private session: Session | undefined
   private readonly base: string
   private readonly lireProfil: typeof profilLocal
+  private readonly relance: Relance
+  private sondage: ReturnType<typeof setTimeout> | undefined
+  private sondes = 0
 
-  constructor(base: string, lireProfil = profilLocal) {
+  constructor(base: string, lireProfil = profilLocal, relance = RELANCE) {
     this.base = base
     this.lireProfil = lireProfil
+    this.relance = relance
   }
 
-  private async appeler<T>(chemin: string, init: RequestInit = {}): Promise<T> {
+  private async essayer<T>(chemin: string, init: RequestInit, delaiMs: number): Promise<T> {
     let reponse: Response
+    let corps: unknown
     try {
-      reponse = await fetch(`${this.base}${chemin}`, { ...init, credentials: 'omit', cache: 'no-store' })
+      const signal = AbortSignal.timeout(delaiMs)
+      reponse = await fetch(`${this.base}${chemin}`, { ...init, credentials: 'omit', cache: 'no-store', signal })
+      // Corps vide ou illisible (204, page d'une passerelle) : `undefined`. Un délai dépassé reste une panne.
+      corps = await reponse.json().catch(() => {
+        if (signal.aborted) throw signal.reason
+        return undefined
+      })
     } catch {
       throw new ErreurApi(0, 'reseau', 'API injoignable')
     }
-    const corps: unknown = await reponse.json().catch(() => undefined)
     if (!reponse.ok) {
       const erreur = corps as Partial<Erreur> | undefined
       throw new ErreurApi(reponse.status, erreur?.code ?? 'interne', erreur?.message ?? reponse.statusText, erreur ?? {})
     }
     return corps as T
+  }
+
+  /**
+   * Un appel, relancé tant que la panne est passagère et que le budget le permet.
+   * Chaque essai renvoie le même corps, donc la même clé d'idempotence : le serveur
+   * rejoue une commande déjà traitée au lieu de la refaire.
+   */
+  private async appeler<T>(chemin: string, init: RequestInit = {}): Promise<T> {
+    const terminer = commencerAppel()
+    // Formulaires du compte : l'erreur s'affiche à la saisie (un 503 y dit « envoi impossible »).
+    const pauses = chemin.startsWith('/compte') ? [] : this.relance.pausesMs
+    const fin = Date.now() + this.relance.budgetMs
+    try {
+      for (let essai = 0; ; essai++) {
+        try {
+          const reponse = await this.essayer<T>(chemin, init, Math.max(1, Math.min(this.relance.delaiMs, fin - Date.now())))
+          signalerJoignable(true)
+          return reponse
+        } catch (e) {
+          if (!passagere(e)) {
+            signalerJoignable(true)
+            throw e
+          }
+          const attente = pauses[essai]
+          if (attente === undefined || Date.now() + attente >= fin || !navigator.onLine) {
+            if (navigator.onLine && (pauses.length > 0 || e.code === 'reseau')) {
+              signalerJoignable(false)
+              this.sonderPlusTard()
+            }
+            throw e
+          }
+          await pause(attente)
+        }
+      }
+    } finally {
+      terminer()
+    }
+  }
+
+  /** Interroge `/sante` une fois : l'API redevient joignable si elle répond, sinon on resonde plus tard. */
+  async reessayer(): Promise<boolean> {
+    clearTimeout(this.sondage)
+    this.sondage = undefined
+    try {
+      await this.essayer('/sante', {}, this.relance.delaiMs)
+      this.sondes = 0
+      signalerJoignable(true)
+      return true
+    } catch {
+      this.sonderPlusTard()
+      return false
+    }
+  }
+
+  /** Sondes de plus en plus espacées, jusqu'à 30 s. */
+  private sonderPlusTard(): void {
+    if (this.sondage !== undefined) return
+    const attente = Math.min(30_000, 2_000 * 2 ** this.sondes)
+    this.sondes += 1
+    this.sondage = setTimeout(() => {
+      this.sondage = undefined
+      void this.reessayer()
+    }, attente)
   }
 
   sante(): Promise<Sante> {

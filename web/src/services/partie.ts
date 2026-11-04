@@ -23,7 +23,8 @@ export interface FicheOuverte {
 }
 
 function message(e: unknown): string {
-  if (e instanceof ErreurApi && e.code === 'reseau') return 'Le serveur est injoignable pour le moment.'
+  if (e instanceof ErreurApi && e.code === 'reseau') return 'Le serveur ne répond pas pour le moment.'
+  if (e instanceof ErreurApi && [502, 503, 504].includes(e.statut)) return 'Le serveur se réveille : réessayez dans un instant.'
   if (e instanceof ErreurApi && e.code === 'trop_de_requetes') return 'Trop de tentatives : réessayez dans une minute.'
   return 'Une erreur est survenue. Réessayez plus tard.'
 }
@@ -53,6 +54,9 @@ function tableValide(cases: Cases, etat: Etat): Cases {
     return n > 0 ? b : null
   })
 }
+
+/** Absence au-delà de laquelle l'état est relu au retour dans l'application. */
+const ABSENCE_MS = 5 * 60_000
 
 const HORS_LIGNE = 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
 
@@ -121,6 +125,25 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       actif.current = false
     }
   }, [synchroniser])
+
+  // Retour après une longue absence : une PWA installée revient du fond sans se recharger.
+  useEffect(() => {
+    let cachee: number | null = null
+    const changement = () => {
+      if (document.visibilityState === 'hidden') cachee = Date.now()
+      else if (cachee !== null && Date.now() - cachee > ABSENCE_MS) void synchroniser()
+      if (document.visibilityState === 'visible') cachee = null
+    }
+    document.addEventListener('visibilitychange', changement)
+    return () => document.removeEventListener('visibilitychange', changement)
+  }, [synchroniser])
+
+  // Réseau ou API de retour : l'état confirmé est relu.
+  const etaitHorsLigne = useRef(!enLigne)
+  useEffect(() => {
+    if (enLigne && etaitHorsLigne.current) void synchroniser()
+    etaitHorsLigne.current = !enLigne
+  }, [enLigne, synchroniser])
 
   useEffect(() => {
     api.sante().then(

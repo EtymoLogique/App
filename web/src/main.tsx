@@ -7,6 +7,7 @@ import './plis.css'
 import './quetes.css'
 import './ricochets.css'
 import { App } from './App'
+import { Attente } from './composants/Attente'
 import { MiseAJour } from './composants/MiseAJour'
 import { config } from './config'
 import { ClientApi } from './services/api'
@@ -26,6 +27,7 @@ if (!racine) throw new Error('Élément #root introuvable')
 createRoot(racine).render(
   <StrictMode>
     <App api={new ClientApi(config.urlApi)} catalogue={new LecteurCatalogue(config.urlCatalogue)} />
+    <Attente />
     <MiseAJour />
   </StrictMode>,
 )

@@ -7,6 +7,7 @@ import { ClientApi, ErreurApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { effacerPartie } from './services/local'
 import { memoriserCompteQuitte } from './services/profil'
+import { signalerJoignable } from './services/reseau'
 import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtures'
 
 function client(fusion?: ClientApi['fusion']): ClientApi {
@@ -295,6 +296,23 @@ describe('table de fusion', () => {
     expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
     expect(screen.getAllByText(/consultation seulement/).length).toBeGreaterThanOrEqual(1)
     expect(fusionner()).toBeDisabled()
+  })
+
+  it('serveur injoignable : consultation seulement, puis l’état est relu quand il répond', async () => {
+    const api = client()
+    const reessayer = vi.spyOn(api, 'reessayer').mockImplementation(() => {
+      act(() => signalerJoignable(true))
+      return Promise.resolve(true)
+    })
+    render(<App api={api} catalogue={lecteur} />)
+    expect(await screen.findByRole('button', { name: /^Réserve/ })).toBeEnabled()
+    act(() => signalerJoignable(false))
+    expect(screen.getByText(/Serveur injoignable : consultation seulement/)).toBeInTheDocument()
+    expect(fusionner()).toBeDisabled()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Réessayer' })))
+    expect(reessayer).toHaveBeenCalledOnce()
+    expect(screen.queryByText(/Serveur injoignable/)).not.toBeInTheDocument()
+    await waitFor(() => expect(api.etat).toHaveBeenCalledTimes(2))
   })
 
   it('vide une case qu’on touche sans déplacer l’autre, et réordonne au clavier', async () => {

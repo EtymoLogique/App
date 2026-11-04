@@ -36,7 +36,8 @@ import { useEnergieAnimee } from './services/animation'
 import { useMaintenant } from './services/horloge'
 import { energieA } from './services/plis'
 import { quetesDeFascicule, recompensesARecuperer } from './services/quetes'
-import { useEnLigne } from './services/reseau'
+import { useEtatReseau } from './services/reseau'
+import { Actualiser } from './composants/Actualiser'
 
 interface Props {
   api: ClientApi
@@ -54,7 +55,8 @@ function EnTete({ titre, id, children }: { titre: string; id: string; children?:
 }
 
 export function App({ api, catalogue }: Props) {
-  const enLigne = useEnLigne()
+  const reseau = useEtatReseau()
+  const enLigne = reseau === 'en_ligne'
   const partie = usePartie(api, catalogue, enLigne)
   const { reglages, changer } = useReglages()
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
@@ -99,9 +101,11 @@ export function App({ api, catalogue }: Props) {
   )
   const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
-  const bloquee = !enLigne
+  const bloquee = reseau === 'hors_ligne'
     ? 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
-    : !etat
+    : reseau === 'injoignable'
+      ? 'Serveur injoignable : consultation seulement.'
+      : !etat
       ? 'Votre réserve n’est pas encore chargée.'
       : null
   const prete = bloquee === null && partie.table.length >= TABLE_MIN
@@ -212,6 +216,11 @@ export function App({ api, catalogue }: Props) {
     void memoriserRelance(suite)
   }
   const { synchroniser, changerDePartie } = partie
+  // Tirer pour actualiser : l'état relu, et une nouvelle version cherchée (MiseAJour la propose).
+  const actualiser = useCallback(async () => {
+    const enregistrement = await navigator.serviceWorker?.getRegistration().catch(() => undefined)
+    await Promise.allSettled([synchroniser(), enregistrement?.update()])
+  }, [synchroniser])
   const compteConfirme = useCallback(
     async (reponse: ReponseConfirmation) => {
       setQuitte(false)
@@ -236,6 +245,7 @@ export function App({ api, catalogue }: Props) {
   return (
     <FournisseurDeblocage value={deblocage}>
       <div className="coque">
+        <Actualiser onActualiser={actualiser} />
         <Navigation
           actif={onglet}
           compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size, quetes: recompensesARecuperer(catalogueJeu, etat) }}
@@ -245,13 +255,21 @@ export function App({ api, catalogue }: Props) {
 
         <div className="contenu">
           <main className="page">
-            {!enLigne && (
+            {/* Une seule bannière pour la liaison : l'erreur de l'état découle souvent de la même panne. */}
+            {reseau === 'hors_ligne' ? (
               <p className="banniere" role="status">
                 <Icone nom="horsLigne" />
                 <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
               </p>
-            )}
-            {partie.erreurEtat && (
+            ) : reseau === 'injoignable' ? (
+              <p className="banniere" role="status">
+                <Icone nom="horsLigne" />
+                <span>Serveur injoignable : consultation seulement. Nouvel essai automatique…</span>
+                <button type="button" className="btn-texte" onClick={() => void api.reessayer()}>
+                  Réessayer
+                </button>
+              </p>
+            ) : partie.erreurEtat && (
               <p className="banniere" role="alert">
                 <Icone nom="info" />
                 <span>{partie.erreurEtat} Votre progression confirmée n’est pas perdue.</span>

@@ -271,6 +271,30 @@ button { font: inherit; }
 /* Écran de lancement au sceau ÉL (I-03). */
 .lancement { display: grid; justify-items: center; gap: 16px; padding: 80px 0; color: var(--ink-2); }
 .lancement .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
+/* Démarrage de la PWA installée (index.html) : le sceau au centre, jusqu'au montage de React. */
+.demarrage { display: none; }
+.demarrage .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
+@media (display-mode: standalone) {
+  .demarrage { display: grid; place-items: center; min-height: 100dvh; }
+  /* Pas de rebond de page : le geste « tirer pour actualiser » (Actualiser.tsx) prend le relais. */
+  html { overscroll-behavior-y: none; }
+}
+/* Attente d'une réponse de l'API (Attente.tsx) : une pastille en haut, au-dessus des dialogues, sous la mise à jour. */
+.attente { position: fixed; z-index: 70; top: calc(env(safe-area-inset-top) + 12px); left: 50%; translate: -50% 0; width: max-content; max-width: calc(100vw - 32px); pointer-events: none; }
+.attente-pastille {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px 8px 10px; border: 1.5px solid var(--fixed-ink); border-radius: 22px;
+  background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 700;
+  box-shadow: 3px 3px 0 var(--pop-shadow);
+}
+.attente-pastille .seal { flex: none; width: 24px; height: 24px; border-radius: 7px; font-size: 11px; box-shadow: none; }
+/* Tirer pour actualiser (Actualiser.tsx) : le sceau descend avec le doigt, puis respire le temps de l'actualisation. */
+.actualiser { position: fixed; z-index: 70; top: calc(env(safe-area-inset-top) - 44px); left: 50%; translate: -50% 0; pointer-events: none; }
+.actualiser-sceau { width: 40px; height: 40px; border-radius: 12px; font-size: 17px; }
+.actualiser-sceau.pret { box-shadow: 5px 5px 0 var(--pop-shadow); }
+.actualiser-sceau.en-cours { translate: 0 72px; }
+/* Bouton texte d'une bannière (« Réessayer ») : rangé à droite, zone tactile suffisante. */
+.banniere .btn-texte { flex: none; margin-left: auto; min-height: 24px; }
 /* Présentation statique de index.html, lue sans JavaScript ; React la remplace au montage. */
 .vitrine { display: grid; justify-items: start; gap: 24px; max-width: 680px; margin: 0 auto; padding: 56px var(--pad) 64px; }
 .vitrine .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
@@ -579,6 +603,10 @@ button.disc { font: inherit; cursor: pointer; }
   /* Sceau : un coup de tampon, il s'enfonce de son ombre puis remonte. */
   :root:not([data-mouvement="reduit"]) .seal { transition: scale var(--dur-rapide) var(--ease-ressort), translate var(--dur-rapide) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out); }
   :root:not([data-mouvement="reduit"]) :is(.wordmark:hover .seal, .seal.navigation-sceau:hover) { scale: 0.94; translate: 2px 2px; box-shadow: 1px 1px 0 var(--fixed-ink); }
+  /* Attente et actualisation : le sceau respire ; il suit le doigt sans retard tant qu'on tire. */
+  :root:not([data-mouvement="reduit"]) .attente-pastille { animation: fondu var(--dur-rapide) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) :is(.attente-pastille .seal, .demarrage .seal, .actualiser-sceau.en-cours) { animation: respire 1.6s ease-in-out infinite; }
+  :root:not([data-mouvement="reduit"]) .actualiser-sceau:not(.en-cours) { transition: none; }
   /* Touche mécanique : à l'appui, le bouton descend de la longueur de son ombre en 120 ms, puis remonte au ressort. */
   :root:not([data-mouvement="reduit"]) .btn { transition: transform var(--dur-base) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out), background-color var(--dur-rapide), border-color var(--dur-rapide); }
   :root:not([data-mouvement="reduit"]) .btn:not(:disabled):hover { transform: translate(-2px, -2px); }
@@ -632,6 +660,7 @@ button.disc { font: inherit; cursor: pointer; }
 }
 :root[data-mouvement="reduit"] :is(.dialogue, .result, .retours > .entre, .navigation-panneau, .pk-reveal > *, .viewer) { animation: fondu var(--dur-instant) linear both; }
 @keyframes fondu { from { opacity: 0; } }
+@keyframes respire { 50% { scale: 0.9; } }
 @keyframes monte { from { transform: translateY(100%); } }
 @keyframes voile { from { opacity: 0; } }
 @keyframes gonfle { from { transform: scale(1.2); } }
