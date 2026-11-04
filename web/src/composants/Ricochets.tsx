@@ -60,7 +60,7 @@ function Ouvrable({ id, children }: { id: string; children: ReactNode }) {
   )
 }
 
-const HORS_LIGNE = 'Hors ligne. Le codex se consulte ; les ricochets reprennent avec le réseau.'
+const HORS_LIGNE = 'Pas de connexion au serveur. Le codex se consulte ; les ricochets reprennent avec le réseau.'
 
 /** Une carte, telle qu'au codex : la brique en brique (jamais en texte brut), le mot en serif. */
 function Carte({ jeu, id }: { jeu: CatalogueJeu; id: string }) {

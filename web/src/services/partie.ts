@@ -58,7 +58,7 @@ function tableValide(cases: Cases, etat: Etat): Cases {
 /** Absence au-delà de laquelle l'état est relu au retour dans l'application. */
 const ABSENCE_MS = 5 * 60_000
 
-const HORS_LIGNE = 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
+const HORS_LIGNE = 'Pas de connexion au serveur : consultation seulement. Le jeu reprend avec le réseau.'
 
 /** État d'une partie : catalogue, état confirmé, table et retours de fusion. */
 export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = true) {

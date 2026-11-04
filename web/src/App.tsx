@@ -217,10 +217,13 @@ export function App({ api, catalogue }: Props) {
   }
   const { synchroniser, changerDePartie } = partie
   // Tirer pour actualiser : l'état relu, et une nouvelle version cherchée (MiseAJour la propose).
+  // Une fusion ou un rituel en cours garde l'état qu'il anime : le geste attend qu'ils finissent.
+  const enMouvement = partie.enAttente || partie.fusion !== null || gel !== null
   const actualiser = useCallback(async () => {
+    if (enMouvement) return
     const enregistrement = await navigator.serviceWorker?.getRegistration().catch(() => undefined)
     await Promise.allSettled([synchroniser(), enregistrement?.update()])
-  }, [synchroniser])
+  }, [synchroniser, enMouvement])
   const compteConfirme = useCallback(
     async (reponse: ReponseConfirmation) => {
       setQuitte(false)
