@@ -91,7 +91,11 @@ async fn main() -> anyhow::Result<()> {
 fn connecter(config: &ConfigBase) -> anyhow::Result<PgPool> {
     PgPoolOptions::new()
         .max_connections(5)
-        .acquire_timeout(Duration::from_secs(10))
+        // Serverless SQL reprend en quelques secondes après sa mise en veille : on
+        // l'attend plutôt que de répondre 503 tout de suite (le client relance aussi).
+        .acquire_timeout(Duration::from_secs(20))
+        // Les connexions de la base en veille sont coupées ; on ne les garde pas.
+        .idle_timeout(Duration::from_secs(120))
         .connect_lazy(&config.database_url)
         .context("adresse de base invalide")
 }
@@ -101,6 +105,17 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
     if config.migrer {
         MIGRATIONS.run(&base).await.context("migrations")?;
     }
+    // Réveil anticipé : la base sort de veille pendant que le conteneur finit de
+    // démarrer, au lieu d'attendre la première requête qui la lit.
+    let eveil = base.clone();
+    tokio::spawn(async move {
+        for essai in 1..=3 {
+            match eveil.acquire().await {
+                Ok(_) => return tracing::info!("base éveillée"),
+                Err(e) => tracing::warn!(essai, erreur = %e, "base pas encore joignable"),
+            }
+        }
+    });
     let signataire = Signataire::nouveau(config.cle_signature.as_bytes())?;
     let origines = config
         .origines
