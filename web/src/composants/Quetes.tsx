@@ -6,7 +6,7 @@ import { type CatalogueJeu, libelleFascicule } from '../services/jeu'
 import { briquesDuPli, chances, LIBELLES_RARETES, pourcentage } from '../services/plis'
 import { sensLitteral } from '../services/ricochets'
 import { conditionDeblocage, jalonDeblocant, useDeblocage } from '../services/deblocage'
-import { CRITERES, type PalierSuivi, type QueteJalon, type QueteLongue, SORTES, quetesAuLongCours, quetesDeCollection, quetesDeFascicule } from '../services/quetes'
+import { CRITERES, type PalierSuivi, type QueteJalon, type QueteLongue, SORTES, quetesAuLongCours, quetesDeCollection, quetesDeFascicule, recompensesParOnglet } from '../services/quetes'
 import type { OngletQuetes, Route } from '../services/route'
 import { PetiteBrique } from './Brique'
 import { SelecteurFascicules, TitreFascicule } from './Fascicules'
@@ -540,13 +540,7 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
   const collections = quetesDeCollection(jeu, etat)
   const collectionsARecuperer = collections.filter((q) => q.suivi.etat === 'a_recuperer')
   const longues = quetesAuLongCours(jeu, etat)
-  const paliersARecuperer = longues.flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').length
-  const attente: Record<OngletQuetes, number> = {
-    journalieres: (etat?.quetes_du_jour ?? []).filter((q) => q.recompense && q.faite && !q.recuperee).length + (etat?.carte_de_lecteur?.a_recuperer ?? 0) + (etat?.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? 1 : 0),
-    ponctuelles: (etat?.quetes_initiales ?? []).filter((q) => q.faite && !q.recuperee).length,
-    fascicules: aRecuperer.length + collectionsARecuperer.length,
-    'au-long-cours': paliersARecuperer,
-  }
+  const attente = recompensesParOnglet(jeu, etat)
   // Sans onglet choisi, le premier onglet où une récompense attend passe devant.
   const onglet = vue.quete ?? ONGLETS.find(([o]) => attente[o] > 0)?.[0] ?? 'journalieres'
   const fascicule = vue.fascicule ?? 'tous'

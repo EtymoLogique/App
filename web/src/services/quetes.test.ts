@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, MOT, RECETTE, etat, jeu, manifeste } from '../test/fixtures'
-import { quetesAuLongCours, quetesDeCollection, quetesDeFascicule, recompensesARecuperer } from './quetes'
+import { quetesAuLongCours, quetesDeCollection, quetesDeFascicule, recompensesARecuperer, recompensesParOnglet } from './quetes'
 
 const JALON = 'jal_0000000a'
 const SUIVANT = 'jal_0000000b'
@@ -43,6 +43,14 @@ describe('quêtes de fascicule', () => {
 
   it('ne compte rien sans état confirmé', () => {
     expect(recompensesARecuperer(avecJalons(), null)).toBe(0)
+  })
+
+  it('compte au menu chaque récompense que comptent les onglets, quêtes du jour comprises', () => {
+    const recompense = { gouttes: 0, sabliers: 1, plis: 0 }
+    const quete = { rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true, jour: '2026-10-10', recuperee: false, recompense }
+    const e = etat({ decouvertes: decouvert, jalons_atteints: [JALON], jalons_recuperes: [], quetes_du_jour: [quete, { ...quete, rang: 2, recuperee: true }] })
+    expect(recompensesParOnglet(avecJalons(), e)).toEqual({ journalieres: 1, ponctuelles: 0, fascicules: 1, 'au-long-cours': 0 })
+    expect(recompensesARecuperer(avecJalons(), e)).toBe(2)
   })
 })
 

@@ -5,6 +5,7 @@
 
 import type { Collection, CritereCollection, Etat, Jalon, Palier, QueteLongCours } from '../contrat'
 import { fasciculesDebloques } from './deblocage'
+import type { OngletQuetes } from './route'
 import type { CatalogueJeu, FasciculeParu } from './jeu'
 
 export type EtatJalon = 'en_cours' | 'a_recuperer' | 'recupere'
@@ -134,12 +135,18 @@ export function quetesDeCollection(jeu: CatalogueJeu, etat: Etat | null): QueteC
 }
 
 /** Récompenses qui attendent le joueur, jalons et paliers : le compteur de la navigation. */
+/** Récompenses qui attendent le joueur, par onglet des quêtes : une seule source pour les pastilles des onglets et celle du menu. */
+export function recompensesParOnglet(jeu: CatalogueJeu, etat: Etat | null): Record<OngletQuetes, number> {
+  return {
+    journalieres: (etat?.quetes_du_jour ?? []).filter((q) => q.recompense && q.faite && !q.recuperee).length + (etat?.carte_de_lecteur?.a_recuperer ?? 0) + (etat?.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? 1 : 0),
+    ponctuelles: (etat?.quetes_initiales ?? []).filter((q) => q.faite && !q.recuperee).length,
+    fascicules: quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + quetesDeCollection(jeu, etat).filter((q) => q.suivi.etat === 'a_recuperer').length,
+    'au-long-cours': quetesAuLongCours(jeu, etat).flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').length,
+  }
+}
+
+/** Pastille du menu : la somme des pastilles des onglets. */
 export function recompensesARecuperer(jeu: CatalogueJeu | null, etat: Etat | null): number {
   if (!jeu || !etat) return 0
-  const paliers = quetesAuLongCours(jeu, etat).flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').length
-  const cartes = etat.carte_de_lecteur?.a_recuperer ?? 0
-  const cadeau = etat.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? 1 : 0
-  const initiales = (etat.quetes_initiales ?? []).filter((q) => q.faite && !q.recuperee).length
-  const collections = quetesDeCollection(jeu, etat).filter((q) => q.suivi.etat === 'a_recuperer').length
-  return quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + paliers + cartes + cadeau + initiales + collections
+  return Object.values(recompensesParOnglet(jeu, etat)).reduce((a, b) => a + b, 0)
 }
