@@ -910,6 +910,8 @@ interface Props {
   joursDeJeu?: number
   nouvelles: Set<string>
   onVue: (id: string) => void
+  /** Écran du codex affiché : une carte nouvelle qui y paraît est vue. */
+  actif?: boolean
   /** Vue du codex tenue dans l'URL : vue, filtres, tri et carte agrandie. */
   vue: Pick<Route, 'vue' | 'filtre' | 'tri' | 'inverse' | 'fascicule' | 'carte' | 'plus'>
   onChangerVue: (modif: Partial<Route>, options?: { remplacer?: boolean }) => void
@@ -926,7 +928,7 @@ interface Props {
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
  */
-export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia, enquetes = [] }: Props) {
+export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true, vue, onChangerVue, urlMedia, lireMedia, enquetes = [] }: Props) {
   const indices = useMemo(() => new Map(enquetes.map((e) => [e.entree.id, e.obtenus])), [enquetes])
   const filtre = vue.filtre
   const ordre = vue.tri
@@ -1020,6 +1022,31 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
     if (carteOuverte) onVue(carteOuverte.id)
   }, [carteOuverte, onVue])
 
+  // Une carte nouvelle qui paraît à l'écran est vue, sans l'ouvrir : le compteur
+  // de la navigation baisse, son halo reste jusqu'à ce qu'on quitte le codex.
+  const [halos, setHalos] = useState<Set<string>>(() => new Set())
+  if (!actif && halos.size > 0) setHalos(new Set())
+  const racine = useRef<HTMLDivElement>(null)
+  // Sans tableau de dépendances : la grille change avec la vue, les filtres, le tri et la recherche.
+  useEffect(() => {
+    if (!actif || nouvelles.size === 0 || !racine.current || typeof IntersectionObserver === 'undefined') return
+    const observateur = new IntersectionObserver(
+      (vues) => {
+        for (const v of vues) {
+          const id = (v.target as HTMLElement).dataset.carte
+          if (!v.isIntersecting || !id) continue
+          setHalos((h) => (h.has(id) ? h : new Set(h).add(id)))
+          onVue(id)
+        }
+      },
+      { threshold: 0.5 },
+    )
+    for (const el of racine.current.querySelectorAll<HTMLElement>('.mini.is-new')) {
+      if (nouvelles.has(el.dataset.carte ?? '')) observateur.observe(el)
+    }
+    return () => observateur.disconnect()
+  })
+
   // « / » place le curseur dans la recherche, comme dans la réserve (I-17).
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
@@ -1035,7 +1062,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
   }, [ouverte])
 
   const mini = (e: EntreeCodex, rangDeplie?: number) => (
-    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} deplie={rangDeplie} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
+    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id) || halos.has(e.id)} deplie={rangDeplie} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
       setZoom(e.id)
       naviguer(e.id)
     }} />
@@ -1044,7 +1071,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
   return (
     <LectureMedia.Provider value={lireMedia}>
     <IndicesCodex.Provider value={indices}>
-    <div className="codex-browser">
+    <div className="codex-browser" ref={racine}>
       <div className="cb-head">
         <div>
           <h2 className="cb-title">

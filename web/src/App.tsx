@@ -377,6 +377,7 @@ export function App({ api, catalogue }: Props) {
                     joursDeJeu={etat?.jours_de_jeu}
                     nouvelles={partie.nouvelles}
                     onVue={partie.carteVue}
+                    actif={onglet === 'codex'}
                     vue={route}
                     onChangerVue={naviguer}
                     urlMedia={(chemin) => catalogue.url(chemin)}
