@@ -197,10 +197,10 @@
 .pk-brickodd small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
 .pk-history { grid-template-columns: max-content max-content 1fr; column-gap: 0; }
 .pk-hist-item { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 14px; }
-.pk-hist-brique { position: relative; justify-self: start; }
-.pk-hist-plus { position: absolute; top: -9px; right: -10px; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--cream); color: var(--ink); font-family: var(--mono); font-size: 10px; font-weight: 700; line-height: 16px; }
+/* La pastille (« inédite », « +1 ») se pose à côté de la brique : « inédite » est trop longue pour mordre sur son coin. */
+.pk-hist-brique { display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
+.pk-hist-plus { padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--cream); color: var(--ink); font-family: var(--mono); font-size: 10px; font-weight: 700; line-height: 16px; }
 .pk-hist-item small { text-align: right; }
-.pk-hist-item.dup { opacity: 0.85; border-style: dashed; }
 .pk-rarity { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
 .pk-rarity .rar { width: 22px; height: 22px; stroke-width: 1.2; animation: eqFade 0.3s ease-out calc(var(--t0, 0) * 18ms + 0.15s) both; }
 /* Légendaire : le contour de la forme se trace, puis elle se remplit. */
@@ -423,18 +423,18 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .pk-recharge svg { width: 62%; overflow: visible; rotate: -90deg; }
 .pk-recharge .ring-track, .pk-recharge .ring-fill { stroke-width: 7; }
 .pk-recharge .ring-track { stroke: var(--line); }
-.pk-restant { color: var(--ink-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; line-height: 1; }
+.pk-restant { color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.02em; line-height: 1; }
 .pk-attente { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
 .pk-attente small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
 .pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }
 
 /* Colonne centrale : le pli, puis les derniers tirages. */
 .pk-centre { display: grid; gap: 20px; min-width: 0; }
-/* Mobile : les plis en chargement au-dessus du pli, le reste de l'atelier dessous. */
+/* Mobile : le pli d'abord, visible sans défiler ; les plis en recharge juste dessous (leur compte est aussi dans la barre), puis le reste de l'atelier. */
 @media (max-width: 760px) {
   .pk-layout .pk-side { display: contents; }
-  .pk-layout .pk-centre { order: -1; }
-  .pk-layout .pk-energie { order: -2; }
+  .pk-layout .pk-centre { order: -2; }
+  .pk-layout .pk-energie { order: -1; }
   /* Plis en chargement : les plis gardent leur taille, à gauche ; les textes passent à droite, la carte est moins haute. */
   .pk-energie { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "label label" "plis texte" "plis note" "btn btn"; align-items: start; column-gap: 16px; }
   .pk-energie > .pk-label { grid-area: label; }

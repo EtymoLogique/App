@@ -279,11 +279,15 @@ interface VisionneuseProps {
   /** Section « En savoir plus » dépliée (I-16), tenue dans l'adresse. */
   plus: boolean
   onPlus: (plus: boolean) => void
+  /** Annonce sous la carte, au moment fort (« Nouvelle découverte · +2 gouttes d’encre »). */
+  annonce?: string
 }
 
 /** Carte agrandie seule, hors du codex : celle qu'une fusion réussie vient de former sur la table, d'où elle grossit. */
-export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien, origine = '.slots' }: {
+export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien, origine = '.slots', annonce }: {
   entree: EntreeCodex
+  /** Gain de la fusion, écrit sous la carte. */
+  annonce?: string
   /** Toutes les cartes, pour suivre un lien. */
   entrees: EntreeCodex[]
   jeu: CatalogueJeu
@@ -298,13 +302,13 @@ export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivre
   const rien = () => undefined
   return (
     <LectureMedia.Provider value={lireMedia}>
-      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine={origine} onZoome={rien} plus={plus} onPlus={setPlus} />
+      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine={origine} onZoome={rien} plus={plus} onPlus={setPlus} annonce={annonce} />
     </LectureMedia.Provider>
   )
 }
 
 /** Carte agrandie (I-15) : recto, puis verso retourné, précédente et suivante au clavier. */
-function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, origine, onZoome, plus, onPlus }: VisionneuseProps) {
+function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, origine, onZoome, plus, onPlus, annonce }: VisionneuseProps) {
   const source = () => document.querySelector<HTMLElement>(origine ?? `.mini[data-carte="${CSS.escape(entree.id)}"]`)
   // Face montrée : null = recto, sinon le contenu du verso. `plus` (adresse) ouvre le verso sur « En savoir plus ».
   const [dos, setDos] = useState<Dos | null>(plus && savoirPlus(entree, jeu) ? 'savoir' : null)
@@ -453,7 +457,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       <span className="bf-side">
         <span className="bf-type">{type.libelle}</span>
         {entree.maitrise?.maitrisee && <Galet className="galet bf-galet" />}
-        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
+        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" nomVisible />}
       </span>
     </div>
   )
@@ -826,7 +830,14 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           →
         </button>
       )}
-      <p className="viewer-hint">{seule ? 'Échap pour fermer' : '← → pour changer de carte · Échap pour fermer'}</p>
+      {/* Le statut de la table l'annonce déjà aux lecteurs d'écran. */}
+      {annonce ? (
+        <p className="viewer-annonce" aria-hidden="true">
+          {annonce}
+        </p>
+      ) : (
+        <p className="viewer-hint">{seule ? 'Échap pour fermer' : '← → pour changer de carte · Échap pour fermer'}</p>
+      )}
     </div>
   )
 }
@@ -861,6 +872,7 @@ function BadgeFamille({ famille, onOuvrir }: { famille: Famille; onOuvrir: () =>
   // ponytail: écart fixe de 3 % du tour, réduit pour les grandes familles ; à revoir au-delà de ~25 mots.
   const longueur = complete ? pas : pas - Math.min(3, pas / 3)
   const b = famille.brique
+  const affixe = b.type === 'prefixe' || b.type === 'suffixe'
   return (
     <button
       type="button"
@@ -884,12 +896,13 @@ function BadgeFamille({ famille, onOuvrir }: { famille: Famille; onOuvrir: () =>
             />
           ))}
         </svg>
-        <b>{b.libelle}</b>
+        <b className="cab-compte">
+          {famille.trouves}/{total}
+        </b>
       </span>
+      {/* Identité : une brique s'affiche en brique, jamais en texte brut. */}
+      {affixe ? <Brique libelle={b.libelle} nature={NATURES[b.type as 'prefixe' | 'suffixe']} className="bchip cab-brique" /> : <b className="cab-mot">{b.libelle}</b>}
       {b.sens && <span className="cab-sens">{b.sens.charAt(0).toUpperCase() + b.sens.slice(1)}</span>}
-      <span className="fam-count">
-        {famille.trouves} / {total}
-      </span>
     </button>
   )
 }
@@ -1086,7 +1099,6 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
   const enRecherche = recherche.trim() !== ''
   const dernieres = recentes(entrees)
   const lesFamilles = familles(entrees, jeu)
-  const aCompleter = lesFamilles.filter((f) => f.trouves < f.mots.length)
   const stats = cabinet(entrees, jeu)
   // Vue Réseau : seuls les fascicules débloqués y entrent (ADR 0069) ; sans contexte, tous les parus.
   const deblocage = useDeblocage()
@@ -1222,7 +1234,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
           <input
             ref={champ}
             type="search"
-            placeholder="Chercher un mot, une brique ou un sens"
+            placeholder="Mot, brique ou sens"
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             onKeyDown={(e) => {
@@ -1267,8 +1279,6 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
           {VUES.map(([v, libelle]) => (
             <button key={v} type="button" aria-pressed={vue.vue === v} onClick={() => setVue(v)}>
               {libelle}
-              {v === 'familles' && lesFamilles.length > 0 && <b>{lesFamilles.length}</b>}
-              {v === 'cabinet' && aCompleter.length > 0 && <b>{aCompleter.length}</b>}
             </button>
           ))}
         </div>

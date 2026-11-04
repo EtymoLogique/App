@@ -139,13 +139,23 @@ export function Constellation({ jeu, entrees, debloques, onOuvrir }: Props) {
   }
   const vide = vueValide === 'tous' ? 'Aucun mot trouvé pour l’instant.' : `Aucun mot trouvé dans ${nomFascicule(vueValide)} pour l’instant : sa constellation commence à votre première découverte.`
 
+  // Le fascicule affiché reste visible dans sa bande, même au-delà du bord de l'écran.
+  const bandeVues = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const bande = bandeVues.current
+    const actif = bande?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!bande || !actif) return
+    const [b, a] = [bande.getBoundingClientRect(), actif.getBoundingClientRect()]
+    bande.scrollLeft += a.left - b.left - (b.width - a.width) / 2
+  }, [vueValide])
+
   const familleFocus = focusValide ? famille(reseau, focusValide.slice(2), vueValide) : null
   const briqueFocus = focusValide ? briqueDe(focusValide) : undefined
 
   return (
     <div className="cst">
       <div className="cst-choix">
-        <div className="cb-views cst-vues" role="group" aria-label="Fascicule affiché">
+        <div ref={bandeVues} className="cb-views cst-vues" role="group" aria-label="Fascicule affiché">
           {reseau.fascicules.map((f) => (
             <button key={f.numero} type="button" aria-pressed={vueValide === f.numero} onClick={() => setVue(f.numero)}>
               {f.numero}&nbsp;· {f.nom}

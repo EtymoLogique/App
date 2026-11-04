@@ -20,6 +20,8 @@ async function empreinte(octets: ArrayBuffer): Promise<string> {
 
 export class LecteurCatalogue {
   private readonly base: string
+  /** Un fichier haché ne change jamais : un seul téléchargement par chemin, même demandé deux fois d'affilée. */
+  private readonly lus = new Map<string, Promise<ArrayBuffer>>()
 
   constructor(base: string) {
     this.base = base
@@ -42,7 +44,18 @@ export class LecteurCatalogue {
     return index
   }
 
-  async fichierHache(chemin: string): Promise<ArrayBuffer> {
+  fichierHache(chemin: string): Promise<ArrayBuffer> {
+    let lu = this.lus.get(chemin)
+    if (!lu) {
+      lu = this.telecharger(chemin)
+      this.lus.set(chemin, lu)
+      // Un échec se retente à la demande suivante.
+      lu.catch(() => this.lus.delete(chemin))
+    }
+    return lu
+  }
+
+  private async telecharger(chemin: string): Promise<ArrayBuffer> {
     const reponse = await fetch(this.url(chemin), { credentials: 'omit' })
     if (!reponse.ok) throw new ErreurCatalogue(`Fichier illisible (${reponse.status})`)
     const octets = await reponse.arrayBuffer()

@@ -133,7 +133,7 @@ function PlisEnAttente({
   )
 }
 
-/** Carte « Plis en chargement » (I-20), dans l'atelier du pli. */
+/** Carte « Plis en recharge » (I-20), dans l'atelier du pli. */
 function CartePlisEnAttente({
   energie,
   jaquette,
@@ -149,7 +149,7 @@ function CartePlisEnAttente({
   const pleine = energie.charges >= energie.capacite
   return (
     <div className="pk-card pk-energie">
-      <p className="pk-label">{pleine ? 'Plis prêts' : 'Plis en chargement'}</p>
+      <p className="pk-label">{pleine ? 'Plis prêts' : 'Plis en recharge'}</p>
       <div className="pk-attente" role="status">
         <PlisEnAttente
           charges={energie.charges}
@@ -256,20 +256,17 @@ function Choix({
       </div>
       <div className="pk-fasc-list">
         {parus.map((f) => {
-          const { connues, exemplaires } = reserveDuFascicule(jeu, etat, f)
+          const { connues, exemplaires, total } = reserveDuFascicule(jeu, etat, f)
           const verrouille = deblocage ? !deblocage.debloques.has(f.manifeste.id) : false
           const nouveau = deblocage?.nouveaux.has(f.manifeste.id) ?? false
           const ouvrable = pliOuvrable(f) && !verrouille
-          const total = briquesDuPli(f).length
           const contenu = (
             <>
               <Jaquette chemin={f.manifeste.jaquette} urlMedia={urlMedia} />
               <span className="pk-fasc-info">
                 <span className="pk-fasc-k">N°&nbsp;{f.numero}</span>
                 <b>{f.manifeste.nom ?? `Fascicule ${f.numero}`}</b>
-                <span>
-                  {connues === 0 ? 'Aucune brique connue' : `${connues} brique${connues > 1 ? 's' : ''} connue${connues > 1 ? 's' : ''}`} · {exemplaires} exemplaire{exemplaires > 1 ? 's' : ''}
-                </span>
+                <span>{connues === 0 ? 'Aucune brique connue' : `${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''} dans votre réserve`}</span>
                 {total > 0 && (
                   <>
                     <span className="pk-fasc-bar" aria-hidden="true">
@@ -279,7 +276,7 @@ function Choix({
                       <b>
                         {connues} / {total}
                       </b>{' '}
-                      briques
+                      briques connues
                     </span>
                   </>
                 )}
@@ -766,7 +763,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
           <li>Une brique nouvelle garantie au moins tous les {garantie} plis{fixe ? ', jamais une légendaire' : ''}.</li>
           <li>Réserve bloquée : une brique utile garantie au plus tard au {filet}ᵉ pli{fixe ? ', jamais une légendaire' : ''}.</li>
           <li>Dix plis au plus en attente, un toutes les 12&nbsp;h.</li>
-          <li>Un sablier avance la recharge d’une heure. L’encre en achète sans limite, à la boutique.</li>
+          <li>Un sablier avance la recharge d’une heure. Les gouttes d’encre s’échangent contre des sabliers, sans limite, à la boutique.</li>
           <li>La garantie de nouveauté et le filet se comptent par fascicule.</li>
         </ul>
       </details>
@@ -776,14 +773,14 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
 
 function Tirage({ jeu, ouverture, rarete, entree }: { jeu: CatalogueJeu; ouverture: OuverturePli; rarete: Rarete | undefined; entree?: 'nouveau' | 'descend' }) {
   const brique = jeu.briques.get(ouverture.brique_id)
-  const pastille = ouverture.resultat === 'nouvelle' ? 'new' : ouverture.resultat === 'doublon' ? '+1' : null
+  const pastille = ouverture.resultat === 'nouvelle' ? 'inédite' : ouverture.resultat === 'doublon' ? '+1' : null
   return (
     <div className={['pk-hist-item', ouverture.resultat === 'nouvelle' ? '' : 'dup', entree ?? ''].filter(Boolean).join(' ')}>
       <span className="pk-hist-brique">
         {brique ? <PetiteBrique brique={brique} /> : <span className="pk-unknown">…</span>}
         {pastille && <sup className="pk-hist-plus">{pastille}</sup>}
       </span>
-      {rarete ? <FormeRarete rarete={rarete} /> : <span />}
+      {rarete ? <FormeRarete rarete={rarete} nomVisible /> : <span />}
       <small>{(ouverture.resultat === 'reserve_pleine' ? 'Pleine · ' : '') + `+${gouttes(ouverture.encre)}`}</small>
     </div>
   )
@@ -821,6 +818,12 @@ function Revelation({ jeu, reponse, onEssayer, onContinuer }: { jeu: CatalogueJe
         <Ecrit texte={kicker} debut={0} />
       </p>
       {brique && <Brique brique={brique} className="pk-brick" />}
+      {/* Le gain se voit au moment fort ; le statut (role="status") l'annonce déjà aux lecteurs d'écran. */}
+      {o.encre > 0 && (
+        <p className="pk-ink" aria-hidden="true">
+          +{gouttes(o.encre)} d’encre
+        </p>
+      )}
       <div className="pk-actions">
         <button type="button" className="btn btn-secondary" onClick={() => onEssayer(o.brique_id)}>
           Essayer sur la table →

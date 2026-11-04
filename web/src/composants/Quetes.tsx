@@ -237,6 +237,21 @@ function texteRecompenseQuete(r: RecompenseQuete): string {
   return parts.join(' · ')
 }
 
+/** Heure locale du prochain minuit GMT, qui renouvelle les quêtes : « 1 h » à Paris l’hiver. */
+function heureRenouvellement(): string {
+  const maintenant = new Date()
+  const minuit = new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), maintenant.getUTCDate() + 1))
+  const [h, m] = [minuit.getHours(), minuit.getMinutes()]
+  if (h === 0 && m === 0) return 'minuit'
+  return `${h}\u00a0h${m ? String(m).padStart(2, '0') : ''}`
+}
+
+/** « 1 h (minuit GMT) », ou « minuit GMT » quand l'heure locale est celle de Greenwich. */
+const renouvellement = () => {
+  const heure = heureRenouvellement()
+  return heure === 'minuit' ? 'minuit GMT' : `${heure} (minuit GMT)`
+}
+
 type RecupererQueteDuJour = (jour: string, rang: number) => Promise<ReponseQueteDuJour | { erreur: string }>
 
 /**
@@ -260,7 +275,7 @@ function QuetesDuJourListe({ quetes, jeu, energiePleine, inactif, recuperer, onA
   return (
     <>
       <p className="cb-note quetes-intro">
-        Chaque jour, un défi de chaque sorte&nbsp;: à la table, de mémoire, d’adresse. Elles se renouvellent à minuit GMT&nbsp;; une quête non faite disparaît sans rien coûter, une quête faite garde sa récompense, et une erreur se recommence aussitôt.
+        Chaque jour, un défi de chaque sorte&nbsp;: à la table, de mémoire, d’adresse. Elles se renouvellent à {renouvellement()}&nbsp;; une quête non faite disparaît sans rien coûter, une quête faite garde sa récompense, et une erreur se recommence aussitôt.
       </p>
       <ol className="quetes-liste">
         {quetes.map((q) => (
@@ -638,9 +653,10 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
         ))}
       </div>
 
-      {(recuperables.length > 0 || toutEnCours || bilan?.onglet === onglet) && (
+      {/* Une seule récompense se récupère sur sa carte : « Tout récupérer » ne sert qu'à partir de deux. */}
+      {(recuperables.length > 1 || toutEnCours || bilan?.onglet === onglet) && (
         <div className="quetes-tout">
-          {(recuperables.length > 0 || toutEnCours) && (
+          {(recuperables.length > 1 || toutEnCours) && (
             <button type="button" className="btn btn-primary btn-s" onClick={() => void toutRecuperer()} disabled={inactifIci !== null} title={toutEnCours ? undefined : (inactifIci ?? undefined)}>
               {toutEnCours ? 'Récupération…' : 'Tout récupérer'}
             </button>
@@ -671,7 +687,7 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
               <Icone nom="quete" />
             </span>
             <p className="cb-empty-k">Pas de quête aujourd’hui</p>
-            <p>Les quêtes du jour se tirent à la première visite après minuit GMT, dès que votre partie est chargée.</p>
+            <p>Les quêtes du jour se tirent à la première visite après {renouvellement()}, dès que votre partie est chargée.</p>
             {aRecuperer.length > 0 && (
               <button type="button" className="btn btn-primary" onClick={() => onChangerVue({ quete: 'fascicules' }, { remplacer: true })}>
                 {aRecuperer.length > 1 ? `Récupérer vos ${aRecuperer.length} récompenses de fascicule` : 'Récupérer votre récompense de fascicule'}

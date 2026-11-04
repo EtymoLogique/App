@@ -89,9 +89,11 @@ export function Reserve({ reserve, briques, table, zone = null, onAjouter, onInd
   // Les briques possédées passent devant, les épuisées ferment la marche ; l'entrelacement long/court
   // se fait dans chaque groupe, l'ordre « récentes d'abord » départage le reste.
   // Une brique posée sur la table reste à sa place, grisée : rien ne bouge sous les doigts.
-  const trouvees = connues.filter((e) => {
+  // Briques que la case visée accepte : la puce « Tout » les compte, elles seules.
+  const dansLaCase = connues.filter((e) => zone === null || naturesDeCase(zone).includes((briques.get(e.brique_id) as BriqueJeu).nature))
+  const trouvees = dansLaCase.filter((e) => {
     const b = briques.get(e.brique_id) as BriqueJeu
-    return (zone === null || naturesDeCase(zone).includes(b.nature)) && dansLeFiltre(e, filtreActif) && correspond(recherche, b.libelle, b.glose)
+    return dansLeFiltre(e, filtreActif) && correspond(recherche, b.libelle, b.glose)
   })
   const taille = (e: Exemplaires) => encombrement(briques.get(e.brique_id) as BriqueJeu)
   // Mémoire des essais : les briques déjà essayées avec celle de la table passent en fin de liste, grisées.
@@ -172,7 +174,7 @@ export function Reserve({ reserve, briques, table, zone = null, onAjouter, onInd
           >
             {couleur && <i />}
             <span>{libelle}</span>
-            {f === 'tout' && <b>{connues.length}</b>}
+            {f === 'tout' && <b>{dansLaCase.length}</b>}
           </button>
         ))}
       </div>

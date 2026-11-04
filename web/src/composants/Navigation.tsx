@@ -36,6 +36,14 @@ interface Props {
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 
+/** Unité écrite à côté du nombre (barre mobile) : un `title` ne s'affiche pas au toucher. */
+const Unite = ({ n, mot }: { n: number; mot: string }) => (
+  <span className="navigation-unite" aria-hidden="true">
+    {mot}
+    {n > 1 ? 's' : ''}
+  </span>
+)
+
 /** Ressources du joueur en un coup d'œil : plis prêts, gouttes, sabliers. */
 function Ressources({ plis, capacite, gouttes, sabliers, recharge, avance }: NonNullable<Props['ressources']>) {
   return (
@@ -47,14 +55,17 @@ function Ressources({ plis, capacite, gouttes, sabliers, recharge, avance }: Non
           {/* Recharge du prochain pli, en petit ; absente quand l'énergie est pleine. */}
           {recharge !== null && <Anneau className="navigation-recharge" progression={recharge} avance={avance} />}
         </span>
+        <Unite n={plis} mot="pli" />
       </li>
       <li aria-label={pluriel(gouttes, 'goutte')} title="Gouttes d’encre">
         <span className="pk-drop" aria-hidden="true" />
         <Compteur valeur={gouttes} />
+        <Unite n={gouttes} mot="goutte" />
       </li>
       <li aria-label={pluriel(sabliers, 'sablier')} title="Sabliers">
         <Sablier />
         <Compteur valeur={sabliers} />
+        <Unite n={sabliers} mot="sablier" />
       </li>
     </ul>
   )

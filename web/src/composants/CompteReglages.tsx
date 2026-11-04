@@ -149,7 +149,8 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, onSeConnecter, 
           <span aria-hidden="true">›</span>
         </button>
         <div>
-          <button type="button" className="btn btn-danger" disabled={!enLigne} onClick={() => setOuvert('suppression')}>
+          {/* Identité : le Corail profond attend la confirmation ; l'entrée reste un bouton secondaire. */}
+          <button type="button" className="btn btn-secondary" disabled={!enLigne} onClick={() => setOuvert('suppression')}>
             Effacer ma partie
           </button>
         </div>
@@ -196,7 +197,7 @@ export function CompteReglages({ compte, enLigne, onSauvegarder, onSeConnecter, 
       {erreur && <p role="alert" className="connexion-erreur">{erreur}</p>}
       <p><small>Un compte inactif depuis 3 ans est effacé.</small></p>
       <div>
-        <button type="button" className="btn btn-danger" disabled={!enLigne} onClick={() => setOuvert('suppression')}>
+        <button type="button" className="btn btn-secondary" disabled={!enLigne} onClick={() => setOuvert('suppression')}>
           Supprimer mon compte
         </button>
       </div>

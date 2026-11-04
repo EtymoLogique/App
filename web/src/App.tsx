@@ -62,6 +62,13 @@ export function App({ api, catalogue }: Props) {
   const onglet = route.onglet
   // Le menu « Plis » ramène toujours au choix du fascicule.
   const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, pli: null, quete: null, plus: false }), [naviguer])
+  // Un autre onglet s'ouvre en haut de page, pas au défilement laissé par le précédent.
+  const ongletVu = useRef(onglet)
+  useEffect(() => {
+    if (ongletVu.current === onglet) return
+    ongletVu.current = onglet
+    document.documentElement.scrollTop = 0
+  }, [onglet])
   const { jeu, etat } = partie
   // Plis prêts : compteur de l'onglet, rafraîchi quand une charge revient.
   const maintenant = useMaintenant()
@@ -132,6 +139,10 @@ export function App({ api, catalogue }: Props) {
     setOnglet('plis')
   }
   const ficheEntree = partie.fiche ? entrees.find((e) => e.id === partie.fiche?.motId) : undefined
+  // Découverte confirmée par le serveur : son gain s'écrit sous la carte qui s'ouvre.
+  const issueFiche = partie.retour?.etat === 'confirme' ? partie.retour.issue : null
+  const gainFiche = issueFiche?.type === 'decouverte' && issueFiche.mot_id === partie.fiche?.motId ? (issueFiche.gouttes ?? 0) : null
+  const annonceFiche = gainFiche === null ? undefined : `Nouvelle découverte${gainFiche > 0 ? `\u00a0· +${gainFiche}\u00a0goutte${gainFiche > 1 ? 's' : ''} d’encre` : '\u00a0!'}`
   const lireMedia = useCallback(async (chemin: string) => new TextDecoder().decode(await catalogue.fichierHache(chemin)), [catalogue])
   const [indices, setIndices] = useState(false)
   const fermerIndices = useCallback(() => setIndices(false), [])
@@ -341,8 +352,9 @@ export function App({ api, catalogue }: Props) {
                               <Icone nom="reserve" />
                               Réserve · {exemplaires}
                             </button>
+                            {/* Secondaire : la Réserve reste la prochaine action, l'indice une aide qui coûte de l'encre. */}
                             {indiceDisponible && (
-                              <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                              <button type="button" className="btn btn-secondary btn-indice-discret" onClick={() => setIndices(true)} disabled={!etat}>
                                 <Icone nom="indice" />
                                 Indice
                               </button>
@@ -444,6 +456,7 @@ export function App({ api, catalogue }: Props) {
                     lireMedia={lireMedia}
                     onFermer={partie.fermerFiche}
                     onSuivreLien={allerAuCodex}
+                    annonce={annonceFiche}
                   />
                 )}
               </>

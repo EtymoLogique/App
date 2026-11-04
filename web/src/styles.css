@@ -190,6 +190,7 @@ button { font: inherit; }
 .navigation-ressources .pk-drop { width: 11px; height: 11px; }
 .navigation-ressources .pk-glass { width: 11px; height: 14px; }
 .navigation-plis { display: inline-flex; align-items: center; gap: 5px; }
+.navigation-unite { margin-left: -2px; color: var(--ink-2); font-weight: 400; }
 .navigation-recharge { width: 14px; height: 14px; overflow: visible; rotate: -90deg; }
 .navigation-recharge .ring-track, .navigation-recharge .ring-fill { stroke-width: 9; }
 .navigation-recharge .ring-track { stroke: var(--line); }
@@ -219,6 +220,7 @@ button { font: inherit; }
   .navigation-ressources li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
   .navigation-ressources li > :first-child { justify-self: center; }
   .navigation-ressources + button { margin-top: 0; }
+  .navigation-unite { display: none; }
   .navigation .count { top: 4px; right: 8px; }
   .entete .wordmark .seal { display: none; }
 }
@@ -494,6 +496,8 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .btn-indice:hover { background: var(--c-pli-tint); box-shadow: 6px 6px 0 var(--pop-shadow); }
 .btn-indice:active { box-shadow: 0 0 0 var(--pop-shadow); }
 .btn-indice .ic { width: 18px; height: 18px; }
+/* Indice de la table : bouton secondaire, l'ampoule en Ambre profond rappelle qu'il coûte de l'encre. */
+.btn-indice-discret .ic { color: var(--c-pli-deep); }
 /* Cercle d'état + phrase courte : Corail plein = découverte, contour Encre = presque, Gris encre = échec, Encre plein = connu. */
 .feedback {
   display: flex; align-items: center; gap: 10px;
@@ -828,6 +832,7 @@ button.disc { font: inherit; cursor: pointer; }
 .indices-liste li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; min-height: 48px; padding: 8px 12px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--paper); }
 .indices-liste li.is-obtenu { border-color: var(--fixed-ink); background: var(--cream); }
 .indices-liste h3 { font-size: 15px; font-weight: 700; line-height: 1.3; }
+.indice-aide { display: block; color: var(--ink-2); font-size: 13px; font-weight: 400; }
 .indice-contenu { grid-column: 1 / -1; display: grid; gap: 8px; justify-items: start; padding-top: 10px; border-top: 1.5px solid var(--line); }
 /* La carte-silhouette reprend `.mini` du codex (codex.css) ; seule sa taille et son inertie changent. */
 .indice-carte { justify-self: center; width: 132px; cursor: default; pointer-events: none; }

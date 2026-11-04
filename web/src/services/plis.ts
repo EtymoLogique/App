@@ -129,10 +129,14 @@ export function pliOuvrable(f: FasciculeParu): boolean {
 }
 
 /** Briques connues et exemplaires en réserve pour un fascicule (I-19). */
-export function reserveDuFascicule(jeu: CatalogueJeu, etat: Etat | null, f: FasciculeParu): { connues: number; exemplaires: number } {
-  const ids = new Set(briquesDuPli(f).map((b) => b.id))
+/** `total` : briques du pli que le joueur peut compter ; une légendaire inconnue ne compte jamais (ADR 0015). */
+export function reserveDuFascicule(jeu: CatalogueJeu, etat: Etat | null, f: FasciculeParu): { connues: number; exemplaires: number; total: number } {
+  const briques = briquesDuPli(f)
+  const ids = new Set(briques.map((b) => b.id))
   const lignes = (etat?.reserve ?? []).filter((e) => ids.has(e.brique_id) && jeu.briques.has(e.brique_id))
-  return { connues: lignes.length, exemplaires: lignes.reduce((n, e) => n + e.exemplaires, 0) }
+  const detenues = new Set(lignes.map((e) => e.brique_id))
+  const total = briques.filter((b) => b.rarete !== 'legendaire' || detenues.has(b.id)).length
+  return { connues: lignes.length, exemplaires: lignes.reduce((n, e) => n + e.exemplaires, 0), total }
 }
 
 /** Avance d'un sablier : un douzième de la recharge, 1 h en production (`etymo_domaine::sablier::duree`). */

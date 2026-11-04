@@ -244,4 +244,16 @@ describe('tout récupérer', () => {
     expect(screen.getAllByText('✓ Récupérée')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Tout récupérer' })).not.toBeInTheDocument()
   })
+
+  it('ne propose pas « Tout récupérer » pour une seule récompense : sa carte suffit', async () => {
+    const lecteur = lecteurFictif()
+    const manifeste = vi.mocked(lecteur.manifeste)
+    const complet = manifeste.getMockImplementation()
+    manifeste.mockImplementation(async (...args) => ({ ...(await complet!(...args)), jalons: [{ id: JALON, decouvertes: 1, pli: [GEO] }] }))
+    const { api } = client()
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ decouvertes, jalons_atteints: [JALON], jalons_recuperes: [] }))
+    render(<App api={api} catalogue={lecteur} />)
+    expect(await screen.findByRole('button', { name: 'Récupérer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Tout récupérer' })).not.toBeInTheDocument()
+  })
 })

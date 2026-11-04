@@ -77,7 +77,6 @@ function Reinitialisation({ onReinitialiser }: { onReinitialiser: () => Promise<
 export function Reglages({ reglages, onChanger, onReinitialiser, compte, soutien }: Props) {
   return (
     <div className="reglages">
-      {soutien}
       {compte}
       <Choix<Theme>
         nom="theme"
@@ -111,6 +110,8 @@ export function Reglages({ reglages, onChanger, onReinitialiser, compte, soutien
         onChoisir={(retours) => onChanger({ retours })}
       />
       {onReinitialiser && <Reinitialisation onReinitialiser={onReinitialiser} />}
+      {/* Le soutien vient après les réglages du joueur, à côté des autres façons d'aider le projet. */}
+      {soutien}
       <section className="reglage">
         <h2>Suivre le projet</h2>
         <p className="panel-tip">Suivez-nous pour soutenir le jeu et ne rien manquer de son actualité.</p>

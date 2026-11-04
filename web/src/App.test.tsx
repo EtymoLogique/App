@@ -199,7 +199,7 @@ describe('table de fusion', () => {
 
   it('confirme une découverte et ouvre sa carte, la même qu’au codex', async () => {
     const reponse: ReponseFusion = {
-      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
+      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT, gouttes: 2 },
       etat: etat({
         version_etat: 2,
         reserve: [ex(GEO, 1), ex(LOGIE, 0)],
@@ -215,6 +215,8 @@ describe('table de fusion', () => {
     const carte = await screen.findByRole('dialog', { name: 'géologie' })
     expect(carte).toHaveClass('viewer')
     expect(within(carte).getByText('Science de la Terre.')).toBeInTheDocument()
+    // Le gain s'écrit sous la carte, au moment fort.
+    expect(within(carte).getByText('Nouvelle découverte · +2 gouttes d’encre')).toBeInTheDocument()
     expect(within(carte).queryByRole('button', { name: 'Carte suivante' })).not.toBeInTheDocument()
     expect(window.location.hash).not.toMatch(/codex/)
     // Le codex est dans le burger : sa nouveauté se lit sur le bouton Menu.
@@ -377,7 +379,7 @@ describe('table de fusion', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Cabinet/ }))
     expect(window.location.hash).toBe('#/codex?vue=cabinet')
     const badge = screen.getByRole('button', { name: 'Famille de géo-, terre : 0 mot sur 1' })
-    expect(badge).toHaveTextContent('0 / 1')
+    expect(badge).toHaveTextContent('0/1')
     // Le badge mène à la famille, dans la vue Familles.
     fireEvent.click(badge)
     expect(window.location.hash).toBe('#/codex?vue=familles')
@@ -408,7 +410,7 @@ describe('table de fusion', () => {
     )
     render(<App api={api} catalogue={lecteur} />)
     const badge = await screen.findByRole('button', { name: 'Famille de géo-, terre : 1 mot sur 1' })
-    expect(badge).toHaveTextContent('1 / 1')
+    expect(badge).toHaveTextContent('1/1')
     expect(badge.querySelector('circle')).toHaveAttribute('stroke-dasharray', '100 100')
     const cabinet = screen.getByRole('region', { name: 'Votre cabinet' })
     expect(within(cabinet).getByText('Mot au plus long voyage')).toBeInTheDocument()
@@ -501,6 +503,8 @@ describe('table de fusion', () => {
     expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
     expect(await screen.findByText('+1 exemplaire', undefined, { timeout: 8000 })).toBeInTheDocument()
     expect(screen.getByText('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')).toHaveAttribute('role', 'status')
+    // Le gain se lit aussi à l'écran, sous la brique révélée.
+    expect(screen.getByText('+3 gouttes d’encre')).toHaveClass('pk-ink')
     // Le menu « Plis » ramène au choix du fascicule.
     fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
     await waitFor(() => expect(window.location.hash).toBe('#/plis'))
@@ -555,7 +559,7 @@ describe('table de fusion', () => {
     render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
     fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Échanger contre des sabliers' }))
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Six sabliers contre 60 gouttes' })))
     expect(achat).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, nombre: 6 }))
     // Le second envoi part de la version renvoyée par l'achat, sinon le serveur répondrait 409.
@@ -574,7 +578,7 @@ describe('table de fusion', () => {
     render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
     fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Échanger contre des sabliers' }))
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Douze sabliers contre 120 gouttes' })))
     await waitFor(() => expect(emploi).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 2, nombre: 1 })))
     delete document.documentElement.dataset.mouvement

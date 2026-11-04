@@ -61,15 +61,21 @@ export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Pr
           <p className="pk-note">Aucun mot à former avec vos briques pour l’instant. Ouvrez un pli pour en obtenir d’autres.</p>
         ) : (
           <>
+            <p className="pk-note">
+              Un mot que vos briques peuvent déjà former, encore inconnu de votre codex&nbsp;: la carte N°&nbsp;{String(cible.entree.n).padStart(3, '0')}. Chaque indice vous en dit un peu plus.
+            </p>
             <ul className="indices-liste">
-              {INDICES.map(({ niveau, titre }) => {
+              {INDICES.map(({ niveau, titre, aide }) => {
                 const contenu = contenuIndice(jeu, cible.entree, niveau)
                 if (!contenu) return null
                 const cout = prix[niveau - 1]
                 const obtenu = obtenus.has(niveau)
                 return (
                   <li key={niveau} className={obtenu ? 'is-obtenu' : undefined}>
-                    <h3>{titre}</h3>
+                    <h3>
+                      {titre}
+                      <small className="indice-aide">{aide}</small>
+                    </h3>
                     {obtenu ? (
                       <span aria-label="Obtenu">✓</span>
                     ) : (

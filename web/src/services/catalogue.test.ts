@@ -33,6 +33,17 @@ describe('catalogue', () => {
     await expect(lecteur.manifeste(chemin)).resolves.toMatchObject({ numero: 0 })
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"format":1,"numero":1}')))
-    await expect(lecteur.manifeste(chemin)).rejects.toThrow(/Empreinte/)
+    await expect(new LecteurCatalogue(BASE).manifeste(chemin)).rejects.toThrow(/Empreinte/)
+  })
+
+  it('ne télécharge qu’une fois un fichier haché demandé deux fois, et retente après un échec', async () => {
+    const contenu = JSON.stringify({ format: 1, numero: 0 })
+    const chemin = `f/${await sha256(contenu)}.json`
+    const fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 503 })).mockImplementation(() => Promise.resolve(new Response(contenu)))
+    vi.stubGlobal('fetch', fetch)
+    const lecteur = new LecteurCatalogue(BASE)
+    await expect(lecteur.manifeste(chemin)).rejects.toThrow(/illisible/)
+    await Promise.all([lecteur.manifeste(chemin), lecteur.manifeste(chemin)])
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 })
