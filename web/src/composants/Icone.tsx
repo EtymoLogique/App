@@ -85,6 +85,8 @@ const TRACES = {
       <path d="M3 18c2.5 0 3.5-3 5-3s2 3 4 3 2.5-5 2.5-5" />
     </>
   ),
+  // Entonnoir : filtrer et trier une liste.
+  filtre: <path d="M3.5 5h17l-6.5 7.5v6l-4 2v-8z" />,
   coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   cafe: (
     <>

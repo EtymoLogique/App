@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { Etat } from '../contrat'
@@ -69,5 +69,15 @@ describe('Codex et nouveautés', () => {
     codex([], null, new Set([UNITE_GEO]), onVue)
     expect(onVue).toHaveBeenCalledWith(UNITE_GEO)
     expect(document.querySelector(`[data-carte="${UNITE_GEO}"]`)).toHaveClass('is-new')
+  })
+
+  it('le filtre « Nouvelles » ne garde que les cartes nouvelles', () => {
+    codex([], null, new Set([UNITE_GEO]))
+    const cartes = () => Array.from(document.querySelectorAll<HTMLElement>('.cb-grid .mini'), (m) => m.dataset.carte)
+    expect(cartes().length).toBeGreaterThan(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrer et trier' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Nouvelles/ }))
+    expect(cartes()).toEqual([UNITE_GEO])
+    expect(screen.getByRole('button', { name: 'Filtrer et trier : nouvelles' })).toBeInTheDocument()
   })
 })

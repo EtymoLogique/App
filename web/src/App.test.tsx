@@ -335,7 +335,11 @@ describe('table de fusion', () => {
     )
     const { unmount } = render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtrer et trier' }))
     fireEvent.click(await screen.findByRole('button', { name: /^Mots/ }))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Filtrer et trier' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filtrer et trier : Mots' })).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(await screen.findByRole('button', { name: /^géologie, mot/ }))
     await screen.findByRole('dialog', { name: 'géologie' })
     expect(window.location.hash).toBe(`#/codex/${MOT}?type=mot`)
@@ -344,7 +348,7 @@ describe('table de fusion', () => {
     // Rechargement : même onglet, même filtre, même carte ouverte.
     render(<App api={api} catalogue={lecteur} />)
     expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Mots/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Filtrer et trier : Mots' })).toBeInTheDocument()
   })
 
   it('cherche dans le codex parmi les seules cartes découvertes', async () => {
@@ -445,7 +449,9 @@ describe('table de fusion', () => {
   it('replie un groupe de cartes dans le tri par fascicule', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Fascicule' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtrer et trier' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fascicule' }))
+    fireEvent.keyDown(window, { key: 'Escape' })
     const groupe = screen.getByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Replier le groupe/ })
     expect(screen.getByRole('button', { name: /^géo-, préfixe/ })).toBeInTheDocument()
     fireEvent.click(groupe)
@@ -462,6 +468,7 @@ describe('table de fusion', () => {
     const numeros = () => Array.from(document.querySelectorAll('.cb-grid .mini'), (b) => b.getAttribute('aria-label'))
     const avant = numeros()
     expect(avant.length).toBeGreaterThan(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrer et trier' }))
     fireEvent.click(screen.getByRole('button', { name: /^N°, ordre croissant/ }))
     expect(window.location.hash).toBe('#/codex?sens=inverse')
     expect(numeros()).toEqual([...avant].reverse())

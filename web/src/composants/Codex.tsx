@@ -1,4 +1,4 @@
-import { Fragment, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, cloneElement, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
   CERTITUDES,
@@ -33,6 +33,8 @@ import { Filet, Galet } from './Maitrise'
 import { Jaquette, SelecteurFascicules, TitreFascicule } from './Fascicules'
 import { Constellation } from './Constellation'
 import { useDeblocage } from '../services/deblocage'
+import { Icone } from './Icone'
+import { useDialogue } from './useDialogue'
 
 type Tri = TriCodex
 const TRIS: [Tri, string][] = [
@@ -924,6 +926,98 @@ interface Props {
 }
 
 /**
+ * Feuille « Filtrer et trier » du codex : fascicule, nouveautés, type de carte et tri, appliqués aussitôt.
+ * Toucher le tri actif l'inverse, comme avant ; la feuille reste ouverte.
+ */
+function FeuilleFiltres({ fascicules, nouvelles, nbNouvelles, onNouvelles, filtre, ordre, inverse, compter, onFiltre, onOrdre, onFermer }: {
+  /** Sélecteur de fascicule, le même que dans les quêtes. */
+  fascicules: React.ReactNode
+  /** Seulement les cartes nouvelles. */
+  nouvelles: boolean
+  nbNouvelles: number
+  onNouvelles: (seules: boolean) => void
+  filtre: TypeCarte | 'tout'
+  ordre: Tri
+  inverse: boolean
+  compter: (t: TypeCarte | 'tout') => number
+  onFiltre: (f: TypeCarte | 'tout') => void
+  onOrdre: (t: Tri) => void
+  onFermer: () => void
+}) {
+  const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
+  return (
+    <div className="scrim" onClick={fermer}>
+      <div className="scrim-fond" aria-hidden="true" />
+      <section ref={boite} className="dialogue feuille cb-feuille" role="dialog" aria-modal="true" aria-labelledby="filtres-titre" onClick={(e) => e.stopPropagation()}>
+        <h2 id="filtres-titre" className="jk-title">
+          Filtrer <em>et trier</em>
+        </h2>
+        <p className="more-k">Fascicule</p>
+        {fascicules}
+        <p className="more-k">Afficher</p>
+        <div className="cb-filters" role="group" aria-label="Afficher toutes les cartes ou les nouvelles">
+          {([false, true] as const).map((seules) => (
+            <button
+              key={String(seules)}
+              type="button"
+              className="cb-chip"
+              aria-pressed={nouvelles === seules}
+              disabled={seules && !nouvelles && nbNouvelles === 0}
+              onClick={() => onNouvelles(seules)}
+            >
+              <span>{seules ? 'Nouvelles' : 'Toutes'}</span>
+              {seules && <b>{nbNouvelles}</b>}
+            </button>
+          ))}
+        </div>
+        <p className="more-k">Type</p>
+        <div className="cb-filters" role="group" aria-label="Filtrer les cartes par type">
+          {(['tout', ...ORDRE_TYPES] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className="cb-chip"
+              aria-pressed={filtre === t}
+              onClick={() => onFiltre(t)}
+              style={t === 'tout' ? undefined : ({ '--c': (bandeau(t) as Record<string, string>)['--tc'] } as React.CSSProperties)}
+            >
+              {t !== 'tout' && <i />}
+              <span>{t === 'tout' ? 'Tout' : TYPES[t].pluriel}</span>
+              <b>{compter(t)}</b>
+            </button>
+          ))}
+        </div>
+        <p className="more-k">Trier</p>
+        <div className="cb-sort" role="group" aria-label="Trier les cartes">
+          {TRIS.map(([t, libelle]) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={ordre === t}
+              aria-label={ordre === t ? `${libelle}, ordre ${inverse ? 'inverse' : 'croissant'} : toucher pour inverser` : undefined}
+              onClick={() => onOrdre(t)}
+            >
+              {/* L'alphabet dit lui-même son sens : « Z → A » plutôt qu'une flèche de plus. */}
+              {t === 'az' && ordre === t && inverse ? 'Z → A' : libelle}
+              {ordre === t && t !== 'az' && (
+                <span className="cb-sort-dir" aria-hidden="true">
+                  {inverse ? '↑' : '↓'}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="rangee rangee-fin rangee-actions">
+          <button type="button" className="btn btn-secondary" data-focus-initial onClick={fermer}>
+            Fermer
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+/**
  * Codex (I-14, codex.html) : vues Tout, Récentes, Familles et Cabinet (I-30),
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
@@ -939,6 +1033,9 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
   // Toucher le tri actif l'inverse : un double clic sur un autre tri le choisit puis l'inverse.
   const setOrdre = (t: Tri) => onChangerVue(t === ordre ? { inverse: !vue.inverse } : { tri: t, inverse: false }, { remplacer: true })
   const setFascicule = (f: number | 'tous') => onChangerVue({ fascicule: f === 'tous' ? null : f }, { remplacer: true })
+  /** Feuille « Filtrer et trier » ouverte. */
+  const [reglages, setReglages] = useState(false)
+  const fermerReglages = useCallback(() => setReglages(false), [])
   const setOuverte = (id: string | null) => onChangerVue(id ? { carte: id } : { carte: null, plus: false })
   /** Fil d'Ariane : cartes quittées en suivant un lien, de la plus ancienne à la plus récente. */
   const [fil, setFil] = useState<string[]>([])
@@ -967,9 +1064,24 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
   }
   const replie = (e: EntreeCodex) => ordre === 'fasc' && replies.has(e.fascicule)
 
+  // Une carte nouvelle qui paraît à l'écran est vue, sans l'ouvrir : le compteur
+  // de la navigation baisse, son halo reste jusqu'à ce qu'on quitte le codex.
+  const [halos, setHalos] = useState<Set<string>>(() => new Set())
+  if (!actif && halos.size > 0) setHalos(new Set())
+  /** Filtre « Nouvelles » : hors de l'adresse, comme le halo, et oublié en quittant le codex. */
+  const [seulesNouvelles, setSeulesNouvelles] = useState(false)
+  if (!actif && seulesNouvelles) setSeulesNouvelles(false)
+  // Une nouvelle vue à l'écran garde son halo : elle reste dans le filtre jusqu'à ce qu'on quitte le codex.
+  const estNouvelle = (e: EntreeCodex) => nouvelles.has(e.id) || halos.has(e.id)
+
   const dansFascicule = entrees.filter((e) => fascicule === 'tous' || e.fascicule === fascicule)
-  const visibles = dansFascicule.filter((e) => filtre === 'tout' || e.type === filtre).sort(tri(ordre, vue.inverse))
+  const retenues = seulesNouvelles ? dansFascicule.filter(estNouvelle) : dansFascicule
+  const visibles = retenues.filter((e) => filtre === 'tout' || e.type === filtre).sort(tri(ordre, vue.inverse))
   const tout = completude(entrees)
+  // Réglages qui s'écartent du défaut (tous les fascicules et types, par numéro croissant) : comptés sur l'entonnoir.
+  const actifs = Number(fascicule !== 'tous') + Number(seulesNouvelles) + Number(filtre !== 'tout') + Number(ordre !== 'n' || vue.inverse)
+  const choisi = jeu.fascicules.find((f) => f.numero === fascicule)
+  const resume = [choisi && libelleFascicule(choisi), seulesNouvelles && 'nouvelles', filtre !== 'tout' && TYPES[filtre].pluriel].filter(Boolean).join(', ')
   const resultats = rechercher(entrees, recherche)
   const enRecherche = recherche.trim() !== ''
   const dernieres = recentes(entrees)
@@ -1022,10 +1134,6 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
     if (carteOuverte) onVue(carteOuverte.id)
   }, [carteOuverte, onVue])
 
-  // Une carte nouvelle qui paraît à l'écran est vue, sans l'ouvrir : le compteur
-  // de la navigation baisse, son halo reste jusqu'à ce qu'on quitte le codex.
-  const [halos, setHalos] = useState<Set<string>>(() => new Set())
-  if (!actif && halos.size > 0) setHalos(new Set())
   const racine = useRef<HTMLDivElement>(null)
   // Sans tableau de dépendances : la grille change avec la vue, les filtres, le tri et la recherche.
   useEffect(() => {
@@ -1051,7 +1159,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
       const cible = e.target as HTMLElement | null
-      if (e.key !== '/' || cible?.tagName === 'INPUT' || ouverte) return
+      if (e.key !== '/' || cible?.tagName === 'INPUT' || ouverte || reglages) return
       // Écran caché (autre onglet) : la réserve de la table prend le raccourci.
       if (!champ.current || champ.current.closest('[hidden]')) return
       e.preventDefault()
@@ -1059,7 +1167,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
     }
     window.addEventListener('keydown', touche)
     return () => window.removeEventListener('keydown', touche)
-  }, [ouverte])
+  }, [ouverte, reglages])
 
   const mini = (e: EntreeCodex, rangDeplie?: number) => (
     <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id) || halos.has(e.id)} deplie={rangDeplie} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
@@ -1123,6 +1231,35 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
           />
           <kbd aria-hidden="true">{enRecherche ? 'Échap' : '/'}</kbd>
         </label>
+        {/* L'entonnoir ne règle que la grille de la vue Tout. */}
+        {!enRecherche && vue.vue === 'tout' && (
+          <button
+            type="button"
+            className="cb-chip cb-filtrer"
+            aria-expanded={reglages}
+            aria-haspopup="dialog"
+            aria-label={`Filtrer et trier${resume ? ` : ${resume}` : ''}`}
+            onClick={() => setReglages(true)}
+          >
+            <Icone nom="filtre" />
+            {actifs > 0 && <b aria-hidden="true">{actifs}</b>}
+          </button>
+        )}
+        {reglages && (
+          <FeuilleFiltres
+            fascicules={<SelecteurFascicules jeu={jeu} entrees={entrees} actif={fascicule} onChoisir={setFascicule} urlMedia={urlMedia} />}
+            nouvelles={seulesNouvelles}
+            nbNouvelles={dansFascicule.filter(estNouvelle).length}
+            onNouvelles={setSeulesNouvelles}
+            filtre={filtre}
+            ordre={ordre}
+            inverse={vue.inverse}
+            compter={(t) => retenues.filter((e) => t === 'tout' || e.type === t).length}
+            onFiltre={setFiltre}
+            onOrdre={setOrdre}
+            onFermer={fermerReglages}
+          />
+        )}
       </div>
 
       {!enRecherche && (
@@ -1262,48 +1399,6 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true
       ) : (
         <>
           {prochainFascicule(jeu) && <p className="cb-note prochain-fascicule">{prochainFascicule(jeu)}</p>}
-          <SelecteurFascicules jeu={jeu} entrees={entrees} actif={fascicule} onChoisir={setFascicule} urlMedia={urlMedia} />
-
-          <div className="cb-toolbar">
-            <div className="cb-filters" role="group" aria-label="Filtrer les cartes par type">
-              {(['tout', ...ORDRE_TYPES] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="cb-chip"
-                  aria-pressed={filtre === t}
-                  onClick={() => setFiltre(t)}
-                  style={t === 'tout' ? undefined : ({ '--c': (bandeau(t) as Record<string, string>)['--tc'] } as React.CSSProperties)}
-                >
-                  {t !== 'tout' && <i />}
-                  <span>{t === 'tout' ? 'Tout' : TYPES[t].pluriel}</span>
-                  <b>{dansFascicule.filter((e) => t === 'tout' || e.type === t).length}</b>
-                </button>
-              ))}
-            </div>
-            <div className="cb-sort-wrap">
-              <span className="cb-sort-label">Trier</span>
-              <div className="cb-sort" role="group" aria-label="Trier les cartes">
-                {TRIS.map(([t, libelle]) => (
-                  <button
-                    key={t}
-                    type="button"
-                    aria-pressed={ordre === t}
-                    aria-label={ordre === t ? `${libelle}, ordre ${vue.inverse ? 'inverse' : 'croissant'} : toucher pour inverser` : undefined}
-                    onClick={() => setOrdre(t)}
-                  >
-                    {/* L'alphabet dit lui-même son sens : « Z → A » plutôt qu'une flèche de plus. */}
-                    {t === 'az' && ordre === t && vue.inverse ? 'Z → A' : libelle}
-                    {ordre === t && t !== 'az' && (
-                      <span className="cb-sort-dir" aria-hidden="true">
-                        {vue.inverse ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
           <div className="cb-grid">
             {visibles.map((e, i) => {
