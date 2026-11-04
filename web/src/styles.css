@@ -736,6 +736,9 @@ button.disc { font: inherit; cursor: pointer; }
 /* Modale ouverte : la page derrière ne défile plus. */
 :root:has(.scrim) { overflow: hidden; }
 .scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
+/* Clavier virtuel ouvert (services/clavier.ts) : le voile et la boîte se calent sur la partie visible, au-dessus du clavier. */
+:root[data-clavier] .scrim { top: var(--vue-haut, 0px); bottom: auto; height: var(--vue-hauteur, 100%); }
+:root[data-clavier] .scrim .dialogue { max-height: 100%; }
 .scrim-fond { position: absolute; inset: 0; background: rgba(15, 31, 25, 0.5); }
 .scrim .dialogue { position: relative; }
 /* Nouvelle version déployée : plein écran opaque, au-dessus de tout, jeu inaccessible. */
