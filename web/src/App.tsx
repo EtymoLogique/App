@@ -381,6 +381,7 @@ export function App({ api, catalogue }: Props) {
                     onChangerVue={naviguer}
                     urlMedia={(chemin) => catalogue.url(chemin)}
                     lireMedia={lireMedia}
+                    enquetes={enquetes}
                   />
                 </section>
 

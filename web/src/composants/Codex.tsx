@@ -20,6 +20,7 @@ import {
   savoirPlus,
   silhouetteDe,
 } from '../services/codex'
+import type { Enquete } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
 import { NATURES, libelleFascicule, prochainFascicule } from '../services/jeu'
 import type { Route, TriCodex, VueCodex } from '../services/route'
@@ -63,15 +64,30 @@ const VUES: [VueCodex, string][] = [
 type LireMedia = (chemin: string) => Promise<string>
 const LectureMedia = createContext<LireMedia | null>(null)
 
+/** Indices achetés, par carte à trouver (ADR 0051). */
+const IndicesCodex = createContext<ReadonlyMap<string, Enquete['obtenus']>>(new Map())
+
+/**
+ * Ce qu'une carte à trouver montre de ses indices achetés : silhouette, définition, sens littéral.
+ * Seul ce qui a été payé se lit, tel que la feuille des indices l'a montré : jamais `entree.sens`
+ * ni `entree.definition`, qui trahiraient le reste.
+ */
+function useIndices(entree: EntreeCodex) {
+  const obtenus = useContext(IndicesCodex).get(entree.id) ?? []
+  const contenu = (niveau: number) => obtenus.find((o) => o.niveau === niveau)?.contenu
+  return { silhouette: contenu(1)?.silhouette, litteral: contenu(2)?.texte, definition: contenu(3)?.texte }
+}
+
 /**
  * Texture de carte (ADR 0023) : la silhouette, insérée dans la carte pour
  * prendre sa teinte et le fond de ses évidements. Seulement une fois la carte
- * trouvée, pour ne rien trahir.
+ * trouvée ou son indice « Silhouette » acheté, pour ne rien trahir.
  */
 function Texture({ entree }: { entree: EntreeCodex }) {
   const lire = useContext(LectureMedia)
   const hote = useRef<HTMLSpanElement>(null)
-  const chemin = entree.trouvee ? entree.silhouette : null
+  const indice = useIndices(entree).silhouette
+  const chemin = entree.trouvee ? entree.silhouette : (indice ?? null)
   useEffect(() => {
     if (!chemin || !lire) return
     let actif = true
@@ -110,9 +126,10 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
   const affixe = entree.type === 'prefixe' || entree.type === 'suffixe'
   const nbFormes = entree.formes.length
   const trouvees = entree.formes.filter((f) => f.trouvee).length
+  const indices = useIndices(entree)
   const label = entree.trouvee
     ? `${nouvelle ? 'Nouvelle carte : ' : ''}${entree.libelle}, ${type.libelle.toLowerCase()}${entree.sens ? `, « ${entree.sens} »` : ''}, fascicule ${entree.fascicule}, ${trouvees} formes trouvées sur ${nbFormes}${entree.maitrise ? `, ${libelleMaitrise(entree.maitrise).toLowerCase()}` : ''}`
-    : `Carte ${entree.n}, fascicule ${entree.fascicule} : ${type.libelle.toLowerCase()} à découvrir`
+    : `Carte ${entree.n}, fascicule ${entree.fascicule} : ${type.libelle.toLowerCase()} à découvrir${indices.litteral ? `, sens littéral « ${indices.litteral} »` : ''}`
   const classes = ['mini', entree.trouvee ? '' : 'locked', nouvelle && entree.trouvee ? 'is-new' : '', entree.legendaire ? 'is-legend' : '', deplie === undefined ? '' : 'deplie']
     .filter(Boolean)
     .join(' ')
@@ -154,7 +171,9 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
         </>
       ) : (
         <>
+          <Texture entree={entree} />
           <span className="m-q">?</span>
+          {indices.litteral && <span className="m-lit">«&nbsp;{indices.litteral}&nbsp;»</span>}
           <span className="m-foot">{affixe && entree.sens ? `Piste : « ${entree.sens} »` : 'À découvrir'}</span>
         </>
       )}
@@ -295,6 +314,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const fond = useRef<HTMLDivElement>(null)
   const carte = useRef<HTMLDivElement>(null)
   const sortie = useRef(false)
+  const indices = useIndices(entree)
 
   useLayoutEffect(() => {
     if (!zoom) return
@@ -659,7 +679,8 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
               ) : (
                 <>
                   <p className="bf-q">?</p>
-                  <p className="bf-def">Cette carte n’est pas encore découverte.</p>
+                  <p className="bf-def">{indices.definition ?? 'Cette carte n’est pas encore découverte.'}</p>
+                  {indices.litteral && <p className="bf-lit">«&nbsp;{indices.litteral}&nbsp;»</p>}
                   {affixe && entree.sens && <p className="bf-lit">Piste : «&nbsp;{entree.sens}&nbsp;»</p>}
                 </>
               )}
@@ -896,6 +917,8 @@ interface Props {
   urlMedia: (chemin: string) => string
   /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
   lireMedia: LireMedia
+  /** Enquêtes en cours : les cartes à trouver montrent leurs indices achetés. */
+  enquetes?: Enquete[]
 }
 
 /**
@@ -903,7 +926,8 @@ interface Props {
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
  */
-export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
+export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia, enquetes = [] }: Props) {
+  const indices = useMemo(() => new Map(enquetes.map((e) => [e.entree.id, e.obtenus])), [enquetes])
   const filtre = vue.filtre
   const ordre = vue.tri
   const fascicule = vue.fascicule ?? 'tous'
@@ -1019,6 +1043,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
 
   return (
     <LectureMedia.Provider value={lireMedia}>
+    <IndicesCodex.Provider value={indices}>
     <div className="codex-browser">
       <div className="cb-head">
         <div>
@@ -1310,6 +1335,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
         />
       )}
     </div>
+    </IndicesCodex.Provider>
     </LectureMedia.Provider>
   )
 }
