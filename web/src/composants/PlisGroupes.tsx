@@ -25,8 +25,10 @@ interface Props {
   jeu: CatalogueJeu
   /** Nombre de plis ouverts : les plis s'affichent, secoués, avant même la réponse du serveur. */
   nombre: number
-  /** Réponses du serveur, dans l'ordre des tirages ; `null` tant qu'elles n'arrivent pas. */
-  reponses: ReponsePli[] | null
+  /** Réponses du serveur déjà arrivées, dans l'ordre des tirages : chacune lance le rituel de son pli. */
+  reponses: ReponsePli[]
+  /** La série d'appels est finie (complète ou interrompue par une erreur) : plus aucune réponse n'arrivera. */
+  termine: boolean
   raretes: ReadonlyMap<string, Rarete>
   jaquette: string | null | undefined
   nom: string
@@ -43,34 +45,44 @@ interface Props {
  * (charge, plume, retournement, révélation), les départs décalés de 0,11 s ; la brique prend la place de son pli.
  * Une rare ou une légendaire a sa plume et ses rayons violets dès l'écriture, et une écriture plus longue.
  */
-export function PlisGroupes({ jeu, nombre, reponses, raretes, jaquette, nom, urlMedia, passer, onEssayer, onFin }: Props) {
+export function PlisGroupes({ jeu, nombre, reponses, termine, raretes, jaquette, nom, urlMedia, passer, onEssayer, onFin }: Props) {
   const [cellules, setCellules] = useState<CelluleEtat[]>(() => Array.from({ length: nombre }, () => ({ classe: 'pk-charging', lignes: [], revele: false })))
-  const [fini, setFini] = useState(false)
-  // Valeurs lues par la séquence sans la relancer : seule l'arrivée des réponses la déclenche.
+  const [reveles, setReveles] = useState(0)
+  /** La série est close et chaque pli ouvert est révélé. */
+  const fini = termine && reveles >= reponses.length
+  // Valeurs lues par la séquence sans la relancer : seule l'arrivée d'une réponse lance le rituel de son pli.
   const courant = useRef({ jeu, raretes, onFin })
   useEffect(() => {
     courant.current = { jeu, raretes, onFin }
   })
+  /** Les plis se secouent depuis l'envoi de la première requête, au montage. */
+  const debut = useRef(0)
+  const lances = useRef(0)
+  const vivant = useRef(true)
+  useEffect(() => {
+    vivant.current = true
+    debut.current = performance.now()
+    return () => {
+      vivant.current = false
+    }
+  }, [])
 
   useEffect(() => {
-    if (!reponses) return
-    let vivant = true
-    const pause = (ms: number) => (passer.current || mouvementReduit() || !vivant ? Promise.resolve() : new Promise<void>((fin) => setTimeout(fin, ms)))
+    const pause = (ms: number) => (passer.current || mouvementReduit() || !vivant.current ? Promise.resolve() : new Promise<void>((fin) => setTimeout(fin, ms)))
     const interrompu = () => passer.current || mouvementReduit()
     const maj = (i: number, f: (c: CelluleEtat) => CelluleEtat) => {
-      if (vivant) setCellules((cs) => cs.map((c, k) => (k === i ? f(c) : c)))
+      if (vivant.current) setCellules((cs) => cs.map((c, k) => (k === i ? f(c) : c)))
     }
-    const taille = tailleGroupe(reponses.length)
-    let restants = reponses.length
+    const taille = tailleGroupe(nombre)
     const jouer = async (i: number, reponse: ReponsePli) => {
       const id = reponse.ouverture.brique_id
-      const { jeu, raretes, onFin } = courant.current
+      const { jeu, raretes } = courant.current
       const rarete = raretes.get(id)
       const haute = rarete === 'rare' || rarete === 'legendaire'
       const anticipe = haute ? ' pk-anticipe' : ''
-      // Le pli se secoue déjà depuis l'envoi ; son départ suit celui du pli d'avant, 0,11 s plus tard.
-      await pause(departCanon(i) + 250)
-      if (!vivant) return
+      // Le pli se secoue déjà depuis l'envoi ; il part dès sa réponse, au plus tôt 0,11 s après le pli d'avant.
+      await pause(debut.current + departCanon(i) + 250 - performance.now())
+      if (!vivant.current) return
       maj(i, (c) => ({ ...c, classe: `pk-writing${anticipe}` }))
       await ecrireRituel({ jeu, briqueId: id, majLignes: (f) => maj(i, (c) => ({ ...c, lignes: typeof f === 'function' ? f(c.lignes) : f })), pause, interrompu, court: !haute, brouillonsMax: taille === 'p' && !haute ? 1 : undefined })
       // Une rare s'écrit plus longtemps : la plume vire au violet et laisse le temps de l'attendre.
@@ -78,22 +90,22 @@ export function PlisGroupes({ jeu, nombre, reponses, raretes, jaquette, nom, url
       maj(i, (c) => ({ ...c, classe: `pk-flip${anticipe}` }))
       await pause(420)
       maj(i, () => ({ classe: 'pk-burst pk-revealed', lignes: [], revele: true }))
-      if (!vivant) return
+      if (!vivant.current) return
       if (rarete === 'legendaire') accordLegendaire()
-      restants -= 1
-      if (restants === 0) {
-        setFini(true)
-        vibrer(20)
-        onFin()
-      }
+      setReveles((n) => n + 1)
     }
-    void Promise.all(reponses.map((r, i) => jouer(i, r)))
-    return () => {
-      vivant = false
-    }
-  }, [reponses, passer])
+    const depuis = lances.current
+    reponses.slice(depuis).forEach((r, k) => void jouer(depuis + k, r))
+    lances.current = Math.max(depuis, reponses.length)
+  }, [reponses, nombre, passer])
 
-  const meilleure = reponses ? rareteMax(reponses.map((r) => raretes.get(r.ouverture.brique_id) ?? 'commune')) : 'commune'
+  useEffect(() => {
+    if (!fini) return
+    vibrer(20)
+    courant.current.onFin()
+  }, [fini])
+
+  const meilleure = rareteMax(reponses.map((r) => raretes.get(r.ouverture.brique_id) ?? 'commune'))
   const annonce = fini ? ANNONCES[meilleure] : undefined
   const ecriture = cellules.some((c) => c.classe.includes('pk-writing'))
   const anticipe = cellules.some((c) => c.classe.includes('pk-anticipe'))
@@ -112,15 +124,15 @@ export function PlisGroupes({ jeu, nombre, reponses, raretes, jaquette, nom, url
       </p>
       <ul className="pkg-grille" aria-label={`${nombre} plis du fascicule ${nom}`}>
         {/* Moins de plis que prévu (série interrompue) : seuls ceux qui sont ouverts restent. */}
-        {(reponses ? cellules.slice(0, reponses.length) : cellules).map((c, i) => {
-          const o = reponses?.[i]?.ouverture
+        {(termine ? cellules.slice(0, reponses.length) : cellules).map((c, i) => {
+          const o = reponses[i]?.ouverture
           return (
             <Cellule
               key={i}
               cellule={c}
               jeu={jeu}
               ouverture={o}
-              exemplaires={reponses?.[i]?.exemplaires}
+              exemplaires={reponses[i]?.exemplaires}
               rarete={o ? raretes.get(o.brique_id) : undefined}
               jaquette={jaquette}
               urlMedia={urlMedia}

@@ -276,14 +276,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
   /**
    * Ouvre plusieurs plis du même fascicule, un appel à `/pli` après l'autre, chacun sur l'état renvoyé par le précédent
    * (ouverture groupée). Une erreur arrête la série : les plis déjà ouverts sont rendus avec elle, jamais un faux succès.
+   * `surReponse` reçoit les réponses déjà arrivées après chaque appel, pour que le rituel de chaque pli parte sans attendre la série.
    */
   const ouvrirPlis = useCallback(
-    async (fascicule: string, nombre: number): Promise<{ reponses: ReponsePli[]; erreur?: string }> => {
+    async (fascicule: string, nombre: number, surReponse?: (reponses: ReponsePli[]) => void): Promise<{ reponses: ReponsePli[]; erreur?: string }> => {
       const reponses: ReponsePli[] = []
       for (let i = 0; i < nombre; i++) {
         const reponse = await ouvrirPli(fascicule)
         if ('erreur' in reponse) return { reponses, erreur: reponse.erreur }
         reponses.push(reponse)
+        surReponse?.([...reponses])
       }
       return { reponses }
     },

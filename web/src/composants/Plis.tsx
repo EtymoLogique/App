@@ -191,7 +191,7 @@ interface Props {
   onChoisir: (fascicule: string | null) => void
   ouvrirPli: (fascicule: string) => Promise<ReponsePli | { erreur: string }>
   /** Ouvre `nombre` plis d'affilée, chacun sur l'état renvoyé par le précédent ; une erreur arrête la série. */
-  ouvrirPlis: (fascicule: string, nombre: number) => Promise<{ reponses: ReponsePli[]; erreur?: string }>
+  ouvrirPlis: (fascicule: string, nombre: number, surReponse?: (reponses: ReponsePli[]) => void) => Promise<{ reponses: ReponsePli[]; erreur?: string }>
   utiliserSabliers: (nombre: number) => Promise<ReponseSablier | { erreur: string }>
   acheterEtAvancer: (nombre: number) => Promise<ReponseSablier | ReponseAchatSablier | { erreur: string }>
   /** Brique découverte à poser sur la table. */
@@ -358,8 +358,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [reponse, setReponse] = useState<ReponsePli | null>(null)
   const [statut, setStatut] = useState('')
-  /** Ouverture groupée en cours ou terminée : les plis s'affichent avant les réponses (`reponses: null`). */
-  const [groupe, setGroupe] = useState<{ nombre: number; reponses: ReponsePli[] | null } | null>(null)
+  /** Ouverture groupée : les plis s'affichent avant les réponses, qui arrivent une à une ; `termine` quand la série s'arrête. */
+  const [groupe, setGroupe] = useState<{ nombre: number; reponses: ReponsePli[]; termine: boolean } | null>(null)
   const bilanGroupe = useRef<{ reponses: ReponsePli[]; erreur?: string }>({ reponses: [] })
   /** Le bouton « Continuer » prend le focus dès qu'il apparaît, sans le reprendre aux rendus suivants. */
   const focaliserContinuer = useCallback((el: HTMLButtonElement | null) => el?.focus({ preventScroll: true }), [])
@@ -427,7 +427,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
   }, [pret, ouvrirPli, fascicule, jeu, etat, briques, pause, onGeler])
   /**
    * Ouverture groupée (ADR « ouverture groupée ») : un appel à `/pli` par charge prête, l'un après l'autre. Les plis
-   * se secouent pendant ce temps ; le rituel de chacun (PlisGroupes) ne démarre qu'avec les réponses du serveur.
+   * se secouent pendant ce temps ; le rituel de chacun (PlisGroupes) démarre dès la réponse du serveur qui le concerne.
    */
   const ouvrirTout = useCallback(async () => {
     const nombre = Math.min(energie.charges, energie.capacite)
@@ -441,8 +441,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
     onGeler(true)
     setTeteGelee(teteReelle.current)
     setEtatGele(etat)
-    setGroupe({ nombre, reponses: null })
-    const resultat = await ouvrirPlis(fascicule.manifeste.id, nombre)
+    setGroupe({ nombre, reponses: [], termine: false })
+    const resultat = await ouvrirPlis(fascicule.manifeste.id, nombre, (reponses) => setGroupe({ nombre, reponses, termine: false }))
     if (resultat.reponses.length === 0) {
       onGeler(false)
       setTeteGelee(undefined)
@@ -454,7 +454,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
       return
     }
     bilanGroupe.current = resultat
-    setGroupe({ nombre, reponses: resultat.reponses })
+    setGroupe({ nombre, reponses: resultat.reponses, termine: true })
   }, [energie.charges, energie.capacite, pret, ouvrirPlis, fascicule, etat, onGeler])
   /** Tous les plis sont révélés : l'encre, les nouveautés et l'historique arrivent d'un bloc, avec le bilan. */
   const finGroupe = useCallback(() => {
@@ -593,7 +593,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, ouvrirPlis, raccou
             </div>
             <div className="pk-flash" aria-hidden="true" />
             {groupe ? (
-              <PlisGroupes jeu={jeu} nombre={groupe.nombre} reponses={groupe.reponses} raretes={raretes} jaquette={fascicule.manifeste.jaquette} nom={nom} urlMedia={urlMedia} passer={passer} onEssayer={onEssayer} onFin={finGroupe} />
+              <PlisGroupes jeu={jeu} nombre={groupe.nombre} reponses={groupe.reponses} termine={groupe.termine} raretes={raretes} jaquette={fascicule.manifeste.jaquette} nom={nom} urlMedia={urlMedia} passer={passer} onEssayer={onEssayer} onFin={finGroupe} />
             ) : (
               etape !== 'revealed' && (
               <button type="button" className="pk-pack" aria-label={`Ouvrir le pli du fascicule ${nom}`} disabled={!enLigne || !pret || etape !== 'ready'} onClick={() => void ouvrir()}>
