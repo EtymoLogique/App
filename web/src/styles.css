@@ -612,6 +612,8 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .dialogue { animation: sobre var(--dur-rapide) var(--ease-out); }
   /* Réserve : elle monte sans pivoter. */
   :root:not([data-mouvement="reduit"]) .dialogue.reserve-modale { animation: bump 0.25s var(--ease-out); }
+  /* Croix de la réserve défilée : elle apparaît en se resserrant, sans pivoter. */
+  :root:not([data-mouvement="reduit"]) .rm-fermer { animation: fondu var(--dur-instant) linear, contracte var(--dur-rapide) var(--ease-ressort); }
   /* Indice : elle s'affiche sans animation. */
   :root:not([data-mouvement="reduit"]) .dialogue.indices { animation: none; }
   /* Mobile : toute modale monte depuis le bas, le voile se lève ; elle redescend à la fermeture (useDialogue.ts). */
@@ -736,6 +738,9 @@ button.disc { font: inherit; cursor: pointer; }
 /* Modale ouverte : la page derrière ne défile plus. */
 :root:has(.scrim) { overflow: hidden; }
 .scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
+/* Clavier virtuel ouvert (services/clavier.ts) : le voile et la boîte se calent sur la partie visible, au-dessus du clavier. */
+:root[data-clavier] .scrim { top: var(--vue-haut, 0px); bottom: auto; height: var(--vue-hauteur, 100%); }
+:root[data-clavier] .scrim .dialogue { max-height: 100%; }
 .scrim-fond { position: absolute; inset: 0; background: rgba(15, 31, 25, 0.5); }
 .scrim .dialogue { position: relative; }
 /* Nouvelle version déployée : plein écran opaque, au-dessus de tout, jeu inaccessible. */
@@ -780,6 +785,9 @@ button.disc { font: inherit; cursor: pointer; }
   margin: 0 -24px; padding: 12px 24px 14px;
   border-bottom: 1px solid var(--line); background: var(--cream);
 }
+/* Réserve défilée : l'en-tête est sorti de la vue, « Fermer » devient une croix ronde en haut à droite de la table. */
+.rm-fermer { position: absolute; top: 10px; right: 16px; background: var(--cream); }
+.rm-table.defile .rm-consigne { padding-inline: 48px; text-align: center; }
 .rm-titre { display: grid; }
 .rm-compte { color: var(--ink-2); font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
 .rm-consigne { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; }

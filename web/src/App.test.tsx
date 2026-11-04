@@ -148,6 +148,19 @@ describe('table de fusion', () => {
     expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
   })
 
+  it('remplace « Fermer » par une croix ronde une fois la réserve défilée', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    const r = await reserve()
+    expect(within(r).getAllByRole('button', { name: 'Fermer' })).toHaveLength(1)
+    // jsdom ne met rien en page : l'en-tête mesure 0 px, tout défilement le fait sortir de la vue.
+    r.scrollTop = 120
+    fireEvent.scroll(r)
+    const croix = within(r).getAllByRole('button', { name: 'Fermer' }).find((b) => b.classList.contains('rm-fermer'))
+    expect(croix).toBeDefined()
+    fireEvent.click(croix as HTMLElement)
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+  })
+
   it('garde le focus dans la modale', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     const r = await reserve()

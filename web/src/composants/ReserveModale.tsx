@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useLayoutEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import { mouvementReduit } from '../services/animation'
 import type { BriqueJeu } from '../services/jeu'
 import { Brique } from './Brique'
+import { Icone } from './Icone'
 import { Reserve, TYPE_GLISSE } from './Reserve'
 import { useDialogue } from './useDialogue'
 
@@ -175,23 +176,36 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
   const consigne = complete || cible < 0 ? 'La table est prête' : `Choisissez la ${ordinal(cible)} brique`
   // Toujours une ligne d'aide, pour que la feuille ne change pas de hauteur à la première pose.
   const aide = posees.length > 0 ? 'Touchez une brique posée pour la retirer.' : 'L’ordre compte : la case 1 ouvre le mot.'
+  const libelleFermer = posees.length > 0 ? 'Retour à la table' : 'Fermer'
+  // Une fois l'en-tête sorti de la vue, « Fermer » devient un bouton rond, posé sur la table qui reste en haut.
+  const entete = useRef<HTMLDivElement>(null)
+  const [defile, setDefile] = useState(false)
+  const suivreDefilement = (e: React.UIEvent<HTMLElement>) => {
+    const haut = entete.current
+    setDefile(haut !== null && e.currentTarget.scrollTop >= haut.offsetTop + haut.offsetHeight)
+  }
 
   return (
     <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section ref={boite} className="dialogue feuille reserve-modale" role="dialog" aria-modal="true" aria-label={`Réserve · ${compte}`} onClick={(e) => e.stopPropagation()}>
-        <div className="rangee rangee-ecartee">
+      <section ref={boite} className="dialogue feuille reserve-modale" role="dialog" aria-modal="true" aria-label={`Réserve · ${compte}`} onClick={(e) => e.stopPropagation()} onScroll={suivreDefilement}>
+        <div ref={entete} className="rangee rangee-ecartee">
           {/* Le compte passe sous le titre : l'en-tête garde sa hauteur quand « Fermer » devient « Retour à la table ». */}
           <h2 className="jk-title rm-titre">
             Réserve
             <span className="rm-compte">{compte}</span>
           </h2>
           <button type="button" data-focus-initial className="btn btn-secondary" onClick={fermer}>
-            {posees.length > 0 ? 'Retour à la table' : 'Fermer'}
+            {libelleFermer}
           </button>
         </div>
 
-        <div className="rm-table">
+        <div className={defile ? 'rm-table defile' : 'rm-table'}>
+          {defile && (
+            <button type="button" className="btn-icone rm-fermer" aria-label={libelleFermer} onClick={fermer}>
+              <Icone nom="fermer" />
+            </button>
+          )}
           <p className="rm-consigne" aria-hidden="true">
             {consigne}
           </p>
