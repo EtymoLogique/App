@@ -582,7 +582,52 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
   }
   const energiePleine = etat ? etat.energie.charges >= etat.energie.capacite : false
   const aller = (d: Destination) => onChangerVue(d === 'journalieres' ? { quete: 'journalieres' } : { onglet: d })
-  const inactifIci = inactif ?? (etat ? null : 'Votre partie n’est pas encore chargée.')
+  const [toutEnCours, setToutEnCours] = useState(false)
+  const [bilan, setBilan] = useState<{ onglet: OngletQuetes; texte: string; ton: 'win' | 'fail' } | null>(null)
+  const inactifIci = inactif ?? (etat ? null : 'Votre partie n’est pas encore chargée.') ?? (toutEnCours ? 'Récupération en cours…' : null)
+
+  // « Tout récupérer » : les récompenses de l'onglet affiché, avec les mêmes garde-fous que leurs cartes.
+  // Une quête initiale qui donne des plis attend le fascicule choisi sur sa carte : elle garde son bouton.
+  const visibles = new Set(affichees.map((f) => f.numero))
+  const recuperables: (() => Promise<{ etat: Etat } | { erreur: string }>)[] =
+    onglet === 'journalieres'
+      ? [
+          ...(etat?.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? [recupererCadeau] : []),
+          ...(energiePleine ? [] : Array.from({ length: etat?.carte_de_lecteur?.a_recuperer ?? 0 }, () => recupererCarte)),
+          ...(etat?.quetes_du_jour ?? [])
+            .filter((q) => q.jour && q.recompense && q.faite && !q.recuperee && !(energiePleine && q.recompense.plis > 0))
+            .map((q) => () => recupererQueteDuJour(q.jour!, q.rang)),
+        ]
+      : onglet === 'ponctuelles'
+        ? (etat?.quetes_initiales ?? [])
+            .filter((q) => q.faite && !q.recuperee && q.recompense.plis_offerts + q.recompense.plis_de_lecteur === 0)
+            .map((q) => () => recupererQueteInitiale(q.code, null))
+        : onglet === 'fascicules'
+          ? [
+              ...aRecuperer.filter((q) => visibles.has(q.fascicule.numero)).map((q) => () => recuperer(q.jalon.id)),
+              ...collectionsARecuperer.filter((q) => visibles.has(q.fascicule.numero)).map((q) => () => recupererPalier(q.collection.id)),
+            ]
+          : longues.flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').map((p) => () => recupererPalier(p.palier.id))
+
+  /** Une commande après l'autre, chacune sur l'état renvoyé par la précédente ; une erreur arrête la série. */
+  const toutRecuperer = async () => {
+    fixerOnglet()
+    setToutEnCours(true)
+    setBilan(null)
+    let faites = 0
+    let erreur: string | null = null
+    for (const commande of recuperables) {
+      const reponse = await commande()
+      if ('erreur' in reponse) {
+        erreur = reponse.erreur
+        break
+      }
+      faites++
+    }
+    setToutEnCours(false)
+    const recues = `${pluriel(faites, 'récompense')} récupérée${faites > 1 ? 's' : ''}`
+    setBilan(erreur ? { onglet, texte: faites > 0 ? `${recues}, puis : ${erreur}` : erreur, ton: 'fail' } : { onglet, texte: `${recues}.`, ton: 'win' })
+  }
 
   return (
     <div className="quetes">
@@ -598,6 +643,21 @@ export function Quetes({ jeu, etat, entrees, vue, onChangerVue, urlMedia, recupe
           </button>
         ))}
       </div>
+
+      {(recuperables.length > 0 || toutEnCours || bilan?.onglet === onglet) && (
+        <div className="quetes-tout">
+          {(recuperables.length > 0 || toutEnCours) && (
+            <button type="button" className="btn btn-primary btn-s" onClick={() => void toutRecuperer()} disabled={inactifIci !== null} title={toutEnCours ? undefined : (inactifIci ?? undefined)}>
+              {toutEnCours ? 'Récupération…' : 'Tout récupérer'}
+            </button>
+          )}
+          {bilan?.onglet === onglet && (
+            <p className="feedback" data-tone={bilan.ton} role="status">
+              {bilan.texte}
+            </p>
+          )}
+        </div>
+      )}
 
       {onglet === 'ponctuelles' && (etat?.quetes_initiales ?? []).length > 0 && (
         <QuetesInitiales quetes={etat?.quetes_initiales ?? []} jeu={jeu} inactif={inactifIci} recuperer={recupererInitialeIci} onAller={aller} />

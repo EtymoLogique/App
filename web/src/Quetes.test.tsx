@@ -211,3 +211,37 @@ describe('quêtes', () => {
     expect(screen.getByText('✓ Récupérée')).toBeInTheDocument()
   })
 })
+
+describe('tout récupérer', () => {
+  beforeEach(async () => {
+    await effacerPartie()
+    history.replaceState(null, '', '/#/quetes/fascicules')
+  })
+
+  it('enchaîne les récompenses de l’onglet, chacune sur l’état renvoyé par la précédente', async () => {
+    const JALON_2 = 'jal_0000000b'
+    const lecteur = lecteurFictif()
+    const manifeste = vi.mocked(lecteur.manifeste)
+    const complet = manifeste.getMockImplementation()
+    manifeste.mockImplementation(async (...args) => ({
+      ...(await complet!(...args)),
+      jalons: [
+        { id: JALON, decouvertes: 1, pli: [GEO] },
+        { id: JALON_2, decouvertes: 1, sabliers: 1 },
+      ],
+    }))
+    const deux = etat({ decouvertes, jalons_atteints: [JALON, JALON_2], jalons_recuperes: [] })
+    const { api, jalon } = client()
+    vi.spyOn(api, 'etat').mockResolvedValue(deux)
+    jalon
+      .mockResolvedValueOnce({ etat: { ...deux, version_etat: 2, jalons_recuperes: [JALON] } })
+      .mockResolvedValueOnce({ etat: { ...deux, version_etat: 3, jalons_recuperes: [JALON, JALON_2] } })
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Tout récupérer' }))
+    expect(await screen.findByText('2 récompenses récupérées.')).toBeInTheDocument()
+    expect(jalon).toHaveBeenNthCalledWith(1, expect.objectContaining({ jalon_id: JALON, version_etat: 1 }))
+    expect(jalon).toHaveBeenNthCalledWith(2, expect.objectContaining({ jalon_id: JALON_2, version_etat: 2 }))
+    expect(screen.getAllByText('✓ Récupérée')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Tout récupérer' })).not.toBeInTheDocument()
+  })
+})

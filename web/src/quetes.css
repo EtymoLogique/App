@@ -14,6 +14,8 @@
 }
 
 .quetes-intro { max-width: 70ch; }
+.quetes-tout { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0 22px; }
+.quetes-tout .feedback { margin: 0; }
 .quetes-bientot { margin-top: 8px; }
 .quetes-ill {
   display: grid; place-items: center; width: 56px; height: 56px;

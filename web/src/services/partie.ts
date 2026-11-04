@@ -299,7 +299,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       if (!enLigne) return { erreur: HORS_LIGNE }
       if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
       try {
-        const reponse = await envoyer(etat, jeu.valeur.version)
+        // Dernier état confirmé : une commande enchaînée sur une autre (« Tout récupérer ») part de la version qu'elle a renvoyée.
+        const reponse = await envoyer(etatCourant.current ?? etat, jeu.valeur.version)
         confirmer(reponse.etat)
         return reponse
       } catch (e) {
