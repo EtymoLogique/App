@@ -95,6 +95,8 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
   // Dernière brique touchée : sa pastille rebondit ; dernière case remplie : sa brique y vole depuis la réserve.
   const [touchee, setTouchee] = useState<{ brique: string; rang: number; cle: number; sens: 'plus' | 'moins'; depuis?: DOMRect } | null>(null)
   const [complete, setComplete] = useState(false)
+  // Mémoire des essais au moment où la table se complète : elle reste figée jusqu'à la fermeture, comme la zone.
+  const [memoireFigee, setMemoireFigee] = useState<{ posee: string; raison: (brique: string) => string | null } | null>(null)
   /** Case survolée par une brique glissée. */
   const [survol, setSurvol] = useState<number | null>(null)
 
@@ -146,6 +148,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setZone(suivante < 0 || zone === null ? zone : suivante)
     if (suivante < 0) {
       setAnnonce(`${libelle(brique)} posée en case ${visee + 1}. La table est prête : fusionnez.`)
+      setMemoireFigee(memoire)
       setComplete(true)
       onComplete()
     } else {
@@ -167,8 +170,10 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
 
   // Une brique sur la table, une case à remplir : la réserve range à part ce qui a déjà été essayé avec elle.
   const posee = posees.length === 1 ? posees[0] : undefined
-  const memoire =
-    raisonEssai && posee !== undefined && !complete && cible >= 0
+  // Table complète : la mémoire reste figée jusqu'à la fermeture, sinon la liste repasse à toutes les briques avant le vol.
+  const memoire = complete
+    ? memoireFigee
+    : raisonEssai && posee !== undefined && cible >= 0
       ? { posee, raison: (b: string) => raisonEssai(cible === 0 ? [b, posee] : [posee, b]) }
       : null
 
