@@ -236,7 +236,7 @@ describe('table de fusion', () => {
   })
 
   it('relie les cartes du codex qui se font référence, avec un fil d’Ariane', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = client()
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )
@@ -333,7 +333,7 @@ describe('table de fusion', () => {
   })
 
   it('dit quand aucun mot n’est plus possible, et mène aux plis', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = client()
     vi.spyOn(api, 'etat').mockResolvedValue(etat({ reserve: [ex(GEO, 2), ex(LOGIE, 0)] }))
     render(<App api={api} catalogue={lecteur} />)
     expect(await screen.findByText('Aucun mot possible pour l’instant')).toBeInTheDocument()
@@ -352,7 +352,7 @@ describe('table de fusion', () => {
   })
 
   it('revient au même écran après un rechargement', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = client()
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )
@@ -408,7 +408,7 @@ describe('table de fusion', () => {
 
   it('montre le cabinet du joueur : ses nombres seuls, sans total des légendaires', async () => {
     window.location.hash = '#/codex?vue=objectifs'
-    const api = new ClientApi('https://api.exemple.test')
+    const api = client()
     vi.spyOn(api, 'etat').mockResolvedValue(etat({ jours_de_jeu: 12 }))
     render(<App api={api} catalogue={lecteur} />)
     // Une ancienne adresse « Objectifs » ouvre le cabinet.
@@ -425,7 +425,7 @@ describe('table de fusion', () => {
 
   it('joint les segments d’une famille complète et montre le mot au plus long voyage', async () => {
     window.location.hash = '#/codex?vue=cabinet'
-    const api = new ClientApi('https://api.exemple.test')
+    const api = client()
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )
@@ -441,7 +441,7 @@ describe('table de fusion', () => {
   })
 
   it('ouvre « En savoir plus » depuis la carte vue au codex, jusque dans l’adresse', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = client()
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )

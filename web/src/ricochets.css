@@ -245,3 +245,14 @@
 .rico-lecon-assemblage { line-height: 1.8; }
 .rico-autres { margin: 8px 0 0; color: var(--ink-2); }
 .rico-decoupes-faites { display: grid; justify-items: center; gap: 12px; }
+
+/*
+ * Mobile, à une main : l'énoncé reste en haut, la zone de réponse descend vers le pouce, juste au-dessus du pied et de la navigation.
+ * La séance remplit la hauteur visible ; la zone de réponse (choix, paires, assemblage, lame de Découper) prend le bas du corps.
+ */
+@media (max-width: 760px) {
+  .rico-seance { grid-template-rows: auto 1fr auto; min-height: calc(100dvh - var(--hauteur-navigation, 104px) - 150px); }
+  .rico-corps { display: flex; flex-direction: column; }
+  .rico-corps > :is(.rico-choix, .rico-paires, .rico-assembler, .rico-zone) { margin-top: auto; }
+  /* Le verdict suit les réponses : il pousse la zone vers le haut plutôt que de sortir de l'écran. */
+}
