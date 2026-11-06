@@ -135,6 +135,10 @@ pub struct MotRicochet {
     /// vide : le mot ne s'assemble pas (ADR 0067).
     #[serde(default)]
     pub assemblage: Vec<IdCatalogue>,
+    /// Autres découpes tout aussi justes (lettre partagée entre deux morceaux :
+    /// « hom|onyme » et « homo|nyme »), chacune une liste de positions triée.
+    #[serde(default)]
+    pub coupes_alternatives: Vec<Vec<u32>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

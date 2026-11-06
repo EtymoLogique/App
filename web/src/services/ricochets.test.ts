@@ -9,7 +9,7 @@ const d: DonneesRicochets = {
     ['brq_3', { sens: 'sns_3', classe: 'sns_1', position: null }],
   ]),
   mots: new Map([
-    ['unt_1', { classe: 'unt_1', coupes: [3], assemblage: ['brq_1', 'brq_2'] }],
+    ['unt_1', { classe: 'unt_1', coupes: [3], assemblage: ['brq_1', 'brq_2'], alternatives: [[4]] }],
     ['unt_2', { classe: 'unt_1', coupes: [], assemblage: [] }],
     ['unt_3', { classe: null, coupes: [], assemblage: [] }],
   ]),
@@ -32,6 +32,7 @@ describe('juger', () => {
   it('découper : l’ordre et les doublons ne comptent pas', () => {
     expect(juger(d, 'decouper', 'unt_1', [3, 3])).toBe(true)
     expect(juger(d, 'decouper', 'unt_1', [2])).toBe(false)
+    expect(juger(d, 'decouper', 'unt_1', [4])).toBe(true)
     expect(juger(d, 'decouper', 'unt_2', [1])).toBeNull()
   })
   it('assembler : la paire exacte, préfixe puis suffixe', () => {

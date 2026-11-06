@@ -4024,6 +4024,18 @@
             },
             "description": "Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas."
           },
+          "coupes_alternatives": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            },
+            "description": "Autres découpes tout aussi justes (lettre partagée entre deux morceaux :\n« hom|onyme » et « homo|nyme »), chacune une liste de positions triée."
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           }
