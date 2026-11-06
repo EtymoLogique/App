@@ -64,17 +64,36 @@ impl FromRequestParts<Arc<EtatApp>> for Joueur {
         parts: &mut Parts,
         etat: &Arc<EtatApp>,
     ) -> Result<Self, Self::Rejection> {
+        let session = Session::from_request_parts(parts, etat).await?;
+        Ok(Self(session.joueur))
+    }
+}
+
+/// Joueur et appareil de la session (ADR 0070) : les routes du compte
+/// agissent sur l'appareil qui appelle.
+pub struct Session {
+    pub joueur: Uuid,
+    pub appareil: Uuid,
+}
+
+impl FromRequestParts<Arc<EtatApp>> for Session {
+    type Rejection = ErreurApi;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        etat: &Arc<EtatApp>,
+    ) -> Result<Self, Self::Rejection> {
         let jeton = parts
             .headers
             .get(header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
             .ok_or(ErreurApi::NonAuthentifie)?;
-        let joueur = etat
+        let (joueur, appareil) = etat
             .signataire
-            .verifier(jeton, Utc::now())
+            .verifier_appareil(jeton, Utc::now())
             .ok_or(ErreurApi::NonAuthentifie)?;
         debit::verifier(&etat.limiteurs.par_profil, &joueur)?;
-        Ok(Self(joueur))
+        Ok(Self { joueur, appareil })
     }
 }

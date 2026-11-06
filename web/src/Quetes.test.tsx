@@ -79,11 +79,117 @@ describe('quêtes', () => {
     expect(within(navigation).queryAllByLabelText(/récompense.* à récupérer/)).toHaveLength(0)
   })
 
-  it('annonce les quêtes journalières à venir', async () => {
+  it('liste les quêtes du jour tirées par le serveur', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    vi.spyOn(api, 'etat').mockResolvedValue({
+      ...atteint,
+      quetes_du_jour: [
+        { rang: 0, sorte: 'table', code: 'table_sens', mot_id: MOT, cible: 1, progres: 0, faite: false },
+        { rang: 1, sorte: 'memoire', code: 'memoire_sans_faute', cible: 5, progres: 5, faite: true },
+        { rang: 2, sorte: 'adresse', code: 'adresse_paires', cible: 4, progres: 2, faite: false },
+      ],
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('Cinq ricochets sans faute.')).toBeInTheDocument()
+    expect(screen.getByText('✓ Faite')).toBeInTheDocument()
+    expect(screen.getByText('2 / 4')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aller à la table' })).toBeInTheDocument()
+    expect(screen.queryByText('Bientôt disponibles')).not.toBeInTheDocument()
+  })
+
+  it('récupère la récompense d’une quête du jour faite, même celle de la veille', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const recompense = { gouttes: 0, sabliers: 1, plis: 0 }
+    const veille = { rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true, jour: '2026-10-10', recuperee: false, recompense }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_du_jour: [veille] })
+    const prise = vi.spyOn(api, 'queteDuJour').mockResolvedValue({
+      etat: { ...atteint, version_etat: 2, quetes_du_jour: [{ ...veille, recuperee: true }] },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('1 sablier')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText(/Récompense ajoutée/)).toBeInTheDocument()
+    expect(prise).toHaveBeenCalledWith(expect.objectContaining({ jour: '2026-10-10', rang: 1, version_etat: 1 }))
+    expect(screen.getByText('✓ Récupérée')).toBeInTheDocument()
+  })
+
+  it('montre la carte de lecteur et récupère la carte pleine', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const quetes = [{ rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true }]
+    const carte = { taille: 7, a_recuperer: 1, remplies: 1, recompense: { gouttes: 20, sabliers: 1, plis: 1 } }
+    const jours = ['2026-10-01', '2026-10-02', '2026-10-04', '2026-10-05', '2026-10-07', '2026-10-08', '2026-10-09']
+    const plein = { ...atteint, quetes_du_jour: quetes, carte_de_lecteur: { ...carte, tampons: jours } }
+    const energie = { ...plein.energie, charges: 1, prochaine_charge: '2026-10-12T00:00:00Z' }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...plein, energie })
+    const recuperee = vi.spyOn(api, 'carteDeLecteur').mockResolvedValue({
+      etat: { ...atteint, version_etat: 2, quetes_du_jour: quetes, carte_de_lecteur: { ...carte, tampons: [], a_recuperer: 0 } },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('7 / 7')).toBeInTheDocument()
+    expect(screen.getByText('4 oct.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText(/Carte récupérée/)).toBeInTheDocument()
+    expect(recuperee).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, version_catalogue: 'v1' }))
+    expect(await screen.findByText('0 / 7')).toBeInTheDocument()
+  })
+
+  it('garde la carte pleine en attente tant que l’énergie est pleine', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const quetes = [{ rang: 1, sorte: 'memoire' as const, code: 'memoire_sans_faute' as const, cible: 5, progres: 5, faite: true }]
+    const carte = { taille: 7, a_recuperer: 1, remplies: 1, recompense: { gouttes: 20, sabliers: 1, plis: 1 }, tampons: ['2026-10-01', '2026-10-02', '2026-10-04', '2026-10-05', '2026-10-07', '2026-10-08', '2026-10-09'] }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_du_jour: quetes, carte_de_lecteur: carte })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText(/ouvrez-en un, la récompense vous attend/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Récupérer' })).toBeDisabled()
+  })
+
+  it('propose le cadeau de bienvenue et le récupère une fois', async () => {
+    history.replaceState(null, '', '/#/quetes/journalieres')
+    const { api } = client()
+    const cadeau = { plis: [GEO, GEO], sabliers: 12, encre: 40 }
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, cadeau_de_bienvenue: { ...cadeau, recupere: false } })
+    const recupere = vi.spyOn(api, 'cadeau').mockResolvedValue({
+      etat: { ...atteint, version_etat: 2, cadeau_de_bienvenue: { ...cadeau, recupere: true } },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByRole('region', { name: 'Cadeau de bienvenue' })).toBeInTheDocument()
+    expect(screen.getByText('12 sabliers')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText('Cadeau de bienvenue récupéré.')).toBeInTheDocument()
+    expect(recupere).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, version_catalogue: 'v1' }))
+    expect(screen.queryByRole('button', { name: 'Récupérer' })).not.toBeInTheDocument()
+  })
+
+  it('liste les quêtes de la première semaine et récupère une récompense sans pli', async () => {
+    history.replaceState(null, '', '/#/quetes/ponctuelles')
+    const { api } = client()
+    const recompense = { plis_offerts: 0, plis_de_lecteur: 0, sabliers: 3, gouttes: 0 }
+    const initiales = (faite: boolean, recuperee: boolean) => [
+      { code: 'trois_mots' as const, cible: 3, progres: 1, faite: false, recuperee: false, recompense: { ...recompense, sabliers: 0, plis_offerts: 2 } },
+      { code: 'premiers_ricochets' as const, cible: 1, progres: faite ? 1 : 0, faite, recuperee, recompense },
+    ]
+    vi.spyOn(api, 'etat').mockResolvedValue({ ...atteint, quetes_initiales: initiales(true, false) })
+    const prise = vi.spyOn(api, 'queteInitiale').mockResolvedValue({
+      ouvertures: [],
+      etat: { ...atteint, version_etat: 2, quetes_initiales: initiales(true, true) },
+    })
+    render(<App api={api} catalogue={lecteurAvecJalon()} />)
+    expect(await screen.findByText('Découvrez trois mots.')).toBeInTheDocument()
+    expect(screen.getByText('1 / 3')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Récupérer' }))
+    expect(await screen.findByText(/Récompense ajoutée/)).toBeInTheDocument()
+    expect(prise).toHaveBeenCalledWith(expect.objectContaining({ code: 'premiers_ricochets', fascicule_id: null, version_etat: 1 }))
+  })
+
+  it('explique l’absence de quête du jour', async () => {
     history.replaceState(null, '', '/#/quetes/journalieres')
     const { api } = client()
     render(<App api={api} catalogue={lecteurAvecJalon()} />)
-    expect(await screen.findByText('Bientôt disponibles')).toBeInTheDocument()
+    expect(await screen.findByText('Pas de quête aujourd’hui')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Récupérer votre récompense de fascicule' }))
     expect(await screen.findByRole('button', { name: 'Récupérer' })).toBeInTheDocument()
   })
@@ -103,5 +209,51 @@ describe('quêtes', () => {
     expect(await screen.findByText(/^Récompense ajoutée : 5.gouttes d’encre et 1.sablier\.$/)).toBeInTheDocument()
     expect(palier).toHaveBeenCalledWith(expect.objectContaining({ palier_id: PALIER, version_etat: 1, version_catalogue: 'v1' }))
     expect(screen.getByText('✓ Récupérée')).toBeInTheDocument()
+  })
+})
+
+describe('tout récupérer', () => {
+  beforeEach(async () => {
+    await effacerPartie()
+    history.replaceState(null, '', '/#/quetes/fascicules')
+  })
+
+  it('enchaîne les récompenses de l’onglet, chacune sur l’état renvoyé par la précédente', async () => {
+    const JALON_2 = 'jal_0000000b'
+    const lecteur = lecteurFictif()
+    const manifeste = vi.mocked(lecteur.manifeste)
+    const complet = manifeste.getMockImplementation()
+    manifeste.mockImplementation(async (...args) => ({
+      ...(await complet!(...args)),
+      jalons: [
+        { id: JALON, decouvertes: 1, pli: [GEO] },
+        { id: JALON_2, decouvertes: 1, sabliers: 1 },
+      ],
+    }))
+    const deux = etat({ decouvertes, jalons_atteints: [JALON, JALON_2], jalons_recuperes: [] })
+    const { api, jalon } = client()
+    vi.spyOn(api, 'etat').mockResolvedValue(deux)
+    jalon
+      .mockResolvedValueOnce({ etat: { ...deux, version_etat: 2, jalons_recuperes: [JALON] } })
+      .mockResolvedValueOnce({ etat: { ...deux, version_etat: 3, jalons_recuperes: [JALON, JALON_2] } })
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Tout récupérer' }))
+    expect(await screen.findByText('2 récompenses récupérées.')).toBeInTheDocument()
+    expect(jalon).toHaveBeenNthCalledWith(1, expect.objectContaining({ jalon_id: JALON, version_etat: 1 }))
+    expect(jalon).toHaveBeenNthCalledWith(2, expect.objectContaining({ jalon_id: JALON_2, version_etat: 2 }))
+    expect(screen.getAllByText('✓ Récupérée')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Tout récupérer' })).not.toBeInTheDocument()
+  })
+
+  it('ne propose pas « Tout récupérer » pour une seule récompense : sa carte suffit', async () => {
+    const lecteur = lecteurFictif()
+    const manifeste = vi.mocked(lecteur.manifeste)
+    const complet = manifeste.getMockImplementation()
+    manifeste.mockImplementation(async (...args) => ({ ...(await complet!(...args)), jalons: [{ id: JALON, decouvertes: 1, pli: [GEO] }] }))
+    const { api } = client()
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ decouvertes, jalons_atteints: [JALON], jalons_recuperes: [] }))
+    render(<App api={api} catalogue={lecteur} />)
+    expect(await screen.findByRole('button', { name: 'Récupérer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Tout récupérer' })).not.toBeInTheDocument()
   })
 })

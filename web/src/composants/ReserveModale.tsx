@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useLayoutEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Exemplaires } from '../contrat'
 import { mouvementReduit } from '../services/animation'
 import type { BriqueJeu } from '../services/jeu'
 import { Brique } from './Brique'
+import { Icone } from './Icone'
 import { Reserve, TYPE_GLISSE } from './Reserve'
 import { useDialogue } from './useDialogue'
 
@@ -63,13 +64,13 @@ interface Props {
   exemplaires: number
   /** Case visée à l'ouverture ; `null` : la case vide la plus à gauche. */
   rang: number | null
-  /** Recherche saisie à l'ouverture de la réserve (ADR 0052). */
-  recherche?: string
   onPoser: (brique: string, rang: number) => void
   onRetirer: (rang: number) => void
   /** La table vient d'être complétée depuis la modale, qui va se fermer. */
   onComplete: () => void
   onFermer: () => void
+  /** Mémoire des essais (App#89) : pourquoi une paire, dans l'ordre des cases, est déjà connue, ou `null`. */
+  raisonEssai?: (paire: [string, string]) => string | null
 }
 
 /** « 1ʳᵉ », « 2ᵉ » : rang de la brique dans le mot. */
@@ -82,7 +83,7 @@ function ordinal(rang: number): string {
  * la table en petit : on voit où va chaque brique, et on la retire d'un toucher.
  * Table complète, elle se ferme d'elle-même : il ne reste qu'à fusionner.
  */
-export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, recherche, onPoser, onRetirer, onComplete, onFermer }: Props) {
+export function ReserveModale({ reserve, briques, cases, consommees, exemplaires, rang, onPoser, onRetirer, onComplete, onFermer, raisonEssai }: Props) {
   const [boite, fermer] = useDialogue<HTMLElement>(onFermer, fermerEnVol)
   // Le message reste dans la modale : un message de la table s'afficherait derrière le voile.
   const [message, setMessage] = useState<string | null>(null)
@@ -94,6 +95,8 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
   // Dernière brique touchée : sa pastille rebondit ; dernière case remplie : sa brique y vole depuis la réserve.
   const [touchee, setTouchee] = useState<{ brique: string; rang: number; cle: number; sens: 'plus' | 'moins'; depuis?: DOMRect } | null>(null)
   const [complete, setComplete] = useState(false)
+  // Mémoire des essais au moment où la table se complète : elle reste figée jusqu'à la fermeture, comme la zone.
+  const [memoireFigee, setMemoireFigee] = useState<{ posee: string; raison: (brique: string) => string | null } | null>(null)
   /** Case survolée par une brique glissée. */
   const [survol, setSurvol] = useState<number | null>(null)
 
@@ -145,6 +148,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setZone(suivante < 0 || zone === null ? zone : suivante)
     if (suivante < 0) {
       setAnnonce(`${libelle(brique)} posée en case ${visee + 1}. La table est prête : fusionnez.`)
+      setMemoireFigee(memoire)
       setComplete(true)
       onComplete()
     } else {
@@ -164,27 +168,49 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
     setAnnonce(`${libelle(id)} retirée de la case ${i + 1}. Choisissez la ${ordinal(i)} brique.`)
   }
 
+  // Une brique sur la table, une case à remplir : la réserve range à part ce qui a déjà été essayé avec elle.
+  const posee = posees.length === 1 ? posees[0] : undefined
+  // Table complète : la mémoire reste figée jusqu'à la fermeture, sinon la liste repasse à toutes les briques avant le vol.
+  const memoire = complete
+    ? memoireFigee
+    : raisonEssai && posee !== undefined && cible >= 0
+      ? { posee, raison: (b: string) => raisonEssai(cible === 0 ? [b, posee] : [posee, b]) }
+      : null
+
   const compte = `${exemplaires} exemplaire${exemplaires > 1 ? 's' : ''}`
   const consigne = complete || cible < 0 ? 'La table est prête' : `Choisissez la ${ordinal(cible)} brique`
   // Toujours une ligne d'aide, pour que la feuille ne change pas de hauteur à la première pose.
   const aide = posees.length > 0 ? 'Touchez une brique posée pour la retirer.' : 'L’ordre compte : la case 1 ouvre le mot.'
+  const libelleFermer = posees.length > 0 ? 'Retour à la table' : 'Fermer'
+  // Une fois l'en-tête sorti de la vue, « Fermer » devient un bouton rond, posé sur la table qui reste en haut.
+  const entete = useRef<HTMLDivElement>(null)
+  const [defile, setDefile] = useState(false)
+  const suivreDefilement = (e: React.UIEvent<HTMLElement>) => {
+    const haut = entete.current
+    setDefile(haut !== null && e.currentTarget.scrollTop >= haut.offsetTop + haut.offsetHeight)
+  }
 
   return (
     <div className="scrim" onClick={fermer}>
       <div className="scrim-fond" aria-hidden="true" />
-      <section ref={boite} className="dialogue feuille reserve-modale" role="dialog" aria-modal="true" aria-label={`Réserve · ${compte}`} onClick={(e) => e.stopPropagation()}>
-        <div className="rangee rangee-ecartee">
+      <section ref={boite} className="dialogue feuille reserve-modale" role="dialog" aria-modal="true" aria-label={`Réserve · ${compte}`} onClick={(e) => e.stopPropagation()} onScroll={suivreDefilement}>
+        <div ref={entete} className="rangee rangee-ecartee">
           {/* Le compte passe sous le titre : l'en-tête garde sa hauteur quand « Fermer » devient « Retour à la table ». */}
           <h2 className="jk-title rm-titre">
             Réserve
             <span className="rm-compte">{compte}</span>
           </h2>
           <button type="button" data-focus-initial className="btn btn-secondary" onClick={fermer}>
-            {posees.length > 0 ? 'Retour à la table' : 'Fermer'}
+            {libelleFermer}
           </button>
         </div>
 
-        <div className="rm-table">
+        <div className={defile ? 'rm-table defile' : 'rm-table'}>
+          {defile && (
+            <button type="button" className="btn-icone rm-fermer" aria-label={libelleFermer} onClick={fermer}>
+              <Icone nom="fermer" />
+            </button>
+          )}
           <p className="rm-consigne" aria-hidden="true">
             {consigne}
           </p>
@@ -241,7 +267,7 @@ export function ReserveModale({ reserve, briques, cases, consommees, exemplaires
             {message}
           </p>
         )}
-        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} rechercheInitiale={recherche} onAjouter={choisir} onIndisponible={setMessage} />
+        <Reserve reserve={reserve} briques={briques} table={posees} zone={complete ? zone : cible < 0 || zone === null || cases[zone] !== null ? null : zone} consommees={consommees} touchee={touchee} memoire={memoire} onAjouter={choisir} onIndisponible={setMessage} />
       </section>
     </div>
   )

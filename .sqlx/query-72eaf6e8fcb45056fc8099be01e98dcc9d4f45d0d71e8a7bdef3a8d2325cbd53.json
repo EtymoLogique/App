@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM compte WHERE pseudo = $1) AS \"prise!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "prise!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "72eaf6e8fcb45056fc8099be01e98dcc9d4f45d0d71e8a7bdef3a8d2325cbd53"
+}

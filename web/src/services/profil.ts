@@ -2,11 +2,12 @@
 // secret de 256 bits, générés une fois et gardés dans IndexedDB. Aucune donnée
 // personnelle. Le secret ne quitte l'appareil que vers l'API, en HTTPS.
 
-import { createStore, get, set, type UseStore } from 'idb-keyval'
+import { createStore, del, get, set, type UseStore } from 'idb-keyval'
 
 import type { DemandeSession } from '../contrat'
 
 const CLE = 'profil-invite'
+const QUITTE = 'compte-quitte'
 
 let magasin: UseStore | undefined
 function stockage(): UseStore {
@@ -30,6 +31,27 @@ function estProfil(valeur: unknown): valeur is DemandeSession {
   if (typeof valeur !== 'object' || valeur === null) return false
   const { installation, secret } = valeur as Record<string, unknown>
   return typeof installation === 'string' && typeof secret === 'string' && /^[A-Za-z0-9_-]{43}$/.test(secret)
+}
+
+/** Remplace le profil par un neuf, après une déconnexion ou une suppression (ADR 0070). */
+export function remplacerProfil(): Promise<void> {
+  return set(CLE, nouveauProfil(), stockage())
+}
+
+/**
+ * Cet appareil s'est déconnecté d'un compte : la relance propose de s'y
+ * reconnecter. Gardé avec le profil, que l'effacement de la partie épargne.
+ */
+export async function compteQuitte(): Promise<boolean> {
+  try {
+    return (await get(QUITTE, stockage())) === true
+  } catch {
+    return false
+  }
+}
+
+export function memoriserCompteQuitte(quitte: boolean): Promise<void> {
+  return (quitte ? set(QUITTE, true, stockage()) : del(QUITTE, stockage())).catch(() => undefined)
 }
 
 /** Renvoie le profil de cette installation, en le créant au premier lancement. */

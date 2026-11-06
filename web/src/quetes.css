@@ -14,6 +14,8 @@
 }
 
 .quetes-intro { max-width: 70ch; }
+.quetes-tout { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0 22px; }
+.quetes-tout .feedback { margin: 0; }
 .quetes-bientot { margin-top: 8px; }
 .quetes-ill {
   display: grid; place-items: center; width: 56px; height: 56px;
@@ -21,24 +23,32 @@
 }
 .quetes-ill .ic { width: 26px; height: 26px; }
 
-.quetes-fascicule { display: grid; gap: 12px; margin-top: 22px; }
+.quetes-fascicule { display: grid; gap: 12px; margin-top: 22px; margin-bottom: 18px; }
 .quetes-titre { margin: 0; font-size: 20px; }
 .quetes-liste {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px;
   margin: 0; padding: 0; list-style: none;
 }
 .quete {
-  display: grid; align-content: start; gap: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; min-height: 120px;
   border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink);
 }
 /* Une récompense qui attend : bordure Encre et ombre dure, comme un élément actif. */
 .quete[data-etat="a_recuperer"] { border-color: var(--ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
 .quete[data-etat="recupere"] { background: var(--paper-2); }
+.quete.cadeau { margin-bottom: 18px; }
 .quete-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.quetes-liste .quete-tete { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; }
 .quete-seuil { font-family: var(--serif); font-size: 20px; font-weight: 600; }
+/* Quête de collection (App#90) : son intitulé à la place du seuil. */
+.quete-titre-collection { font-family: var(--serif); font-size: 17px; font-weight: 600; line-height: 1.25; }
+.quetes-sous-titre { margin: 18px 0 8px; color: var(--ink-2); font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .quete-avancee { font-family: var(--mono); font-size: 12px; font-weight: 700; }
-.quete-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.quete-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: auto; }
 .quete-pied .btn { margin-left: auto; }
+.quete-pied .cb-note { flex-basis: 100%; margin: 0; }
+.quete-pied select { min-height: 44px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.quete-pied select:disabled { opacity: 0.6; cursor: not-allowed; }
 .quete-k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .quete-recompense { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .quete-sabliers { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
@@ -50,3 +60,34 @@
 .quete-longue { display: grid; gap: 8px; }
 .quete-longue-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
 .quete-longue-titre { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 600; }
+
+/* Carte de lecteur (ADR 0045, maquette I-27) : sept cases, un tampon ÉL par jour gagné. */
+.carte-lecteur {
+  display: grid; gap: 12px; margin-bottom: 18px; padding: 14px 16px;
+  border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink);
+}
+.carte-lecteur[data-etat="a_recuperer"] { border-color: var(--ink); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.carte-lecteur-cases { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 0; padding: 0; list-style: none; }
+.tampon { display: grid; justify-items: center; gap: 4px; min-width: 36px; }
+.tampon-sceau, .tampon-numero {
+  display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box;
+  font-family: var(--serif); font-weight: 700;
+}
+.tampon-sceau {
+  border: 2px solid var(--fixed-ink); border-radius: 10px; background: var(--c-action);
+  box-shadow: 3px 3px 0 var(--pop-shadow); color: var(--fixed-ink); transform: rotate(-6deg);
+}
+.tampon.is-vide .tampon-numero {
+  border: 1.5px dashed var(--line-strong); border-radius: 4px; color: var(--ink-3); font-family: var(--mono); font-size: 12px;
+}
+.tampon-jour { color: var(--ink-3); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+@media (max-width: 480px) {
+  .tampon-sceau, .tampon-numero { width: 28px; height: 28px; }
+  .tampon-sceau { border-radius: 8px; box-shadow: 2px 2px 0 var(--pop-shadow); font-size: 12px; }
+}
+
+/* Déblocage des fascicules (ADR 0068). */
+.quetes-verrou { display: flex; align-items: center; gap: 8px; }
+.quetes-verrou .ic { flex: none; }
+.quete-deblocage { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ink); font-size: 12px; font-weight: 700; }
+.quete-deblocage .ic { flex: none; width: 16px; height: 16px; }

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO retention_mois (mois, mois_arrivee, cohorte, actifs)\n         SELECT $1::date, date_trunc('month', cree_le AT TIME ZONE 'UTC')::date, count(*),\n                count(*) FILTER (WHERE date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date = $1::date)\n         FROM joueur WHERE date_trunc('month', cree_le AT TIME ZONE 'UTC')::date <= $1::date\n         GROUP BY 2\n         ON CONFLICT (mois, mois_arrivee) DO UPDATE SET cohorte = EXCLUDED.cohorte, actifs = EXCLUDED.actifs",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8b8f220526ce4e4b42992c7ebec0aba8c4eae80a12469df1dc99c8fb10dbc1af"
+}

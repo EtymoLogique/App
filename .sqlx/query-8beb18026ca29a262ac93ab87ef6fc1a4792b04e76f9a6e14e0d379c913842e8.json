@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM soutien WHERE dernier_paiement < now() - make_interval(days => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8beb18026ca29a262ac93ab87ef6fc1a4792b04e76f9a6e14e0d379c913842e8"
+}

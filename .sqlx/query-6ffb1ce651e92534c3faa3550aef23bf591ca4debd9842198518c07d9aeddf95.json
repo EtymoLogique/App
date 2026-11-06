@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH s AS (DELETE FROM soutien WHERE empreinte_courriel =\n            (SELECT empreinte_courriel FROM compte WHERE joueur_id = $1))\n         DELETE FROM joueur WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6ffb1ce651e92534c3faa3550aef23bf591ca4debd9842198518c07d9aeddf95"
+}

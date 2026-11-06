@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { DemandeRicochet, Etat, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
+import type { DemandeRicochet, Etat, ReponseCadeau, CodeQueteInitiale, ReponseQueteDuJour, ReponseQueteInitiale, ReponseCarteDeLecteur, ReponseAchatSablier, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, SeanceRicochets } from '../contrat'
 import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
 import { type BriqueJeu, type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir, texteDuMot } from './jeu'
-import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
+import { completerEtat, effacerPartie, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
 import { nombrePourRemplir } from './plis'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
@@ -23,7 +23,8 @@ export interface FicheOuverte {
 }
 
 function message(e: unknown): string {
-  if (e instanceof ErreurApi && e.code === 'reseau') return 'Le serveur est injoignable pour le moment.'
+  if (e instanceof ErreurApi && e.code === 'reseau') return 'Le serveur ne répond pas pour le moment.'
+  if (e instanceof ErreurApi && [502, 503, 504].includes(e.statut)) return 'Le serveur se réveille : réessayez dans un instant.'
   if (e instanceof ErreurApi && e.code === 'trop_de_requetes') return 'Trop de tentatives : réessayez dans une minute.'
   return 'Une erreur est survenue. Réessayez plus tard.'
 }
@@ -54,7 +55,10 @@ function tableValide(cases: Cases, etat: Etat): Cases {
   })
 }
 
-const HORS_LIGNE = 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
+/** Absence au-delà de laquelle l'état est relu au retour dans l'application. */
+const ABSENCE_MS = 5 * 60_000
+
+const HORS_LIGNE = 'Pas de connexion au serveur : consultation seulement. Le jeu reprend avec le réseau.'
 
 /** État d'une partie : catalogue, état confirmé, table et retours de fusion. */
 export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = true) {
@@ -121,6 +125,25 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       actif.current = false
     }
   }, [synchroniser])
+
+  // Retour après une longue absence : une PWA installée revient du fond sans se recharger.
+  useEffect(() => {
+    let cachee: number | null = null
+    const changement = () => {
+      if (document.visibilityState === 'hidden') cachee = Date.now()
+      else if (cachee !== null && Date.now() - cachee > ABSENCE_MS) void synchroniser()
+      if (document.visibilityState === 'visible') cachee = null
+    }
+    document.addEventListener('visibilitychange', changement)
+    return () => document.removeEventListener('visibilitychange', changement)
+  }, [synchroniser])
+
+  // Réseau ou API de retour : l'état confirmé est relu.
+  const etaitHorsLigne = useRef(!enLigne)
+  useEffect(() => {
+    if (enLigne && etaitHorsLigne.current) void synchroniser()
+    etaitHorsLigne.current = !enLigne
+  }, [enLigne, synchroniser])
 
   useEffect(() => {
     api.sante().then(
@@ -206,7 +229,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         await new Promise((fin) => setTimeout(fin, mouvementReduit() ? 0 : DUREE_FUSION_MS))
         setFusion(null)
         confirmer(reponse.etat)
-        setRetour({ etat: 'confirme', issue, jalons: reponse.jalons ?? [] })
+        setRetour({ etat: 'confirme', issue, jalons: reponse.jalons ?? [], fascicules: reponse.fascicules_debloques ?? [] })
         setTable(casesVides())
         // Une brique-mot ne se consomme jamais : pas de « −1 ».
         const usees = proposition.filter((id) => catalogue.briques.get(id)?.nature !== 'mot')
@@ -248,7 +271,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       try {
         const reponse = await api.pli({
           commande: crypto.randomUUID(),
-          version_etat: etat.version_etat,
+          // Dernier état confirmé : un pli ouvert juste après un autre part de la version que le précédent a renvoyée.
+          version_etat: (etatCourant.current ?? etat).version_etat,
           version_catalogue: jeu.valeur.version,
           fascicule_id: fascicule,
         })
@@ -273,6 +297,25 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
   )
 
   /**
+   * Ouvre plusieurs plis du même fascicule, un appel à `/pli` après l'autre, chacun sur l'état renvoyé par le précédent
+   * (ouverture groupée). Une erreur arrête la série : les plis déjà ouverts sont rendus avec elle, jamais un faux succès.
+   * `surReponse` reçoit les réponses déjà arrivées après chaque appel, pour que le rituel de chaque pli parte sans attendre la série.
+   */
+  const ouvrirPlis = useCallback(
+    async (fascicule: string, nombre: number, surReponse?: (reponses: ReponsePli[]) => void): Promise<{ reponses: ReponsePli[]; erreur?: string }> => {
+      const reponses: ReponsePli[] = []
+      for (let i = 0; i < nombre; i++) {
+        const reponse = await ouvrirPli(fascicule)
+        if ('erreur' in reponse) return { reponses, erreur: reponse.erreur }
+        reponses.push(reponse)
+        surReponse?.([...reponses])
+      }
+      return { reponses }
+    },
+    [ouvrirPli],
+  )
+
+  /**
    * Commande d'économie idempotente (sabliers, indices) : un `409` ou un `403`
    * resynchronise, et l'erreur n'est jamais un succès local.
    */
@@ -281,7 +324,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       if (!enLigne) return { erreur: HORS_LIGNE }
       if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
       try {
-        const reponse = await envoyer(etat, jeu.valeur.version)
+        // Dernier état confirmé : une commande enchaînée sur une autre (« Tout récupérer ») part de la version qu'elle a renvoyée.
+        const reponse = await envoyer(etatCourant.current ?? etat, jeu.valeur.version)
         confirmer(reponse.etat)
         return reponse
       } catch (e) {
@@ -423,6 +467,46 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     [api, commander],
   )
 
+  /** Récupère la récompense d'une quête initiale (ADR 0046) ; le fascicule sert aux plis offerts et de lecteur. */
+  const recupererQueteInitiale = useCallback(
+    (code: CodeQueteInitiale, fascicule: string | null): Promise<ReponseQueteInitiale | { erreur: string }> =>
+      commander(
+        (e, version) => api.queteInitiale({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, code, fascicule_id: fascicule }),
+        'Cette quête n’est pas encore faite.',
+      ),
+    [api, commander],
+  )
+
+  /** Récupère la récompense d'une quête du jour faite (ADR 0063) . */
+  const recupererQueteDuJour = useCallback(
+    (jour: string, rang: number): Promise<ReponseQueteDuJour | { erreur: string }> =>
+      commander(
+        (e, version) => api.queteDuJour({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, jour, rang }),
+        'Cette quête n’est pas encore faite.',
+      ),
+    [api, commander],
+  )
+
+  /** Récupère le cadeau de bienvenue (ADR 0046) : plis fixes, sabliers et encre, une fois. */
+  const recupererCadeau = useCallback(
+    (): Promise<ReponseCadeau | { erreur: string }> =>
+      commander(
+        (e, version) => api.cadeau({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version }),
+        'Le cadeau de bienvenue n’est pas disponible.',
+      ),
+    [api, commander],
+  )
+
+  /** Récupère la carte de lecteur pleine (ADR 0045) : de l'encre, un sablier et un pli de lecteur du fascicule choisi. */
+  const recupererCarte = useCallback(
+    (): Promise<ReponseCarteDeLecteur | { erreur: string }> =>
+      commander(
+        (e, version) => api.carteDeLecteur({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version }),
+        'Cette carte de lecteur n’est pas encore pleine.',
+      ),
+    [api, commander],
+  )
+
   /** Hors production : repart d'un joueur neuf. Le serveur fait foi, l'état renvoyé remplace tout. */
   const reinitialiser = useCallback(async (): Promise<string | null> => {
     try {
@@ -436,12 +520,32 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     }
   }, [api, confirmer])
 
+  /**
+   * Après une connexion à un compte, une déconnexion ou une suppression (ADR 0070) :
+   * la session et la partie locale sont celles d'un autre joueur. On les oublie,
+   * puis le serveur redonne l'état.
+   */
+  const changerDePartie = useCallback(async () => {
+    api.oublierSession()
+    await effacerPartie()
+    etatCourant.current = null
+    setEtat(null)
+    setTable(casesVides())
+    setNouvelles(new Set())
+    setFiche(null)
+    setRetour(null)
+    await synchroniser()
+  }, [api, synchroniser])
+
   return {
     jeu,
     etat,
+    synchroniser,
+    changerDePartie,
     reinitialisable,
     reinitialiser,
     ouvrirPli,
+    ouvrirPlis,
     utiliserSabliers,
     acheterSabliers,
     acheterEtAvancer,
@@ -450,6 +554,10 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     seanceRicochets,
     repondreRicochet,
     recupererPalier,
+    recupererCarte,
+    recupererCadeau,
+    recupererQueteInitiale,
+    recupererQueteDuJour,
     erreurEtat,
     table,
     cases,

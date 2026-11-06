@@ -1,8 +1,8 @@
-import { Fragment, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import type { IssueFusion } from '../contrat'
 import { mouvementReduit } from '../services/animation'
-import type { BriqueJeu, CatalogueJeu, Prevision, TrompeJeu } from '../services/jeu'
+import type { CatalogueJeu, Prevision } from '../services/jeu'
 import { texteDuMot } from '../services/jeu'
 import { PetiteBrique } from './Brique'
 
@@ -13,7 +13,14 @@ const RAISONS: Record<string, string> = {
 
 export type Retour =
   | { etat: 'prevision'; prevision: Prevision }
-  | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */ jalons?: string[] }
+  | {
+      etat: 'confirme'
+      issue: IssueFusion
+      /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */
+      jalons?: string[]
+      /** Fascicules que cette découverte débloque (ADR 0068). */
+      fascicules?: string[]
+    }
   | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' }
 
 type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
@@ -32,14 +39,8 @@ interface Props {
   aRecuperer: ReadonlySet<string>
   /** Mène aux quêtes, où attend la récompense d'un jalon atteint. */
   onQuetes: () => void
-  /** Briques posées sur la table, dans l'ordre : l'explication d'un homographe en désigne une par son rang. */
-  briquesPosees: string[]
-  /** Mots au codex : l'explication complète d'un trompe-l'œil attend la découverte du mot (ADR 0052). */
-  decouverts: ReadonlySet<string>
-  /** Ouvre la carte d'une unité dans le codex. */
-  onCarte: (uniteId: string) => void
-  /** Retire la brique de ce rang et ouvre la réserve sur sa forme. */
-  onRemplacer: (rang: number, forme: string) => void
+  /** Mène au pli d'un fascicule tout juste débloqué. */
+  onFascicule: (fascicule: string) => void
 }
 
 function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
@@ -56,10 +57,10 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
  * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
  * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes, briquesPosees, decouverts, onCarte, onRemplacer }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes, onFascicule }: Props) {
   let contenu: React.ReactNode
   // Ce que dit le retour : quand elle change, l'ancien message sort et le nouveau entre.
-  const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}${retour.issue.type === 'echec' && retour.issue.explication ? `:${retour.issue.explication.nature}` : ''}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : (retour?.etat ?? `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`)
+  const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : (retour?.etat ?? `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`)
   if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
   } else if (retour?.etat === 'prevision') {
@@ -71,6 +72,7 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
       case 'decouverte': {
         const gouttes = issue.gouttes ?? 0
         const jalon = (retour.jalons ?? []).some((id) => aRecuperer.has(id))
+        const ouverts = (retour.fascicules ?? []).map((id) => jeu.fascicules.find((f) => f.manifeste.id === id)).filter((f) => f !== undefined)
         contenu = (
           <div className="retour">
             <Ligne ton="win">
@@ -87,6 +89,16 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
                 </div>
               </>
             )}
+            {ouverts.map((f) => (
+              <div key={f.manifeste.id}>
+                <p className="panel-tip">Nouveau fascicule ouvert&nbsp;: {f.manifeste.nom ?? `Fascicule ${f.numero}`}&nbsp;!</p>
+                <div className="rangee">
+                  <button type="button" className="btn btn-secondary btn-s" onClick={() => onFascicule(f.manifeste.id)}>
+                    Ouvrir son pli
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )
         break
@@ -138,19 +150,9 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
           </Ligne>
         )
         break
-      case 'echec': {
-        const explication = issue.explication
-        const homographe = explication?.nature === 'homographe' ? jeu.briques.get(briquesPosees[explication.rang] ?? '') : undefined
-        const piege = explication?.nature === 'trompe_l_oeil' ? jeu.trompesLOeil.find((t) => t.id === explication.trompe_l_oeil_id) : undefined
-        if (explication?.nature === 'homographe' && homographe) {
-          contenu = <MauvaisHomographe brique={homographe} rang={explication.rang} onCarte={onCarte} onRemplacer={onRemplacer} />
-        } else if (piege) {
-          contenu = <FaussePiste piege={piege} jeu={jeu} lisible={piege.motId === null || decouverts.has(piege.motId)} onCarte={onCarte} />
-        } else {
-          contenu = <Ligne ton="fail">Aucune recette connue. Rien n’est perdu : essayez autre chose.</Ligne>
-        }
+      case 'echec':
+        contenu = <Ligne ton="fail">Aucune recette connue. Rien n’est perdu : essayez autre chose.</Ligne>
         break
-      }
     }
   } else if (bloquee && posees > 0) {
     contenu = <Ligne>{bloquee}</Ligne>
@@ -166,69 +168,6 @@ export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer,
     )
   }
   return <Releve cle={cle} contenu={contenu} />
-}
-
-/**
- * « Bonne forme, autre brique » (ADR 0052) : la brique posée a un homographe qui donnerait une
- * recette. On ne nomme pas la bonne ; on propose de remplacer celle-ci, la réserve ouverte sur sa forme.
- */
-function MauvaisHomographe({ brique, rang, onCarte, onRemplacer }: { brique: BriqueJeu; rang: number; onCarte: (uniteId: string) => void; onRemplacer: (rang: number, forme: string) => void }) {
-  return (
-    <div className="retour">
-      <Ligne ton="hint">
-        <b>Bonne forme, autre brique.</b>
-      </Ligne>
-      <p className="panel-tip">
-        <PetiteBrique brique={brique} onOuvrir={() => onCarte(brique.uniteId)} />
-        {brique.glose && <> «&nbsp;{brique.glose}&nbsp;»</>} ne convient pas ici. Une autre brique s’écrit aussi{' '}
-        <PetiteBrique brique={brique} onOuvrir={() => onRemplacer(rang, brique.libelle)} titre={`Voir les briques ${brique.libelle}`} />, avec un autre sens. Rien n’est perdu.
-      </p>
-      <div className="rangee">
-        <button type="button" className="btn btn-secondary btn-s" onClick={() => onRemplacer(rang, brique.libelle)}>
-          Voir les briques {brique.libelle}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/**
- * « Fausse piste » (ADR 0052) : les lettres se suivent, le mot n'en vient pas. L'explication
- * courte ne nomme jamais le mot ; la complète se lit une fois le mot au codex.
- */
-function FaussePiste({ piege, jeu, lisible, onCarte }: { piege: TrompeJeu; jeu: CatalogueJeu; lisible: boolean; onCarte: (uniteId: string) => void }) {
-  const [ouverte, setOuverte] = useState(false)
-  const briques = piege.combinaison.map((id) => jeu.briques.get(id))
-  return (
-    <div className="retour">
-      <Ligne ton="hint">
-        <b>Fausse piste.</b>
-      </Ligne>
-      <p className="panel-tip">
-        {briques.map((b, i) =>
-          b ? (
-            <Fragment key={b.id}>
-              {i > 0 && <span className="bplus"> + </span>}
-              <PetiteBrique brique={b} onOuvrir={() => onCarte(b.uniteId)} />
-            </Fragment>
-          ) : null,
-        )}
-        {piege.courte && <>&nbsp;: {piege.courte}</>} Rien n’est perdu.
-      </p>
-      {lisible && piege.complete ? (
-        <>
-          <div className="rangee">
-            <button type="button" className="btn btn-secondary btn-s" aria-expanded={ouverte} onClick={() => setOuverte((o) => !o)}>
-              Pourquoi&nbsp;?
-            </button>
-          </div>
-          {ouverte && <p className="panel-tip">{piege.complete}</p>}
-        </>
-      ) : (
-        <p className="panel-tip">L’explication complète se lira une fois ce mot trouvé.</p>
-      )}
-    </div>
-  )
 }
 
 /** Relève de message : l'ancien retour sort par le haut pendant que le nouveau entre par le bas (240 ms). */

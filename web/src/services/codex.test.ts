@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, cartes, etat, ex, jeu, manifeste } from '../test/fixtures'
-import { cabinet, completude, construireCodex, familles, recentes, rechercher, savoirPlus } from './codex'
+import { cabinet, completude, construireCodex, exemplesDe, familles, recentes, rechercher, savoirPlus } from './codex'
 
 function catalogue() {
   const c = jeu()
@@ -87,6 +87,22 @@ describe('codex', () => {
     expect(apres.map((f) => [f.brique.libelle, f.trouves])).toEqual([['géo-', 1]])
   })
 
+  it('donne les exemples d’une carte trouvée seulement, sans doublon, dans l’ordre des sens', () => {
+    const c = catalogue()
+    const mot = c.cartes.get(MOT)!
+    c.cartes.set(MOT, {
+      ...mot,
+      sens: [
+        { id: 'sns_0000m072', rang: 2, libelles: { fr: { exemples: ['Second.', 'Premier.'] } } },
+        { id: 'sns_0000m071', rang: 1, libelles: { fr: { exemples: ['Premier.'] } } },
+      ],
+    })
+    const inconnue = construireCodex(c, etat()).find((e) => e.id === MOT)!
+    expect(exemplesDe(inconnue)).toEqual([])
+    const trouvee = construireCodex(c, etat({ decouvertes: [decouverte] })).find((e) => e.id === MOT)!
+    expect(exemplesDe(trouvee)).toEqual(['Premier.', 'Second.'])
+  })
+
   it('explique l’histoire d’une carte trouvée, sans rien d’une carte à trouver', () => {
     const c = catalogue()
     const grec = 'lng_00000g00'
@@ -143,16 +159,7 @@ describe('codex', () => {
       confiance: 'probable',
       // Une adresse qui n'est pas en https n'est jamais un lien.
       sources: [{ id: 'src_0000000a', reference: 'TLFi', detail: 'Référence · dictionnaire', url: null }],
-      aNePasConfondre: [],
     })
-
-    // Une fausse piste vers ce mot se lit au verso, une fois le mot trouvé (ADR 0052).
-    c.trompesLOeil.push({ id: 'tpl_0000000a', combinaison: [GEO, LOGIE], motId: MOT, courte: 'Courte.', complete: 'Complète.' })
-    c.trompesLOeil.push({ id: 'tpl_0000000b', combinaison: [LOGIE, GEO], motId: 'unt_0000000z', courte: 'Autre mot.', complete: '' })
-    const avecPiege = savoirPlus(trouvee, c)!
-    expect(avecPiege.aNePasConfondre.map((t) => ({ id: t.id, texte: t.texte, briques: t.briques.map((b) => b.id) }))).toEqual([
-      { id: 'tpl_0000000a', texte: 'Complète.', briques: [GEO, LOGIE] },
-    ])
 
     // Le cabinet : sans mot trouvé, pas de voyage ; ensuite, la filiation du mot.
     expect(cabinet(construireCodex(c, etat()), c)).toEqual({ mots: 0, langues: 0, legendaires: 0, voyage: null })
@@ -163,3 +170,14 @@ describe('codex', () => {
 })
 
 const decouverte = { mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }
+
+describe('codex d’un fascicule verrouillé (ADR 0068)', () => {
+  it('ne montre que les cartes trouvées, sans silhouette', () => {
+    const c = catalogue()
+    const deblocage = { fascicules_debloques: [{ fascicule_id: 'fsc_autre', debloque_le: '2026-10-12T00:00:00Z' }] }
+    const entrees = construireCodex(c, etat({ ...deblocage, reserve: [ex(GEO, 2)] }))
+    expect(entrees.every((e) => e.trouvee)).toBe(true)
+    expect(entrees.map((e) => e.libelle)).toContain('géo-')
+    expect(entrees.find((e) => e.id === MOT)).toBeUndefined()
+  })
+})

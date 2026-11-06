@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM compte WHERE joueur_id = $1) AS \"a_un_compte!\",\n                  (SELECT count(*) FROM decouverte WHERE joueur_id = $1) AS \"decouvertes!\",\n                  (SELECT count(*) FROM ouverture_pli WHERE joueur_id = $1) AS \"plis!\",\n                  COALESCE((SELECT gouttes FROM encre WHERE joueur_id = $1), 0) AS \"gouttes!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "a_un_compte!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "decouvertes!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "plis!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "gouttes!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "09436c758819f2d87d31d68df28420ba26651d3e6bdfbed332f5c06b28dd42c2"
+}

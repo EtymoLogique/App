@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE compte SET pseudo = $2, pseudo_confirme = true WHERE joueur_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "383d378d1326f79eca92d8bb911c78b649fd3e59a44bf37990746d2cbec38b32"
+}

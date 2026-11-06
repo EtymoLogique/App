@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT jour, rang, code, cible_id, progres, faite_le, recupere_le FROM quete_jour\n         WHERE joueur_id = $1\n           AND (jour = $2 OR (jour < $2 AND faite_le IS NOT NULL AND recupere_le IS NULL))\n         ORDER BY jour, rang",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "jour",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "rang",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "cible_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "progres",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 5,
+        "name": "faite_le",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "recupere_le",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6bd417ec677481cd39b0e2ab9ede4135ddd6c9c880a6075d729648194cacbee7"
+}

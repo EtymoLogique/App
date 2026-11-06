@@ -15,7 +15,7 @@ export function Galet({ className = 'galet', cache = false }: { className?: stri
   )
 }
 
-/** Filet de maîtrise : quatre segments, un par niveau, le dernier pour la maîtrise. Jamais trois traits (confiance). */
+/** Filet de maîtrise : quatre segments, un par niveau, le dernier pour la maîtrise. Une carte de niveau 3 n’en remplit que trois. */
 export function Filet({ maitrise, className = 'filet-maitrise' }: { maitrise: Maitrise; className?: string }) {
   const crans = maitrise.maitrisee ? 4 : maitrise.niveau
   return (

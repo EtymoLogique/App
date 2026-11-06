@@ -2,8 +2,9 @@
 //! signés par HMAC-SHA256 avec la clé rangée dans Secret Manager.
 //!
 //! Format : `base64url(charge) "." base64url(hmac)`, où la charge est
-//! `{"sub": <uuid>, "exp": <secondes Unix>}`. Un seul algorithme, sans en-tête :
-//! aucune confusion d'algorithme possible.
+//! `{"sub": <uuid>, "exp": <secondes Unix>}`, plus `"app": <uuid>` quand
+//! l'appareil n'est pas le premier du joueur (ADR 0070). Un seul algorithme,
+//! sans en-tête : aucune confusion d'algorithme possible.
 
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -31,6 +32,10 @@ pub struct CleTropCourte;
 struct Charge {
     sub: Uuid,
     exp: i64,
+    /// Appareil de la session ; absent, c'est l'appareil d'origine du joueur
+    /// (même identifiant), comme dans tout jeton émis avant les comptes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    app: Option<Uuid>,
 }
 
 pub struct Signataire {
@@ -54,11 +59,17 @@ impl Signataire {
     }
 
     #[must_use]
-    pub fn emettre(&self, joueur: Uuid, maintenant: DateTime<Utc>) -> (String, DateTime<Utc>) {
+    pub fn emettre(
+        &self,
+        joueur: Uuid,
+        appareil: Uuid,
+        maintenant: DateTime<Utc>,
+    ) -> (String, DateTime<Utc>) {
         let expire_le = maintenant + DUREE;
         let charge = serde_json::to_vec(&Charge {
             sub: joueur,
             exp: expire_le.timestamp(),
+            app: (appareil != joueur).then_some(appareil),
         })
         .expect("charge");
         let charge = URL_SAFE_NO_PAD.encode(charge);
@@ -69,6 +80,17 @@ impl Signataire {
     /// Renvoie le joueur si le jeton est intact et encore valide.
     #[must_use]
     pub fn verifier(&self, jeton: &str, maintenant: DateTime<Utc>) -> Option<Uuid> {
+        self.verifier_appareil(jeton, maintenant)
+            .map(|(joueur, _)| joueur)
+    }
+
+    /// Renvoie le joueur et l'appareil si le jeton est intact et encore valide.
+    #[must_use]
+    pub fn verifier_appareil(
+        &self,
+        jeton: &str,
+        maintenant: DateTime<Utc>,
+    ) -> Option<(Uuid, Uuid)> {
         if jeton.len() > JETON_MAX {
             return None;
         }
@@ -77,7 +99,8 @@ impl Signataire {
         // Comparaison à temps constant.
         self.mac(charge).verify_slice(&signature).ok()?;
         let charge: Charge = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(charge).ok()?).ok()?;
-        (charge.exp > maintenant.timestamp()).then_some(charge.sub)
+        (charge.exp > maintenant.timestamp())
+            .then_some((charge.sub, charge.app.unwrap_or(charge.sub)))
     }
 }
 
@@ -98,22 +121,37 @@ mod tests {
     fn un_jeton_emis_se_verifie() {
         let joueur = Uuid::new_v4();
         let maintenant = Utc::now();
-        let (jeton, expire_le) = signataire().emettre(joueur, maintenant);
+        let (jeton, expire_le) = signataire().emettre(joueur, joueur, maintenant);
         assert_eq!(expire_le - maintenant, DUREE);
         assert_eq!(signataire().verifier(&jeton, maintenant), Some(joueur));
+        assert_eq!(
+            signataire().verifier_appareil(&jeton, maintenant),
+            Some((joueur, joueur))
+        );
+    }
+
+    #[test]
+    fn un_jeton_porte_un_second_appareil() {
+        let (joueur, appareil) = (Uuid::new_v4(), Uuid::new_v4());
+        let maintenant = Utc::now();
+        let (jeton, _) = signataire().emettre(joueur, appareil, maintenant);
+        assert_eq!(
+            signataire().verifier_appareil(&jeton, maintenant),
+            Some((joueur, appareil))
+        );
     }
 
     #[test]
     fn un_jeton_expire_est_refuse() {
         let maintenant = Utc::now();
-        let (jeton, _) = signataire().emettre(Uuid::new_v4(), maintenant);
+        let (jeton, _) = signataire().emettre(Uuid::new_v4(), Uuid::new_v4(), maintenant);
         assert_eq!(signataire().verifier(&jeton, maintenant + DUREE), None);
     }
 
     #[test]
     fn un_jeton_modifie_ou_d_une_autre_cle_est_refuse() {
         let maintenant = Utc::now();
-        let (jeton, _) = signataire().emettre(Uuid::new_v4(), maintenant);
+        let (jeton, _) = signataire().emettre(Uuid::new_v4(), Uuid::new_v4(), maintenant);
         let autre = Signataire::nouveau(&[8; 32]).unwrap();
         assert_eq!(autre.verifier(&jeton, maintenant), None);
 

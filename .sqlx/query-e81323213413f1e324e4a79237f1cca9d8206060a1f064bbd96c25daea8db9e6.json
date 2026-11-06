@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO soutien (empreinte_courriel, dernier_paiement) VALUES ($1, now())\n             ON CONFLICT (empreinte_courriel) DO UPDATE SET dernier_paiement = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e81323213413f1e324e4a79237f1cca9d8206060a1f064bbd96c25daea8db9e6"
+}

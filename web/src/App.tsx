@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Boutique } from './composants/Boutique'
+import { CompteReglages } from './composants/CompteReglages'
+import { Connexion } from './composants/Connexion'
 import { CarteSeule, Codex } from './composants/Codex'
+import { Enquetes } from './composants/Enquetes'
 import { Indices } from './composants/Indices'
 import { Icone } from './composants/Icone'
 import { Navigation, type Onglet } from './composants/Navigation'
 import { Plis } from './composants/Plis'
 import { Quetes } from './composants/Quetes'
 import { Reglages } from './composants/Reglages'
+import { RelanceCompte } from './composants/RelanceCompte'
+import { CarteSoutien, ModaleSoutien } from './composants/Soutien'
 import { Ricochets } from './composants/Ricochets'
 import { ReserveModale } from './composants/ReserveModale'
 import { Resultat } from './composants/Resultat'
@@ -15,8 +20,15 @@ import { Table } from './composants/Table'
 import type { ClientApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { construireCodex } from './services/codex'
-import { indiceCourant } from './services/indices'
-import { TABLE_MIN, decouvertePossible } from './services/jeu'
+import * as compte from './services/compte'
+import type { ReponseConfirmation } from './contrat'
+import { memoriserRelance, memoriserSoutien, souvenirRelance, souvenirSoutien } from './services/local'
+import { usePresence } from './services/presence'
+import { INACTIVITE_MS, type SouvenirSoutien, ajouterTempsDeJeu, carteMasquee, doitSolliciter, estAbonne, fermerSoutien, masquerCarte } from './services/soutien'
+import { compteQuitte } from './services/profil'
+import { enquetesEnCours, indiceCourant } from './services/indices'
+import { TABLE_MIN, cleEssai, decouvertePossible, raisonEssai } from './services/jeu'
+import { FournisseurDeblocage, useDeblocageEtat } from './services/deblocage'
 import { usePartie } from './services/partie'
 import { useReglages } from './services/reglages'
 import { useRoute } from './services/route'
@@ -24,7 +36,8 @@ import { useEnergieAnimee } from './services/animation'
 import { useMaintenant } from './services/horloge'
 import { energieA } from './services/plis'
 import { quetesDeFascicule, recompensesARecuperer } from './services/quetes'
-import { useEnLigne } from './services/reseau'
+import { useEtatReseau } from './services/reseau'
+import { Actualiser } from './composants/Actualiser'
 
 interface Props {
   api: ClientApi
@@ -42,7 +55,8 @@ function EnTete({ titre, id, children }: { titre: string; id: string; children?:
 }
 
 export function App({ api, catalogue }: Props) {
-  const enLigne = useEnLigne()
+  const reseau = useEtatReseau()
+  const enLigne = reseau === 'en_ligne'
   const partie = usePartie(api, catalogue, enLigne)
   const { reglages, changer } = useReglages()
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
@@ -50,6 +64,13 @@ export function App({ api, catalogue }: Props) {
   const onglet = route.onglet
   // Le menu « Plis » ramène toujours au choix du fascicule.
   const setOnglet = useCallback((o: Onglet) => naviguer({ onglet: o, carte: null, pli: null, quete: null, plus: false }), [naviguer])
+  // Un autre onglet s'ouvre en haut de page, pas au défilement laissé par le précédent.
+  const ongletVu = useRef(onglet)
+  useEffect(() => {
+    if (ongletVu.current === onglet) return
+    ongletVu.current = onglet
+    document.documentElement.scrollTop = 0
+  }, [onglet])
   const { jeu, etat } = partie
   // Plis prêts : compteur de l'onglet, rafraîchi quand une charge revient.
   const maintenant = useMaintenant()
@@ -68,6 +89,7 @@ export function App({ api, catalogue }: Props) {
   // Avancée de la recharge en cours, de 0 à 1 ; null quand l'énergie est pleine.
   const recharge = etat && energieNav?.prochaine != null ? 1 - (energieNav.prochaine - maintenant) / (etat.energie.recharge_s * 1000) : null
   const catalogueJeu = jeu.etat === 'pret' ? jeu.valeur : null
+  const deblocage = useDeblocageEtat(catalogueJeu, etat)
   const entrees = useMemo(
     () => (catalogueJeu ? construireCodex(catalogueJeu, etat) : []),
     [catalogueJeu, etat],
@@ -79,9 +101,11 @@ export function App({ api, catalogue }: Props) {
   )
   const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
-  const bloquee = !enLigne
+  const bloquee = reseau === 'hors_ligne'
     ? 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
-    : !etat
+    : reseau === 'injoignable'
+      ? 'Serveur injoignable : consultation seulement.'
+      : !etat
       ? 'Votre réserve n’est pas encore chargée.'
       : null
   const prete = bloquee === null && partie.table.length >= TABLE_MIN
@@ -89,6 +113,14 @@ export function App({ api, catalogue }: Props) {
   const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : null)
   // Sans silhouette à indicer, l'indice n'afficherait rien : le bouton disparaît.
   const indiceDisponible = catalogueJeu ? indiceCourant(catalogueJeu, entrees, etat) !== null : false
+  const enquetes = useMemo(() => (catalogueJeu ? enquetesEnCours(catalogueJeu, entrees, etat) : []), [catalogueJeu, entrees, etat])
+  // Mémoire des essais (App#89) : les paires notées par le serveur et les mots déjà au codex.
+  const raisonPaire = useMemo(() => {
+    if (!catalogueJeu || !etat) return undefined
+    const decouverts = new Set(etat.decouvertes.map((d) => d.mot_id))
+    const essais = new Set((etat.essais ?? []).map((e) => cleEssai(e.gauche, e.droite)))
+    return (paire: [string, string]) => raisonEssai(paire, catalogueJeu, decouverts, essais)
+  }, [catalogueJeu, etat])
   const bloque =
     catalogueJeu && etat && partie.table.length === 0
       ? !decouvertePossible(catalogueJeu, etat.reserve, new Set(etat.decouvertes.map((d) => d.mot_id)))
@@ -111,11 +143,15 @@ export function App({ api, catalogue }: Props) {
     setOnglet('plis')
   }
   const ficheEntree = partie.fiche ? entrees.find((e) => e.id === partie.fiche?.motId) : undefined
+  // Découverte confirmée par le serveur : son gain s'écrit sous la carte qui s'ouvre.
+  const issueFiche = partie.retour?.etat === 'confirme' ? partie.retour.issue : null
+  const gainFiche = issueFiche?.type === 'decouverte' && issueFiche.mot_id === partie.fiche?.motId ? (issueFiche.gouttes ?? 0) : null
+  const annonceFiche = gainFiche === null ? undefined : `Nouvelle découverte${gainFiche > 0 ? `\u00a0· +${gainFiche}\u00a0goutte${gainFiche > 1 ? 's' : ''} d’encre` : '\u00a0!'}`
   const lireMedia = useCallback(async (chemin: string) => new TextDecoder().decode(await catalogue.fichierHache(chemin)), [catalogue])
   const [indices, setIndices] = useState(false)
   const fermerIndices = useCallback(() => setIndices(false), [])
   // Réserve en modale : `rang` est la case touchée, `null` pour la case vide la plus à gauche.
-  const [reserveOuverte, setReserveOuverte] = useState<{ rang: number | null; recherche?: string } | null>(null)
+  const [reserveOuverte, setReserveOuverte] = useState<{ rang: number | null } | null>(null)
   const fermerReserve = useCallback(() => setReserveOuverte(null), [])
   // Table complétée depuis la réserve : à sa fermeture, le focus va à « Fusionner », la seule suite.
   const boutonFusion = useRef<HTMLButtonElement>(null)
@@ -128,241 +164,365 @@ export function App({ api, catalogue }: Props) {
     focusFusion.current = false
     boutonFusion.current?.focus({ preventScroll: true })
   }, [reserveOuverte])
+  // Compte facultatif (ADR 0070) : la relance attend une table vide, sans fusion, carte ni rituel en cours.
+  const [souvenir, setSouvenir] = useState<compte.SouvenirRelance | null>(null)
+  // Déconnecté d'un compte : la relance et l'écran de connexion proposent d'y revenir.
+  const [quitte, setQuitte] = useState(false)
+  // Soutien Ko-fi (ADR 0078) : la modale attend le même calme que la relance, et lui cède la place.
+  const [souvenirDon, setSouvenirDon] = useState<SouvenirSoutien | null>(null)
+  const don = useRef<SouvenirSoutien | null>(null)
+  const [soutienOuvert, setSoutienOuvert] = useState(false)
+  const [modeConnexion, setModeConnexion] = useState<compte.ModeConnexion>('sauvegarde')
+  useEffect(() => {
+    void souvenirRelance().then(setSouvenir)
+    void souvenirSoutien().then((lu) => {
+      don.current = lu
+      setSouvenirDon(lu)
+    })
+    void compteQuitte().then((q) => {
+      setQuitte(q)
+      if (q) setModeConnexion('connexion')
+    })
+  }, [])
+  const ouvrirConnexion = (mode: compte.ModeConnexion) => {
+    setModeConnexion(mode)
+    naviguer({ onglet: 'connexion' })
+  }
+  const occupe = partie.table.length > 0 || partie.enAttente || partie.fusion !== null || partie.fiche !== null || gel !== null || reserveOuverte !== null || indices
+  const relance = etat && souvenir && !occupe && compte.doitRelancer(etat, souvenir, quitte)
+  // Le souvenir change à plusieurs endroits (temps de jeu, masquage, fermeture) : la référence garde le dernier.
+  const changerDon = useCallback((modifier: (s: SouvenirSoutien) => SouvenirSoutien) => {
+    if (!don.current) return
+    don.current = modifier(don.current)
+    setSouvenirDon(don.current)
+    void memoriserSoutien(don.current)
+  }, [])
+  const ajouterTemps = useCallback((secondes: number) => changerDon((s) => ajouterTempsDeJeu(s, secondes)), [changerDon])
+  const inactif = usePresence(souvenirDon !== null, ajouterTemps, INACTIVITE_MS)
+  // La modale attend le même calme que la relance, puis un joueur resté une minute sans toucher l'écran.
+  // Une fois ouverte, elle reste jusqu'à sa fermeture, même si le joueur bouge.
+  const soutienPossible = !!(etat && souvenirDon && enLigne && !occupe && !relance && doitSolliciter(etat, souvenirDon))
+  if (soutienPossible && inactif && !soutienOuvert) setSoutienOuvert(true)
+  // Tant que le souvenir n'est pas lu, la carte reste cachée : pas de clignotement.
+  const carteSoutien = souvenirDon && !carteMasquee(souvenirDon) ? <CarteSoutien abonne={estAbonne(etat ?? null)} onMasquer={() => changerDon(masquerCarte)} /> : null
+  const fermerSoutienModale = () => {
+    setSoutienOuvert(false)
+    changerDon(fermerSoutien)
+  }
+  const fermerRelance = () => {
+    if (!etat) return
+    const suite = compte.fermerRelance(etat)
+    setSouvenir(suite)
+    void memoriserRelance(suite)
+  }
+  const { synchroniser, changerDePartie } = partie
+  // Tirer pour actualiser : l'état relu, et une nouvelle version cherchée (MiseAJour la propose).
+  // Une fusion ou un rituel en cours garde l'état qu'il anime : le geste attend qu'ils finissent.
+  const enMouvement = partie.enAttente || partie.fusion !== null || gel !== null
+  const actualiser = useCallback(async () => {
+    if (enMouvement) return
+    const enregistrement = await navigator.serviceWorker?.getRegistration().catch(() => undefined)
+    await Promise.allSettled([synchroniser(), enregistrement?.update()])
+  }, [synchroniser, enMouvement])
+  const compteConfirme = useCallback(
+    async (reponse: ReponseConfirmation) => {
+      setQuitte(false)
+      // Connecté : l'appareil joue une autre partie. Compte créé : la même, avec son compte.
+      await (reponse.issue === 'connecte' ? changerDePartie() : synchroniser())
+      naviguer({ onglet: 'reglages' })
+    },
+    [changerDePartie, synchroniser, naviguer],
+  )
+  const quitter = async (action: (api: ClientApi) => Promise<string | null>) => {
+    const erreur = await action(api)
+    if (erreur) return erreur
+    setQuitte(await compteQuitte())
+    await changerDePartie()
+    // La partie effacée emporte la relance refermée : le nouvel invité repart de zéro.
+    setSouvenir(compte.SOUVENIR_VIERGE)
+    naviguer({ onglet: 'table' })
+    return null
+  }
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
-    <div className="coque">
-      <Navigation
-        actif={onglet}
-        compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size, quetes: recompensesARecuperer(catalogueJeu, etat) }}
-        onChoisir={setOnglet}
-        ressources={etat ? { plis: plisPrets, capacite: etat.energie.capacite, gouttes: encreAffichee ?? 0, sabliers: etat.sabliers?.detenus ?? 0, recharge, avance } : undefined}
-      />
+    <FournisseurDeblocage value={deblocage}>
+      <div className="coque">
+        <Actualiser onActualiser={actualiser} />
+        <Navigation
+          actif={onglet}
+          compteurs={{ codex: gel ? gel.nouvelles : partie.nouvelles.size, quetes: recompensesARecuperer(catalogueJeu, etat) }}
+          onChoisir={setOnglet}
+          ressources={etat ? { plis: plisPrets, capacite: etat.energie.capacite, gouttes: encreAffichee ?? 0, sabliers: etat.sabliers?.detenus ?? 0, recharge, avance } : undefined}
+        />
 
-      <div className="contenu">
-        <main className="page">
-          {!enLigne && (
-            <p className="banniere" role="status">
-              <Icone nom="horsLigne" />
-              <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
-            </p>
-          )}
-          {partie.erreurEtat && (
-            <p className="banniere" role="alert">
-              <Icone nom="info" />
-              <span>{partie.erreurEtat} Votre progression confirmée n’est pas perdue.</span>
-            </p>
-          )}
-          {jeu.etat === 'erreur' && (
-            <p className="banniere" role="alert">
-              <Icone nom="info" />
-              <span>{jeu.message}</span>
-            </p>
-          )}
+        <div className="contenu">
+          <main className="page">
+            {/* Une seule bannière pour la liaison : l'erreur de l'état découle souvent de la même panne. */}
+            {reseau === 'hors_ligne' ? (
+              <p className="banniere" role="status">
+                <Icone nom="horsLigne" />
+                <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
+              </p>
+            ) : reseau === 'injoignable' ? (
+              <p className="banniere" role="status">
+                <Icone nom="horsLigne" />
+                <span>Serveur injoignable : consultation seulement. Nouvel essai automatique…</span>
+                <button type="button" className="btn-texte" onClick={() => void api.reessayer()}>
+                  Réessayer
+                </button>
+              </p>
+            ) : partie.erreurEtat && (
+              <p className="banniere" role="alert">
+                <Icone nom="info" />
+                <span>{partie.erreurEtat} Votre progression confirmée n’est pas perdue.</span>
+              </p>
+            )}
+            {jeu.etat === 'erreur' && (
+              <p className="banniere" role="alert">
+                <Icone nom="info" />
+                <span>{jeu.message}</span>
+              </p>
+            )}
 
-          {jeu.etat === 'attente' && (
-            <div className="lancement" aria-live="polite">
-              <span className="seal" aria-hidden="true">
-                ÉL
-              </span>
-              <p>Chargement du catalogue…</p>
-            </div>
-          )}
-          {jeu.etat === 'pret' && !catalogueJeu && (
-            <div className="empty">
-              <p>Aucun fascicule n’est encore paru.</p>
-            </div>
-          )}
+            {jeu.etat === 'attente' && (
+              <div className="lancement" aria-live="polite">
+                <span className="seal" aria-hidden="true">
+                  ÉL
+                </span>
+                <p>Chargement du catalogue…</p>
+              </div>
+            )}
+            {jeu.etat === 'pret' && !catalogueJeu && (
+              <div className="empty">
+                <p>Aucun fascicule n’est encore paru.</p>
+              </div>
+            )}
 
-          {catalogueJeu && (
-            <>
-              <section {...ecran('table')}>
-                <EnTete titre="Table" id="titre-table" />
-                {reserveOuverte && etat && (
-                  <ReserveModale
-                    reserve={etat.reserve}
-                    briques={catalogueJeu.briques}
-                    cases={partie.cases}
-                    consommees={partie.consommees}
-                    exemplaires={exemplaires}
-                    rang={reserveOuverte.rang}
-                    recherche={reserveOuverte.recherche}
-                    onPoser={partie.poser}
-                    onRetirer={partie.retirer}
-                    onComplete={versFusion}
-                    onFermer={fermerReserve}
+            {catalogueJeu && (
+              <>
+                <section {...ecran('table')}>
+                  <EnTete titre="Table" id="titre-table" />
+                  {reserveOuverte && etat && (
+                    <ReserveModale
+                      reserve={etat.reserve}
+                      briques={catalogueJeu.briques}
+                      cases={partie.cases}
+                      consommees={partie.consommees}
+                      exemplaires={exemplaires}
+                      rang={reserveOuverte.rang}
+                      onPoser={partie.poser}
+                      onRetirer={partie.retirer}
+                      onComplete={versFusion}
+                      onFermer={fermerReserve}
+                      raisonEssai={raisonPaire}
+                    />
+                  )}
+                  {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} lireMedia={lireMedia} onFermer={fermerIndices} />}
+
+                  <div className="jeu">
+                    <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
+                      <div className="panel-head">
+                        <span>Table de fusion</span>
+                        <span className="status">{statut}</span>
+                      </div>
+                      {bloque ? (
+                        <div className="empty">
+                          <span className="ill" aria-hidden="true">
+                            ?
+                          </span>
+                          <h2>Aucun mot possible pour l’instant</h2>
+                          <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
+                          <div className="rangee rangee-centree">
+                            <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
+                              Aller aux plis
+                            </button>
+                            {indiceDisponible && (
+                              <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
+                                <Icone nom="indice" />
+                                Indice
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <Table
+                            table={partie.cases}
+                            briques={catalogueJeu.briques}
+                            enAttente={partie.enAttente}
+                            secousse={partie.secousse}
+                            fusion={partie.fusion}
+                            onPoser={partie.poser}
+                            onDeplacer={partie.deplacer}
+                            onRetirer={partie.retirer}
+                            onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
+                          />
+                          <div className="actions">
+                            <button
+                              ref={boutonFusion}
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => void partie.fusionner()}
+                              disabled={raisonFusion !== null || partie.enAttente}
+                              title={raisonFusion ?? undefined}
+                            >
+                              {partie.enAttente ? 'Fusion…' : 'Fusionner'}
+                            </button>
+                            <button type="button" className="btn btn-secondary" onClick={() => setReserveOuverte({ rang: null })} disabled={bloquee !== null}>
+                              <Icone nom="reserve" />
+                              Réserve · {exemplaires}
+                            </button>
+                            {/* Secondaire : la Réserve reste la prochaine action, l'indice une aide qui coûte de l'encre. */}
+                            {indiceDisponible && (
+                              <button type="button" className="btn btn-secondary btn-indice-discret" onClick={() => setIndices(true)} disabled={!etat}>
+                                <Icone nom="indice" />
+                                Indice
+                              </button>
+                            )}
+                          </div>
+                          <Resultat
+                            retour={partie.retour}
+                            jeu={catalogueJeu}
+                            posees={partie.table.length}
+                            bloquee={bloquee}
+                            onInverser={partie.inverser}
+                            aRecuperer={jalonsARecuperer}
+                            onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
+                            onFascicule={(id) => naviguer({ onglet: 'plis', pli: id })}
+                          />
+                        </>
+                      )}
+                    </section>
+                    <Enquetes enquetes={enquetes} lireMedia={lireMedia} />
+                    {relance && <RelanceCompte decouvertes={etat.decouvertes.length} reconnexion={quitte} onOuvrir={() => ouvrirConnexion(quitte ? 'connexion' : 'sauvegarde')} onFermer={fermerRelance} />}
+                    {soutienOuvert && <ModaleSoutien onFermer={fermerSoutienModale} />}
+                  </div>
+
+
+                </section>
+
+                <section {...ecran('codex')}>
+                  <EnTete titre="Codex" id="titre-codex" />
+                  <Codex
+                    entrees={entrees}
+                    jeu={catalogueJeu}
+                    joursDeJeu={etat?.jours_de_jeu}
+                    nouvelles={partie.nouvelles}
+                    onVue={partie.carteVue}
+                    actif={onglet === 'codex'}
+                    vue={route}
+                    onChangerVue={naviguer}
+                    urlMedia={(chemin) => catalogue.url(chemin)}
+                    lireMedia={lireMedia}
+                    enquetes={enquetes}
+                  />
+                </section>
+
+                <section {...ecran('plis')}>
+                  <EnTete titre="Plis" id="titre-plis" />
+                  <Plis
+                    jeu={catalogueJeu}
+                    etat={etat}
+                    fascicule={route.pli}
+                    onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
+                    ouvrirPli={partie.ouvrirPli}
+                    ouvrirPlis={partie.ouvrirPlis}
+                    utiliserSabliers={partie.utiliserSabliers}
+                    acheterEtAvancer={partie.acheterEtAvancer}
+                    onEssayer={(brique) => {
+                      // Pose la brique découverte à sa place : un préfixe en tête, un suffixe en queue, un mot dans la première case libre.
+                      const nature = catalogueJeu.briques.get(brique)?.nature
+                      const rang = nature === 'prefixe' ? 0 : nature === 'suffixe' ? partie.cases.length - 1 : partie.cases.indexOf(null)
+                      const libres = (etat?.reserve.find((e) => e.brique_id === brique)?.exemplaires ?? 0) - partie.cases.filter((b) => b === brique).length
+                      if (rang >= 0 && libres > 0) partie.poser(brique, rang)
+                      setOnglet('table')
+                    }}
+                    onGeler={geler}
+                    urlMedia={(chemin) => catalogue.url(chemin)}
+                  />
+                </section>
+
+                <section {...ecran('quetes')}>
+                  <EnTete titre="Quêtes" id="titre-quetes" />
+                  <Quetes
+                    jeu={catalogueJeu}
+                    etat={etat}
+                    entrees={entrees}
+                    vue={route}
+                    onChangerVue={naviguer}
+                    urlMedia={(chemin) => catalogue.url(chemin)}
+                    recuperer={partie.recupererJalon}
+                    recupererPalier={partie.recupererPalier}
+                    recupererCarte={partie.recupererCarte}
+                    recupererCadeau={partie.recupererCadeau}
+                    recupererQueteInitiale={partie.recupererQueteInitiale}
+                    recupererQueteDuJour={partie.recupererQueteDuJour}
+                    inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
+                  />
+                </section>
+
+                <section {...ecran('boutique')}>
+                  <EnTete titre="Boutique" id="titre-boutique" />
+                  <Boutique etat={etat} acheter={partie.acheterSabliers} soutien={carteSoutien} />
+                </section>
+
+                {/* Fusion réussie, nouvelle ou déjà connue : la carte s'ouvre, la même qu'au codex. */}
+                {ficheEntree && (
+                  <CarteSeule
+                    key={ficheEntree.id}
+                    entree={ficheEntree}
+                    entrees={entrees}
+                    jeu={catalogueJeu}
+                    lireMedia={lireMedia}
+                    onFermer={partie.fermerFiche}
+                    onSuivreLien={allerAuCodex}
+                    annonce={annonceFiche}
                   />
                 )}
-                {indices && <Indices jeu={catalogueJeu} etat={etat} entrees={entrees} acheter={partie.acheterIndice} lireMedia={lireMedia} onFermer={fermerIndices} />}
+              </>
+            )}
 
-                <div className="jeu">
-                  <section className={prete ? 'panel table-panel ready' : 'panel table-panel'} aria-label="Table de fusion">
-                    <div className="panel-head">
-                      <span>Table de fusion</span>
-                      <span className="status">{statut}</span>
-                    </div>
-                    {bloque ? (
-                      <div className="empty">
-                        <span className="ill" aria-hidden="true">
-                          ?
-                        </span>
-                        <h3>Aucun mot possible pour l’instant</h3>
-                        <p>Vos briques ne forment plus de nouveau mot. Vous pouvez toujours essayer : se tromper ne coûte rien.</p>
-                        <div className="rangee rangee-centree">
-                          <button type="button" className="btn btn-primary" onClick={allerAuxPlis}>
-                            Aller aux plis
-                          </button>
-                          {indiceDisponible && (
-                            <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
-                              <Icone nom="indice" />
-                              Indice
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <Table
-                          table={partie.cases}
-                          briques={catalogueJeu.briques}
-                          enAttente={partie.enAttente}
-                          secousse={partie.secousse}
-                          fusion={partie.fusion}
-                          onPoser={partie.poser}
-                          onDeplacer={partie.deplacer}
-                          onRetirer={partie.retirer}
-                          onCaseVide={(rang) => bloquee === null && setReserveOuverte({ rang })}
-                        />
-                        <div className="actions">
-                          <button
-                            ref={boutonFusion}
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => void partie.fusionner()}
-                            disabled={raisonFusion !== null || partie.enAttente}
-                            title={raisonFusion ?? undefined}
-                          >
-                            {partie.enAttente ? 'Fusion…' : 'Fusionner'}
-                          </button>
-                          <button type="button" className="btn btn-secondary" onClick={() => setReserveOuverte({ rang: null })} disabled={bloquee !== null}>
-                            <Icone nom="reserve" />
-                            Réserve · {exemplaires}
-                          </button>
-                          {indiceDisponible && (
-                            <button type="button" className="btn btn-indice" onClick={() => setIndices(true)} disabled={!etat}>
-                              <Icone nom="indice" />
-                              Indice
-                            </button>
-                          )}
-                        </div>
-                        <Resultat
-                          retour={partie.retour}
-                          jeu={catalogueJeu}
-                          posees={partie.table.length}
-                          bloquee={bloquee}
-                          onInverser={partie.inverser}
-                          aRecuperer={jalonsARecuperer}
-                          onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
-                          briquesPosees={partie.table}
-                          decouverts={new Set((etat?.decouvertes ?? []).map((d) => d.mot_id))}
-                          onCarte={allerAuCodex}
-                          onRemplacer={(rang, forme) => {
-                            partie.retirer(rang)
-                            setReserveOuverte({ rang, recherche: forme })
-                          }}
-                        />
-                      </>
-                    )}
-                  </section>
-                </div>
+            <section {...ecran('ricochets')}>
+              <EnTete titre="Ricochets" id="titre-ricochets" />
+              <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} entrees={entrees} lireMedia={lireMedia} onSuivreLien={allerAuCodex} />
+            </section>
 
+            <section {...ecran('reglages')}>
+              <EnTete titre="Réglages" id="titre-reglages" />
+              <Reglages
+                soutien={carteSoutien}
+                reglages={reglages}
+                onChanger={changer}
+                onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined}
+                compte={
+                  etat && (
+                    <CompteReglages
+                      compte={etat.compte}
+                      enLigne={enLigne}
+                      onSauvegarder={() => ouvrirConnexion('sauvegarde')}
+                      onSeConnecter={() => ouvrirConnexion('connexion')}
+                      changerPseudo={async (pseudo) => {
+                        const r = await compte.changerPseudo(api, pseudo)
+                        if ('erreur' in r) return r
+                        await synchroniser()
+                        return null
+                      }}
+                      deconnecter={() => quitter(compte.deconnecter)}
+                      supprimer={() => quitter(compte.supprimer)}
+                    />
+                  )
+                }
+              />
+            </section>
 
-              </section>
-
-              <section {...ecran('codex')}>
-                <EnTete titre="Codex" id="titre-codex" />
-                <Codex
-                  entrees={entrees}
-                  jeu={catalogueJeu}
-                  joursDeJeu={etat?.jours_de_jeu}
-                  nouvelles={partie.nouvelles}
-                  onVue={partie.carteVue}
-                  vue={route}
-                  onChangerVue={naviguer}
-                  urlMedia={(chemin) => catalogue.url(chemin)}
-                  lireMedia={lireMedia}
-                />
-              </section>
-
-              <section {...ecran('plis')}>
-                <EnTete titre="Plis" id="titre-plis" />
-                <Plis
-                  jeu={catalogueJeu}
-                  etat={etat}
-                  fascicule={route.pli}
-                  onChoisir={(f) => naviguer({ onglet: 'plis', pli: f })}
-                  ouvrirPli={partie.ouvrirPli}
-                  utiliserSabliers={partie.utiliserSabliers}
-                  acheterEtAvancer={partie.acheterEtAvancer}
-                  onEssayer={(brique) => {
-                    // Pose la brique découverte à sa place : un préfixe en tête, un suffixe en queue, un mot dans la première case libre.
-                    const nature = catalogueJeu.briques.get(brique)?.nature
-                    const rang = nature === 'prefixe' ? 0 : nature === 'suffixe' ? partie.cases.length - 1 : partie.cases.indexOf(null)
-                    const libres = (etat?.reserve.find((e) => e.brique_id === brique)?.exemplaires ?? 0) - partie.cases.filter((b) => b === brique).length
-                    if (rang >= 0 && libres > 0) partie.poser(brique, rang)
-                    setOnglet('table')
-                  }}
-                  onGeler={geler}
-                  urlMedia={(chemin) => catalogue.url(chemin)}
-                />
-              </section>
-
-              <section {...ecran('quetes')}>
-                <EnTete titre="Quêtes" id="titre-quetes" />
-                <Quetes
-                  jeu={catalogueJeu}
-                  etat={etat}
-                  entrees={entrees}
-                  vue={route}
-                  onChangerVue={naviguer}
-                  urlMedia={(chemin) => catalogue.url(chemin)}
-                  recuperer={partie.recupererJalon}
-                  recupererPalier={partie.recupererPalier}
-                  inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
-                />
-              </section>
-
-              <section {...ecran('boutique')}>
-                <EnTete titre="Boutique" id="titre-boutique" />
-                <Boutique etat={etat} acheter={partie.acheterSabliers} />
-              </section>
-
-              {/* Fusion réussie, nouvelle ou déjà connue : la carte s'ouvre, la même qu'au codex. */}
-              {ficheEntree && (
-                <CarteSeule
-                  key={ficheEntree.id}
-                  entree={ficheEntree}
-                  entrees={entrees}
-                  jeu={catalogueJeu}
-                  lireMedia={lireMedia}
-                  onFermer={partie.fermerFiche}
-                  onSuivreLien={allerAuCodex}
-                />
-              )}
-            </>
-          )}
-
-          <section {...ecran('ricochets')}>
-            <EnTete titre="Ricochets" id="titre-ricochets" />
-            <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} entrees={entrees} lireMedia={lireMedia} onSuivreLien={allerAuCodex} />
-          </section>
-
-          <section {...ecran('reglages')}>
-            <EnTete titre="Réglages" id="titre-reglages" />
-            <Reglages reglages={reglages} onChanger={changer} onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined} />
-          </section>
-        </main>
+            <section {...ecran('connexion')}>
+              <EnTete titre={modeConnexion === 'connexion' ? 'Se connecter' : 'Sauvegarder'} id="titre-connexion" />
+              {onglet === 'connexion' && <Connexion api={api} etat={etat} enLigne={enLigne} mode={modeConnexion} onMode={setModeConnexion} onConfirme={compteConfirme} />}
+            </section>
+          </main>
+        </div>
       </div>
-    </div>
+    </FournisseurDeblocage>
   )
 }

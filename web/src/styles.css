@@ -101,7 +101,19 @@ body {
   font-family: var(--sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* viewport-fit=cover (index.html) : la page passe sous la barre d'état et l'encoche ; le contenu, lui, reste dans la zone sûre. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
+/*
+ * Sous la barre d'état d'iOS, un aplat Papier opaque : iOS 26 y floute ce qui passe dessous
+ * (trame de points, pastilles) ; un aplat uni ne se voit pas flouté. Hauteur nulle hors iPhone.
+ * Les dialogues et la visionneuse le recouvrent avec leur propre fond.
+ */
+body::before {
+  content: ""; position: fixed; z-index: 75; top: 0; right: 0; left: 0;
+  height: env(safe-area-inset-top); background: var(--paper-2); pointer-events: none;
+}
+:root:has(.scrim, .viewer:not([hidden])) body::before { display: none; }
 h1, h2, h3, p, ol, ul { margin: 0; }
 a, button { color: inherit; }
 button { font: inherit; }
@@ -116,14 +128,14 @@ button { font: inherit; }
 .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Coque et navigation (design système 4.1) ---------- */
-.coque { min-height: 100vh; }
-.contenu { min-width: 0; padding-bottom: 120px; }
-.ecran { display: grid; gap: 24px; }
+.coque { min-height: calc(100vh - env(safe-area-inset-top)); }
+.contenu { min-width: 0; padding-bottom: calc(var(--hauteur-navigation, 104px) + 24px); }
+.ecran { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; } /* minmax(0) : une bande défilante ne doit pas élargir l'écran */
 .ecran[hidden] { display: none; }
 .navigation {
   position: fixed; z-index: 40; right: 0; bottom: 0; left: 0;
   display: grid; grid-template-columns: repeat(4, 1fr);
-  padding: 8px 6px calc(12px + env(safe-area-inset-bottom));
+  padding: 8px calc(6px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left));
   border-top: 1.5px solid var(--line); background: var(--cream);
 }
 .navigation .navigation-sceau { display: none; cursor: default; }
@@ -147,6 +159,23 @@ button { font: inherit; }
 }
 .navigation-panneau[hidden] { display: none; }
 .navigation-burger[aria-expanded="true"] { color: var(--ink); }
+/* Soutien Ko-fi (ADR 0078) : dans le rail seulement ; sur mobile, la carte des Réglages et la modale suffisent. */
+.navigation-soutien { display: none; }
+.soutien-carte { padding: 18px 20px; border: 1.5px solid var(--fixed-ink); border-radius: var(--radius); background: var(--cream); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.soutien-carte h2, .soutien-modale h2 { font-family: var(--serif); }
+.soutien-carte .btn, .soutien-modale .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.soutien-carte .btn .ic, .soutien-modale .btn .ic { width: 18px; height: 18px; }
+.soutien-modale { gap: 16px; }
+.soutien-modale p, .soutien-carte p { margin: 0; line-height: 1.55; text-wrap: pretty; }
+/* Le bouton principal porte une ombre de 4 px : l'écart la dégage, et le lien garde une cible de 44 px. */
+.soutien-modale .rangee { gap: 6px 22px; margin-top: 4px; }
+.soutien-carte .btn-texte, .soutien-modale .btn-texte { min-height: 44px; padding: 0 4px; }
+.soutien-carte .btn { margin: 4px 4px 0 0; }
+@media (max-width: 760px) {
+  .soutien-modale .rangee { flex-direction: column; align-items: stretch; gap: 2px; }
+  .soutien-modale .btn { justify-content: center; }
+  .soutien-modale .btn-texte { text-align: center; }
+}
 .navigation-panneau button { grid-auto-flow: column; align-items: center; justify-content: start; gap: 12px; width: 100%; padding: 0 12px; border-radius: 8px; color: var(--ink); font-size: 14px; }
 .navigation-panneau button:hover { background: var(--paper-2); }
 .navigation-panneau button .count { position: static; }
@@ -173,6 +202,7 @@ button { font: inherit; }
 .navigation-ressources .pk-drop { width: 11px; height: 11px; }
 .navigation-ressources .pk-glass { width: 11px; height: 14px; }
 .navigation-plis { display: inline-flex; align-items: center; gap: 5px; }
+.navigation-unite { margin-left: -2px; color: var(--ink-2); font-weight: 400; }
 .navigation-recharge { width: 14px; height: 14px; overflow: visible; rotate: -90deg; }
 .navigation-recharge .ring-track, .navigation-recharge .ring-fill { stroke-width: 9; }
 .navigation-recharge .ring-track { stroke: var(--line); }
@@ -191,6 +221,9 @@ button { font: inherit; }
   .navigation button.en-burger { display: grid; }
   .navigation .navigation-burger, .navigation .navigation-panneau { display: none; }
   .navigation button[data-onglet="reglages"] { margin-top: auto; }
+  .navigation-soutien { display: grid; justify-items: center; gap: 3px; width: 72px; padding: 8px 0 6px; border-radius: 12px; color: var(--ink-3); font-size: 11px; font-weight: 700; text-decoration: none; }
+  .navigation-soutien:hover { color: var(--ink); }
+  .navigation-soutien .ic { width: 22px; height: 22px; }
   /* Pile centrée entre deux filets : icônes et nombres alignés en deux colonnes, sans marge perdue. */
   .navigation-ressources {
     order: 0; display: grid; grid-template-columns: 16px auto; justify-content: center; align-items: center; gap: 6px 8px;
@@ -199,6 +232,7 @@ button { font: inherit; }
   .navigation-ressources li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
   .navigation-ressources li > :first-child { justify-self: center; }
   .navigation-ressources + button { margin-top: 0; }
+  .navigation-unite { display: none; }
   .navigation .count { top: 4px; right: 8px; }
   .entete .wordmark .seal { display: none; }
 }
@@ -249,16 +283,58 @@ button { font: inherit; }
 /* Écran de lancement au sceau ÉL (I-03). */
 .lancement { display: grid; justify-items: center; gap: 16px; padding: 80px 0; color: var(--ink-2); }
 .lancement .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
+/* Démarrage de la PWA installée (index.html) : le sceau au centre, jusqu'au montage de React. */
+.demarrage { display: none; }
+.demarrage .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
+@media (display-mode: standalone) {
+  .demarrage { display: grid; place-items: center; min-height: calc(100dvh - env(safe-area-inset-top)); }
+  /* Pas de rebond de page : le geste « tirer pour actualiser » (Actualiser.tsx) prend le relais. */
+  html { overscroll-behavior-y: none; }
+}
+/* Attente d'une réponse de l'API (Attente.tsx) : une pastille en haut, au-dessus des dialogues, sous la mise à jour. */
+.attente { position: fixed; z-index: 70; top: calc(env(safe-area-inset-top) + 12px); left: 50%; translate: -50% 0; width: max-content; max-width: calc(100vw - 32px); pointer-events: none; }
+/* PWA installée : sous la barre d'état, iOS 26 floute une bande d'environ 50 px ; la pastille se pose plus bas. */
+@media (display-mode: standalone) {
+  .attente { top: calc(env(safe-area-inset-top) + 44px); }
+  /* L'écran de lancement descend d'autant : la pastille ne masque pas le sceau. */
+  .lancement { padding-top: 128px; }
+}
+.attente-pastille {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px 8px 10px; border: 1.5px solid var(--fixed-ink); border-radius: 22px;
+  background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 700;
+  box-shadow: 3px 3px 0 var(--pop-shadow);
+}
+.attente-pastille .seal { flex: none; width: 24px; height: 24px; border-radius: 7px; font-size: 11px; box-shadow: none; }
+/* Tirer pour actualiser (Actualiser.tsx) : le sceau descend avec le doigt, puis respire le temps de l'actualisation. */
+.actualiser { position: fixed; z-index: 70; top: calc(env(safe-area-inset-top) - 44px); left: 50%; translate: -50% 0; pointer-events: none; }
+.actualiser-sceau { width: 40px; height: 40px; border-radius: 12px; font-size: 17px; }
+.actualiser-sceau.pret { box-shadow: 5px 5px 0 var(--pop-shadow); }
+.actualiser-sceau.en-cours { translate: 0 72px; }
+/* Bouton texte d'une bannière (« Réessayer ») : rangé à droite, zone tactile suffisante. */
+.banniere .btn-texte { flex: none; margin-left: auto; min-height: 24px; }
+/* Présentation statique de index.html, lue sans JavaScript ; React la remplace au montage. */
+.vitrine { display: grid; justify-items: start; gap: 24px; max-width: 680px; margin: 0 auto; padding: 56px var(--pad) 64px; }
+.vitrine .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
+.vitrine h1, .vitrine h2 { font-family: var(--serif); letter-spacing: -0.02em; line-height: 1.1; }
+.vitrine h1 { font-size: clamp(28px, 4vw, 40px); }
+.vitrine h2 { margin-bottom: 12px; font-size: clamp(22px, 2.6vw, 28px); }
+.vitrine h3 { margin: 16px 0 4px; font-family: var(--serif); font-size: 18px; }
+.vitrine-accroche { color: var(--ink-2); font-size: 18px; }
+.vitrine ol { display: grid; gap: 8px; padding-left: 1.4em; }
+.vitrine p { color: var(--ink-2); }
+/* PWA installée : rien à présenter le temps que l'application démarre. */
+@media (display-mode: standalone) { .vitrine { display: none; } }
 /* État vide (design système 2.8). */
 .empty { display: grid; justify-items: center; gap: 10px; max-width: 320px; margin: 0 auto; padding: 24px 16px; text-align: center; }
 .empty .ill { display: grid; place-items: center; width: 72px; height: 72px; border: 2px dashed var(--line-strong); border-radius: 16px; color: var(--ink-3); font-family: var(--serif); font-size: 34px; font-style: italic; }
-.empty h3 { font-family: var(--serif); font-size: 20px; }
+.empty h2 { font-family: var(--serif); font-size: 20px; }
 .empty p { color: var(--ink-2); font-size: 13px; }
 
 /* ---------- Réglages (I-24) ---------- */
 .reglages { display: grid; gap: 16px; max-width: 560px; }
 .reglage { display: grid; gap: 10px; margin: 0; padding: 18px 20px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
-.reglage h3 { padding: 0; font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
+.reglage h2 { padding: 0; font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
 .segments { display: flex; flex-wrap: wrap; gap: 8px; clear: both; }
 .segments label {
   display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px;
@@ -365,6 +441,12 @@ button.brick:hover { transform: translate(-2px, -3px) rotate(-1.5deg); box-shado
 button.brick:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--pop-shadow); cursor: grabbing; }
 /* Rationnement : exemplaires tous posés (désactivé) ou épuisés (pointillé = ce qui manque). */
 .brick.is-out { opacity: 0.4; box-shadow: none; cursor: not-allowed; }
+/* Mémoire des essais (App#89) : déjà essayée avec la brique de la table. Sable, libellé en Encre secondaire,
+   sans ombre ; elle reste jouable, puisque se tromper ne coûte rien (ni désactivée, ni épuisée). */
+.brick.is-essayee[data-kind] { border-color: var(--ink-3); background: var(--paper-2); color: var(--ink-2); box-shadow: none; }
+.tray-memoire { display: grid; gap: 4px; }
+.tray-intertitre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-2); font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.tray-intertitre .bchip { font-family: var(--serif); letter-spacing: 0; text-transform: none; }
 .brick.is-spent {
   border-style: dashed; box-shadow: none; cursor: not-allowed;
   background: repeating-linear-gradient(135deg, var(--paper-2) 0 6px, var(--cream) 6px 12px);
@@ -403,12 +485,6 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .bchip[data-kind="suffixe"] { background: var(--c-suffix); }
 .bchip[data-kind="mot"] { background: #fffbf3; }
 .bchip.missing { border-style: dashed; background: transparent; color: var(--ink-3); box-shadow: none; letter-spacing: 0.08em; }
-/* Petite brique cliquable d'un retour de la table : ouvre sa carte (ADR 0052). La zone tactile dépasse la brique. */
-.bchip-btn { position: relative; margin-inline: 1px 4px; cursor: pointer; transition: transform var(--dur-rapide) var(--ease-out), box-shadow var(--dur-rapide) var(--ease-out); }
-.bchip-btn::before { content: ""; position: absolute; inset: -12px -4px; }
-.bchip-btn:hover, .bchip-btn:focus-visible { transform: translateY(-2px); box-shadow: 2px 4px 0 var(--pop-shadow); }
-.bchip-btn:active { transform: none; box-shadow: 1px 1px 0 var(--pop-shadow); }
-@media (prefers-reduced-motion: reduce) { .bchip-btn { transition: none; } }
 .bformula { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .bplus { color: var(--ink-3); font-family: var(--serif); font-size: 16px; line-height: 1; }
 .d-formula { color: var(--ink-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
@@ -462,6 +538,8 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .btn-indice:hover { background: var(--c-pli-tint); box-shadow: 6px 6px 0 var(--pop-shadow); }
 .btn-indice:active { box-shadow: 0 0 0 var(--pop-shadow); }
 .btn-indice .ic { width: 18px; height: 18px; }
+/* Indice de la table : bouton secondaire, l'ampoule en Ambre profond rappelle qu'il coûte de l'encre. */
+.btn-indice-discret .ic { color: var(--c-pli-deep); }
 /* Cercle d'état + phrase courte : Corail plein = découverte, contour Encre = presque, Gris encre = échec, Encre plein = connu. */
 .feedback {
   display: flex; align-items: center; gap: 10px;
@@ -543,6 +621,10 @@ button.disc { font: inherit; cursor: pointer; }
   /* Sceau : un coup de tampon, il s'enfonce de son ombre puis remonte. */
   :root:not([data-mouvement="reduit"]) .seal { transition: scale var(--dur-rapide) var(--ease-ressort), translate var(--dur-rapide) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out); }
   :root:not([data-mouvement="reduit"]) :is(.wordmark:hover .seal, .seal.navigation-sceau:hover) { scale: 0.94; translate: 2px 2px; box-shadow: 1px 1px 0 var(--fixed-ink); }
+  /* Attente et actualisation : le sceau respire ; il suit le doigt sans retard tant qu'on tire. */
+  :root:not([data-mouvement="reduit"]) .attente-pastille { animation: fondu var(--dur-rapide) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) :is(.attente-pastille .seal, .demarrage .seal, .actualiser-sceau.en-cours) { animation: respire 1.6s ease-in-out infinite; }
+  :root:not([data-mouvement="reduit"]) .actualiser-sceau:not(.en-cours) { transition: none; }
   /* Touche mécanique : à l'appui, le bouton descend de la longueur de son ombre en 120 ms, puis remonte au ressort. */
   :root:not([data-mouvement="reduit"]) .btn { transition: transform var(--dur-base) var(--ease-ressort), box-shadow var(--dur-rapide) var(--ease-out), background-color var(--dur-rapide), border-color var(--dur-rapide); }
   :root:not([data-mouvement="reduit"]) .btn:not(:disabled):hover { transform: translate(-2px, -2px); }
@@ -580,6 +662,8 @@ button.disc { font: inherit; cursor: pointer; }
   :root:not([data-mouvement="reduit"]) .dialogue { animation: sobre var(--dur-rapide) var(--ease-out); }
   /* Réserve : elle monte sans pivoter. */
   :root:not([data-mouvement="reduit"]) .dialogue.reserve-modale { animation: bump 0.25s var(--ease-out); }
+  /* Croix de la réserve défilée : elle apparaît en se resserrant, sans pivoter. */
+  :root:not([data-mouvement="reduit"]) .rm-fermer { animation: fondu var(--dur-instant) linear, contracte var(--dur-rapide) var(--ease-ressort); }
   /* Indice : elle s'affiche sans animation. */
   :root:not([data-mouvement="reduit"]) .dialogue.indices { animation: none; }
   /* Mobile : toute modale monte depuis le bas, le voile se lève ; elle redescend à la fermeture (useDialogue.ts). */
@@ -594,6 +678,7 @@ button.disc { font: inherit; cursor: pointer; }
 }
 :root[data-mouvement="reduit"] :is(.dialogue, .result, .retours > .entre, .navigation-panneau, .pk-reveal > *, .viewer) { animation: fondu var(--dur-instant) linear both; }
 @keyframes fondu { from { opacity: 0; } }
+@keyframes respire { 50% { scale: 0.9; } }
 @keyframes monte { from { transform: translateY(100%); } }
 @keyframes voile { from { opacity: 0; } }
 @keyframes gonfle { from { transform: scale(1.2); } }
@@ -684,7 +769,7 @@ button.disc { font: inherit; cursor: pointer; }
   border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); color: var(--ink-3);
 }
 .champ:focus-within { border-color: var(--ink); color: var(--ink); }
-.champ input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; outline: none; }
+.champ input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; outline: none; }
 .champ input::placeholder { color: var(--ink-3); }
 .champ kbd { padding: 0 6px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; font-family: var(--mono); font-size: 11px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -703,7 +788,13 @@ button.disc { font: inherit; cursor: pointer; }
 /* Fiche de découverte (I-11) : dialogue au-dessus de la table, plein écran sur mobile. */
 /* Modale ouverte : la page derrière ne défile plus. */
 :root:has(.scrim) { overflow: hidden; }
-.scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
+.scrim {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+/* Clavier virtuel ouvert (services/clavier.ts) : le voile et la boîte se calent sur la partie visible, au-dessus du clavier. */
+:root[data-clavier] .scrim { top: var(--vue-haut, 0px); bottom: auto; height: var(--vue-hauteur, 100%); }
+:root[data-clavier] .scrim .dialogue { max-height: 100%; }
 .scrim-fond { position: absolute; inset: 0; background: rgba(15, 31, 25, 0.5); }
 .scrim .dialogue { position: relative; }
 /* Nouvelle version déployée : plein écran opaque, au-dessus de tout, jeu inaccessible. */
@@ -723,15 +814,16 @@ button.disc { font: inherit; cursor: pointer; }
   .seulement-ordinateur { display: none; }
   .seulement-mobile { display: initial; }
   .barre-actions.seulement-mobile {
-    position: sticky; bottom: 76px; z-index: 30; display: flex;
+    position: sticky; bottom: var(--hauteur-navigation, 104px); z-index: 30; display: flex;
     margin: 0 calc(-1 * var(--pad)); padding: 10px var(--pad);
     background: var(--paper); border-top: 1px solid var(--line);
   }
   .scrim { padding: 0; }
-  .dialogue { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; align-content: start; }
-  /* Feuille courte (sabliers, indices) : posée en bas, à la hauteur de son contenu. */
-  .scrim:has(.feuille) { place-items: end stretch; }
-  .dialogue.feuille { height: auto; max-height: 100%; border-top: 1.5px solid var(--fixed-ink); border-radius: 20px 20px 0 0; }
+  /* Plein écran : le fond Crème passe sous la barre d'état, le contenu commence sous elle. */
+  .dialogue { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; align-content: start; padding-top: calc(24px + env(safe-area-inset-top)); padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  /* Feuille courte (sabliers, indices) : posée en bas, à la hauteur de son contenu, jamais sous la barre d'état. */
+  .scrim:has(.feuille) { place-items: end stretch; padding-top: env(safe-area-inset-top); }
+  .dialogue.feuille { height: auto; max-height: 100%; padding-top: 24px; border-top: 1.5px solid var(--fixed-ink); border-radius: 20px 20px 0 0; }
 }
 
 .slot:not(.filled):hover { border-style: solid; background: var(--c-action-tint); }
@@ -748,6 +840,9 @@ button.disc { font: inherit; cursor: pointer; }
   margin: 0 -24px; padding: 12px 24px 14px;
   border-bottom: 1px solid var(--line); background: var(--cream);
 }
+/* Réserve défilée : l'en-tête est sorti de la vue, « Fermer » devient une croix ronde en haut à droite de la table. */
+.rm-fermer { position: absolute; top: 10px; right: 16px; background: var(--cream); }
+.rm-table.defile .rm-consigne { padding-inline: 48px; text-align: center; }
 .rm-titre { display: grid; }
 .rm-compte { color: var(--ink-2); font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
 .rm-consigne { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; }
@@ -788,9 +883,83 @@ button.disc { font: inherit; cursor: pointer; }
 .indices-liste li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; min-height: 48px; padding: 8px 12px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--paper); }
 .indices-liste li.is-obtenu { border-color: var(--fixed-ink); background: var(--cream); }
 .indices-liste h3 { font-size: 15px; font-weight: 700; line-height: 1.3; }
+.indice-aide { display: block; color: var(--ink-2); font-size: 13px; font-weight: 400; }
 .indice-contenu { grid-column: 1 / -1; display: grid; gap: 8px; justify-items: start; padding-top: 10px; border-top: 1.5px solid var(--line); }
 /* La carte-silhouette reprend `.mini` du codex (codex.css) ; seule sa taille et son inertie changent. */
 .indice-carte { justify-self: center; width: 132px; cursor: default; pointer-events: none; }
+
+/* Enquêtes en cours (App#88) : sous la table, une ligne repliée par carte dont un indice est acheté. */
+.enquetes .panel-head { margin-bottom: 0; }
+.enquetes-liste { display: grid; gap: 8px; }
+.enquete { border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--paper); }
+.enquete[open] { border-color: var(--fixed-ink); background: var(--cream); }
+.enquete summary { display: grid; gap: 4px; min-height: 44px; padding: 10px 40px 10px 12px; position: relative; cursor: pointer; list-style: none; }
+.enquete summary::-webkit-details-marker { display: none; }
+.enquete summary::after { position: absolute; top: 14px; right: 14px; width: 8px; height: 8px; border-right: 2px solid var(--ink-3); border-bottom: 2px solid var(--ink-3); transform: rotate(45deg); content: ""; }
+.enquete[open] summary::after { top: 18px; transform: rotate(-135deg); }
+.enquete summary:focus-visible { outline: 2px solid var(--c-action-deep); outline-offset: 2px; border-radius: 10px; }
+.enquete-ligne { font-size: 14px; }
+.enquete-num { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.enquete-obtenus { color: var(--ink-2); }
+.enquete-apercu { overflow: hidden; color: var(--ink-3); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.enquete[open] .enquete-apercu { display: none; }
+.enquete-corps { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px; padding: 12px; border-top: 1.5px solid var(--line); }
+.enquete-corps .indice-carte { justify-self: auto; width: 104px; }
+.enquete-texte { display: grid; flex: 1 1 200px; gap: 6px; min-width: 0; }
+.enquetes .panel-link { margin-top: 0; align-self: flex-start; min-height: 44px; }
 /* Prix en gouttes : la goutte au trait, de la couleur du texte du bouton. */
 .btn-prix { gap: 6px; min-width: 72px; padding: 8px 12px; font-variant-numeric: tabular-nums; }
 .btn-prix .prix { min-width: 2ch; text-align: right; }
+
+/* ---------- Compte facultatif (ADR 0070) : connexion (I-31), relance (I-32), Réglages (I-33) ---------- */
+/* Danger (design système) : Corail profond, réservé aux actions irréversibles, jamais pour un échec de jeu. */
+.btn-danger { background: var(--c-action-deep); color: #fffbf3; box-shadow: 4px 4px 0 var(--pop-shadow); }
+.btn-danger:not(:disabled):hover { box-shadow: 6px 6px 0 var(--pop-shadow); }
+.btn-danger:not(:disabled):active { box-shadow: 1px 1px 0 var(--pop-shadow); }
+
+/* Champ de saisie : étiquette au-dessus, 16 px pour que iOS ne zoome pas. */
+.saisie { display: grid; gap: 6px; }
+.saisie > span:first-child { color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.saisie input { min-height: 48px; padding: 10px 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--paper); color: var(--ink); font: inherit; font-size: 16px; }
+.saisie input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Connexion : plein écran sur mobile ; sur ordinateur, le panneau et l'explication à côté. */
+.connexion { display: grid; gap: 18px; max-width: 880px; }
+.connexion-panneau { min-width: 0; margin: 0; }
+.connexion-etape { display: grid; gap: 14px; }
+.connexion-etape h2 { font-family: var(--serif); font-size: 24px; line-height: 1.15; }
+.connexion-etape p { margin: 0; }
+.connexion-erreur { margin: 0; color: var(--c-action-deep); font-weight: 700; }
+:root[data-theme="nocturne"] .connexion-erreur { color: var(--c-action); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .connexion-erreur { color: var(--c-action); } }
+.connexion-atouts { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.connexion-atouts li { display: grid; gap: 2px; padding: 12px 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: var(--cream); }
+.connexion-atouts span { color: var(--ink-2); font-size: 14px; }
+@media (min-width: 761px) {
+  .connexion { grid-template-columns: minmax(0, 1fr) 260px; align-items: start; }
+  .connexion > .banniere { grid-column: 1 / -1; }
+}
+
+/* Code à 6 chiffres : une seule saisie (collage, code proposé par le système), six cases dessinées dessous. */
+.code-cases { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-width: 360px; }
+.code-case { display: grid; place-items: center; height: 56px; border: 1.5px solid var(--line-strong); border-radius: 10px; background: var(--paper); font-family: var(--mono); font-size: 24px; font-weight: 700; }
+.code-cases:focus-within .code-case.active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+.saisie .code-saisie { position: absolute; min-height: 0; border-radius: 0; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent; font-size: 16px; outline: none; }
+
+/* Relance : une carte en ligne sous la table, refermable, jamais un dialogue. */
+.relance-compte { display: grid; gap: 10px; padding: 18px 20px; border: 1.5px solid var(--fixed-ink); border-radius: var(--radius); background: var(--cream); box-shadow: 4px 4px 0 var(--pop-shadow); }
+.relance-compte h2 { font-family: var(--serif); font-size: 21px; line-height: 1.2; }
+.relance-compte p { margin: 0; }
+.relance-risque { color: var(--ink-2); font-size: 13px; }
+
+/* Compte dans les Réglages : des lignes à toucher, l'adresse jamais affichée. */
+.compte-pseudo, .compte-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.compte-pseudo > span:first-child, .compte-ligne > span:first-child { display: grid; gap: 2px; }
+.compte-pseudo b { font-family: var(--mono); font-size: 17px; overflow-wrap: anywhere; }
+.compte-pseudo small, .compte-ligne small { color: var(--ink-2); font-size: 13px; }
+.compte-ligne { min-height: 56px; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.compte-ligne:disabled { opacity: 0.5; cursor: not-allowed; }
+.compte-ligne:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.etiquette-privee { flex: none; padding: 3px 10px; border: 1.5px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+/* Feuilles ouvertes depuis un groupe des Réglages : titre de dialogue, pas d'en-tête de groupe. */
+.reglage .dialogue h2 { font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: 0; text-transform: none; }

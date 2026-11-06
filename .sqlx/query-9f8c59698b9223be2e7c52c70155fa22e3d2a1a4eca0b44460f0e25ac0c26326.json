@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE defi_connexion SET utilise_le = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f8c59698b9223be2e7c52c70155fa22e3d2a1a4eca0b44460f0e25ac0c26326"
+}

@@ -5,15 +5,15 @@
 
 use std::collections::BTreeSet;
 
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Utc};
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::cadeau::CadeauDeBienvenue;
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
-use etymo_domaine::quete::QueteLongCours;
+use etymo_domaine::quete::{Collection, QueteLongCours};
 use serde::{Deserialize, Serialize};
 
 use crate::Chemin;
-use crate::carte::ParLocale;
 
 /// Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
 /// même forme, seuls les fascicules listés diffèrent.
@@ -30,6 +30,14 @@ pub struct Calendrier {
     /// absentes d'un index antérieur.
     #[serde(default)]
     pub quetes: Vec<QueteLongCours>,
+    /// Cadeau de bienvenue, unique par profil (ADR 0046) ; absent d'un index antérieur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cadeau_de_bienvenue: Option<CadeauDeBienvenue>,
+    /// Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre
+    /// de ce fascicule (ADR 0049) ; absente s'il n'y en a plus.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub prochaine_parution: Option<DateTime<Utc>>,
     pub fascicules: Vec<EntreeFascicule>,
 }
 
@@ -56,12 +64,6 @@ pub struct Manifeste {
     pub test: bool,
     pub jaquette: Option<Chemin>,
     pub exclusions: Option<Chemin>,
-    /// Fausses fusions expliquées du fascicule (ADR 0052) ; absente d'un manifeste plus ancien.
-    #[serde(default)]
-    pub trompes_l_oeil: Option<Chemin>,
-    /// Groupes de briques de même forme (ADR 0052) : des identifiants, jamais de texte.
-    #[serde(default)]
-    pub homographes: Vec<Vec<IdCatalogue>>,
     #[serde(default)]
     pub cartes: Vec<CarteManifeste>,
     #[serde(default)]
@@ -86,6 +88,9 @@ pub struct Manifeste {
     /// De quoi juger un ricochet sans lire un texte (ADR 0044).
     #[serde(default)]
     pub ricochets: RicochetsManifeste,
+    /// Quêtes de collection du fascicule (App#90), membres hors légendaires.
+    #[serde(default)]
+    pub collections: Vec<Collection>,
 }
 
 /// Données de jugement des ricochets d'un fascicule : des identifiants, jamais de texte.
@@ -104,6 +109,17 @@ pub struct BriqueRicochet {
     pub sens_id: IdCatalogue,
     /// Commune à deux briques de même glose : jamais deux leurres de même classe.
     pub classe_sens: IdCatalogue,
+    /// Colonne de la brique dans « assembler » (ADR 0067) ; absente : jamais proposée.
+    #[serde(default)]
+    pub position: Option<PositionBrique>,
+}
+
+/// Place d'une brique dans un mot de deux briques : devant (« géo- ») ou derrière (« -graphie »).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PositionBrique {
+    Prefixe,
+    Suffixe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -115,6 +131,10 @@ pub struct MotRicochet {
     /// Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas.
     #[serde(default)]
     pub coupes: Vec<u32>,
+    /// Les deux briques de la composition préférée, préfixe puis suffixe ;
+    /// vide : le mot ne s'assemble pas (ADR 0067).
+    #[serde(default)]
+    pub assemblage: Vec<IdCatalogue>,
     /// Autres découpes tout aussi justes (lettre partagée entre deux morceaux :
     /// « hom|onyme » et « homo|nyme »), chacune une liste de positions triée.
     #[serde(default)]
@@ -160,37 +180,6 @@ pub struct Exclusion {
     pub id: IdCatalogue,
     pub combinaison: Vec<IdCatalogue>,
     pub raison: String,
-}
-
-/// Ressource « trompe-l'œil » d'un fascicule (ADR 0052).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct TrompesLOeil {
-    pub trompes_l_oeil: Vec<TrompeLOeil>,
-}
-
-/// Une paire ordonnée de briques qui s'écrit comme un mot sans en venir.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct TrompeLOeil {
-    pub id: IdCatalogue,
-    pub combinaison: Vec<IdCatalogue>,
-    /// Le mot que les lettres épellent, quand il est dans le catalogue.
-    #[serde(default)]
-    pub mot_id: Option<IdCatalogue>,
-    pub motif: MotifTrompeLOeil,
-    /// Une phrase qui ne nomme jamais le mot : lisible tout de suite.
-    #[serde(default)]
-    pub explication_courte: ParLocale<String>,
-    /// Le mot et sa vraie origine : lisible une fois le mot au codex.
-    #[serde(default)]
-    pub explication: ParLocale<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum MotifTrompeLOeil {
-    AutreOrigine,
-    MotSimple,
-    AutreDecoupage,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -265,12 +254,7 @@ impl Manifeste {
     #[must_use]
     pub fn ressources(&self) -> Vec<Chemin> {
         let mut chemins: BTreeSet<&Chemin> = BTreeSet::new();
-        chemins.extend(
-            self.jaquette
-                .iter()
-                .chain(self.exclusions.iter())
-                .chain(self.trompes_l_oeil.iter()),
-        );
+        chemins.extend(self.jaquette.iter().chain(self.exclusions.iter()));
         for carte in &self.cartes {
             chemins.insert(&carte.carte);
             chemins.extend(carte.silhouette.iter());

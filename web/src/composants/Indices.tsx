@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import type { Etat, ReponseIndice } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
 import { INDICES, contenuIndice, indiceCourant, indiceSuivant, indicesObtenus } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
 import { useEnLigne } from '../services/reseau'
-import { chargerSilhouette } from '../services/silhouettes'
-import { bandeau } from './bandeau'
+import { CarteSilhouette } from './CarteSilhouette'
 import { useDialogue } from './useDialogue'
 
 interface Props {
@@ -17,26 +16,6 @@ interface Props {
   /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
   lireMedia: (chemin: string) => Promise<string>
   onFermer: () => void
-}
-
-/** La carte du codex sans texte ni bouton : même bandeau, mêmes proportions, silhouette en texture (ADR 0023). */
-function CarteSilhouette({ entree, chemin, lireMedia }: { entree: EntreeCodex; chemin: string; lireMedia: Props['lireMedia'] }) {
-  const hote = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    let actif = true
-    void chargerSilhouette(chemin, lireMedia).then((svg) => {
-      if (actif && svg && hote.current) hote.current.replaceChildren(svg)
-    })
-    return () => {
-      actif = false
-    }
-  }, [chemin, lireMedia])
-  return (
-    <div className="mini indice-carte" data-type={entree.type} style={bandeau(entree.type)} aria-hidden="true">
-      <span className="m-top" />
-      <span ref={hote} className="card-art" />
-    </div>
-  )
 }
 
 /**
@@ -82,15 +61,21 @@ export function Indices({ jeu, etat, entrees, acheter, lireMedia, onFermer }: Pr
           <p className="pk-note">Aucun mot à former avec vos briques pour l’instant. Ouvrez un pli pour en obtenir d’autres.</p>
         ) : (
           <>
+            <p className="pk-note">
+              Un mot que vos briques peuvent déjà former, encore inconnu de votre codex&nbsp;: la carte N°&nbsp;{String(cible.entree.n).padStart(3, '0')}. Chaque indice vous en dit un peu plus.
+            </p>
             <ul className="indices-liste">
-              {INDICES.map(({ niveau, titre }) => {
+              {INDICES.map(({ niveau, titre, aide }) => {
                 const contenu = contenuIndice(jeu, cible.entree, niveau)
                 if (!contenu) return null
                 const cout = prix[niveau - 1]
                 const obtenu = obtenus.has(niveau)
                 return (
                   <li key={niveau} className={obtenu ? 'is-obtenu' : undefined}>
-                    <h3>{titre}</h3>
+                    <h3>
+                      {titre}
+                      <small className="indice-aide">{aide}</small>
+                    </h3>
                     {obtenu ? (
                       <span aria-label="Obtenu">✓</span>
                     ) : (

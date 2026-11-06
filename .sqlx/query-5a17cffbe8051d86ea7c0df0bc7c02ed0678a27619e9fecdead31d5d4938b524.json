@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) FILTER (WHERE faite_le IS NOT NULL) = count(*) AND count(*) >= 2\n         FROM quete_jour WHERE joueur_id = $1 AND jour = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5a17cffbe8051d86ea7c0df0bc7c02ed0678a27619e9fecdead31d5d4938b524"
+}

@@ -22,8 +22,17 @@ pub enum Commande {
     PublierFascicules(ConfigParution),
     /// Tâche planifiée : purge les données à durée limitée (ADR 0024).
     Purger(ConfigBase),
+    /// Tâche quotidienne, juste après minuit GMT : agrège le jour achevé (ADR 0050).
+    AgregerJour(ConfigAgregatJour),
+    /// Tâche mensuelle, dans les premières minutes du mois : agrège le mois achevé (ADR 0050).
+    AgregerMois(ConfigAgregatMois),
+    /// Écrit sur la sortie standard les cohortes et indicateurs, groupes de moins de 50 joueurs masqués (ADR 0050).
+    Statistiques(ConfigBase),
     /// Applique les migrations de schéma de la base de progression.
     Migrer(ConfigBase),
+    /// Écrit sur la sortie standard, en JSON, les données du joueur dont l'adresse est donnée
+    /// (accès et portabilité, RGPD art. 15 et 20). Vérifiez d'abord que le demandeur contrôle l'adresse.
+    Exporter(ConfigExport),
     /// Écrit le contrat OpenAPI sur la sortie standard.
     Openapi,
 }
@@ -33,6 +42,43 @@ pub struct ConfigBase {
     /// Adresse de la base de progression PostgreSQL.
     #[arg(long, env = "DATABASE_URL", hide_env_values = true)]
     pub database_url: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ConfigExport {
+    #[command(flatten)]
+    pub base: ConfigBase,
+
+    /// Clé HMAC des empreintes d'adresse (celle du serveur).
+    #[arg(long, env = "ETYMO_CLE_COURRIEL", hide_env_values = true)]
+    pub cle_courriel: String,
+
+    /// Adresse électronique du joueur.
+    #[arg(long)]
+    pub courriel: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ConfigAgregatJour {
+    #[command(flatten)]
+    pub base: ConfigBase,
+    /// Jour GMT à agréger (AAAA-MM-JJ) ; par défaut la veille.
+    #[arg(long)]
+    pub jour: Option<chrono::NaiveDate>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ConfigAgregatMois {
+    #[command(flatten)]
+    pub base: ConfigBase,
+    /// Mois à agréger (AAAA-MM) ; par défaut le mois précédent.
+    #[arg(long, value_parser = lire_mois)]
+    pub mois: Option<chrono::NaiveDate>,
+}
+
+fn lire_mois(texte: &str) -> Result<chrono::NaiveDate, String> {
+    chrono::NaiveDate::parse_from_str(&format!("{texte}-01"), "%Y-%m-%d")
+        .map_err(|_| "mois attendu au format AAAA-MM".to_owned())
 }
 
 #[derive(Debug, Clone, Args)]
@@ -72,6 +118,51 @@ pub struct ConfigServeur {
     /// Fermée par défaut ; ne jamais l'activer en production.
     #[arg(long, env = "ETYMO_REINITIALISATION", default_value_t = false, action = clap::ArgAction::Set)]
     pub reinitialisation: bool,
+
+    #[command(flatten)]
+    pub courriel: ConfigCourriel,
+}
+
+/// E-mails de connexion des comptes (ADR 0070). Sans `ETYMO_COURRIEL`, la
+/// demande et la confirmation répondent `503` ; le reste de l'API fonctionne.
+#[derive(Debug, Clone, Args)]
+pub struct ConfigCourriel {
+    /// Envoi : `tem` (Scaleway Transactional Email) ou `file:///dossier` en local.
+    #[arg(long, env = "ETYMO_COURRIEL")]
+    pub courriel: Option<String>,
+
+    /// Clé HMAC des empreintes d'adresse, 32 octets au moins. Ne change jamais :
+    /// la perdre rend tous les comptes introuvables.
+    #[arg(long, env = "ETYMO_CLE_COURRIEL", hide_env_values = true)]
+    pub cle_courriel: Option<String>,
+
+    /// Jeton de vérification du webhook Ko-fi (ADR 0078). Absent : le webhook répond `503`.
+    #[arg(long, env = "ETYMO_KOFI_TOKEN", hide_env_values = true)]
+    pub kofi_token: Option<String>,
+
+    /// Adresse prévenue à chaque webhook Ko-fi reçu (ADR 0078).
+    #[arg(
+        long,
+        env = "ETYMO_KOFI_NOTIFICATION",
+        default_value = "contact@etymologique.fr"
+    )]
+    pub kofi_notification: String,
+
+    /// Clé d'API de Scaleway, en-tête `X-Auth-Token`.
+    #[arg(long, env = "ETYMO_TEM_CLE", hide_env_values = true)]
+    pub tem_cle: Option<String>,
+
+    /// Projet Scaleway de l'envoi (`project_id`).
+    #[arg(long, env = "ETYMO_TEM_PROJET")]
+    pub tem_projet: Option<String>,
+
+    /// Adresse d'expédition, `noreply@…`.
+    #[arg(long, env = "ETYMO_COURRIEL_EXPEDITEUR")]
+    pub expediteur: Option<String>,
+
+    /// Adresse de la PWA, base des liens de connexion.
+    #[arg(long, env = "ETYMO_URL_PWA")]
+    pub url_pwa: Option<String>,
 }
 
 #[derive(Debug, Clone, Args)]

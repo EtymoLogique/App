@@ -12,8 +12,21 @@ const FORMES: Record<Rarete, { libelle: string; forme: string; trace: React.Reac
  * Forme de rareté (identité : triangle, carré, pentagone, diamant), remplie
  * d'Ambre et cernée d'Encre, avec un nom accessible. Jamais posée sur une brique.
  */
-export function FormeRarete({ rarete, className = 'rar' }: { rarete: Rarete; className?: string }) {
+export function FormeRarete({ rarete, className = 'rar', nomVisible = false }: { rarete: Rarete; className?: string; nomVisible?: boolean }) {
   const { libelle, forme, trace } = FORMES[rarete]
+  // Identité : la forme s'accompagne de son libellé dès que la place le permet.
+  if (nomVisible)
+    return (
+      <span className="rar-nom">
+        <svg className={className} viewBox="0 0 16 16" aria-hidden="true">
+          {trace}
+        </svg>
+        <span>
+          <span className="sr-only">Rareté&nbsp;: </span>
+          {libelle}
+        </span>
+      </span>
+    )
   return (
     <svg className={className} viewBox="0 0 16 16" role="img" aria-label={`Rareté : ${libelle}`}>
       <title>{`${libelle} · ${forme}`}</title>

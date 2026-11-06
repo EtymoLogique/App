@@ -197,10 +197,10 @@
 .pk-brickodd small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
 .pk-history { grid-template-columns: max-content max-content 1fr; column-gap: 0; }
 .pk-hist-item { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 14px; }
-.pk-hist-brique { position: relative; justify-self: start; }
-.pk-hist-plus { position: absolute; top: -9px; right: -10px; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--cream); color: var(--ink); font-family: var(--mono); font-size: 10px; font-weight: 700; line-height: 16px; }
+/* La pastille (« inédite », « +1 ») se pose à côté de la brique : « inédite » est trop longue pour mordre sur son coin. */
+.pk-hist-brique { display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
+.pk-hist-plus { padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--cream); color: var(--ink); font-family: var(--mono); font-size: 10px; font-weight: 700; line-height: 16px; }
 .pk-hist-item small { text-align: right; }
-.pk-hist-item.dup { opacity: 0.85; border-style: dashed; }
 .pk-rarity { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
 .pk-rarity .rar { width: 22px; height: 22px; stroke-width: 1.2; animation: eqFade 0.3s ease-out calc(var(--t0, 0) * 18ms + 0.15s) both; }
 /* Légendaire : le contour de la forme se trace, puis elle se remplit. */
@@ -286,6 +286,11 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .pk-fasc .jk-mini { max-width: 112px; }
 .pk-fasc-info { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .pk-fasc-info b { color: var(--ink); font-family: var(--serif); font-size: 24px; line-height: 1.1; }
+.pk-fasc-bar { height: 8px; overflow: hidden; border: 1.5px solid var(--ink); border-radius: 999px; background: transparent; }
+.pk-fasc-bar i { display: block; height: 100%; background: var(--ink); transition: width 0.6s var(--ease-out); }
+.pk-fasc-count { color: var(--ink-2); font-size: 13px; }
+.pk-fasc-count b { color: var(--ink); font-family: var(--serif); font-size: 20px; }
+@media (prefers-reduced-motion: reduce) { .pk-fasc-bar i { transition: none; } }
 .pk-fasc-k { color: var(--c-pli-deep); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
 :root[data-theme="nocturne"] .pk-fasc-k { color: var(--c-pli); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pk-fasc-k { color: var(--c-pli); } }
@@ -400,12 +405,17 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 
 /* Plis en attente, en petit, à côté du compteur d'énergie. */
 .pk-ready { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.pk-waiting { display: inline-flex; gap: 6px; }
+.pk-waiting { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .pk-waiting .jk-mini.is-xs { width: 28px; rotate: none; }
 .pk-waiting.is-grand { gap: 12px; }
 .pk-waiting.is-grand .jk-mini.is-xs { width: 64px; border-width: 2px; border-radius: 8px; box-shadow: inset 0 0 0 3px #fffbf3, inset 0 0 0 4px #0f1f19; }
 .pk-waiting.is-grand .jk-mini.is-xs .jk-art { inset: 5px; border-radius: 5px; }
 .pk-waiting.is-grand .jk-mini.is-empty { box-shadow: none; }
+/* Pile : chaque pli recouvre en partie le précédent, la carte ne déborde plus. */
+.pk-waiting.is-pile { flex-wrap: nowrap; gap: 0; padding: 0 0 0 4px; }
+.pk-waiting.is-pile .jk-mini.is-xs + .jk-mini.is-xs { margin-left: -48px; }
+.pk-pile-nb { position: absolute; right: -8px; bottom: -8px; min-width: 24px; padding: 2px 6px; border-radius: 12px; background: var(--ink); color: var(--cream); font: 700 13px/1.3 var(--mono); text-align: center; }
+.pk-waiting.is-pile .jk-mini.is-xs + .jk-mini.is-xs.is-empty { margin-left: 12px; }
 /* Pli en recharge : fond uni Crème sous ses pointillés. */
 .pk-waiting .jk-mini.is-empty { background: var(--cream); }
 /* Recharge en cours : un petit anneau au cœur du premier pli en pointillés. */
@@ -413,18 +423,18 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .pk-recharge svg { width: 62%; overflow: visible; rotate: -90deg; }
 .pk-recharge .ring-track, .pk-recharge .ring-fill { stroke-width: 7; }
 .pk-recharge .ring-track { stroke: var(--line); }
-.pk-restant { color: var(--ink-2); font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; line-height: 1; }
+.pk-restant { color: var(--ink-2); font-family: var(--mono); font-size: 10px; letter-spacing: 0.02em; line-height: 1; }
 .pk-attente { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
 .pk-attente small { color: var(--ink-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
 .pk-count { margin-left: auto; color: var(--ink); font-weight: 700; letter-spacing: 0.06em; }
 
 /* Colonne centrale : le pli, puis les derniers tirages. */
 .pk-centre { display: grid; gap: 20px; min-width: 0; }
-/* Mobile : les plis en chargement au-dessus du pli, le reste de l'atelier dessous. */
+/* Mobile : le pli d'abord, visible sans défiler ; les plis en recharge juste dessous (leur compte est aussi dans la barre), puis le reste de l'atelier. */
 @media (max-width: 760px) {
   .pk-layout .pk-side { display: contents; }
-  .pk-layout .pk-centre { order: -1; }
-  .pk-layout .pk-energie { order: -2; }
+  .pk-layout .pk-centre { order: -2; }
+  .pk-layout .pk-energie { order: -1; }
   /* Plis en chargement : les plis gardent leur taille, à gauche ; les textes passent à droite, la carte est moins haute. */
   .pk-energie { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "label label" "plis texte" "plis note" "btn btn"; align-items: start; column-gap: 16px; }
   .pk-energie > .pk-label { grid-area: label; }
@@ -447,8 +457,7 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 
 
 /*
- * Boutique (ADR 0018, 0039) : échanges de ressources du jeu, puis achats en
- * euros, fermés. Palette du pli : l’encre et les sabliers sont en Ambre ; le
+ * Boutique (ADR 0018, 0039) : échanges de ressources du jeu. Palette du pli : l’encre et les sabliers sont en Ambre ; le
  * Corail reste à l’action principale.
  */
 .bq { display: grid; gap: 32px; }
@@ -482,14 +491,89 @@ button.pk-fasc:hover { transform: translateY(-3px); box-shadow: 3px 4px 0 var(--
 .btn.pk-lot.is-reco { border-color: var(--c-pli-deep); border-width: 2px; }
 .pk-lot-texte { font-size: 11px; }
 .bq-manque { color: var(--ink-3); font-family: var(--mono); font-size: 11px; text-align: center; }
-/* Achats en euros : fermés, en pointillés (interfaces, « plus tard »). */
-.bq-bientot { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border: 1px dashed var(--line-strong); border-radius: 999px; color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
-.bq-bientot .ic { width: 12px; height: 12px; }
-.bq-ferme { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 20px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-2); }
-.bq-ferme > .ic { width: 32px; height: 32px; color: var(--ink-3); }
-.bq-ferme p { font-size: 14px; line-height: 1.5; }
-.bq-ferme b { color: var(--ink); }
 
 /* Mouvement réduit : la révélation apparaît sans se retourner. */
 @media (prefers-reduced-motion: reduce) { .pk-reveal { animation: none; } }
 :root[data-mouvement="reduit"] .pk-reveal { animation: none; }
+
+/*
+ * Ouverture groupée, variante « Canon » : les plis sont en grille et chacun joue le rituel entier d'un pli seul.
+ * Chaque case porte les classes d'état du rituel (.pk-stage.pk-charging, .pk-writing…) : le pli, le sceau, la plume
+ * et le flash reprennent donc les règles ci-dessus, réduits par `zoom`. Les rayons, eux, sont communs à toute la scène.
+ */
+.pkg { --s: 0.4; grid-area: main; position: relative; isolation: isolate; display: grid; justify-items: center; align-content: center; gap: 10px; width: 100%; }
+.pkg[data-taille="g"] { --s: 0.55; }
+.pkg[data-taille="g"] .pkg-grille { column-gap: 32px; }
+.pkg[data-taille="m"] { --s: 0.4; }
+.pkg[data-taille="p"] { --s: 0.3; }
+@media (max-width: 760px) {
+  .pkg[data-taille="g"] { --s: 0.45; }
+  .pkg[data-taille="m"] { --s: 0.3; }
+  .pkg[data-taille="p"] { --s: 0.24; }
+}
+.pkg-rays {
+  position: absolute; z-index: -1; top: 50%; left: 50%; width: 980px; height: 980px; translate: -50% -50%; pointer-events: none;
+  background: repeating-conic-gradient(rgba(244, 183, 64, 0.3) 0deg 7deg, transparent 7deg 36deg);
+  -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  mask-image: radial-gradient(circle, #000 8%, transparent 58%);
+  opacity: 0; transition: opacity 0.6s ease; animation: spin 22s linear infinite;
+}
+.pkg-rays span {
+  position: absolute; top: 50%; left: 50%; padding-left: 64px;
+  transform-origin: 0 50%; transform: translateY(-50%) rotate(calc(var(--a) - 90deg));
+  color: var(--c-pli-deep); font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; opacity: 0.16;
+}
+.pkg[data-ecriture="true"] .pkg-rays { opacity: 0.35; animation-duration: 6s; }
+/* Une rare ou une légendaire teinte les rayons dès l'écriture, comme pour un pli seul. */
+.pkg[data-anticipe="true"] .pkg-rays { background: repeating-conic-gradient(rgba(143, 123, 240, 0.4) 0deg 7deg, transparent 7deg 36deg); opacity: 0.5; } /* identite: ok — Palimpseste du rituel rare, comme .pk-anticipe */
+.pkg[data-anticipe="true"] .pkg-rays span { color: var(--c-lang-deep); }
+.pkg[data-revele="true"] .pkg-rays { opacity: 1; animation-duration: 12s; }
+.pkg[data-revele="true"]:is([data-rarity="rare"], [data-rarity="legendaire"]) .pkg-rays { background: repeating-conic-gradient(rgba(143, 123, 240, 0.4) 0deg 7deg, transparent 7deg 36deg); } /* identite: ok — Palimpseste du rituel rare */
+.pkg[data-revele="true"]:is([data-rarity="rare"], [data-rarity="legendaire"]) .pkg-rays span { color: var(--c-lang-deep); }
+.pkg[data-revele="true"][data-rarity="legendaire"] .pkg-rays { animation-duration: 5s; filter: saturate(1.6); }
+.pkg-kicker { min-height: 22px; margin: 0; }
+.pkg-kicker.is-haute { color: var(--c-lang-deep); }
+:root[data-theme="nocturne"] .pkg-kicker.is-haute { color: var(--c-lang); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="atelier"]) .pkg-kicker.is-haute { color: var(--c-lang); } }
+.pkg-grille { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 12px; margin: 0; padding: 0; list-style: none; }
+.pkg-cell.pk-stage {
+  display: flex; align-items: center; justify-content: center;
+  width: max(calc(236px * var(--s)), 76px); height: calc(320px * var(--s)); min-height: 0; padding: 0;
+  overflow: visible; border: 0; border-radius: 0; background: none; cursor: default;
+}
+.pkg-cell .pk-pack { flex: none; zoom: var(--s); }
+.pkg-cell .pk-flash { inset: -50%; }
+.pkg-carte {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 4px;
+  border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer;
+  animation: pkgImprime 0.5s var(--ease-out) both;
+}
+.pkg-carte .bchip { font-size: 15px; }
+.pkg-tag { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pkg-tag .rar { width: 14px; height: 14px; }
+.pkg-tag small { color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 600; }
+.pkg-tag small.is-nouvelle { padding: 1px 6px; border: 1px solid #0f1f19; border-radius: 999px; background: var(--c-pli); color: #0f1f19; font-weight: 700; }
+/* Une rare ou une légendaire pose un anneau violet qui s'élargit une fois, sans ombre colorée. */
+.pkg-carte.is-haute { outline: 2px solid var(--c-lang); outline-offset: 2px; }
+.pkg-carte.is-haute::after { position: absolute; inset: -2px; border: 2px solid var(--c-lang); border-radius: 14px; content: ""; pointer-events: none; animation: pkgHalo 0.65s ease-out 0.3s both; }
+@keyframes pkgImprime {
+  0% { opacity: 0; transform: translateY(-22px) scale(1.5); }
+  55% { opacity: 1; transform: translateY(2px) scale(0.94); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes pkgHalo { from { opacity: 0.9; transform: scale(0.95); } to { opacity: 0; transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .pkg-rays, .pkg-carte, .pkg-carte::after, .pkg-cell .pk-flash { animation: none; transition: none; } }
+:root[data-mouvement="reduit"] :is(.pkg-rays, .pkg-carte, .pkg-carte::after, .pkg-cell .pk-flash) { animation: none; transition: none; }
+
+/* Fascicule verrouillé (ADR 0068) : visible, avec sa condition, mais son pli ne s'ouvre pas. */
+.pk-fasc { position: relative; }
+.pk-fasc.is-locked { border-style: dashed; background: transparent; cursor: default; }
+.pk-fasc.is-locked .jk-mini { opacity: 0.45; }
+.pk-fasc-verrou { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--ink); font-weight: 700; }
+.pk-fasc-verrou .ic { flex: none; width: 18px; height: 18px; }
+/* Corail : un fascicule tout juste débloqué attend le joueur. */
+.pk-fasc-nouveau {
+  position: absolute; top: -10px; right: -10px;
+  padding: 2px 8px; border: 1.5px solid var(--ink); background: var(--c-action); color: var(--fixed-ink);
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+}

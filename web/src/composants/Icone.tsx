@@ -85,11 +85,33 @@ const TRACES = {
       <path d="M3 18c2.5 0 3.5-3 5-3s2 3 4 3 2.5-5 2.5-5" />
     </>
   ),
+  // Entonnoir : filtrer et trier une liste.
+  filtre: <path d="M3.5 5h17l-6.5 7.5v6l-4 2v-8z" />,
   coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  cafe: (
+    <>
+      <path d="M5 9h11v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V9zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2M12 3.5v2" />
+    </>
+  ),
+  fermer: <path d="M6 6l12 12M18 6L6 18" />,
   verrou: (
     <>
       <rect x="5" y="11" width="14" height="9.5" rx="2" />
       <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
+    </>
+  ),
+  // Logos des réseaux sociaux du projet, au trait comme les autres icônes.
+  instagram: (
+    <>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
+      <circle cx="12" cy="12" r="3.8" />
+      <path d="M17 7h.01" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="M4 4l11.7 16H20L8.3 4z" />
+      <path d="M4 20l6.8-6.8M13.2 10.8L20 4" />
     </>
   ),
 } as const

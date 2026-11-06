@@ -6,13 +6,14 @@
 
 import { useCallback, useSyncExternalStore } from 'react'
 
-export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'ricochets' | 'reglages'
+/** `connexion` (I-31) n'a pas d'entrée dans la navigation : on y vient des Réglages, de la relance ou du lien d'un e-mail. */
+export type Onglet = 'table' | 'codex' | 'plis' | 'quetes' | 'boutique' | 'ricochets' | 'reglages' | 'connexion'
 export type FiltreCodex = 'tout' | 'mot' | 'prefixe' | 'suffixe' | 'langue'
 export type TriCodex = 'n' | 'az' | 'type' | 'fasc' | 'date' | 'maitrise'
 /** Vues du codex (maquette I-14) ; les types se filtrent à part. */
-export type VueCodex = 'tout' | 'recentes' | 'familles' | 'cabinet'
+export type VueCodex = 'tout' | 'recentes' | 'familles' | 'reseau' | 'cabinet'
 /** Onglets des quêtes (ADR 0042, 0045) : journalières, récompenses de fascicule, puis quêtes au long cours. */
-export type OngletQuetes = 'journalieres' | 'fascicules' | 'au-long-cours'
+export type OngletQuetes = 'journalieres' | 'ponctuelles' | 'fascicules' | 'au-long-cours'
 
 export interface Route {
   onglet: Onglet
@@ -33,11 +34,11 @@ export interface Route {
   fascicule: number | null
 }
 
-const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'ricochets', 'reglages']
-const QUETES: OngletQuetes[] = ['journalieres', 'fascicules', 'au-long-cours']
+const ONGLETS: Onglet[] = ['table', 'codex', 'plis', 'quetes', 'boutique', 'ricochets', 'reglages', 'connexion']
+const QUETES: OngletQuetes[] = ['journalieres', 'ponctuelles', 'fascicules', 'au-long-cours']
 const FILTRES: FiltreCodex[] = ['tout', 'mot', 'prefixe', 'suffixe', 'langue']
 const TRIS: TriCodex[] = ['n', 'az', 'type', 'fasc', 'date', 'maitrise']
-const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'cabinet']
+const VUES: VueCodex[] = ['tout', 'recentes', 'familles', 'reseau', 'cabinet']
 const IDENTIFIANT = /^(unt|lng)_[0-9a-hjkmnp-tv-z]{8}$/
 const FASCICULE = /^fsc_[0-9a-hjkmnp-tv-z]{8}$/
 

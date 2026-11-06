@@ -3,7 +3,9 @@
 // récupérer. Le serveur fait foi : un jalon n'est « à récupérer » que s'il le
 // dit atteint.
 
-import type { Etat, Jalon, Palier, QueteLongCours } from '../contrat'
+import type { Collection, CritereCollection, Etat, Jalon, Palier, QueteLongCours } from '../contrat'
+import { fasciculesDebloques } from './deblocage'
+import type { OngletQuetes } from './route'
 import type { CatalogueJeu, FasciculeParu } from './jeu'
 
 export type EtatJalon = 'en_cours' | 'a_recuperer' | 'recupere'
@@ -23,11 +25,15 @@ export function motsDecouverts(fascicule: FasciculeParu, etat: Etat | null): num
   return (fascicule.manifeste.cartes ?? []).filter((c) => c.role === 'resultat' && decouverts.has(c.id)).length
 }
 
-/** Jalons des fascicules parus, dans l'ordre des fascicules puis des seuils. */
+/**
+ * Jalons des fascicules parus et débloqués, dans l'ordre des fascicules puis des
+ * seuils. Un fascicule verrouillé n'en montre aucun (ADR 0068).
+ */
 export function quetesDeFascicule(jeu: CatalogueJeu, etat: Etat | null): QueteJalon[] {
   const atteints = new Set(etat?.jalons_atteints ?? [])
   const recuperes = new Set(etat?.jalons_recuperes ?? [])
-  return jeu.fascicules.flatMap((fascicule) => {
+  const debloques = fasciculesDebloques(jeu, etat)
+  return jeu.fascicules.filter((f) => debloques.has(f.manifeste.id)).flatMap((fascicule) => {
     const trouves = motsDecouverts(fascicule, etat)
     return (fascicule.manifeste.jalons ?? []).map((jalon) => ({
       jalon,
@@ -93,9 +99,54 @@ export function quetesAuLongCours(jeu: CatalogueJeu, etat: Etat | null): QueteLo
   })
 }
 
+/** Intitulés des quêtes de collection (App#90), dans l'ordre d'affichage. */
+export const CRITERES: Record<CritereCollection, string> = {
+  prefixes: 'Tous les préfixes',
+  suffixes: 'Tous les suffixes',
+  mots_communs: 'Tous les mots communs',
+  mots_peu_communs: 'Tous les mots peu communs',
+  mots_rares: 'Tous les mots rares',
+}
+const ORDRE_CRITERES = Object.keys(CRITERES) as CritereCollection[]
+
+export interface QueteCollection {
+  collection: Collection
+  fascicule: FasciculeParu
+  /** Comme un palier : son seuil est le total, sa récompense celle de la collection. */
+  suivi: PalierSuivi
+}
+
+/**
+ * Quêtes de collection (App#90) : tous les préfixes, tous les suffixes, tous les
+ * mots d'une rareté d'un fascicule. Le serveur compte, et ne renvoie que les
+ * fascicules débloqués : un fascicule verrouillé n'expose aucun total (ADR 0069).
+ * La récompense se récupère comme un palier (ADR 0042).
+ */
+export function quetesDeCollection(jeu: CatalogueJeu, etat: Etat | null): QueteCollection[] {
+  const recuperes = new Set(etat?.paliers_recuperes ?? [])
+  return (etat?.progression_collections ?? []).flatMap((p) => {
+    const fascicule = jeu.fascicules.find((f) => f.manifeste.id === p.fascicule_id)
+    const collection = fascicule?.manifeste.collections?.find((c) => c.id === p.palier_id)
+    if (!fascicule || !collection || p.total === 0) return []
+    const palier: Palier = { id: collection.id, seuil: p.total, encre: collection.encre, sabliers: collection.sabliers }
+    const etatPalier: EtatJalon = recuperes.has(collection.id) ? 'recupere' : p.progression >= p.total ? 'a_recuperer' : 'en_cours'
+    return [{ collection, fascicule, suivi: { palier, avancee: Math.min(p.progression, p.total), etat: etatPalier } }]
+  }).sort((a, b) => a.fascicule.numero - b.fascicule.numero || ORDRE_CRITERES.indexOf(a.collection.critere) - ORDRE_CRITERES.indexOf(b.collection.critere))
+}
+
 /** Récompenses qui attendent le joueur, jalons et paliers : le compteur de la navigation. */
+/** Récompenses qui attendent le joueur, par onglet des quêtes : une seule source pour les pastilles des onglets et celle du menu. */
+export function recompensesParOnglet(jeu: CatalogueJeu, etat: Etat | null): Record<OngletQuetes, number> {
+  return {
+    journalieres: (etat?.quetes_du_jour ?? []).filter((q) => q.recompense && q.faite && !q.recuperee).length + (etat?.carte_de_lecteur?.a_recuperer ?? 0) + (etat?.cadeau_de_bienvenue && !etat.cadeau_de_bienvenue.recupere ? 1 : 0),
+    ponctuelles: (etat?.quetes_initiales ?? []).filter((q) => q.faite && !q.recuperee).length,
+    fascicules: quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + quetesDeCollection(jeu, etat).filter((q) => q.suivi.etat === 'a_recuperer').length,
+    'au-long-cours': quetesAuLongCours(jeu, etat).flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').length,
+  }
+}
+
+/** Pastille du menu : la somme des pastilles des onglets. */
 export function recompensesARecuperer(jeu: CatalogueJeu | null, etat: Etat | null): number {
   if (!jeu || !etat) return 0
-  const paliers = quetesAuLongCours(jeu, etat).flatMap((q) => q.paliers).filter((p) => p.etat === 'a_recuperer').length
-  return quetesDeFascicule(jeu, etat).filter((q) => q.etat === 'a_recuperer').length + paliers
+  return Object.values(recompensesParOnglet(jeu, etat)).reduce((a, b) => a + b, 0)
 }

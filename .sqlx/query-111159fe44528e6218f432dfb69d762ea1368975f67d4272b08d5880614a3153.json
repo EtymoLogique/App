@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM essai WHERE joueur_id = $1 AND fascicule_juge <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "111159fe44528e6218f432dfb69d762ea1368975f67d4272b08d5880614a3153"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO cadeau_recupere (joueur_id, recupere_le) VALUES ($1, $2)\n         ON CONFLICT DO NOTHING RETURNING true",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bfdc2746191d9948622b955eaa4bfd7666bfe2c33cbccc5ffb386199a238e27a"
+}

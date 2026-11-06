@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE defi_connexion SET tentatives = tentatives + 1 WHERE id = $1 RETURNING tentatives",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tentatives",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5550faf4321d8831333788684508ea15264bb1a3add218aab4f0ee28bbebd281"
+}

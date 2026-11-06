@@ -1,17 +1,24 @@
 //! API de jeu d'ÉtymoLogique (ADR 0024) : un seul service sans état, qui fait
 //! foi pour toute mutation de la progression (ADR 0007).
 
+pub mod carte_lecteur;
 pub mod catalogue;
+pub mod compte;
 pub mod config;
+pub mod courriel;
 pub mod debit;
 pub mod erreur;
+pub mod export;
 pub mod extraction;
 pub mod jeton;
 pub mod openapi;
 pub mod progression;
+pub mod quetes_initiales;
+pub mod quetes_jour;
 pub mod ricochets;
 pub mod routes;
 pub mod secret;
+pub mod soutien;
 
 use std::sync::Arc;
 
@@ -41,12 +48,18 @@ pub struct EtatApp {
     pub recharge: chrono::TimeDelta,
     /// Route de réinitialisation du joueur : hors production seulement.
     pub reinitialisation: bool,
+    /// E-mails de connexion des comptes (ADR 0070) ; `None` : comptes désactivés.
+    pub courriel: Option<courriel::Courriel>,
+    /// Jeton de vérification du webhook Ko-fi (ADR 0078) ; `None` : webhook en `503`.
+    pub kofi_token: Option<String>,
+    /// Adresse prévenue à chaque webhook Ko-fi reçu.
+    pub kofi_notification: String,
 }
 
 pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::list(origines.iter().cloned()))
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
         .max_age(std::time::Duration::from_secs(600));
 
@@ -54,9 +67,14 @@ pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
     if etat.reinitialisation {
         routes = routes.merge(routes::routes_hors_prod());
     }
+    // Le webhook Ko-fi a sa propre limite, plus large ; les autres routes gardent la leur.
+    let webhook = soutien::routes()
+        .with_state(Arc::clone(&etat))
+        .layer(RequestBodyLimitLayer::new(soutien::CORPS_WEBHOOK_MAX));
     routes
         .with_state(etat)
         .layer(RequestBodyLimitLayer::new(CORPS_MAX))
+        .merge(webhook)
         .layer(cors)
         .layer(SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,

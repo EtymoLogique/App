@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM compte WHERE empreinte_courriel = $1) AS \"adresse_prise!\",\n                  EXISTS (SELECT 1 FROM compte WHERE joueur_id = $2) AS \"a_un_compte!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "adresse_prise!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "a_un_compte!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "603a3093cbc063abecef7ba87a967220dbd6aced811f460f010c267b57812ee6"
+}

@@ -6,6 +6,8 @@ import type { ReponseFusion, ReponsePli } from './contrat'
 import { ClientApi, ErreurApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { effacerPartie } from './services/local'
+import { memoriserCompteQuitte } from './services/profil'
+import { signalerJoignable } from './services/reseau'
 import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtures'
 
 function client(fusion?: ClientApi['fusion']): ClientApi {
@@ -44,6 +46,7 @@ describe('table de fusion', () => {
   beforeEach(async () => {
     lecteur = lecteurFictif()
     await effacerPartie()
+    await memoriserCompteQuitte(false)
     history.replaceState(null, '', '/')
   })
 
@@ -105,7 +108,8 @@ describe('table de fusion', () => {
     fireEvent.click(await brique('géo-'))
     await waitForElementToBeRemoved(modaleReserve)
     expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
-    expect(fusionner()).toHaveFocus()
+    // Le focus passe à « Fusionner » dans un effet, après le retrait de la modale : on l’attend.
+    await waitFor(() => expect(fusionner()).toHaveFocus())
   })
 
   it('retire une brique depuis la table de la réserve, et pose la suivante à sa place', async () => {
@@ -142,6 +146,19 @@ describe('table de fusion', () => {
     expect(declencheur).toHaveFocus()
     await reserve()
     fireEvent.click(document.querySelector('.scrim') as HTMLElement)
+    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
+  })
+
+  it('remplace « Fermer » par une croix ronde une fois la réserve défilée', async () => {
+    render(<App api={client()} catalogue={lecteur} />)
+    const r = await reserve()
+    expect(within(r).getAllByRole('button', { name: 'Fermer' })).toHaveLength(1)
+    // jsdom ne met rien en page : l'en-tête mesure 0 px, tout défilement le fait sortir de la vue.
+    r.scrollTop = 120
+    fireEvent.scroll(r)
+    const croix = within(r).getAllByRole('button', { name: 'Fermer' }).find((b) => b.classList.contains('rm-fermer'))
+    expect(croix).toBeDefined()
+    fireEvent.click(croix as HTMLElement)
     expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
   })
 
@@ -183,7 +200,7 @@ describe('table de fusion', () => {
 
   it('confirme une découverte et ouvre sa carte, la même qu’au codex', async () => {
     const reponse: ReponseFusion = {
-      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT },
+      issue: { type: 'decouverte', recette_id: RECETTE, mot_id: MOT, gouttes: 2 },
       etat: etat({
         version_etat: 2,
         reserve: [ex(GEO, 1), ex(LOGIE, 0)],
@@ -199,6 +216,8 @@ describe('table de fusion', () => {
     const carte = await screen.findByRole('dialog', { name: 'géologie' })
     expect(carte).toHaveClass('viewer')
     expect(within(carte).getByText('Science de la Terre.')).toBeInTheDocument()
+    // Le gain s'écrit sous la carte, au moment fort.
+    expect(within(carte).getByText('Nouvelle découverte · +2 gouttes d’encre')).toBeInTheDocument()
     expect(within(carte).queryByRole('button', { name: 'Carte suivante' })).not.toBeInTheDocument()
     expect(window.location.hash).not.toMatch(/codex/)
     // Le codex est dans le burger : sa nouveauté se lit sur le bouton Menu.
@@ -279,6 +298,23 @@ describe('table de fusion', () => {
     expect(fusionner()).toBeDisabled()
   })
 
+  it('serveur injoignable : consultation seulement, puis l’état est relu quand il répond', async () => {
+    const api = client()
+    const reessayer = vi.spyOn(api, 'reessayer').mockImplementation(() => {
+      act(() => signalerJoignable(true))
+      return Promise.resolve(true)
+    })
+    render(<App api={api} catalogue={lecteur} />)
+    expect(await screen.findByRole('button', { name: /^Réserve/ })).toBeEnabled()
+    act(() => signalerJoignable(false))
+    expect(screen.getByText(/Serveur injoignable : consultation seulement/)).toBeInTheDocument()
+    expect(fusionner()).toBeDisabled()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Réessayer' })))
+    expect(reessayer).toHaveBeenCalledOnce()
+    expect(screen.queryByText(/Serveur injoignable/)).not.toBeInTheDocument()
+    await waitFor(() => expect(api.etat).toHaveBeenCalledTimes(2))
+  })
+
   it('vide une case qu’on touche sans déplacer l’autre, et réordonne au clavier', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     await poser('géo-', '-logie')
@@ -319,7 +355,11 @@ describe('table de fusion', () => {
     )
     const { unmount } = render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtrer et trier' }))
     fireEvent.click(await screen.findByRole('button', { name: /^Mots/ }))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Filtrer et trier' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filtrer et trier : Mots' })).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(await screen.findByRole('button', { name: /^géologie, mot/ }))
     await screen.findByRole('dialog', { name: 'géologie' })
     expect(window.location.hash).toBe(`#/codex/${MOT}?type=mot`)
@@ -328,7 +368,7 @@ describe('table de fusion', () => {
     // Rechargement : même onglet, même filtre, même carte ouverte.
     render(<App api={api} catalogue={lecteur} />)
     expect(await screen.findByRole('dialog', { name: 'géologie' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Mots/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Filtrer et trier : Mots' })).toBeInTheDocument()
   })
 
   it('cherche dans le codex parmi les seules cartes découvertes', async () => {
@@ -357,7 +397,7 @@ describe('table de fusion', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Cabinet/ }))
     expect(window.location.hash).toBe('#/codex?vue=cabinet')
     const badge = screen.getByRole('button', { name: 'Famille de géo-, terre : 0 mot sur 1' })
-    expect(badge).toHaveTextContent('0 / 1')
+    expect(badge).toHaveTextContent('0/1')
     // Le badge mène à la famille, dans la vue Familles.
     fireEvent.click(badge)
     expect(window.location.hash).toBe('#/codex?vue=familles')
@@ -388,7 +428,7 @@ describe('table de fusion', () => {
     )
     render(<App api={api} catalogue={lecteur} />)
     const badge = await screen.findByRole('button', { name: 'Famille de géo-, terre : 1 mot sur 1' })
-    expect(badge).toHaveTextContent('1 / 1')
+    expect(badge).toHaveTextContent('1/1')
     expect(badge.querySelector('circle')).toHaveAttribute('stroke-dasharray', '100 100')
     const cabinet = screen.getByRole('region', { name: 'Votre cabinet' })
     expect(within(cabinet).getByText('Mot au plus long voyage')).toBeInTheDocument()
@@ -415,6 +455,10 @@ describe('table de fusion', () => {
     expect(within(carte).getByRole('tab', { name: 'En savoir plus' })).toHaveAttribute('aria-selected', 'true')
     expect(within(carte).getByRole('tabpanel', { name: 'En savoir plus' })).toHaveTextContent('version du catalogue v1')
     expect(within(carte).getByText('Verso : en savoir plus')).toBeInTheDocument()
+    fireEvent.click(within(carte).getByRole('tab', { name: 'Exemples' }))
+    expect(window.location.hash).toBe(`#/codex/${MOT}`)
+    expect(within(carte).getByRole('tabpanel', { name: 'Exemples' })).toHaveTextContent('Une falaise dont les couches de roche sont visibles.')
+    expect(within(carte).getByText('Verso : exemples')).toBeInTheDocument()
     fireEvent.click(within(carte).getByRole('tab', { name: 'Formes' }))
     expect(window.location.hash).toBe(`#/codex/${MOT}`)
     fireEvent.click(within(carte).getByRole('button', { name: 'Retourner' }))
@@ -425,7 +469,9 @@ describe('table de fusion', () => {
   it('replie un groupe de cartes dans le tri par fascicule', async () => {
     render(<App api={client()} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Codex/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Fascicule' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtrer et trier' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fascicule' }))
+    fireEvent.keyDown(window, { key: 'Escape' })
     const groupe = screen.getByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Replier le groupe/ })
     expect(screen.getByRole('button', { name: /^géo-, préfixe/ })).toBeInTheDocument()
     fireEvent.click(groupe)
@@ -442,6 +488,7 @@ describe('table de fusion', () => {
     const numeros = () => Array.from(document.querySelectorAll('.cb-grid .mini'), (b) => b.getAttribute('aria-label'))
     const avant = numeros()
     expect(avant.length).toBeGreaterThan(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrer et trier' }))
     fireEvent.click(screen.getByRole('button', { name: /^N°, ordre croissant/ }))
     expect(window.location.hash).toBe('#/codex?sens=inverse')
     expect(numeros()).toEqual([...avant].reverse())
@@ -472,11 +519,51 @@ describe('table de fusion', () => {
     const pack = await screen.findByRole('button', { name: 'Ouvrir le pli du fascicule Essai' })
     await act(async () => fireEvent.click(pack))
     expect(pli).toHaveBeenCalledWith(expect.objectContaining({ fascicule_id: 'fsc_00000000', version_etat: 1, version_catalogue: 'v1' }))
-    expect(await screen.findByText('+1 exemplaire', undefined, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByText('+1 exemplaire', undefined, { timeout: 8000 })).toBeInTheDocument()
     expect(screen.getByText('+1 exemplaire : ×3 dans votre réserve · +3 gouttes d’encre')).toHaveAttribute('role', 'status')
+    // Le gain se lit aussi à l'écran, sous la brique révélée.
+    expect(screen.getByText('+3 gouttes d’encre')).toHaveClass('pk-ink')
     // Le menu « Plis » ramène au choix du fascicule.
     fireEvent.click(screen.getByRole('button', { name: /^Plis/ }))
     await waitFor(() => expect(window.location.hash).toBe('#/plis'))
+    delete document.documentElement.dataset.mouvement
+  }, 15_000)
+
+  it('ouvre tous les plis prêts d’un coup, chaque appel partant de la version renvoyée par le précédent', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    const energie = (charges: number) => ({ charges, capacite: 2, prochaine_charge: '2026-10-02T22:00:00Z', recharge_s: 43_200 })
+    const ouverture = (brique: string, resultat: 'nouvelle' | 'doublon', encre: number): ReponsePli['ouverture'] => ({ fascicule_id: 'fsc_00000000', brique_id: brique, resultat, regle: 'tirage', encre, ouvert_le: '2026-10-02T10:00:00Z' })
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ energie: energie(2) }))
+    const pli = vi
+      .spyOn(api, 'pli')
+      .mockResolvedValueOnce({ ouverture: ouverture(GEO, 'doublon', 3), exemplaires: 3, etait_epuisee: false, etat: etat({ version_etat: 2, reserve: [ex(GEO, 3)], encre: 3, energie: energie(1) }) })
+      .mockResolvedValueOnce({ ouverture: ouverture(LOGIE, 'nouvelle', 2), exemplaires: 1, etait_epuisee: false, etat: etat({ version_etat: 3, reserve: [ex(GEO, 3), ex(LOGIE, 1)], encre: 5, energie: energie(0) }) })
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    const groupe = await screen.findByRole('button', { name: 'Ouvrir les 2 plis' })
+    await act(async () => fireEvent.click(groupe))
+    await waitFor(() => expect(pli).toHaveBeenCalledTimes(2), { timeout: 8000 })
+    // Le second pli part de la version renvoyée par le premier, sinon le serveur répondrait 409.
+    expect(pli.mock.calls.map(([d]) => d.version_etat)).toEqual([1, 2])
+    expect(pli.mock.calls[0]?.[0].commande).not.toBe(pli.mock.calls[1]?.[0].commande)
+    // Une seule annonce pour tout le lot, puis une brique par pli, qui s'essaie sur la table.
+    expect(await screen.findByText(/^2 plis ouverts : 1 nouvelle brique, \+5 gouttes d’encre\.$/, undefined, { timeout: 8000 })).toHaveAttribute('role', 'status')
+    expect(screen.getAllByRole('button', { name: /Essayer sur la table$/ })).toHaveLength(2)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuer' })).toHaveFocus())
+    delete document.documentElement.dataset.mouvement
+  }, 15_000)
+
+  it('n’offre l’ouverture groupée qu’à partir de deux plis prêts', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const api = client()
+    vi.spyOn(api, 'etat').mockResolvedValue(etat({ energie: { charges: 1, capacite: 2, prochaine_charge: new Date(Date.now() + 3_600_000).toISOString(), recharge_s: 43_200 } }))
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
+    await screen.findByRole('button', { name: 'Ouvrir le pli du fascicule Essai' })
+    expect(screen.queryByRole('button', { name: /^Ouvrir les \d+ plis$/ })).toBeNull()
     delete document.documentElement.dataset.mouvement
   })
 
@@ -490,7 +577,7 @@ describe('table de fusion', () => {
     render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
     fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Échanger contre des sabliers' }))
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Six sabliers contre 60 gouttes' })))
     expect(achat).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 1, nombre: 6 }))
     // Le second envoi part de la version renvoyée par l'achat, sinon le serveur répondrait 409.
@@ -509,16 +596,31 @@ describe('table de fusion', () => {
     render(<App api={api} catalogue={lecteur} />)
     fireEvent.click(await screen.findByRole('button', { name: /^Plis/ }))
     fireEvent.click(await screen.findByRole('button', { name: /^Fascicule Essai, n°\s0 : .*Ouvrir son pli/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Échanger contre des sabliers' }))
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Douze sabliers contre 120 gouttes' })))
     await waitFor(() => expect(emploi).toHaveBeenCalledWith(expect.objectContaining({ version_etat: 2, nombre: 1 })))
     delete document.documentElement.dataset.mouvement
   })
 
+  it('après une déconnexion, la table propose de se reconnecter, et l’écran s’ouvre en connexion', async () => {
+    const api = client()
+    let serveur = etat({ compte: { pseudo: 'camille-4821', pseudo_confirme: true } })
+    vi.spyOn(api, 'etat').mockImplementation(async () => serveur)
+    vi.spyOn(api, 'deconnecter').mockImplementation(async () => {
+      serveur = etat()
+    })
+    history.replaceState(null, '', '#/reglages')
+    render(<App api={api} catalogue={lecteur} />)
+    fireEvent.click(await screen.findByRole('button', { name: /Se déconnecter/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Se reconnecter' }))
+    expect(await screen.findByRole('heading', { name: 'Retrouvez votre compte' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Se connecter' })).toBeVisible()
+  })
+
   it('n’offre pas la réinitialisation en production', async () => {
     history.replaceState(null, '', '#/reglages')
     render(<App api={client()} catalogue={lecteur} />)
-    await waitFor(() => expect(screen.getByText('Profil invité')).toBeVisible())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Sauvegarder ma progression/ })).toBeVisible())
     expect(screen.queryByRole('button', { name: 'Réinitialiser' })).not.toBeInTheDocument()
   })
 

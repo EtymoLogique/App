@@ -1,4 +1,4 @@
-import { Fragment, cloneElement, createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, cloneElement, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
   CERTITUDES,
@@ -16,11 +16,13 @@ import {
   libelleMaitrise,
   recentes,
   rechercher,
+  exemplesDe,
   savoirPlus,
   silhouetteDe,
 } from '../services/codex'
+import type { Enquete } from '../services/indices'
 import type { CatalogueJeu } from '../services/jeu'
-import { NATURES, libelleFascicule } from '../services/jeu'
+import { NATURES, libelleFascicule, prochainFascicule } from '../services/jeu'
 import type { Route, TriCodex, VueCodex } from '../services/route'
 import { MotSegmente } from './MotSegmente'
 import { mouvementReduit } from '../services/animation'
@@ -29,6 +31,10 @@ import { bandeau } from './bandeau'
 import { FormeRarete } from './Rarete'
 import { Filet, Galet } from './Maitrise'
 import { Jaquette, SelecteurFascicules, TitreFascicule } from './Fascicules'
+import { Constellation } from './Constellation'
+import { useDeblocage } from '../services/deblocage'
+import { Icone } from './Icone'
+import { useDialogue } from './useDialogue'
 
 type Tri = TriCodex
 const TRIS: [Tri, string][] = [
@@ -52,6 +58,7 @@ const VUES: [VueCodex, string][] = [
   ['tout', 'Tout'],
   ['recentes', 'Récentes'],
   ['familles', 'Familles'],
+  ['reseau', 'Réseau'],
   ['cabinet', 'Cabinet'],
 ]
 
@@ -59,15 +66,30 @@ const VUES: [VueCodex, string][] = [
 type LireMedia = (chemin: string) => Promise<string>
 const LectureMedia = createContext<LireMedia | null>(null)
 
+/** Indices achetés, par carte à trouver (ADR 0051). */
+const IndicesCodex = createContext<ReadonlyMap<string, Enquete['obtenus']>>(new Map())
+
+/**
+ * Ce qu'une carte à trouver montre de ses indices achetés : silhouette, définition, sens littéral.
+ * Seul ce qui a été payé se lit, tel que la feuille des indices l'a montré : jamais `entree.sens`
+ * ni `entree.definition`, qui trahiraient le reste.
+ */
+function useIndices(entree: EntreeCodex) {
+  const obtenus = useContext(IndicesCodex).get(entree.id) ?? []
+  const contenu = (niveau: number) => obtenus.find((o) => o.niveau === niveau)?.contenu
+  return { silhouette: contenu(1)?.silhouette, litteral: contenu(2)?.texte, definition: contenu(3)?.texte }
+}
+
 /**
  * Texture de carte (ADR 0023) : la silhouette, insérée dans la carte pour
  * prendre sa teinte et le fond de ses évidements. Seulement une fois la carte
- * trouvée, pour ne rien trahir.
+ * trouvée ou son indice « Silhouette » acheté, pour ne rien trahir.
  */
 function Texture({ entree }: { entree: EntreeCodex }) {
   const lire = useContext(LectureMedia)
   const hote = useRef<HTMLSpanElement>(null)
-  const chemin = entree.trouvee ? entree.silhouette : null
+  const indice = useIndices(entree).silhouette
+  const chemin = entree.trouvee ? entree.silhouette : (indice ?? null)
   useEffect(() => {
     if (!chemin || !lire) return
     let actif = true
@@ -106,9 +128,10 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
   const affixe = entree.type === 'prefixe' || entree.type === 'suffixe'
   const nbFormes = entree.formes.length
   const trouvees = entree.formes.filter((f) => f.trouvee).length
+  const indices = useIndices(entree)
   const label = entree.trouvee
     ? `${nouvelle ? 'Nouvelle carte : ' : ''}${entree.libelle}, ${type.libelle.toLowerCase()}${entree.sens ? `, « ${entree.sens} »` : ''}, fascicule ${entree.fascicule}, ${trouvees} formes trouvées sur ${nbFormes}${entree.maitrise ? `, ${libelleMaitrise(entree.maitrise).toLowerCase()}` : ''}`
-    : `Carte ${entree.n}, fascicule ${entree.fascicule} : ${type.libelle.toLowerCase()} à découvrir`
+    : `Carte ${entree.n}, fascicule ${entree.fascicule} : ${type.libelle.toLowerCase()} à découvrir${indices.litteral ? `, sens littéral « ${indices.litteral} »` : ''}`
   const classes = ['mini', entree.trouvee ? '' : 'locked', nouvelle && entree.trouvee ? 'is-new' : '', entree.legendaire ? 'is-legend' : '', deplie === undefined ? '' : 'deplie']
     .filter(Boolean)
     .join(' ')
@@ -150,7 +173,9 @@ export function Mini({ entree, nouvelle, langue, onOuvrir, deplie }: {
         </>
       ) : (
         <>
+          <Texture entree={entree} />
           <span className="m-q">?</span>
+          {indices.litteral && <span className="m-lit">«&nbsp;{indices.litteral}&nbsp;»</span>}
           <span className="m-foot">{affixe && entree.sens ? `Piste : « ${entree.sens} »` : 'À découvrir'}</span>
         </>
       )}
@@ -219,7 +244,9 @@ function jouerRetournement(carte: HTMLElement | null, versDos: boolean) {
   ombre?.animate([{ scale: '1 1', opacity: 1 }, { scale: '0.06 0.94', opacity: 0.6, translate: '0 18px', offset: 0.5 }, { scale: '1 1', opacity: 1 }], { duration: 600, easing: 'ease-in-out' })
 }
 
-type Dos = 'formes' | 'savoir'
+type Dos = 'formes' | 'exemples' | 'savoir'
+
+const LIBELLES_DOS: Record<Dos, string> = { formes: 'Formes', exemples: 'Exemples', savoir: 'En savoir plus' }
 
 /** Bouton de retournement de la carte agrandie : même composant pour « En savoir plus » et « Retourner ». */
 function BoutonRetournement({ libelle, onClick, ref }: { libelle: string; onClick: (bouton: HTMLButtonElement) => void; ref?: React.Ref<HTMLButtonElement> }) {
@@ -252,11 +279,15 @@ interface VisionneuseProps {
   /** Section « En savoir plus » dépliée (I-16), tenue dans l'adresse. */
   plus: boolean
   onPlus: (plus: boolean) => void
+  /** Annonce sous la carte, au moment fort (« Nouvelle découverte · +2 gouttes d’encre »). */
+  annonce?: string
 }
 
 /** Carte agrandie seule, hors du codex : celle qu'une fusion réussie vient de former sur la table, d'où elle grossit. */
-export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien, origine = '.slots' }: {
+export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivreLien, origine = '.slots', annonce }: {
   entree: EntreeCodex
+  /** Gain de la fusion, écrit sous la carte. */
+  annonce?: string
   /** Toutes les cartes, pour suivre un lien. */
   entrees: EntreeCodex[]
   jeu: CatalogueJeu
@@ -271,24 +302,25 @@ export function CarteSeule({ entree, entrees, jeu, lireMedia, onFermer, onSuivre
   const rien = () => undefined
   return (
     <LectureMedia.Provider value={lireMedia}>
-      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine={origine} onZoome={rien} plus={plus} onPlus={setPlus} />
+      <Visionneuse entrees={[entree]} toutes={entrees} entree={entree} fil={[]} jeu={jeu} onNaviguer={rien} onSuivreLien={onSuivreLien} onRemonter={rien} onFermer={onFermer} zoom origine={origine} onZoome={rien} plus={plus} onPlus={setPlus} annonce={annonce} />
     </LectureMedia.Provider>
   )
 }
 
 /** Carte agrandie (I-15) : recto, puis verso retourné, précédente et suivante au clavier. */
-function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, origine, onZoome, plus, onPlus }: VisionneuseProps) {
+function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLien, onRemonter, onFermer: onFermerSec, zoom, origine, onZoome, plus, onPlus, annonce }: VisionneuseProps) {
   const source = () => document.querySelector<HTMLElement>(origine ?? `.mini[data-carte="${CSS.escape(entree.id)}"]`)
   // Face montrée : null = recto, sinon le contenu du verso. `plus` (adresse) ouvre le verso sur « En savoir plus ».
   const [dos, setDos] = useState<Dos | null>(plus && savoirPlus(entree, jeu) ? 'savoir' : null)
   const ouvreur = useRef<HTMLButtonElement | null>(null)
-  const onglets = useRef<Record<Dos, HTMLButtonElement | null>>({ formes: null, savoir: null })
+  const onglets = useRef<Record<Dos, HTMLButtonElement | null>>({ formes: null, exemples: null, savoir: null })
   const retour = useRef<HTMLButtonElement>(null)
   const fermer = useRef<HTMLButtonElement>(null)
   const enveloppe = useRef<HTMLDivElement>(null)
   const fond = useRef<HTMLDivElement>(null)
   const carte = useRef<HTMLDivElement>(null)
   const sortie = useRef(false)
+  const indices = useIndices(entree)
 
   useLayoutEffect(() => {
     if (!zoom) return
@@ -364,7 +396,9 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
   const parties = [...(composition?.parties ?? [])].sort((a, b) => a.rang - b.rang)
   const segments = parties.filter((p) => p.segment_debut != null && p.segment_fin != null && jeu.cartes.has(p.unite_id))
   const savoir = savoirPlus(entree, jeu)
-  const face: Dos | null = dos === 'savoir' && !savoir ? 'formes' : dos
+  const exemples = exemplesDe(entree)
+  const volets: Dos[] = ['formes', ...(exemples.length > 0 ? (['exemples'] as const) : []), ...(savoir ? (['savoir'] as const) : [])]
+  const face: Dos | null = dos && !volets.includes(dos) ? 'formes' : dos
   const retournee = face !== null
   const retourner = (vers: Dos | null, bouton?: HTMLButtonElement | null) => {
     if (bouton) ouvreur.current = bouton
@@ -385,7 +419,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       premier.current = false
       if (face === null) return
     }
-    const cible = () => (face ? (savoir ? onglets.current[face] : retour.current) : ouvreur.current)?.focus()
+    const cible = () => (face ? (volets.length > 1 ? onglets.current[face] : retour.current) : ouvreur.current)?.focus()
     // La face d'arrivée reste visibility: hidden jusqu'à mi-retournement (codex.css) : un focus() immédiat échouerait.
     // Le focus suit la fin de cette transition ; le minuteur ne sert que si elle ne vient pas.
     const arrivee = carte.current?.querySelector<HTMLElement>(face ? '.big-back' : '.big-front')
@@ -423,7 +457,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
       <span className="bf-side">
         <span className="bf-type">{type.libelle}</span>
         {entree.maitrise?.maitrisee && <Galet className="galet bf-galet" />}
-        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" />}
+        {entree.rarete && <FormeRarete rarete={entree.rarete} className="rar bf-rar" nomVisible />}
       </span>
     </div>
   )
@@ -486,28 +520,6 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                   {savoir.transformations.map((t, i) => (
                     <li key={i}>
                       <span className="more-tag">{t.type}</span>
-                      <span>{t.texte}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {savoir.aNePasConfondre.length > 0 && (
-              <>
-                <p className="more-k">À ne pas confondre</p>
-                <ul className="more-list">
-                  {savoir.aNePasConfondre.map((t) => (
-                    <li key={t.id}>
-                      <span className="bformula">
-                        {t.briques.map((b, i) => (
-                          <Fragment key={b.id}>
-                            {i > 0 && <span className="bplus">+</span>}
-                            <span className="bchip" data-kind={NATURES[b.nature]}>
-                              {b.libelle}
-                            </span>
-                          </Fragment>
-                        ))}
-                      </span>
                       <span>{t.texte}</span>
                     </li>
                   ))}
@@ -593,7 +605,7 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
         )}
       </nav>
       <p className="sr-only" aria-live="polite">
-        {face === null ? 'Recto' : face === 'formes' ? 'Verso : formes' : 'Verso : en savoir plus'}
+        {face === null ? 'Recto' : `Verso : ${LIBELLES_DOS[face].toLowerCase()}`}
       </p>
       <div ref={enveloppe} className="big-wrap">
         <div className="big-ombre" aria-hidden="true" />
@@ -673,7 +685,8 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
               ) : (
                 <>
                   <p className="bf-q">?</p>
-                  <p className="bf-def">Cette carte n’est pas encore découverte.</p>
+                  <p className="bf-def">{indices.definition ?? 'Cette carte n’est pas encore découverte.'}</p>
+                  {indices.litteral && <p className="bf-lit">«&nbsp;{indices.litteral}&nbsp;»</p>}
                   {affixe && entree.sens && <p className="bf-lit">Piste : «&nbsp;{entree.sens}&nbsp;»</p>}
                 </>
               )}
@@ -708,9 +721,9 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           <div className="big-face big-back" aria-hidden={!retournee} inert={!retournee}>
             {haut}
             <div className="bf-body bb-body">
-              {savoir && (
+              {volets.length > 1 && (
                 <div className="bb-tabs" role="tablist" aria-label="Contenu du verso">
-                  {(['formes', 'savoir'] as const).map((d) => (
+                  {volets.map((d, i) => (
                     <button
                       key={d}
                       ref={(el) => {
@@ -723,9 +736,13 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
                       aria-controls={`panneau-${d}`}
                       tabIndex={face === d ? 0 : -1}
                       onClick={() => retourner(d)}
-                      onKeyDown={(ev) => (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && retourner(d === 'formes' ? 'savoir' : 'formes')}
+                      onKeyDown={(ev) => {
+                        const pas = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0
+                        const suivant = volets[(i + pas + volets.length) % volets.length]
+                        if (pas !== 0 && suivant) retourner(suivant)
+                      }}
                     >
-                      {d === 'formes' ? 'Formes' : 'En savoir plus'}
+                      {LIBELLES_DOS[d]}
                     </button>
                   ))}
                 </div>
@@ -733,7 +750,15 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
               <div id="panneau-savoir" className="bb-panel bb-savoir" role="tabpanel" aria-labelledby="onglet-savoir" hidden={face !== 'savoir'}>
                 {contenuSavoir}
               </div>
-              <div id="panneau-formes" className="bb-panel" role={savoir ? 'tabpanel' : undefined} aria-labelledby={savoir ? 'onglet-formes' : undefined} hidden={face === 'savoir'}>
+              <div id="panneau-exemples" className="bb-panel bb-exemples" role="tabpanel" aria-labelledby="onglet-exemples" hidden={face !== 'exemples'}>
+                <p className="more-k">Pour se représenter</p>
+                <ul className="more-list">
+                  {exemples.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              </div>
+              <div id="panneau-formes" className="bb-panel" role={volets.length > 1 ? 'tabpanel' : undefined} aria-labelledby={volets.length > 1 ? 'onglet-formes' : undefined} hidden={face === 'savoir' || face === 'exemples'}>
               <p className="bb-title">{entree.type === 'langue' ? `Formes en ${entree.libelle.toLowerCase()}` : 'Formes trouvées'}</p>
               {entree.formes.length === 0 || !entree.trouvee ? (
                 <p className="bf-note">Découvrez cette carte pour révéler ses formes dans chaque langue.</p>
@@ -805,7 +830,14 @@ function Visionneuse({ entrees, toutes, entree, fil, jeu, onNaviguer, onSuivreLi
           →
         </button>
       )}
-      <p className="viewer-hint">{seule ? 'Échap pour fermer' : '← → pour changer de carte · Échap pour fermer'}</p>
+      {/* Le statut de la table l'annonce déjà aux lecteurs d'écran. */}
+      {annonce ? (
+        <p className="viewer-annonce" aria-hidden="true">
+          {annonce}
+        </p>
+      ) : (
+        <p className="viewer-hint">{seule ? 'Échap pour fermer' : '← → pour changer de carte · Échap pour fermer'}</p>
+      )}
     </div>
   )
 }
@@ -840,6 +872,7 @@ function BadgeFamille({ famille, onOuvrir }: { famille: Famille; onOuvrir: () =>
   // ponytail: écart fixe de 3 % du tour, réduit pour les grandes familles ; à revoir au-delà de ~25 mots.
   const longueur = complete ? pas : pas - Math.min(3, pas / 3)
   const b = famille.brique
+  const affixe = b.type === 'prefixe' || b.type === 'suffixe'
   return (
     <button
       type="button"
@@ -863,12 +896,13 @@ function BadgeFamille({ famille, onOuvrir }: { famille: Famille; onOuvrir: () =>
             />
           ))}
         </svg>
-        <b>{b.libelle}</b>
+        <b className="cab-compte">
+          {famille.trouves}/{total}
+        </b>
       </span>
+      {/* Identité : une brique s'affiche en brique, jamais en texte brut. */}
+      {affixe ? <Brique libelle={b.libelle} nature={NATURES[b.type as 'prefixe' | 'suffixe']} className="bchip cab-brique" /> : <b className="cab-mot">{b.libelle}</b>}
       {b.sens && <span className="cab-sens">{b.sens.charAt(0).toUpperCase() + b.sens.slice(1)}</span>}
-      <span className="fam-count">
-        {famille.trouves} / {total}
-      </span>
     </button>
   )
 }
@@ -891,6 +925,8 @@ interface Props {
   joursDeJeu?: number
   nouvelles: Set<string>
   onVue: (id: string) => void
+  /** Écran du codex affiché : une carte nouvelle qui y paraît est vue. */
+  actif?: boolean
   /** Vue du codex tenue dans l'URL : vue, filtres, tri et carte agrandie. */
   vue: Pick<Route, 'vue' | 'filtre' | 'tri' | 'inverse' | 'fascicule' | 'carte' | 'plus'>
   onChangerVue: (modif: Partial<Route>, options?: { remplacer?: boolean }) => void
@@ -898,6 +934,100 @@ interface Props {
   urlMedia: (chemin: string) => string
   /** Lecture vérifiée d'un média du catalogue (silhouettes des cartes). */
   lireMedia: LireMedia
+  /** Enquêtes en cours : les cartes à trouver montrent leurs indices achetés. */
+  enquetes?: Enquete[]
+}
+
+/**
+ * Feuille « Filtrer et trier » du codex : fascicule, nouveautés, type de carte et tri, appliqués aussitôt.
+ * Toucher le tri actif l'inverse, comme avant ; la feuille reste ouverte.
+ */
+function FeuilleFiltres({ fascicules, nouvelles, nbNouvelles, onNouvelles, filtre, ordre, inverse, compter, onFiltre, onOrdre, onFermer }: {
+  /** Sélecteur de fascicule, le même que dans les quêtes. */
+  fascicules: React.ReactNode
+  /** Seulement les cartes nouvelles. */
+  nouvelles: boolean
+  nbNouvelles: number
+  onNouvelles: (seules: boolean) => void
+  filtre: TypeCarte | 'tout'
+  ordre: Tri
+  inverse: boolean
+  compter: (t: TypeCarte | 'tout') => number
+  onFiltre: (f: TypeCarte | 'tout') => void
+  onOrdre: (t: Tri) => void
+  onFermer: () => void
+}) {
+  const [boite, fermer] = useDialogue<HTMLElement>(onFermer)
+  return (
+    <div className="scrim" onClick={fermer}>
+      <div className="scrim-fond" aria-hidden="true" />
+      <section ref={boite} className="dialogue feuille cb-feuille" role="dialog" aria-modal="true" aria-labelledby="filtres-titre" onClick={(e) => e.stopPropagation()}>
+        <h2 id="filtres-titre" className="jk-title">
+          Filtrer <em>et trier</em>
+        </h2>
+        <p className="more-k">Fascicule</p>
+        {fascicules}
+        <p className="more-k">Afficher</p>
+        <div className="cb-filters" role="group" aria-label="Afficher toutes les cartes ou les nouvelles">
+          {([false, true] as const).map((seules) => (
+            <button
+              key={String(seules)}
+              type="button"
+              className="cb-chip"
+              aria-pressed={nouvelles === seules}
+              disabled={seules && !nouvelles && nbNouvelles === 0}
+              onClick={() => onNouvelles(seules)}
+            >
+              <span>{seules ? 'Nouvelles' : 'Toutes'}</span>
+              {seules && <b>{nbNouvelles}</b>}
+            </button>
+          ))}
+        </div>
+        <p className="more-k">Type</p>
+        <div className="cb-filters" role="group" aria-label="Filtrer les cartes par type">
+          {(['tout', ...ORDRE_TYPES] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className="cb-chip"
+              aria-pressed={filtre === t}
+              onClick={() => onFiltre(t)}
+              style={t === 'tout' ? undefined : ({ '--c': (bandeau(t) as Record<string, string>)['--tc'] } as React.CSSProperties)}
+            >
+              {t !== 'tout' && <i />}
+              <span>{t === 'tout' ? 'Tout' : TYPES[t].pluriel}</span>
+              <b>{compter(t)}</b>
+            </button>
+          ))}
+        </div>
+        <p className="more-k">Trier</p>
+        <div className="cb-sort" role="group" aria-label="Trier les cartes">
+          {TRIS.map(([t, libelle]) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={ordre === t}
+              aria-label={ordre === t ? `${libelle}, ordre ${inverse ? 'inverse' : 'croissant'} : toucher pour inverser` : undefined}
+              onClick={() => onOrdre(t)}
+            >
+              {/* L'alphabet dit lui-même son sens : « Z → A » plutôt qu'une flèche de plus. */}
+              {t === 'az' && ordre === t && inverse ? 'Z → A' : libelle}
+              {ordre === t && t !== 'az' && (
+                <span className="cb-sort-dir" aria-hidden="true">
+                  {inverse ? '↑' : '↓'}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="rangee rangee-fin rangee-actions">
+          <button type="button" className="btn btn-secondary" data-focus-initial onClick={fermer}>
+            Fermer
+          </button>
+        </div>
+      </section>
+    </div>
+  )
 }
 
 /**
@@ -905,7 +1035,8 @@ interface Props {
  * recherche (I-17), complétude par fascicule, filtres par type, tri, cartes et
  * carte agrandie (I-15) avec sa section « En savoir plus » (I-16).
  */
-export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChangerVue, urlMedia, lireMedia }: Props) {
+export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, actif = true, vue, onChangerVue, urlMedia, lireMedia, enquetes = [] }: Props) {
+  const indices = useMemo(() => new Map(enquetes.map((e) => [e.entree.id, e.obtenus])), [enquetes])
   const filtre = vue.filtre
   const ordre = vue.tri
   const fascicule = vue.fascicule ?? 'tous'
@@ -915,6 +1046,9 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
   // Toucher le tri actif l'inverse : un double clic sur un autre tri le choisit puis l'inverse.
   const setOrdre = (t: Tri) => onChangerVue(t === ordre ? { inverse: !vue.inverse } : { tri: t, inverse: false }, { remplacer: true })
   const setFascicule = (f: number | 'tous') => onChangerVue({ fascicule: f === 'tous' ? null : f }, { remplacer: true })
+  /** Feuille « Filtrer et trier » ouverte. */
+  const [reglages, setReglages] = useState(false)
+  const fermerReglages = useCallback(() => setReglages(false), [])
   const setOuverte = (id: string | null) => onChangerVue(id ? { carte: id } : { carte: null, plus: false })
   /** Fil d'Ariane : cartes quittées en suivant un lien, de la plus ancienne à la plus récente. */
   const [fil, setFil] = useState<string[]>([])
@@ -943,15 +1077,35 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
   }
   const replie = (e: EntreeCodex) => ordre === 'fasc' && replies.has(e.fascicule)
 
+  // Une carte nouvelle qui paraît à l'écran est vue, sans l'ouvrir : le compteur
+  // de la navigation baisse, son halo reste jusqu'à ce qu'on quitte le codex.
+  const [halos, setHalos] = useState<Set<string>>(() => new Set())
+  if (!actif && halos.size > 0) setHalos(new Set())
+  /** Filtre « Nouvelles » : hors de l'adresse, comme le halo, et oublié en quittant le codex. */
+  const [seulesNouvelles, setSeulesNouvelles] = useState(false)
+  if (!actif && seulesNouvelles) setSeulesNouvelles(false)
+  // Une nouvelle vue à l'écran garde son halo : elle reste dans le filtre jusqu'à ce qu'on quitte le codex.
+  const estNouvelle = (e: EntreeCodex) => nouvelles.has(e.id) || halos.has(e.id)
+
   const dansFascicule = entrees.filter((e) => fascicule === 'tous' || e.fascicule === fascicule)
-  const visibles = dansFascicule.filter((e) => filtre === 'tout' || e.type === filtre).sort(tri(ordre, vue.inverse))
+  const retenues = seulesNouvelles ? dansFascicule.filter(estNouvelle) : dansFascicule
+  const visibles = retenues.filter((e) => filtre === 'tout' || e.type === filtre).sort(tri(ordre, vue.inverse))
   const tout = completude(entrees)
+  // Réglages qui s'écartent du défaut (tous les fascicules et types, par numéro croissant) : comptés sur l'entonnoir.
+  const actifs = Number(fascicule !== 'tous') + Number(seulesNouvelles) + Number(filtre !== 'tout') + Number(ordre !== 'n' || vue.inverse)
+  const choisi = jeu.fascicules.find((f) => f.numero === fascicule)
+  const resume = [choisi && libelleFascicule(choisi), seulesNouvelles && 'nouvelles', filtre !== 'tout' && TYPES[filtre].pluriel].filter(Boolean).join(', ')
   const resultats = rechercher(entrees, recherche)
   const enRecherche = recherche.trim() !== ''
   const dernieres = recentes(entrees)
   const lesFamilles = familles(entrees, jeu)
-  const aCompleter = lesFamilles.filter((f) => f.trouves < f.mots.length)
   const stats = cabinet(entrees, jeu)
+  // Vue Réseau : seuls les fascicules débloqués y entrent (ADR 0069) ; sans contexte, tous les parus.
+  const deblocage = useDeblocage()
+  const debloques = useMemo(
+    () => new Set(jeu.fascicules.filter((f) => !deblocage || deblocage.debloques.has(f.manifeste.id)).map((f) => f.numero)),
+    [jeu, deblocage],
+  )
 
   // Précédente et suivante : l'ordre de ce qui est affiché.
   const sequence = enRecherche
@@ -960,7 +1114,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
       ? dernieres
       : vue.vue === 'familles'
         ? lesFamilles.flatMap((f) => f.mots)
-        : vue.vue === 'cabinet'
+        : vue.vue === 'cabinet' || vue.vue === 'reseau'
           ? []
           : visibles.filter((e) => !replie(e))
 
@@ -992,11 +1146,32 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
     if (carteOuverte) onVue(carteOuverte.id)
   }, [carteOuverte, onVue])
 
+  const racine = useRef<HTMLDivElement>(null)
+  // Sans tableau de dépendances : la grille change avec la vue, les filtres, le tri et la recherche.
+  useEffect(() => {
+    if (!actif || nouvelles.size === 0 || !racine.current || typeof IntersectionObserver === 'undefined') return
+    const observateur = new IntersectionObserver(
+      (vues) => {
+        for (const v of vues) {
+          const id = (v.target as HTMLElement).dataset.carte
+          if (!v.isIntersecting || !id) continue
+          setHalos((h) => (h.has(id) ? h : new Set(h).add(id)))
+          onVue(id)
+        }
+      },
+      { threshold: 0.5 },
+    )
+    for (const el of racine.current.querySelectorAll<HTMLElement>('.mini.is-new')) {
+      if (nouvelles.has(el.dataset.carte ?? '')) observateur.observe(el)
+    }
+    return () => observateur.disconnect()
+  })
+
   // « / » place le curseur dans la recherche, comme dans la réserve (I-17).
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
       const cible = e.target as HTMLElement | null
-      if (e.key !== '/' || cible?.tagName === 'INPUT' || ouverte) return
+      if (e.key !== '/' || cible?.tagName === 'INPUT' || ouverte || reglages) return
       // Écran caché (autre onglet) : la réserve de la table prend le raccourci.
       if (!champ.current || champ.current.closest('[hidden]')) return
       e.preventDefault()
@@ -1004,10 +1179,10 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
     }
     window.addEventListener('keydown', touche)
     return () => window.removeEventListener('keydown', touche)
-  }, [ouverte])
+  }, [ouverte, reglages])
 
   const mini = (e: EntreeCodex, rangDeplie?: number) => (
-    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id)} deplie={rangDeplie} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
+    <Mini key={e.id} entree={e} nouvelle={nouvelles.has(e.id) || halos.has(e.id)} deplie={rangDeplie} langue={e.langueId ? (jeu.langues.get(e.langueId) ?? null) : null} onOuvrir={() => {
       setZoom(e.id)
       naviguer(e.id)
     }} />
@@ -1015,7 +1190,8 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
 
   return (
     <LectureMedia.Provider value={lireMedia}>
-    <div className="codex-browser">
+    <IndicesCodex.Provider value={indices}>
+    <div className="codex-browser" ref={racine}>
       <div className="cb-head">
         <div>
           <h2 className="cb-title">
@@ -1029,7 +1205,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
               </>
             ) : (
               <>
-                Vue <em>{{ tout: 'globale', familles: 'des familles', cabinet: 'du cabinet' }[vue.vue]}</em>
+                Vue <em>{{ tout: 'globale', familles: 'des familles', reseau: 'en réseau', cabinet: 'du cabinet' }[vue.vue]}</em>
               </>
             )}
           </h2>
@@ -1058,7 +1234,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
           <input
             ref={champ}
             type="search"
-            placeholder="Chercher un mot, une brique ou un sens"
+            placeholder="Mot, brique ou sens"
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             onKeyDown={(e) => {
@@ -1067,6 +1243,35 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
           />
           <kbd aria-hidden="true">{enRecherche ? 'Échap' : '/'}</kbd>
         </label>
+        {/* L'entonnoir ne règle que la grille de la vue Tout. */}
+        {!enRecherche && vue.vue === 'tout' && (
+          <button
+            type="button"
+            className="cb-chip cb-filtrer"
+            aria-expanded={reglages}
+            aria-haspopup="dialog"
+            aria-label={`Filtrer et trier${resume ? ` : ${resume}` : ''}`}
+            onClick={() => setReglages(true)}
+          >
+            <Icone nom="filtre" />
+            {actifs > 0 && <b aria-hidden="true">{actifs}</b>}
+          </button>
+        )}
+        {reglages && (
+          <FeuilleFiltres
+            fascicules={<SelecteurFascicules jeu={jeu} entrees={entrees} actif={fascicule} onChoisir={setFascicule} urlMedia={urlMedia} />}
+            nouvelles={seulesNouvelles}
+            nbNouvelles={dansFascicule.filter(estNouvelle).length}
+            onNouvelles={setSeulesNouvelles}
+            filtre={filtre}
+            ordre={ordre}
+            inverse={vue.inverse}
+            compter={(t) => retenues.filter((e) => t === 'tout' || e.type === t).length}
+            onFiltre={setFiltre}
+            onOrdre={setOrdre}
+            onFermer={fermerReglages}
+          />
+        )}
       </div>
 
       {!enRecherche && (
@@ -1074,8 +1279,6 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
           {VUES.map(([v, libelle]) => (
             <button key={v} type="button" aria-pressed={vue.vue === v} onClick={() => setVue(v)}>
               {libelle}
-              {v === 'familles' && lesFamilles.length > 0 && <b>{lesFamilles.length}</b>}
-              {v === 'cabinet' && aCompleter.length > 0 && <b>{aCompleter.length}</b>}
             </button>
           ))}
         </div>
@@ -1146,6 +1349,8 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
             ))}
           </div>
         )
+      ) : vue.vue === 'reseau' ? (
+        <Constellation jeu={jeu} entrees={entrees} debloques={debloques} onOuvrir={naviguer} />
       ) : vue.vue === 'cabinet' ? (
         <div className="cab">
           <section className="cab-stats" aria-labelledby="cab-titre">
@@ -1203,48 +1408,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
         </div>
       ) : (
         <>
-          <SelecteurFascicules jeu={jeu} entrees={entrees} actif={fascicule} onChoisir={setFascicule} urlMedia={urlMedia} />
-
-          <div className="cb-toolbar">
-            <div className="cb-filters" role="group" aria-label="Filtrer les cartes par type">
-              {(['tout', ...ORDRE_TYPES] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="cb-chip"
-                  aria-pressed={filtre === t}
-                  onClick={() => setFiltre(t)}
-                  style={t === 'tout' ? undefined : ({ '--c': (bandeau(t) as Record<string, string>)['--tc'] } as React.CSSProperties)}
-                >
-                  {t !== 'tout' && <i />}
-                  <span>{t === 'tout' ? 'Tout' : TYPES[t].pluriel}</span>
-                  <b>{dansFascicule.filter((e) => t === 'tout' || e.type === t).length}</b>
-                </button>
-              ))}
-            </div>
-            <div className="cb-sort-wrap">
-              <span className="cb-sort-label">Trier</span>
-              <div className="cb-sort" role="group" aria-label="Trier les cartes">
-                {TRIS.map(([t, libelle]) => (
-                  <button
-                    key={t}
-                    type="button"
-                    aria-pressed={ordre === t}
-                    aria-label={ordre === t ? `${libelle}, ordre ${vue.inverse ? 'inverse' : 'croissant'} : toucher pour inverser` : undefined}
-                    onClick={() => setOrdre(t)}
-                  >
-                    {/* L'alphabet dit lui-même son sens : « Z → A » plutôt qu'une flèche de plus. */}
-                    {t === 'az' && ordre === t && vue.inverse ? 'Z → A' : libelle}
-                    {ordre === t && t !== 'az' && (
-                      <span className="cb-sort-dir" aria-hidden="true">
-                        {vue.inverse ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          {prochainFascicule(jeu) && <p className="cb-note prochain-fascicule">{prochainFascicule(jeu)}</p>}
 
           <div className="cb-grid">
             {visibles.map((e, i) => {
@@ -1303,6 +1467,7 @@ export function Codex({ entrees, jeu, joursDeJeu, nouvelles, onVue, vue, onChang
         />
       )}
     </div>
+    </IndicesCodex.Provider>
     </LectureMedia.Provider>
   )
 }

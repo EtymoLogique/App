@@ -35,18 +35,8 @@ export function Brique({ brique, taille = 'm', className }: Props) {
   )
 }
 
-/**
- * Petite brique, dans une phrase. Avec `onOuvrir`, c'est un bouton (zone tactile de 44 px
- * au moins) qui ouvre la carte de la brique, comme dans les retours de la table (ADR 0052).
- */
-export function PetiteBrique({ brique, onOuvrir, titre }: { brique: BriqueJeu; onOuvrir?: () => void; titre?: string }) {
-  if (onOuvrir) {
-    return (
-      <button type="button" className="bchip bchip-btn" data-kind={NATURES[brique.nature]} title={titre ?? nomAccessible(brique)} aria-label={titre ?? `Voir la carte : ${nomAccessible(brique)}`} onClick={onOuvrir}>
-        {brique.libelle}
-      </button>
-    )
-  }
+/** Petite brique, dans une phrase. */
+export function PetiteBrique({ brique }: { brique: BriqueJeu }) {
   return (
     <span className="bchip" data-kind={NATURES[brique.nature]} title={nomAccessible(brique)}>
       {brique.libelle}

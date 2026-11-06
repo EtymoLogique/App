@@ -19,9 +19,9 @@ const rendu = (e: Etat, acheter = vi.fn().mockResolvedValue({ etat: e })) => {
 }
 
 describe('raccourci des sabliers', () => {
-  it('sans sablier, « Acheter des sabliers » n’affiche aucun prix', () => {
+  it('sans sablier, « Échanger contre des sabliers » n’affiche aucun prix', () => {
     rendu(etat(8850, 0))
-    const bouton = screen.getByRole('button', { name: 'Acheter des sabliers' })
+    const bouton = screen.getByRole('button', { name: 'Échanger contre des sabliers' })
     expect(bouton.textContent).not.toMatch(/\d/)
     expect(bouton).toBeEnabled()
   })
@@ -29,12 +29,12 @@ describe('raccourci des sabliers', () => {
   it('avec des sabliers, garde « Avancer », sans nombre', () => {
     rendu(etat(8850, 3))
     expect(screen.getByRole('button', { name: 'Avancer' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Acheter des sabliers' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Échanger contre des sabliers' })).toBeNull()
   })
 
   it('propose les trois lots de la boutique et désactive ceux que l’encre ne couvre pas', () => {
     rendu(etat(130, 0))
-    fireEvent.click(screen.getByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Échanger contre des sabliers' }))
     const feuille = screen.getByRole('dialog')
     expect(within(feuille).getByRole('button', { name: /^Six sabliers contre 60 gouttes/ })).toBeEnabled()
     expect(within(feuille).getByRole('button', { name: /^Douze sabliers contre 120 gouttes/ })).toBeEnabled()
@@ -44,7 +44,7 @@ describe('raccourci des sabliers', () => {
 
   it('un clic sur un lot échange et avance aussitôt, sans second clic', async () => {
     const acheter = rendu(etat(8850, 0))
-    fireEvent.click(screen.getByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Échanger contre des sabliers' }))
     fireEvent.click(screen.getByRole('button', { name: /^Six sabliers contre 60 gouttes/ }))
     await waitFor(() => expect(acheter).toHaveBeenCalledWith(6))
     expect(acheter).toHaveBeenCalledTimes(1)
@@ -52,7 +52,7 @@ describe('raccourci des sabliers', () => {
 
   it('une erreur reste affichée et la feuille reste ouverte', async () => {
     rendu(etat(8850, 0), vi.fn().mockResolvedValue({ erreur: 'Pas assez d’encre pour cet échange.' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Acheter des sabliers' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Échanger contre des sabliers' }))
     fireEvent.click(screen.getByRole('button', { name: /^Six sabliers contre 60 gouttes/ }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Pas assez d’encre pour cet échange.')
     expect(screen.getByRole('dialog')).toBeInTheDocument()

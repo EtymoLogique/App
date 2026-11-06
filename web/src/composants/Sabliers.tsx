@@ -24,7 +24,7 @@ export type Envoi<T> = (nombre: number) => Promise<T | { erreur: string }>
 
 /**
  * Raccourci là où le temps manque (ADR 0039) : « Avancer » avec des sabliers
- * s'il en reste, sinon « Acheter des sabliers », qui échange des gouttes et
+ * s'il en reste, sinon « Échanger contre des sabliers », qui échange des gouttes et
  * avance le temps d'un seul geste. Le prix n'est pas sur le bouton : il
  * dépend du lot choisi dans la feuille.
  */
@@ -50,7 +50,7 @@ export function RaccourciSabliers({ etat, utiliser, acheter }: { etat: Etat | nu
       ) : (
         <button type="button" className="btn btn-secondary pk-sandbtn" disabled={!enLigne} onClick={() => setFeuille('acheter')} title="Échanger des gouttes contre des sabliers">
           <Sablier />
-          Acheter des sabliers
+          Échanger contre des sabliers
         </button>
       )}
       {feuille === 'utiliser' && <FeuilleUtiliser etat={etat} envoyer={utiliser} onFermer={fermer} />}
@@ -88,10 +88,10 @@ export function FeuilleAcheter({ etat, envoyer, onFermer }: { etat: Etat; envoye
       <div className="scrim-fond" aria-hidden="true" />
       <section ref={boite} className="dialogue feuille" role="dialog" aria-modal="true" aria-labelledby="achat-titre" onClick={(e) => e.stopPropagation()}>
         <h2 id="achat-titre" className="jk-title">
-          Acheter <em>des sabliers</em>
+          Échanger <em>contre des sabliers</em>
         </h2>
         <p className="pk-note">
-          Vous avez {gouttes(etat.encre)} d’encre. Les sabliers achetés avancent aussitôt la recharge, dans la limite de ce qui remplit vos plis ; le reste est gardé.
+          Vous avez {gouttes(etat.encre)} d’encre. Les sabliers obtenus avancent aussitôt la recharge, dans la limite de ce qui remplit vos plis ; le reste est gardé.
         </p>
         <ul className="pk-lots">
           {LOTS.map(({ nombre, titre }) => {

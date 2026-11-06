@@ -5,6 +5,8 @@
 import { clear, createStore, get, set, type UseStore } from 'idb-keyval'
 
 import type { Etat } from '../contrat'
+import { SOUVENIR_VIERGE, type SouvenirRelance, estSouvenir } from './compte'
+import { SOUVENIR_SOUTIEN_VIERGE, type SouvenirSoutien, lireSouvenirSoutien } from './soutien'
 import { TABLE_MAX } from './jeu'
 
 let magasin: UseStore | undefined
@@ -57,6 +59,51 @@ export async function tableEnCours(): Promise<(string | null)[]> {
 
 export function memoriserTable(table: (string | null)[]): Promise<void> {
   return set('table', table, stockage())
+}
+
+/**
+ * Fascicules débloqués que le joueur a déjà vus (ADR 0068) : les autres portent
+ * la pastille « nouveau ». `null` tant que rien n'est mémorisé.
+ */
+export async function fasciculesConnus(): Promise<Set<string> | null> {
+  try {
+    const connus: unknown = await get('fascicules_connus', stockage())
+    return Array.isArray(connus) && connus.every((f) => typeof f === 'string') ? new Set(connus) : null
+  } catch {
+    return null
+  }
+}
+
+export function memoriserFasciculesConnus(connus: ReadonlySet<string>): Promise<void> {
+  return set('fascicules_connus', [...connus], stockage()).catch(() => undefined)
+}
+
+/** Mémoire de la relance « Sauvegardez votre progression » sur cet appareil (I-32). */
+export async function souvenirRelance(): Promise<SouvenirRelance> {
+  try {
+    const souvenir: unknown = await get('relance', stockage())
+    return estSouvenir(souvenir) ? souvenir : SOUVENIR_VIERGE
+  } catch {
+    return SOUVENIR_VIERGE
+  }
+}
+
+export function memoriserRelance(souvenir: SouvenirRelance): Promise<void> {
+  return set('relance', souvenir, stockage()).catch(() => undefined)
+}
+
+/** Mémoire de la modale de soutien Ko-fi sur cet appareil (ADR 0078). */
+export async function souvenirSoutien(): Promise<SouvenirSoutien> {
+  try {
+    const souvenir: unknown = await get('soutien', stockage())
+    return lireSouvenirSoutien(souvenir)
+  } catch {
+    return SOUVENIR_SOUTIEN_VIERGE
+  }
+}
+
+export function memoriserSoutien(souvenir: SouvenirSoutien): Promise<void> {
+  return set('soutien', souvenir, stockage()).catch(() => undefined)
 }
 
 /** Oublie la partie locale ; le serveur garde la progression confirmée. */

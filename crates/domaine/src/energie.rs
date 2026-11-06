@@ -1,14 +1,13 @@
-//! Énergie (ADR 0020) : 2 charges au plus, une toutes les 12 h en production,
-//! à l'horloge du
-//! serveur. Quand les deux charges sont prêtes, le temps s'arrête ; ouvrir un
+//! Énergie (ADR 0020, 0062) : 10 charges au plus, une toutes les 12 h en
+//! production, à l'horloge du serveur. Quand toutes les charges sont prêtes, le temps s'arrête ; ouvrir un
 //! pli relance la recharge si l'énergie était pleine, sinon la recharge en
 //! cours continue. Rien n'est stocké entre deux lectures : l'état se rattrape
 //! à partir de `prochaine_charge`.
 
 use chrono::{DateTime, TimeDelta, Utc};
 
-/// Charges au plus : deux plis peuvent attendre le joueur.
-pub const CAPACITE: u8 = 2;
+/// Charges au plus : dix plis peuvent attendre le joueur.
+pub const CAPACITE: u8 = 10;
 
 /// Durée d'une recharge par défaut ; l'API la règle par `ETYMO_RECHARGE_S`.
 pub const RECHARGE: TimeDelta = TimeDelta::hours(12);
@@ -66,9 +65,26 @@ impl Energie {
         })
     }
 
+    /// Ajoute une charge : un pli de plus qui attend le joueur, ou `None` si
+    /// l'énergie est déjà pleine. La recharge en cours continue.
+    #[must_use]
+    pub fn gagner(self, maintenant: DateTime<Utc>, recharge: TimeDelta) -> Option<Self> {
+        let energie = self.a(maintenant, recharge);
+        if energie.charges >= CAPACITE {
+            return None;
+        }
+        let charges = energie.charges + 1;
+        Some(Self {
+            charges,
+            prochaine_charge: (charges < CAPACITE)
+                .then_some(energie.prochaine_charge)
+                .flatten(),
+        })
+    }
+
     /// Avance la recharge de `sabliers` sablier(s), ou `None` si l'énergie est
     /// pleine (ADR 0020). Le temps qui dépasse la charge en cours passe à la
-    /// suivante ; il n'est perdu que si l'énergie atteint 2.
+    /// suivante ; il n'est perdu que si l'énergie est pleine.
     #[must_use]
     pub fn avancer(
         self,
@@ -100,12 +116,25 @@ mod tests {
     }
 
     #[test]
+    fn gagner_ajoute_un_pli_et_refuse_le_plein() {
+        assert_eq!(Energie::pleine().gagner(t(0), RECHARGE), None);
+        let deux = Energie::pleine()
+            .consommer(t(0), RECHARGE)
+            .and_then(|e| e.consommer(t(1), RECHARGE))
+            .unwrap();
+        let un = deux.gagner(t(2), RECHARGE).unwrap();
+        assert_eq!(un.charges, CAPACITE - 1);
+        assert_eq!(un.prochaine_charge, deux.prochaine_charge);
+        assert_eq!(un.gagner(t(2), RECHARGE), Some(Energie::pleine()));
+    }
+
+    #[test]
     fn ouvrir_depuis_le_plein_relance_la_recharge() {
         let e = Energie::pleine().consommer(t(0), RECHARGE).unwrap();
         assert_eq!(
             e,
             Energie {
-                charges: 1,
+                charges: CAPACITE - 1,
                 prochaine_charge: Some(t(12))
             }
         );
@@ -118,15 +147,19 @@ mod tests {
         assert_eq!(
             e,
             Energie {
-                charges: 0,
+                charges: CAPACITE - 2,
                 prochaine_charge: Some(t(12))
             }
         );
-        assert!(e.consommer(t(11), RECHARGE).is_none());
+        let vide = Energie {
+            charges: 0,
+            prochaine_charge: Some(t(12)),
+        };
+        assert!(vide.consommer(t(11), RECHARGE).is_none());
     }
 
     #[test]
-    fn le_temps_s_arrete_a_deux_charges() {
+    fn le_temps_s_arrete_a_la_capacite() {
         let e = Energie {
             charges: 0,
             prochaine_charge: Some(t(12)),
@@ -138,7 +171,7 @@ mod tests {
                 prochaine_charge: Some(t(24))
             }
         );
-        assert_eq!(e.a(t(100), RECHARGE), Energie::pleine());
+        assert_eq!(e.a(t(1000), RECHARGE), Energie::pleine());
     }
 
     #[test]
@@ -157,9 +190,9 @@ mod tests {
     }
 
     #[test]
-    fn le_sablier_perd_le_temps_a_deux_charges() {
+    fn le_sablier_perd_le_temps_a_la_capacite() {
         let e = Energie {
-            charges: 1,
+            charges: CAPACITE - 1,
             prochaine_charge: Some(t(2)),
         };
         assert_eq!(e.avancer(t(0), RECHARGE, 5), Some(Energie::pleine()));

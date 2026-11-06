@@ -4,10 +4,12 @@
 use std::collections::{HashMap, HashSet};
 
 use etymo_domaine::IdCatalogue;
-use etymo_domaine::fusion::{ExclusionJeu, Explications, Homographes, RecetteJeu, TrompeLOeilJeu};
+use etymo_domaine::cadeau::CadeauDeBienvenue;
+use etymo_domaine::deblocage::{self, Maillon};
+use etymo_domaine::fusion::{ExclusionJeu, RecetteJeu};
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{self, BriquePli};
-use etymo_domaine::quete::{CarteQuete, Famille, Mesures, QueteLongCours};
+use etymo_domaine::quete::{CarteQuete, Collection, Famille, Mesures, QueteLongCours};
 
 use crate::carte::Nature;
 use crate::format::{BriqueRicochet, Difficulte, MotRicochet, Role};
@@ -17,10 +19,6 @@ use crate::{Carte, EquilibrageManifeste, FasciculeCharge, Graine};
 pub struct Jeu {
     pub recettes: Vec<RecetteJeu>,
     pub exclusions: Vec<ExclusionJeu>,
-    /// Fausses fusions expliquées (ADR 0052).
-    pub trompes_l_oeil: Vec<TrompeLOeilJeu>,
-    /// Briques de même forme, par brique (ADR 0052).
-    pub homographes: Homographes,
     /// Briques publiées : tirables par un pli ou semées par un fascicule paru.
     pub briques: HashSet<IdCatalogue>,
     /// Graines de chaque fascicule paru, par identifiant de fascicule.
@@ -29,6 +27,8 @@ pub struct Jeu {
     pub plis: Vec<PliJeu>,
     /// Jalons de chaque fascicule paru.
     pub jalons: Vec<JalonsJeu>,
+    /// Fascicules parus par numéro, chacun avec le jalon qui ouvre le suivant (ADR 0068).
+    pub chaine: Vec<Maillon>,
     /// Briques légendaires : leurs recettes restent secrètes (ADR 0015).
     pub legendaires: HashSet<IdCatalogue>,
     /// Brique-mot par mot (unité) : la découverte d'un mot ingrédient en offre un exemplaire.
@@ -41,6 +41,10 @@ pub struct Jeu {
     pub quetes: Vec<QueteLongCours>,
     /// Ce que ces quêtes mesurent dans le catalogue.
     pub mesures: Mesures,
+    /// Cadeau de bienvenue déclaré par l'index (ADR 0046), réduit à ses briques publiées.
+    pub cadeau: Option<CadeauDeBienvenue>,
+    /// Quêtes de collection de chaque fascicule paru (App#90), par identifiant de fascicule.
+    pub collections: Vec<(IdCatalogue, Vec<Collection>)>,
 }
 
 /// Données de jugement des ricochets, par carte.
@@ -68,13 +72,19 @@ pub struct PliJeu {
 }
 
 impl Jeu {
-    /// Ce que `resoudre` sait de plus que les recettes : fausses pistes et homographes.
-    #[must_use]
-    pub fn explications(&self) -> Explications<'_> {
-        Explications {
-            trompes_l_oeil: &self.trompes_l_oeil,
-            homographes: Some(&self.homographes),
-        }
+    /// Retient le cadeau déclaré : seuls ses plis de briques publiées et non
+    /// légendaires sont donnés (ADR 0046, ADR 0043).
+    pub fn declarer_cadeau(&mut self, cadeau: &CadeauDeBienvenue) {
+        let plis = cadeau
+            .plis
+            .iter()
+            .filter(|b| self.briques.contains(*b) && !self.legendaires.contains(*b))
+            .cloned()
+            .collect();
+        self.cadeau = Some(CadeauDeBienvenue {
+            plis,
+            ..cadeau.clone()
+        });
     }
 
     /// Rareté d'une brique tirable, si un pli paru la connaît.
@@ -121,6 +131,14 @@ impl Jeu {
 }
 
 impl Jeu {
+    /// Ce qui se lit sur l'ensemble des fascicules parus : la chaîne de
+    /// déblocage, les quêtes de collection, les ricochets sans légendaire.
+    fn completer(&mut self, fascicules: &[FasciculeCharge]) {
+        self.chaine = chaine(fascicules);
+        self.collections = collections(fascicules);
+        self.ecarter_les_legendaires_des_ricochets();
+    }
+
     /// Un ricochet ne vise ni une légendaire ni un mot qui en exige une : même
     /// règle que les recettes secrètes (ADR 0015), le contenu l'applique déjà.
     fn ecarter_les_legendaires_des_ricochets(&mut self) {
@@ -226,26 +244,6 @@ impl Jeu {
         self.mesures = mesures;
     }
 
-    /// Retient les fausses pistes et les groupes d'homographes d'un fascicule (ADR 0052).
-    /// La relation est symétrique : chaque brique du groupe connaît toutes les autres.
-    fn retenir_explications(&mut self, fascicule: &FasciculeCharge) {
-        self.trompes_l_oeil
-            .extend(fascicule.trompes_l_oeil.iter().map(|t| TrompeLOeilJeu {
-                id: t.id.clone(),
-                combinaison: t.combinaison.clone(),
-            }));
-        for groupe in &fascicule.manifeste.homographes {
-            for brique in groupe {
-                let autres = self.homographes.entry(brique.clone()).or_default();
-                for autre in groupe.iter().filter(|a| *a != brique) {
-                    if !autres.contains(autre) {
-                        autres.push(autre.clone());
-                    }
-                }
-            }
-        }
-    }
-
     #[must_use]
     pub fn depuis(fascicules: &[FasciculeCharge]) -> Self {
         let mut jeu = Self::default();
@@ -269,7 +267,6 @@ impl Jeu {
                     combinaison: e.combinaison.clone(),
                     raison: e.raison.clone(),
                 }));
-            jeu.retenir_explications(fascicule);
             let pli = &fascicule.manifeste.pli;
             jeu.legendaires.extend(
                 pli.briques
@@ -348,7 +345,30 @@ impl Jeu {
                 .mots
                 .extend(ricochets.mots.iter().map(|m| (m.id.clone(), m.clone())));
         }
-        jeu.ecarter_les_legendaires_des_ricochets();
+        jeu.completer(fascicules);
         jeu
     }
+}
+
+/// Quêtes de collection de chaque fascicule paru qui en déclare (App#90).
+fn collections(fascicules: &[FasciculeCharge]) -> Vec<(IdCatalogue, Vec<Collection>)> {
+    fascicules
+        .iter()
+        .map(|f| &f.manifeste)
+        .filter(|m| !m.collections.is_empty())
+        .map(|m| (m.id.clone(), m.collections.clone()))
+        .collect()
+}
+
+/// Fascicules parus par numéro, chacun avec le jalon qui ouvre le suivant (ADR 0068).
+fn chaine(fascicules: &[FasciculeCharge]) -> Vec<Maillon> {
+    let mut parus: Vec<_> = fascicules.iter().map(|f| &f.manifeste).collect();
+    parus.sort_by_key(|m| m.numero);
+    parus
+        .into_iter()
+        .map(|m| Maillon {
+            fascicule_id: m.id.clone(),
+            jalon: m.jalons.get(deblocage::RANG_JALON).map(|j| j.id.clone()),
+        })
+        .collect()
 }

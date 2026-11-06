@@ -7,10 +7,12 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use etymo_contrat::{
-    CarteRicochet, DemandeAchatSablier, DemandeFusion, DemandeIndice, DemandeJalon, DemandePalier,
-    DemandePli, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat, Explication,
-    IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon,
-    ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session,
+    CarteRicochet, DemandeAchatSablier, DemandeCadeau, DemandeCarteDeLecteur, DemandeFusion,
+    DemandeIndice, DemandeJalon, DemandePalier, DemandePli, DemandeQueteDuJour,
+    DemandeQueteInitiale, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat,
+    IssueFusion, OuverturePli, ReponseAchatSablier, ReponseCadeau, ReponseCarteDeLecteur,
+    ReponseFusion, ReponseIndice, ReponseJalon, ReponsePalier, ReponsePli, ReponseQueteDuJour,
+    ReponseQueteInitiale, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session,
     StatutSante,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
@@ -19,7 +21,10 @@ use uuid::Uuid;
 
 use crate::erreur::ErreurApi;
 use crate::extraction::{Adresse, Joueur, JsonStrict};
-use crate::{EtatApp, debit, progression, ricochets, secret};
+use crate::{
+    EtatApp, carte_lecteur, compte, debit, progression, quetes_initiales, quetes_jour, ricochets,
+    secret,
+};
 
 pub fn routes() -> Router<Arc<EtatApp>> {
     Router::new()
@@ -35,6 +40,11 @@ pub fn routes() -> Router<Arc<EtatApp>> {
         .route("/ricochets/seance", get(seance_ricochets))
         .route("/ricochet", post(repondre_ricochet))
         .route("/palier", post(recuperer_palier))
+        .route("/carte-de-lecteur", post(recuperer_carte_de_lecteur))
+        .route("/cadeau", post(recuperer_cadeau))
+        .route("/quete-initiale", post(recuperer_quete_initiale))
+        .route("/quete-du-jour", post(recuperer_quete_du_jour))
+        .merge(compte::routes())
 }
 
 /// Routes réservées au hors-production, absentes du routeur en production.
@@ -44,7 +54,8 @@ pub fn routes_hors_prod() -> Router<Arc<EtatApp>> {
 
 /// Remet le joueur à zéro, pour la recette hors production : codex vide,
 /// réserve vide (les graines des fascicules parus ne sont pas rendues),
-/// 10 000 gouttes. Route absente (`404`) en production.
+/// 10 000 gouttes. Le compte, son pseudo et les appareils restent (ADR 0070).
+/// Route absente (`404`) en production.
 #[utoipa::path(post, path = "/dev/reset", tag = "hors-production", security(("session" = [])),
     responses(
         (status = 200, description = "Joueur remis à zéro, état confirmé", body = Etat),
@@ -92,10 +103,12 @@ pub async fn sante(State(app): State<Arc<EtatApp>>) -> Json<Sante> {
     })
 }
 
-/// Ouvre ou renouvelle la session d'un profil invité.
+/// Ouvre ou renouvelle la session d'un appareil.
 ///
-/// Au premier appel pour une installation, le profil est créé avec
-/// l'empreinte du secret. Ensuite, le même secret doit être présenté.
+/// Au premier appel pour une installation, l'appareil et sa partie invitée
+/// sont créés avec l'empreinte du secret. Ensuite, le même secret doit être
+/// présenté ; le jeton désigne la partie de l'appareil, celle de son compte
+/// s'il est connecté (ADR 0070).
 #[utoipa::path(post, path = "/session", tag = "profil", request_body = DemandeSession,
     responses(
         (status = 200, description = "Session ouverte", body = Session),
@@ -118,41 +131,91 @@ pub async fn session(
         ErreurApi::RequeteInvalide("secret : 256 bits en base64url attendus".into())
     })?;
 
-    let cree = sqlx::query_scalar!(
-        "INSERT INTO joueur (id, empreinte_secret) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id",
-        demande.installation,
-        &empreinte[..],
-    )
-    .fetch_optional(&app.base)
-    .await?
-    .is_some();
-
-    if !cree {
-        let connue = sqlx::query_scalar!(
-            "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int, derniere_activite = now()
-             WHERE id = $1 RETURNING empreinte_secret",
-            demande.installation,
-        )
-        .fetch_optional(&app.base)
-        .await?
-        .ok_or(ErreurApi::NonAuthentifie)?;
-        if !secret::egales(&connue, &empreinte) {
+    let cree = creer_appareil(&app, demande.installation, &empreinte).await?;
+    let joueur = if let Some(joueur) = cree {
+        joueur
+    } else {
+        let connu = sqlx::query!(
+                "UPDATE appareil SET derniere_activite = now() WHERE id = $1 RETURNING joueur_id, empreinte_secret",
+                demande.installation,
+            )
+            .fetch_optional(&app.base)
+            .await?
+            .ok_or(ErreurApi::NonAuthentifie)?;
+        if !secret::egales(&connu.empreinte_secret, &empreinte) {
             return Err(ErreurApi::NonAuthentifie);
         }
-    }
+        sqlx::query!(
+                "UPDATE joueur SET jours_de_jeu = jours_de_jeu + ((derniere_activite AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date)::int,
+                     mois_activite_precedente = CASE WHEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC') < date_trunc('month', now() AT TIME ZONE 'UTC')
+                         THEN date_trunc('month', derniere_activite AT TIME ZONE 'UTC')::date ELSE mois_activite_precedente END,
+                     derniere_activite = now()
+                 WHERE id = $1",
+                connu.joueur_id,
+            )
+            .execute(&app.base)
+            .await?;
+        connu.joueur_id
+    };
 
-    let (jeton, expire_le) = app.signataire.emettre(demande.installation, Utc::now());
+    let (jeton, expire_le) = app
+        .signataire
+        .emettre(joueur, demande.installation, Utc::now());
     Ok(Json(Session {
         jeton,
         expire_le,
-        nouveau: cree,
+        nouveau: cree.is_some(),
     }))
 }
 
-/// Synchronise le joueur : accorde les graines des fascicules parus qu'il
-/// n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
-/// parution (ADR 0038), dont la récompense attend d'être récupérée
-/// (ADR 0042), puis renvoie son état confirmé.
+/// Crée l'appareil et sa partie invitée, sauf s'il existe déjà (`None`).
+/// La partie prend l'identifiant de l'installation, sauf s'il est déjà pris :
+/// celle d'un compte dont cet appareil d'origine s'est déconnecté.
+async fn creer_appareil(
+    app: &EtatApp,
+    installation: Uuid,
+    empreinte: &[u8],
+) -> Result<Option<Uuid>, ErreurApi> {
+    let mut tx = app.base.begin().await?;
+    let joueur = match sqlx::query_scalar!(
+        "INSERT INTO joueur (id) VALUES ($1) ON CONFLICT (id) DO NOTHING RETURNING id",
+        installation,
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    {
+        Some(joueur) => joueur,
+        None => {
+            sqlx::query_scalar!(
+                "INSERT INTO joueur (id) VALUES ($1) RETURNING id",
+                Uuid::new_v4()
+            )
+            .fetch_one(&mut *tx)
+            .await?
+        }
+    };
+    // Deux premières sessions simultanées : la seconde attend la première, puis retombe sur la vérification.
+    let cree = sqlx::query_scalar!(
+        "INSERT INTO appareil (id, joueur_id, empreinte_secret) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id",
+        installation,
+        joueur,
+        empreinte,
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if cree.is_none() {
+        tx.rollback().await?;
+        return Ok(None);
+    }
+    tx.commit().await?;
+    Ok(Some(joueur))
+}
+
+/// Synchronise le joueur : marque les jalons atteints depuis une parution
+/// (ADR 0038), dont la récompense attend d'être récupérée (ADR 0042),
+/// débloque les fascicules qu'ils ouvrent (ADR 0068), accorde les graines des
+/// fascicules débloqués qu'il n'a pas encore reçues (ADR 0030), puis renvoie
+/// son état confirmé.
 #[utoipa::path(get, path = "/etat", tag = "profil", security(("session" = [])),
     responses(
         (status = 200, description = "État confirmé", body = Etat),
@@ -167,11 +230,10 @@ pub async fn etat(
     let mut tx = app.base.begin().await?;
     progression::verrouiller(&mut tx, joueur).await?;
     if let Some(catalogue) = &catalogue {
-        let seme = progression::semer(&mut tx, joueur, &catalogue.jeu).await?;
-        let jalons = progression::atteindre_jalons(&mut tx, joueur, &catalogue.jeu).await?;
+        let avancee = progression::avancer(&mut tx, joueur, &catalogue.jeu).await?;
         let restaurees =
             progression::restaurer_briques_de_mots(&mut tx, joueur, &catalogue.jeu).await?;
-        if seme || restaurees || !jalons.is_empty() {
+        if avancee.change() || restaurees {
             progression::incrementer_version(&mut tx, joueur).await?;
         }
         sqlx::query!(
@@ -185,18 +247,6 @@ pub async fn etat(
     let etat = etat_courant(&app, &mut tx, joueur).await?;
     tx.commit().await?;
     Ok(Json(etat))
-}
-
-/// Échec de la fusion, avec pourquoi quand le catalogue peut le dire (ADR 0052).
-fn echec_explique(issue: Issue) -> IssueFusion {
-    let explication = match issue {
-        Issue::Homographe { rang } => Some(Explication::Homographe { rang }),
-        Issue::TrompeLOeil { id } => Some(Explication::TrompeLOeil {
-            trompe_l_oeil_id: id,
-        }),
-        _ => None,
-    };
-    IssueFusion::Echec { explication }
 }
 
 /// Tente une fusion. Le serveur fait foi (ADR 0007, ADR 0027) : il valide la
@@ -238,12 +288,11 @@ pub async fn fusion(
 
     let decouverts = progression::mots_decouverts(&mut tx, joueur).await?;
     let jeu = &catalogue.jeu;
-    let mut jalons = Vec::new();
+    let mut avancee = progression::Avancee::default();
     let issue = match resoudre(
         &demande.briques,
         &jeu.recettes,
         &jeu.exclusions,
-        jeu.explications(),
         &decouverts,
     ) {
         Issue::Decouverte { recette_id, mot_id } => {
@@ -277,7 +326,7 @@ pub async fn fusion(
                     progression::offrir_brique_du_mot(&mut tx, joueur, demande.commande, brique)
                         .await?;
                 }
-                jalons = progression::atteindre_jalons(&mut tx, joueur, jeu).await?;
+                avancee = progression::avancer(&mut tx, joueur, jeu).await?;
                 progression::incrementer_version(&mut tx, joueur).await?;
                 IssueFusion::Decouverte {
                     recette_id,
@@ -293,14 +342,15 @@ pub async fn fusion(
         Issue::Connue { recette_id, mot_id } => IssueFusion::Connue { recette_id, mot_id },
         Issue::Exclue { raison } => IssueFusion::Exclue { raison },
         Issue::Presque { motif } => IssueFusion::Presque { motif },
-        explique @ (Issue::Homographe { .. } | Issue::TrompeLOeil { .. } | Issue::Echec) => {
-            echec_explique(explique)
-        }
+        Issue::Echec => IssueFusion::Echec,
     };
+    // Mémoire des essais (App#89) : un échec ou un « presque » se note, avant l'état renvoyé.
+    let essai = progression::noter_essai(&mut tx, joueur, jeu, &demande.briques, &issue).await?;
     let reponse = ReponseFusion {
         etat: etat_courant(&app, &mut tx, joueur).await?,
         issue,
-        jalons,
+        jalons: avancee.jalons,
+        fascicules_debloques: avancee.fascicules,
     };
     if matches!(reponse.issue, IssueFusion::Decouverte { .. }) {
         let enregistree =
@@ -314,8 +364,11 @@ pub async fn fusion(
         .execute(&mut *tx)
         .await?;
         tx.commit().await?;
+    } else if essai {
+        // Ni commande ni version : l'essai noté se rejoue sans effet (ON CONFLICT DO NOTHING).
+        tx.commit().await?;
     } else {
-        // Une proposition qui ne modifie rien ne laisse aucune ligne (modèle de données §7).
+        // Une autre proposition qui ne modifie rien ne laisse aucune ligne (modèle de données §7).
         tx.rollback().await?;
     }
     Ok(Json(reponse))
@@ -419,7 +472,7 @@ fn alea(somme: u64) -> Result<u64, ErreurApi> {
         (status = 200, description = "Brique tirée et état confirmé", body = ReponsePli),
         (status = 400, description = "Requête invalide ou fascicule sans pli", body = Erreur),
         (status = 401, description = "Session absente ou expirée", body = Erreur),
-        (status = 403, description = "Aucune charge d'énergie", body = Erreur),
+        (status = 403, description = "Aucune charge d'énergie, ou fascicule pas encore débloqué", body = Erreur),
         (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
         (status = 429, description = "Trop de requêtes", body = Erreur),
         (status = 503, description = "Aucun catalogue publié", body = Erreur),
@@ -456,6 +509,8 @@ pub async fn ouvrir_pli(
     if demande.version_catalogue != catalogue.version() {
         return Err(ErreurApi::Conflit("version_catalogue périmée"));
     }
+
+    progression::exiger_debloque(&mut tx, joueur, &demande.fascicule_id).await?;
 
     let maintenant = Utc::now();
     let energie = progression::lire_energie(&mut tx, joueur)
@@ -625,7 +680,7 @@ pub async fn acheter_sabliers(
 }
 
 /// Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
-/// recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+/// recharge en cours d'une heure. Le temps au-delà de la capacité est perdu.
 #[utoipa::path(post, path = "/sablier", tag = "jeu", security(("session" = [])), request_body = DemandeSablier,
     responses(
         (status = 200, description = "Recharge avancée et état confirmé", body = ReponseSablier),
@@ -804,7 +859,7 @@ pub async fn recuperer_jalon(
     let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
     let jeu = &catalogue.jeu;
     // Un jalon publié depuis la dernière synchronisation peut être déjà atteint.
-    progression::atteindre_jalons(&mut tx, joueur, jeu).await?;
+    progression::avancer(&mut tx, joueur, jeu).await?;
     progression::recuperer_jalon(&mut tx, joueur, jeu, demande.commande, &demande.jalon_id).await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseJalon {
@@ -885,8 +940,14 @@ pub async fn repondre_ricochet(
     if !ricochets::est_trouvee(&mut tx, joueur, &demande.unite_id).await? {
         return Err(ErreurApi::Interdit("carte pas encore trouvée"));
     }
+    let etait_maitrisee = ricochets::lire(&mut tx, joueur)
+        .await?
+        .get(&demande.unite_id)
+        .is_some_and(|c| c.maitrisee);
     let carte =
         ricochets::enregistrer(&mut tx, joueur, &demande.unite_id, juste, Utc::now()).await?;
+    let nouvelle_maitrise = carte.maitrisee && !etait_maitrisee;
+    quetes_jour::compter(&mut tx, joueur, demande.format, juste, nouvelle_maitrise).await?;
     progression::incrementer_version(&mut tx, joueur).await?;
     let reponse = ReponseRicochet {
         juste,
@@ -895,10 +956,306 @@ pub async fn repondre_ricochet(
             maitrisee: carte.maitrisee,
             prochaine_revision: carte.prochaine_revision,
             bonnes_niveau_3: carte.bonnes_niveau_3,
+            maitrise_perdue: etait_maitrisee && !carte.maitrisee,
         },
         etat: etat_courant(&app, &mut tx, joueur).await?,
     };
     conclure_commande(tx, joueur, demande.commande, "ricochet", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Récupère la récompense d'une quête initiale faite pendant la première
+/// semaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,
+/// sabliers, encre. Sans énergie, hors garanties.
+#[utoipa::path(post, path = "/quete-initiale", tag = "jeu", security(("session" = [])), request_body = DemandeQueteInitiale,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseQueteInitiale),
+        (status = 400, description = "Requête invalide, fascicule manquant ou sans pli", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Quête initiale pas faite, ou fascicule pas encore débloqué", body = Erreur),
+        (status = 409, description = "Déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_quete_initiale(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeQueteInitiale>,
+) -> Result<Json<ReponseQueteInitiale>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    let jeu = &catalogue.jeu;
+    let recompense = quetes_initiales::recompense(demande.code);
+    let avec_plis = recompense.plis_offerts + recompense.plis_de_lecteur > 0;
+    let fascicule = match (&demande.fascicule_id, avec_plis) {
+        (Some(f), true) => Some(f),
+        (None, true) => {
+            return Err(ErreurApi::RequeteInvalide(
+                "fascicule_id : requis pour des plis".into(),
+            ));
+        }
+        _ => None,
+    };
+    let maintenant = Utc::now();
+    quetes_initiales::reclamer(&mut tx, joueur, demande.code, maintenant).await?;
+    let mut ouvertures = Vec::new();
+    if let Some(fascicule) = fascicule {
+        progression::exiger_debloque(&mut tx, joueur, fascicule).await?;
+        let pli_jeu = jeu
+            .pli(fascicule)
+            .filter(|p| !p.briques.is_empty())
+            .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : aucun pli paru".into()))?;
+        let equilibrage = pli_jeu
+            .equilibrage
+            .as_ref()
+            .ok_or_else(|| ErreurApi::RequeteInvalide("fascicule : pli sans équilibrage".into()))?;
+        let plis = std::iter::repeat_n(false, recompense.plis_offerts as usize).chain(
+            std::iter::repeat_n(true, recompense.plis_de_lecteur as usize),
+        );
+        for lecteur in plis {
+            let brique = tirer_brique(pli_jeu, &equilibrage.parametres, lecteur)?;
+            let resultat = pli::resultat(
+                progression::stock(&mut tx, joueur)
+                    .await?
+                    .get(&brique.id)
+                    .copied(),
+            );
+            let gouttes = encre_reserve_pleine(resultat, brique, &equilibrage.parametres);
+            progression::accorder_brique_tiree(
+                &mut tx,
+                joueur,
+                &progression::EffetsPli {
+                    commande: demande.commande,
+                    fascicule,
+                    brique: &brique.id,
+                    resultat,
+                    regle: pli::Regle::Tirage,
+                    gouttes,
+                    energie: etymo_domaine::energie::Energie::pleine(),
+                    compteurs: pli::Compteurs::default(),
+                    version_equilibrage: &equilibrage.version,
+                    maintenant,
+                },
+                "quete_initiale",
+            )
+            .await?;
+            ouvertures.push(OuverturePli {
+                fascicule_id: fascicule.clone(),
+                brique_id: brique.id.clone(),
+                resultat,
+                regle: pli::Regle::Tirage,
+                encre: gouttes,
+                ouvert_le: maintenant,
+            });
+        }
+    }
+    progression::accorder_sabliers_et_encre(
+        &mut tx,
+        joueur,
+        demande.commande,
+        recompense.sabliers,
+        recompense.gouttes,
+        "quete_initiale",
+        maintenant,
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseQueteInitiale {
+        ouvertures,
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "quete_initiale", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Récupère la récompense d'une quête du jour faite (ADR 0063) : encre pour la
+/// table, sablier pour la mémoire, un pli de plus en attente (une charge
+/// d'énergie) pour l'adresse. Une quête faite attend, même après minuit GMT.
+#[utoipa::path(post, path = "/quete-du-jour", tag = "jeu", security(("session" = [])), request_body = DemandeQueteDuJour,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseQueteDuJour),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Quête du jour pas faite, ou énergie pleine pour un pli en attente", body = Erreur),
+        (status = 409, description = "Déjà récupérée, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_quete_du_jour(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeQueteDuJour>,
+) -> Result<Json<ReponseQueteDuJour>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let maintenant = Utc::now();
+    let sorte = quetes_jour::reclamer(&mut tx, joueur, demande.jour, demande.rang).await?;
+    let recompense = quetes_jour::recompense(sorte);
+    for _ in 0..recompense.plis {
+        progression::gagner_charge(&mut tx, joueur, app.recharge, maintenant).await?;
+    }
+    progression::accorder_sabliers_et_encre(
+        &mut tx,
+        joueur,
+        demande.commande,
+        recompense.sabliers,
+        recompense.gouttes,
+        "quete_jour",
+        maintenant,
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseQueteDuJour {
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "quete_jour", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Tire la brique d'un pli sans énergie : tout le pli pour un pli offert,
+/// les seules peu communes et rares (et la légendaire à sa chance fixe) pour
+/// un pli de lecteur.
+fn tirer_brique<'a>(
+    pli_jeu: &'a etymo_catalogue::PliJeu,
+    parametres: &pli::Equilibrage,
+    lecteur: bool,
+) -> Result<&'a pli::BriquePli, ErreurApi> {
+    let eligibles: Vec<bool> = pli_jeu
+        .briques
+        .iter()
+        .map(|b| pli::tirable(b) && (!lecteur || b.rarete != pli::Rarete::Commune))
+        .collect();
+    let somme = pli::somme_eligible(&pli_jeu.briques, &eligibles, parametres);
+    if somme == 0 {
+        return Err(ErreurApi::RequeteInvalide(
+            "fascicule : aucune brique pour ce pli".into(),
+        ));
+    }
+    pli::tirer(&pli_jeu.briques, &eligibles, parametres, alea(somme)?)
+        .ok_or_else(|| ErreurApi::Interne("aucune brique tirable".into()))
+}
+
+/// Comme un pli de jalon : de l'encre seulement si la réserve est pleine.
+fn encre_reserve_pleine(
+    resultat: pli::Resultat,
+    brique: &pli::BriquePli,
+    parametres: &pli::Equilibrage,
+) -> u32 {
+    if resultat == pli::Resultat::ReservePleine {
+        parametres
+            .encre_reserve_pleine
+            .get(&brique.rarete)
+            .copied()
+            .unwrap_or(0)
+    } else {
+        0
+    }
+}
+
+/// Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis
+/// au contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.
+#[utoipa::path(post, path = "/cadeau", tag = "jeu", security(("session" = [])), request_body = DemandeCadeau,
+    responses(
+        (status = 200, description = "Cadeau récupéré et état confirmé", body = ReponseCadeau),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Aucun cadeau de bienvenue déclaré", body = Erreur),
+        (status = 409, description = "Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_cadeau(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeCadeau>,
+) -> Result<Json<ReponseCadeau>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
+    progression::recuperer_cadeau(&mut tx, joueur, &catalogue.jeu, demande.commande).await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseCadeau {
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "cadeau", &reponse).await?;
+    Ok(Json(reponse))
+}
+
+/// Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
+/// l'encre, un sablier et un pli en attente de plus (une charge d'énergie,
+/// refusée tant que l'énergie est pleine).
+#[utoipa::path(post, path = "/carte-de-lecteur", tag = "jeu", security(("session" = [])), request_body = DemandeCarteDeLecteur,
+    responses(
+        (status = 200, description = "Récompense récupérée et état confirmé", body = ReponseCarteDeLecteur),
+        (status = 400, description = "Requête invalide", body = Erreur),
+        (status = 401, description = "Session absente ou expirée", body = Erreur),
+        (status = 403, description = "Aucune carte de lecteur pleine, ou énergie pleine", body = Erreur),
+        (status = 409, description = "État ou catalogue périmé : resynchroniser", body = Erreur),
+        (status = 429, description = "Trop de requêtes", body = Erreur),
+        (status = 503, description = "Aucun catalogue publié", body = Erreur),
+    ))]
+pub async fn recuperer_carte_de_lecteur(
+    State(app): State<Arc<EtatApp>>,
+    Joueur(joueur): Joueur,
+    JsonStrict(demande): JsonStrict<DemandeCarteDeLecteur>,
+) -> Result<Json<ReponseCarteDeLecteur>, ErreurApi> {
+    let mut tx = match debuter_commande(
+        &app,
+        joueur,
+        demande.commande,
+        demande.version_etat,
+        &demande.version_catalogue,
+    )
+    .await?
+    {
+        Ok(tx) => tx,
+        Err(reponse) => return Ok(Json(reponse)),
+    };
+    carte_lecteur::reclamer(&mut tx, joueur).await?;
+    progression::accorder_carte_de_lecteur(
+        &mut tx,
+        joueur,
+        demande.commande,
+        app.recharge,
+        Utc::now(),
+    )
+    .await?;
+    progression::incrementer_version(&mut tx, joueur).await?;
+    let reponse = ReponseCarteDeLecteur {
+        etat: etat_courant(&app, &mut tx, joueur).await?,
+    };
+    conclure_commande(tx, joueur, demande.commande, "carte_lecteur", &reponse).await?;
     Ok(Json(reponse))
 }
 

@@ -105,7 +105,7 @@ async fn refus_energie_pleine_bornes_et_encre(base: PgPool) {
     assert_eq!(statut, StatusCode::FORBIDDEN, "énergie pleine");
 
     let etat = preparer(&base, &banc.routeur, &jeton).await;
-    for (chemin, nombre) in [("/sablier", 25), ("/sablier/achat", 1001)] {
+    for (chemin, nombre) in [("/sablier", 121), ("/sablier/achat", 1001)] {
         let (statut, _, _) = appeler(
             &banc.routeur,
             post(

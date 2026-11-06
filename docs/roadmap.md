@@ -15,10 +15,10 @@ Chaque jalon se termine par une démonstration en hors-prod (`develop`, [ADR 002
 | **J4 — Encre, sabliers, indices, jalons** | Sabliers (10 gouttes, échangés à la boutique sans plafond, détenus sans plafond, [ADR 0039](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0039-plafonner-l-achat-des-sabliers-pas-leur-usage.md)), indices dans l’ordre (silhouette 4, définition 8, sens littéral 16 gouttes, [ADR 0051](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0051-indices-a-la-carte.md) ; format des jalons : [ADR 0038](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0038-indices-a-prix-croissant-et-format-des-jalons.md)), jalons et plis déterministes | Économie complète du MVP, sans achat | Content : jalons |
 | **J5 — Première session** | Onboarding guidé, règle d’amorçage, réglages (thème, locale, mouvement réduit), accessibilité clavier et lecteur d’écran | Un nouveau joueur termine le tutoriel sans aide | Validation d’atteignabilité et d’amorçage (étape 5 du pipeline) |
 | **J6 — Hors connexion et évolutions du catalogue** | Stratégie du service worker (une PWA qui n’est plus alignée sur la version déployée se recharge d’elle-même, sans attendre un second chargement), consultation seule hors connexion ([ADR 0041](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0041-hors-connexion-consultation-seule.md)), `409` puis resynchronisation, migrations de progression à la parution | Un 2ᵉ fascicule paraît sans casser les parties en cours ; hors connexion, consultation seule (ADR 0041) | Content : fascicule Bêta 2 |
-| **J7 — Observabilité et vie privée** | Télémétrie pseudonyme (identifiant renouvelé tous les 30 jours), indicateurs minimaux du game-design, agrégats, purges quotidiennes, journaux structurés sans PII | Tableau des indicateurs en hors-prod | Infra : Cockpit, tâches planifiées |
+| **J7 — Observabilité et vie privée** | Télémétrie pseudonyme (identifiant calculé côté serveur et renouvelé chaque mois civil, rien écrit sur l'appareil ; interrupteur d'opposition « Mesure de l'usage » dans les Réglages et texte d'information, ADR 0072), indicateurs minimaux du game-design, agrégats, purges quotidiennes, journaux structurés sans PII | Tableau des indicateurs en hors-prod | Infra : Cockpit, tâches planifiées |
 | **J8 — Durcissement et lancement** | CSP et en-têtes par le CDN, limites de débit, audits, démarrage à froid sous 1 s au p95, domaine, tests utilisateurs, `v1.0.0` | MVP en prod | Infra : CDN, domaine ; Content : fascicule 1 relu (`--publication`) |
 
-Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-appareil (un ADR préalable est requis, [ADR 0007](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0007-etat-et-economie-autoritaires.md)), fonctions sociales, contenu communautaire.
+Hors MVP, comme le prévoit le game-design : paiements, fonctions sociales, contenu communautaire. Les comptes et le multi-appareil, d’abord hors MVP ([ADR 0007](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0007-etat-et-economie-autoritaires.md)), y entrent avec l’[ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md) : voir le jalon « Comptes ».
 
 ## J0 — Socle et squelette ambulant
 
@@ -58,7 +58,7 @@ Hors MVP, comme le prévoit le game-design : paiements, comptes et multi-apparei
 | Coque de l’application (I-01) : quatre destinations Table, Plis, Codex, Réglages (ordre changé le 28 septembre) ; barre d’onglets sur mobile, rail au-delà de 1 100 px ; compteur Corail des nouveautés | fait |
 | Conformité aux maquettes I-09 à I-13 : en-tête d’écran (mots trouvés, accès au codex) ; réserve avec recherche, filtres et tri par briques récentes ; un clic ou un toucher pose la brique, glisser-déposer, flèches et Suppr sur les cases ; table de deux cases (jamais plus de deux briques à la fois) ; retours en ligne (« presque » avec Inverser, rappel du mot déjà découvert, refus doux par une secousse amortie et découverte (briques qui s’emboîtent en un mot), voir « Animations retenues ») ; fiche en trois temps en dialogue, plein écran sur mobile ; état « Aucun mot possible » ; contrôle `visual-identity-check` sans écart | fait |
 | Réserve sans découverte possible (I-13) : état vide qui mène aux plis | fait |
-| Fusions trompeuses expliquées ([ADR 0052](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0052-fusions-trompeuses-expliquees.md), proposé) : `resoudre` et `prevoir` gagnent le trompe-l’œil et le mauvais homographe ; l’échec reste `echec` avec une `explication` facultative (rétrocompatible) ; retours « Bonne forme, autre brique » et « Fausse piste » aux briques cliquables, section « À ne pas confondre » au verso | fait côté App ; dépend de Content : ressource `trompes_l_oeil`, `homographes` du manifeste, préfixe `tpl_` |
+| Mémoire des essais (App#89) : une brique posée, la réserve range en fin de liste, grisées (Sable, Encre secondaire, sans ombre, toujours jouables), les briques déjà essayées avec elle dans cet ordre (« aucune recette », « presque : inversez », « au codex »), avec glissement de 240 ms ; table `essai` (deux briques et le dernier fascicule paru, ni issue ni date) écrite par `POST /fusion` pour un échec ou un « presque » si le joueur connaît les deux briques, plafond de 3 000 lignes, oubli en bloc à la parution suivante ; `Etat.essais`, export et réinitialisation | fait en local ; ADR à écrire dans Design (revient sur l’ADR 0027 et le modèle de données § 7) |
 | Réserve en modale (issue #9) : cachée par défaut ; toucher une case vide ou le bouton « Réserve » l’ouvre, la brique choisie se pose sur cette case (ou la plus à gauche) ; focus piégé, `Échap`, retour du focus | fait ; maquette I-09 du dossier design à aligner |
 | Réserve fluide : la modale reste ouverte tant qu’une case est libre et se ferme d’elle-même table complète, focus sur « Fusionner » ; table en petit dans la modale (case visée, brique qui s’y pose, retrait d’un toucher), consigne « Choisissez la 1ʳᵉ / 2ᵉ brique » et annonce pour les lecteurs d’écran, pastille ×n qui rebondit ; les briques tombent sur la table une fois le voile levé | fait ; maquette I-09 du dossier design à aligner |
 | Réglages du MVP en cours (I-24) : apparence (système, atelier, nocturne), animations réduites, profil, licences | fait |
@@ -84,9 +84,15 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Onglet Cabinet (I-30, App#25), à la place d’Objectifs (`vue=objectifs` y mène) : jours de jeu (`Etat.jours_de_jeu`, jours GMT comptés par le serveur), mots trouvés, langues rencontrées, légendaires trouvées sans total, mot au plus long voyage, familles en badges segmentés ; cartes maîtrisées et cartes de lecteur remplies avec App#18 et la carte de lecteur | fait |
 | Ricochets, API et base (App#18, [ADR 0044](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0044-ricochets-reviser-et-maitriser-les-cartes.md)) : tables `ricochet` et `ricochet_jour`, règle de maîtrise `etymo_domaine::ricochet`, `GET /ricochets/seance`, `POST /ricochet`, `Etat.ricochets` et `Etat.ricochets_du_jour`, données de jugement dans le manifeste (`ricochets`) ; cinq formats (sens d’une brique, brique d’un sens, mot d’un sens littéral, découper, paires), le format « littéral ou actuel » est abandonné | fait |
 | Ricochets, PWA (App#19) : onglet « Ricochets » dans le menu (écart à l’ADR 0044, qui n’ajoute aucune destination), séance de cinq questions, verdict immédiat, récapitulatif confirmé par le serveur | fait |
-| Ricochets, PWA : niveau sur la carte du codex, filet de quatre segments (niveaux 1 à 3, puis maîtrise) et galet de maîtrise dans le bandeau, mini-carte et carte ouverte | fait |
+| Ricochets, PWA : découpe tactile (ADR 0053) : lame en pointillé qui se cale sur les jointures et suit le doigt, mot écarté à son niveau, poignée de 44 px, « Couper ici » (la dernière coupe valide, sans étape « Valider »), « Reprendre » (à plusieurs coupes) ; à la souris, survol et clic ; verdict faux en Sable pointillé | fait |
+| Ricochets, PWA : niveau sur la carte du codex, filet de quatre segments (niveaux 1 à 3, le quatrième pour la maîtrise) et galet de maîtrise dans le bandeau, mini-carte et carte ouverte | fait |
 | Ricochets, PWA : jauge « N / M maîtrisées » du fascicule | à faire |
+| Ricochets : la maîtrise se perd sur une erreur et se regagne ([ADR 0065](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0065-ricochets-la-maitrise-se-perd-et-se-regagne.md)) : une erreur fait descendre d’un niveau, `maitrisee_le` est vidé, au plus deux cartes maîtrisées par séance, annonce « revient demain » au récapitulatif | fait |
+| Ricochets : format « assembler » ([ADR 0067](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0067-ricochets-assembler-un-mot-depuis-sa-definition.md)) : `FormatRicochet::Assembler`, réponse `Briques`, colonnes tirées par `colonnes_assemblage`, manifeste `ricochets` (`position`, `assemblage`), composant `Assembler` ; essai local, tests à compléter côté PWA | fait |
+| Ricochets, PWA : moins de touchers ([ADR 0068](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0068-ricochets-moins-de-touchers-pour-decouper-et-assembler.md)) : la lame de découpe arrive, et repart après chaque coupe, sur une jointure tirée au hasard qui n’est jamais une coupe attendue ; *Assembler* envoie la réponse à la seconde brique posée, sans « Valider » ; tests du composant `Assembler` | fait |
+| Ricochets, PWA : *Paires* envoie les réponses à la dernière paire reliée, sans « Valider les paires », comme *Découper* et *Assembler* ; la place du numéro de paire est réservée, les colonnes ne se redimensionnent plus à chaque paire reliée ; tests du composant `Paires` | fait |
 | « En savoir plus » (I-16) : chemin des langues, relations, transformations, certitude et sources citées ; dépliée depuis la carte du codex (`plus=1`) | fait (Content publie les types de relation et de transformation dans les référentiels) |
+| Vue Réseau (App#91) : la constellation en deux rives (1ʳᵉ case à gauche, 2ᵉ à droite, une bande par fascicule débloqué, ordre alphabétique, rangées de 44 px), dernière découverte en Corail, barre de famille Rosée, antennes chiffrées dans la vue « Tous », famille suivie dans un panneau collé, liste en repli ; calculée côté client (`services/constellation.ts`), sans légendaire ni fascicule verrouillé | fait en local ; ADR et maquette à écrire dans Design |
 
 ### Exigence reportée à J6
 
@@ -106,6 +112,7 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Écran des plis : choix du fascicule (I-19) et atelier (I-20) ; carte « Plis en attente » commune aux deux écrans (jaquette par pli prêt, pli en pointillés avec anneau et compte à rebours) ; chances par rareté (légendaire toujours affichée), par type et par brique, légendaires inconnues regroupées ; garanties, encre ; briques du fascicule (compteur connues / total) et derniers tirages repliables ; règles ; compteur de plis prêts sur l’onglet | fait |
 | Légendaires à chance fixe de 1,2 % par pli, hors garanties (ADR 0043, App#17) : paramètre `chance_legendaire_pour_mille` (partagé entre les légendaires du fascicule, poids des autres raretés sur les 98,8 % restants), garanties de nouveauté et d’utilité limitées aux non-légendaires, garantie lointaine au 100ᵉ pli d’affilée sans légendaire (compteur par fascicule, règle `garantie_legendaire`), une seule ligne « Légendaires » à l’écran des plis ; reste à Content : au moins une légendaire par fascicule, jamais dans les graines ni les plis de jalon | fait côté App |
 | Rituel d’ouverture (I-21) : charge, écriture, explosion, révélation (≈ 1,6 s), passable, direct en mouvement réduit ; repris dans « Animations retenues » | fait |
+| Ouverture groupée (ADR 0064) : dès deux plis prêts, « Ouvrir les N plis » enchaîne N appels à `POST /pli` (chacun sur la version renvoyée par le précédent, arrêt à la première erreur) et joue le rituel de chaque pli en canon (départs à 0,11 s, brique à la place du pli, rare et légendaire en violet), bilan annoncé une fois ; recette sur téléphone faite | fait |
 | Recette locale (filet, garantie, réserve pleine, `409`, mouvement réduit, onglets) et corrections | fait |
 | Navigation : Table, Plis, Codex, Réglages | fait |
 | Déploiement hors-prod : PWA, catalogue (`988a1c0b8eed`) et documentation publiés | fait |
@@ -128,11 +135,14 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | `POST /sablier/achat` : 10 gouttes le sablier, sans plafond, `403` sans assez d’encre ; `POST /sablier` : sabliers détenus seulement, sans plafond, `403` énergie pleine ou sabliers insuffisants ; idempotents (ADR 0039) | fait |
 | `POST /indice` : indice au choix de 1 à 3 (`400` hors barème), déjà obtenu (`409`), recette inconnue ou légendaire (`400`), découverte (`409`), encre (`403`) | fait |
 | Jalons accordés dans la découverte et à la synchronisation (`GET /etat`) ; pli de jalon (`ouverture_pli` d’origine `jalon`, règle `deterministe`), encre si réserve pleine ; sabliers sans plafond | fait |
-| PWA : onglet Boutique (`#/boutique`) avec les échanges (encre contre sabliers, lots de 1, 3 et 12, sans plafond) et l’achat de gouttes en euros « Bientôt ouvert », verrouillé ; raccourci sous les plis en chargement (« Faire avancer le temps avec des sabliers », sinon « Acheter des sabliers », qui ouvre les trois lots de la boutique et avance le temps d’un seul clic) ; ressources (plis prêts, gouttes, sabliers) dans la navigation, compteurs animés, gouttes et nouveautés affichées après le rituel du pli ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
+| PWA : onglet Boutique (`#/boutique`) avec les échanges (encre contre sabliers, lots de 1, 3 et 12, sans plafond) ; raccourci sous les plis en chargement (« Faire avancer le temps avec des sabliers », sinon « Acheter des sabliers », qui ouvre les trois lots de la boutique et avance le temps d’un seul clic) ; ressources (plis prêts, gouttes, sabliers) dans la navigation, compteurs animés, gouttes et nouveautés affichées après le rituel du pli ; feuille des indices depuis la table ; jalons dans l’onglet Objectifs ; jalon annoncé dans la fiche de découverte | fait |
+| Soutien par dons Ko-fi (ADR 0078) : webhook `POST /soutien/kofi`, table `soutien` (empreinte et date), `compte.soutien` dans l’état ; carte en tête des Réglages, lien dans le rail, modale de rappel (après 15 minutes de jeu et une minute d’inactivité, puis tous les 7 jours) épargnant les abonnés ; e-mail à l’éditeur à chaque webhook | fait, reste le secret `ETYMO_KOFI_TOKEN` à poser en production |
 | Recette locale : 3 découvertes → pli de jalon (philo-, -iste) ; 3 sabliers → recharge −3 h ; indices 1 → 5 : 200 → 45 gouttes ; Objectifs 3 / 6 | fait |
 | Rareté des mots (ADR 0040, proposé) : plus haute rareté des briques de la recette la moins rare ; forme au codex et dans la fiche (« Rare ! », « Légendaire ! ») ; `encre_decouverte` de l’équilibrage créditée à la découverte | fait (Content : équilibrage `2026-09-28c`) ; 2 gouttes par découverte vérifiées en hors-prod |
 | Image J4 de l’API épinglée dans Infra (`9e48455`), *Plan* puis *Apply* horsprod ; PWA `8f0dbfe03d1c` ; catalogue `d6d91be93d05` paru | fait |
 | Démonstration en hors-prod (API) : 3 découvertes → jalon `jal_nde6rzt4` et pli de jalon (philo-, -iste) ; indice niveau 1 : 6 → 1 goutte ; refus `403` (encre, sabliers insuffisants), `409` (état périmé) | fait |
+| Enquêtes en cours (App#88) : sous la table, une ligne repliée par carte à trouver dont un indice est acheté ; dépliée, seulement ce qui a été payé (silhouette, définition, sens littéral), jusqu’à la découverte du mot ; ni mot, ni brique, ni bouton d’achat (ADR 0051) | fait en local |
+| Déblocage progressif des fascicules ([ADR 0068](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0068-deblocage-progressif-des-fascicules.md)) : un nouveau joueur n’a que le premier fascicule paru ; le 2ᵉ jalon d’un fascicule débloque le suivant, aussitôt ou à sa parution ; table `fascicule_debloque` (reprise des profils déjà semés) ; graines, jalons, plis (ordinaire et offert) et quête de table limités aux fascicules débloqués ; PWA : jaquette verrouillée avec sa condition (plis, codex, quêtes), « Nouveau fascicule ouvert » sur la table, pastille Corail « nouveau » | fait en local, à déployer en hors-prod |
 
 Écarts assumés : l’annonce du jalon passe par la fiche de découverte, pas par le rituel du pli ; la feuille des indices est un dialogue sur ordinateur comme sur mobile, pas un panneau latéral ; sur un environnement à recharge courte, un sablier vaut un douzième de la recharge (1 h en production).
 
@@ -152,12 +162,13 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | Tâche | État |
 |---|---|
 | ADR 0042 : page Quêtes, récompenses de jalon à récupérer d’un geste ; ADR 0038 marqué partiellement remplacé (Design) | proposé |
+| Quêtes de collection par fascicule (App#90) : tous les préfixes, tous les suffixes, tous les mots communs, peu communs ou rares, déclarés par le fascicule (Content, membres publiés hors légendaires) ; `Etat.progression_collections` des seuls fascicules débloqués ; récupération par `POST /palier` et `palier_recupere` (`403` verrouillé ou incomplet, `409` déjà récupérée) ; bloc « Collection » sous les jalons de l’onglet Fascicules, compté dans les pastilles | fait en local ; ADR à écrire (Design) ; reste : briques reprises dans le filtre du codex, 3ᵉ jalon hors légendaires |
 | Base : `jalon_atteint.recupere_le` (les jalons déjà accordés sont marqués récupérés), commande `jalon` | fait |
 | API : la découverte et `GET /etat` marquent les jalons atteints sans rien accorder ; `POST /jalon` récupère la récompense (pli de jalon déterministe, encre si réserve pleine, sabliers), idempotente, `403` pas encore atteint, `409` déjà récupérée, `400` inconnu ; `jalons_recuperes` dans l’état | fait |
 | PWA : destination Quêtes (`#/quetes`), onglets Journalières (bientôt disponibles) et Fascicules (`#/quetes/fascicules?fascicule=0`) ; sélecteur de fascicule partagé avec le codex, compteur Corail des récompenses qui attendent (navigation, onglet, fascicule) ; jalons retirés de la vue Objectifs du codex, qui renvoie aux quêtes ; « Récupérer la récompense » sous la découverte qui atteint un jalon | fait |
 | Recette locale (Chromium) : 3 découvertes → jalon atteint, réserve et sabliers inchangés ; « Récupérer » → philo- et -iste, historique `deterministe` | fait |
 | Hors production : « Réinitialiser » (Réglages) efface aussi les jalons atteints et récupérés ; une fois le jalon de nouveau atteint, sa récompense est à récupérer (test `la_reinitialisation_remet_les_recompenses_de_jalon_a_recuperer`) | fait |
-| Quêtes journalières | à concevoir (ADR à venir) |
+| Quêtes journalières | voir « Quêtes du jour » ci-dessous |
 
 ### Quêtes au long cours (App#22, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
 
@@ -169,9 +180,125 @@ Reportés : file d’attente des fusions hors connexion (supprimée, ADR 0041), 
 | API : `progression_quetes` et `paliers_recuperes` dans l’état ; `POST /palier` idempotent (`403` pas atteint, `409` déjà récupéré, `400` inconnu) ; réinitialisation hors production | fait |
 | PWA : onglet « Au long cours » (`#/quetes/au-long-cours`), paliers à récompense annoncée d’avance, « Récupérer », compteur Corail | fait ; **maquette I-28 à dessiner** |
 | Récompenses : encre et sabliers ; les plis de lecteur arrivent avec la carte de lecteur | écart assumé |
-| Sortes « ricochets » et « lecteur » : déclarables, progression à zéro tant que ADR 0044 et la carte de lecteur ne sont pas livrés | en attente |
+| Sortes « ricochets » et « lecteur » : mesurées depuis App#20/#21 (cartes maîtrisées, cartes de lecteur pleines) | fait |
 
 Compatibilité : l’API se déploie d’abord. Une PWA plus ancienne ne propose pas de récupérer, mais rien n’est perdu : la récompense attend. Une PWA à jour devant une API plus ancienne lit l’absence de `jalons_recuperes` comme « tout est récupéré ».
+
+### Quêtes du jour (App#20, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Base : `quete_jour` (joueur, jour GMT, rang, code, mot visé, progrès, faite le) ; purgée avec les données du jour (App#29) | fait |
+| API : tirage déterministe par joueur et jour à la première visite (`GET /etat`), parmi les quêtes faisables ; la table cède sa place à une seconde quête de mémoire sans découverte possible ; la difficulté des mots (ADR 0047) fait tourner le tirage entre les trois tiers ; `quetes_du_jour` dans l'état | fait |
+| Progression : `POST /ricochet` compte la réponse ; une suite sans faute retombe à zéro et se recommence aussitôt ; la quête de table est faite dès que son mot est au codex | fait |
+| PWA : onglet Journalières (consigne rendue côté client depuis le catalogue, progression « 2 / 4 », « Faite ») | fait ; **maquette I-28 à dessiner** |
+| Écart assumé : la liste fermée des six quêtes est écrite dans `etymo-api` (`quetes_jour.rs`), pas déclarée par le catalogue comme le veut l'ADR 0045 | écart |
+| Écart assumé : la quête « Sens littéral ou actuel » n'existe pas, le format n'est pas encore livré ; une seule quête de table (« le mot qui veut dire… »), pas « un mot venu du grec ancien » | écart |
+| Écart assumé : toutes les réponses du jour comptent pour les quêtes, pas seulement les cinq premières (ADR 0044), sans quoi un sans-faute manqué ne se recommencerait pas | écart |
+
+### Carte de lecteur (App#21, [ADR 0045](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0045-quetes-du-jour-carte-de-lecteur-et-quetes-au-long-cours.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Domaine : `carte_de_lecteur` (7 tampons, vue de la carte affichée, récompense 20 gouttes · 1 sablier · 1 pli de lecteur) | fait |
+| Base : `tampon` (un par jour GMT), `carte_lecteur_recuperee` ; commande `carte_lecteur`, motif `lecteur`, origine de pli `lecteur` ; réinitialisation hors production | fait |
+| API : le tampon est posé par le serveur quand toutes les quêtes du jour tirées (au moins deux) sont faites ; `carte_de_lecteur` dans l'état ; `POST /carte-de-lecteur` idempotent (`403` aucune carte pleine) : le joueur choisit le fascicule, le pli tire parmi les briques peu communes, rares et légendaires (chance fixe de l'équilibrage), sans énergie ni garantie, de l'encre seulement si la réserve est pleine | fait |
+| Quêtes au long cours : les sortes « ricochets » (cartes maîtrisées) et « lecteur » (cartes pleines) sont mesurées | fait |
+| PWA : carte (cases, tampon ÉL incliné de −6° et sa date, « 4 / 7 »), récompense annoncée, choix du fascicule, chances affichées, « Récupérer » ; aucune notification | fait ; **état « 7ᵉ tampon à récupérer » non dessiné** |
+| Écart assumé : la récompense (valeurs de départ) est une constante du domaine, pas un paramètre d'équilibrage du catalogue (ADR 0009, 0045) ; à simuler | écart |
+| Écart assumé : les tampons gagnés alors qu'une carte pleine attend comptent pour la carte suivante, invisibles jusqu'à la récupération | écart |
+
+### Cadeau de bienvenue (App#23, [ADR 0046](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0046-demarrage-genereux-cadeau-de-bienvenue-et-quetes-initiales.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Catalogue : `cadeau_de_bienvenue` dans l'index (`Calendrier`) : une brique par pli, sabliers, encre ; recopié par la tâche de parution ; le serveur ne garde que les briques publiées et non légendaires | fait côté App ; **à faire dans Content** : déclaration, schéma, validateur (briques de fascicules parus, jamais une légendaire) et compilation |
+| Base : `cadeau_recupere` (une ligne par profil) ; commande `cadeau`, motifs et origine `cadeau` ; réinitialisation hors production | fait |
+| API : `cadeau_de_bienvenue` dans l'état (annoncé d'avance, `recupere`) ; `POST /cadeau` idempotent (`403` aucun cadeau déclaré, `409` déjà récupéré) ; plis fixes sans énergie, hors garanties, comme un pli de jalon (logique partagée `accorder_plis_fixes`) | fait |
+| PWA : carte « Cadeau de bienvenue » en tête de l'onglet Journalières, compteur Corail | fait ; **maquette I-29 à dessiner** |
+| Écart assumé : pas de tutoriel (J5) : le cadeau est récupérable dès la création du profil, pas « dès la fin du tutoriel » | écart |
+| Valeurs (3 plis, 12 sabliers, 40 gouttes) : déclarées par le catalogue, **à simuler** | à faire (Content) |
+
+### Quêtes initiales de la première semaine (App#24, [ADR 0046](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0046-demarrage-genereux-cadeau-de-bienvenue-et-quetes-initiales.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Base : `quete_initiale` (une ligne quand la quête est faite pendant les sept premiers jours du profil, `recupere_le` quand la récompense est prise) ; commande `quete_initiale`, motif et origine de pli `quete_initiale` ; réinitialisation hors production | fait |
+| API : `quetes_initiales` dans l'état (progrès, récompense annoncée) ; `POST /quete-initiale` idempotent (`400` fascicule manquant pour des plis, `403` pas faite, `409` déjà récupérée) ; plis offerts du fascicule choisi (tirage ordinaire), pli de lecteur (peu communes et rares), sans énergie ni garantie | fait |
+| Les quatre quêtes : trois mots (2 plis offerts), un mot avec transformation (1 pli offert, 10 gouttes), cinq ricochets sans faute (3 sabliers), première carte de lecteur (1 pli de lecteur) | fait ; valeurs **à simuler** |
+| PWA : section « Première semaine » en tête de l'onglet Journalières, masquée une fois tout récupéré ; choix du fascicule des plis, chances affichées ; compteur Corail | fait ; **maquette I-29 à dessiner** |
+| Écart assumé : la liste fermée des quatre quêtes et leurs récompenses sont écrites dans `etymo-api`, pas dans l'équilibrage du catalogue | écart |
+| Écart assumé : « cinq ricochets sans faute » se lit sur les cinq premières réponses du jour (`ricochet_jour`) ; la quête n'est pas indexée sur les ricochets de la première semaine seulement | écart |
+
+### Date du prochain fascicule (App#26, [ADR 0049](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0049-date-du-prochain-fascicule-publique.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Tâche `publier-fascicules` : écrit `prochaine_parution` (UTC, rien d'autre du fascicule) dans `public/index.json` à chaque passage ; champ absent sans fascicule à venir ; un report change la date et réécrit l'index | fait |
+| Catalogue : `Calendrier.prochaine_parution` ; PWA : « Prochain fascicule : 1ᵉʳ novembre » sur le choix du fascicule des plis et en tête du codex ; rien ne s'affiche passée la date | fait |
+| Relancer la tâche à tout changement du calendrier (`staging/parutions.json`) | **à faire dans Infra / Content** (déclencheur) ; sinon le prochain passage planifié suffit |
+| Schéma de l'index global (`prochaine_parution`) | **à faire dans Content / Design** |
+
+### Purges et journaux sans donnée personnelle (App#29, [ADR 0010](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0010-observabilite-et-vie-privee.md))
+
+| Tâche | État |
+|---|---|
+| `purger` : commandes (30 jours), quêtes du jour et réponses de ricochets du jour (30 jours) ; durées documentées dans `crates/taches/src/purges.rs` et le README ; test d'intégration | fait |
+| Télémétrie brute (90 jours) et agrégats : aucune table n'existe encore, la purge viendra avec elles (J7) | en attente |
+| Audit des journaux : seuls les `tracing::` de `catalogue.rs`, `main.rs`, `erreur.rs`, `parution.rs` et `purges.rs` écrivent ; ils ne portent que des nombres, des versions et des causes internes ; pas de couche HTTP qui trace les requêtes. Test `journaux.rs` : un secret, un jeton, un identifiant d'installation et une adresse réseau envoyés en requête (et en erreur) n'apparaissent jamais dans le journal | fait |
+| Planifier `etymo-api purger` chaque jour (Serverless Job) | **à faire dans Infra** |
+| Durée de conservation d'un profil invité inactif : 6 mois sans compte, puis effacé ; un compte ne l'est jamais ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md)) | fait |
+
+### Cohortes de rétention (App#28, [ADR 0050](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0050-cohortes-de-retention-et-statistiques-du-joueur.md), proposé)
+
+| Tâche | État |
+|---|---|
+| Migration : `joueur.mois_activite_precedente`, mise à jour quand l'activité change de mois (ouverture de session et commandes) ; tables d'agrégats `indicateurs_jour`, `retour_jour`, `retention_mois`, `passage_mois` (des nombres, aucun identifiant de joueur) | fait |
+| `etymo-api agreger-jour` : retour au 1ᵉʳ, 7ᵉ et 30ᵉ jour, joueurs actifs, tampons, quêtes terminées, séances de ricochets, actifs sans découverte depuis deux jours ; idempotente | fait |
+| `etymo-api agreger-mois` : rétention par mois d'arrivée, passage d'un mois au suivant ; idempotente | fait |
+| `etymo-api statistiques` : aucun agrégat de moins de 50 joueurs n'est affiché ni exporté (`masquer`, testé) | fait |
+| Jours joués par mois : somme des joueurs actifs de chaque jour (`indicateurs_jour`) | fait |
+| Écart assumé : « sans découverte **possible** » demande le catalogue ; l'indicateur mesure « actifs sans **aucune** découverte depuis deux jours », un majorant | écart |
+| Écart assumé : sans journal d'activité par jour, « actif ce jour-là » se lit sur `derniere_activite` : les tâches se lancent juste après minuit GMT, sinon un joueur revenu depuis n'est plus compté | écart |
+| Télémétrie : le mois d'arrivée comme propriété, identifiant renouvelé au mois civil | en attente (J7, pas de télémétrie) |
+| Planifier les deux tâches (quotidienne 00:05 GMT, mensuelle le 1ᵉʳ à 00:10 GMT) | **à faire dans Infra** ; en place dès le premier jour de la bêta (ADR 0048) |
+
+### Durcissement avant lancement (App#30)
+
+| Tâche | État |
+|---|---|
+| Corps de requête borné (8 Kio) sur chaque route `POST` : test `durcissement.rs`, dont un garde-fou qui échoue si une route `POST` n'est pas dans la liste testée | fait |
+| Propriétés inconnues refusées : test du contrat (`requetes_strictes.rs`) qui échoue si une `Demande…` n'a pas `deny_unknown_fields` ; requêtes mal formées refusées sans erreur serveur sur chaque route | fait |
+| `/dev/reset` absent (`404`) en production : test | fait |
+| En-têtes de l'API (`no-store`, `nosniff`, `no-referrer`, HSTS, CSP `default-src 'none'`) déjà posés et testés | fait |
+| Limites de débit : **recommandation, à trancher par le propriétaire** — garder la limite par instance en mémoire pour la bêta. Avec `instances_max = 5` (Infra), un joueur ou une adresse ne dépasse jamais 5 × les quotas (120 requêtes par minute par profil, 20 sessions par minute par adresse), soit 600 et 100 par minute : sans effet sur le coût ni sur l'équité. Passer à une limite partagée (table PostgreSQL ou cache) si `instances_max` monte nettement ou si un abus est observé | décision ouverte |
+| Démarrage à froid sous 1 s au p95 : script `scripts/demarrage-a-froid.sh` ; mesure locale (binaire `release`, base locale) : p50 259 ms, p95 265 ms sur 20 démarrages | mesure locale faite ; **à mesurer en hors-prod** (conteneur Scaleway à froid) |
+| Démarrage à froid vu du joueur : relances et délai par essai dans `ClientApi` (502/503/504 et réseau, même clé d'idempotence, budget de 45 s à recaler sur la mesure hors-prod) ; réveil de la base au démarrage de l'API, `acquire_timeout` 20 s ; pastille d'attente (« Connexion à l’atelier… », puis « Le serveur se réveille… ») ; bannière « Serveur injoignable » avec sonde de `/sante` et « Réessayer » ; état relu au retour après 5 min d'absence et au retour du réseau ; écran de démarrage de la PWA installée ; tirer pour actualiser (PWA installée) et « Recharger l’application » dans les Réglages | fait en local ; **à recaler sur un démarrage à froid mesuré en hors-prod** |
+| CSP de la PWA : aujourd'hui une balise `<meta>` (`web/vite.config.ts`), qui ne peut pas porter `frame-ancestors` ; le CDN doit poser CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` et `frame-ancestors 'none'` (ADR 0024) | **à faire dans Infra** (module `cdn` : vérifier que Scaleway Edge Services offre un étage d'en-têtes de réponse, sinon prévoir une règle côté bucket ou un autre CDN) ; vérification en hors-prod |
+
+### Référencement et moteurs génératifs
+
+Seule la coque `/` s'indexe : les écrans vivent dans le fragment (ADR 0034) et aucun mot du catalogue n'est publié hors du jeu (ADR 0015).
+
+| Tâche | État |
+|---|---|
+| `index.html` : titre, description, Open Graph, présentation et FAQ lisibles sans JavaScript (React les remplace au montage) | fait |
+| Plugin `referencement` (`web/vite.config.ts`) : `robots` (`noindex` hors prod), canonique, `og:image`, données structurées `VideoGame`, `robots.txt`, `sitemap.xml` en prod | fait |
+| `llms.txt`, image de partage 1200 × 630, icônes PNG (iOS, manifeste, masquable) ; sources dans `web/medias/` | fait |
+| Déploiement : `ETYMO_URL_PWA` et `ETYMO_INDEXABLE=oui` sur un tag seulement | fait |
+| Domaine de prod : `etymologique.fr` (Infra, `cdn.domaines`). Un tag échoue tant que `ETYMO_URL_PWA` n'est pas `https://etymologique.fr` | fait ; **CDN de prod à activer dans Infra**, CNAME chez OVH |
+| Robots qui exécutent le JavaScript : ils ouvrent une session invitée et gonflent les joueurs actifs et la rétention (ADR 0050) ; à filtrer ou à mesurer après l'ouverture de l'indexation | à décider |
+| Search Console et Bing Webmaster Tools : vérification par enregistrement DNS TXT dans la zone OVH, envoi du sitemap | **à faire à la main**, après le premier tag |
+
+### Audits avant lancement (App#31)
+
+| Tâche | État |
+|---|---|
+| `cargo audit` et `npm audit` en CI (déjà en place) ; résultat du jour : 0 vulnérabilité | fait |
+| Test d'accessibilité automatique (axe-core, neuf écrans, hors contraste) : deux écarts d'ordre des titres corrigés | fait |
+| Rapport [`docs/audits/avant-lancement.md`](audits/avant-lancement.md) : preuves, huit écarts proposés | fait |
+| Contact visible dans les Réglages ; procédure d'accès et de portabilité [`docs/procedure-acces-donnees.md`](procedure-acces-donnees.md) ; `etymo-api exporter --courriel` (testé) (App#69) | fait |
+| Contraste rendu, clavier seul, lecteur d'écran, mouvement réduit, texte d'information sur la collecte | **à faire à la main** (appareil, hors-prod) ; l'issue #31 reste ouverte tant que ces points ne sont pas passés |
 
 ## Animations retenues (relevé et décisions du 2026-10-01)
 
@@ -186,6 +313,21 @@ Les 53 animations de `plans/todo/animations-propositions.html`, avec la version 
 | Plis : paquet posé (plus de suivi du pointeur) avec halo jaune et léger zoom au survol quand il attend, entrée posée puis cachetée, sceau qui ne pulse qu’après 3 s, cire qui chauffe, rayons écrits plus discrets, plume au rythme humain et ratures tracées à chaque ouverture, paquet qui se retourne puis révélation qui se retourne (plus de coup de sabre ni d’éclats de lettres), révélation réduite au titre, à la brique et à deux boutons (« Essayer sur la table » pose la brique à sa place), anticipation rare, accord du légendaire, jauge de garantie en crans identiques, historique (pastille « new » ou « +1 » sur la brique, grille alignée) qui n’apparaît qu’à la révélation, inconnues qui scintillent à tour de rôle, jauge d’énergie au cran sans boucle | fait |
 | Compteurs : glissé court (480 ms) ; mouvement réduit : fondus de 120 ms, révélation du pli en trois temps | fait |
 | Réglage « Sons et vibrations » (activés, coupés), `data-retours` sur `<html>` | fait |
+
+## Comptes ([ADR 0070](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0070-comptes-facultatifs-par-lien-et-code-e-mail.md), EtymoLogique/Design#27)
+
+Écart au périmètre initial : les comptes étaient hors MVP. Ils restent facultatifs, ne donnent aucun avantage de jeu.
+
+| Tâche | État |
+|---|---|
+| Migration : `appareil` (reprise de chaque profil invité, jetons en cours toujours valables), `compte`, `defi_connexion` ; empreintes seulement | fait |
+| Domaine : normalisation de l'adresse, pseudo par défaut `x-1234`, règle du pseudo | fait |
+| API : `/session` multi-appareil ; `/compte/demande`, `/compte/confirmation` (code ou lien, 15 min, 5 essais, usage unique), `/compte/pseudo`, `/compte/deconnexion`, `DELETE /compte` ; `Etat.compte` ; envoi TEM ou fichier ; limites par adresse réseau, profil et adresse électronique | fait |
+| Purges : demandes de connexion après un jour, invités sans compte inactifs depuis 6 mois, comptes inactifs depuis 3 ans, détail des plis agrégé après 12 mois (App#68, ADR 0071) | fait |
+| PWA : `#/connexion` (I-31), relance « Sauvegardez votre progression » (I-32), compte dans les Réglages (I-33) ; e-mail (I-34) | fait |
+| Écart à valider : la confirmation ne porte ni clé d'idempotence ni `version_etat` ; le défi à usage unique la rend idempotente (un rejeu reçoit `410`) | à valider |
+| Recette locale (`./scripts/dev.sh`, e-mails dans `.local/courriels/`) | à faire |
+| Recette horsprod après validation DNS du domaine d'envoi (SPF, DKIM, DMARC à `pass`) | à faire, après Infra `dns_pose = true` |
 
 ## Outillage hors-prod
 

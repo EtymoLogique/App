@@ -4,7 +4,7 @@
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use etymo_contrat::{CodeErreur, Erreur};
+use etymo_contrat::{AvertissementRemplacement, CodeErreur, Erreur};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ErreurApi {
@@ -26,6 +26,16 @@ pub enum ErreurApi {
     Interne(String),
     #[error("base indisponible")]
     Base(#[from] sqlx::Error),
+    #[error("Impossible d’envoyer l’e-mail pour l’instant. Réessayez plus tard.")]
+    EnvoiImpossible,
+    #[error("Demandez un nouveau code.")]
+    Expire,
+    #[error("Ce code ne correspond pas.")]
+    CodeFaux { essais_restants: u8 },
+    #[error("Cet appareil porte une partie invitée.")]
+    Remplacement(AvertissementRemplacement),
+    #[error("Ce pseudo est déjà pris.")]
+    PseudoPris { proposition: String },
 }
 
 impl IntoResponse for ErreurApi {
@@ -57,7 +67,7 @@ impl IntoResponse for ErreurApi {
                 CodeErreur::Interdit,
                 self.to_string(),
             ),
-            Self::Indisponible => (
+            Self::Indisponible | Self::EnvoiImpossible => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 CodeErreur::Indisponible,
                 self.to_string(),
@@ -78,7 +88,29 @@ impl IntoResponse for ErreurApi {
                     self.to_string(),
                 )
             }
+            Self::Expire => (StatusCode::GONE, CodeErreur::Expire, self.to_string()),
+            Self::CodeFaux { .. } => (
+                StatusCode::BAD_REQUEST,
+                CodeErreur::RequeteInvalide,
+                self.to_string(),
+            ),
+            Self::Remplacement(_) | Self::PseudoPris { .. } => {
+                (StatusCode::CONFLICT, CodeErreur::Conflit, self.to_string())
+            }
         };
-        (statut, Json(Erreur { code, message })).into_response()
+        let mut erreur = Erreur {
+            code,
+            message,
+            essais_restants: None,
+            avertissement: None,
+            proposition: None,
+        };
+        match self {
+            Self::CodeFaux { essais_restants } => erreur.essais_restants = Some(essais_restants),
+            Self::Remplacement(a) => erreur.avertissement = Some(a),
+            Self::PseudoPris { proposition } => erreur.proposition = Some(proposition),
+            _ => {}
+        }
+        (statut, Json(erreur)).into_response()
     }
 }

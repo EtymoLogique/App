@@ -7,6 +7,7 @@ use axum::http::HeaderValue;
 use clap::Parser;
 use etymo_api::config::{Cli, Commande, ConfigBase, ConfigParution, ConfigServeur};
 use etymo_api::{CatalogueVivant, EtatApp, Limiteurs, MIGRATIONS, Signataire, openapi, routeur};
+use etymo_taches::cohortes;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
@@ -36,12 +37,48 @@ async fn main() -> anyhow::Result<()> {
         Some(Commande::PublierFascicules(config)) => publier(config).await,
         Some(Commande::Purger(config)) => {
             let rapport = etymo_taches::purger(&connecter(&config)?).await?;
-            tracing::info!(commandes = rapport.commandes, "purges terminées");
+            tracing::info!(
+                commandes = rapport.commandes,
+                quetes_du_jour = rapport.quetes_du_jour,
+                ricochets_du_jour = rapport.ricochets_du_jour,
+                defis_connexion = rapport.defis_connexion,
+                invites_inactifs = rapport.invites_inactifs,
+                comptes_inactifs = rapport.comptes_inactifs,
+                plis_agreges = rapport.plis_agreges,
+                "purges terminées"
+            );
+            Ok(())
+        }
+        Some(Commande::AgregerJour(config)) => {
+            let jour = config.jour.unwrap_or_else(cohortes::hier);
+            cohortes::agreger_jour(&connecter(&config.base)?, jour).await?;
+            Ok(())
+        }
+        Some(Commande::AgregerMois(config)) => {
+            let mois = config.mois.unwrap_or_else(cohortes::mois_precedent);
+            cohortes::agreger_mois(&connecter(&config.base)?, mois).await?;
+            Ok(())
+        }
+        Some(Commande::Statistiques(config)) => {
+            let statistiques = cohortes::statistiques(&connecter(&config)?).await?;
+            println!("{}", serde_json::to_string_pretty(&statistiques)?);
             Ok(())
         }
         Some(Commande::Migrer(config)) => {
             MIGRATIONS.run(&connecter(&config)?).await?;
             tracing::info!("migrations appliquées");
+            Ok(())
+        }
+        Some(Commande::Exporter(config)) => {
+            let courriel = etymo_api::courriel::Courriel::nouveau(
+                config.cle_courriel.as_bytes(),
+                "",
+                etymo_api::courriel::Expediteur::Fichier(std::path::PathBuf::new()),
+            )?;
+            let donnees =
+                etymo_api::export::exporter(&connecter(&config.base)?, &courriel, &config.courriel)
+                    .await?;
+            println!("{}", serde_json::to_string_pretty(&donnees)?);
             Ok(())
         }
         Some(Commande::Openapi) => {
@@ -54,7 +91,11 @@ async fn main() -> anyhow::Result<()> {
 fn connecter(config: &ConfigBase) -> anyhow::Result<PgPool> {
     PgPoolOptions::new()
         .max_connections(5)
-        .acquire_timeout(Duration::from_secs(10))
+        // Serverless SQL reprend en quelques secondes après sa mise en veille : on
+        // l'attend plutôt que de répondre 503 tout de suite (le client relance aussi).
+        .acquire_timeout(Duration::from_secs(20))
+        // Les connexions de la base en veille sont coupées ; on ne les garde pas.
+        .idle_timeout(Duration::from_secs(120))
         .connect_lazy(&config.database_url)
         .context("adresse de base invalide")
 }
@@ -64,6 +105,17 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
     if config.migrer {
         MIGRATIONS.run(&base).await.context("migrations")?;
     }
+    // Réveil anticipé : la base sort de veille pendant que le conteneur finit de
+    // démarrer, au lieu d'attendre la première requête qui la lit.
+    let eveil = base.clone();
+    tokio::spawn(async move {
+        for essai in 1..=3 {
+            match eveil.acquire().await {
+                Ok(_) => return tracing::info!("base éveillée"),
+                Err(e) => tracing::warn!(essai, erreur = %e, "base pas encore joignable"),
+            }
+        }
+    });
     let signataire = Signataire::nouveau(config.cle_signature.as_bytes())?;
     let origines = config
         .origines
@@ -84,6 +136,9 @@ async fn servir(config: ConfigServeur) -> anyhow::Result<()> {
         limiteurs: Limiteurs::default(),
         recharge: chrono::TimeDelta::seconds(i64::from(config.recharge_s.max(1))),
         reinitialisation: config.reinitialisation,
+        courriel: etymo_api::courriel::Courriel::depuis_config(&config.courriel)?,
+        kofi_token: config.courriel.kofi_token.clone().filter(|t| !t.is_empty()),
+        kofi_notification: config.courriel.kofi_notification.clone(),
     });
 
     let relecture = Arc::clone(&etat);

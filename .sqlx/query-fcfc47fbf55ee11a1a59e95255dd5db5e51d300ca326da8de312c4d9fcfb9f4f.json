@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT jour FROM tampon WHERE joueur_id = $1 ORDER BY jour",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "jour",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fcfc47fbf55ee11a1a59e95255dd5db5e51d300ca326da8de312c4d9fcfb9f4f"
+}

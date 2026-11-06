@@ -4,6 +4,150 @@
  */
 
 export interface paths {
+    "/cadeau": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère le cadeau de bienvenue (ADR 0046) : une fois par profil, des plis
+         *     au contenu fixé, des sabliers et de l'encre. Aucun pli n'use d'énergie.
+         */
+        post: operations["recuperer_cadeau"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/carte-de-lecteur": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une carte de lecteur pleine (ADR 0045) : de
+         *     l'encre, un sablier et un pli en attente de plus (une charge d'énergie,
+         *     refusée tant que l'énergie est pleine).
+         */
+        post: operations["recuperer_carte_de_lecteur"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Supprime le joueur et toute sa progression, sur tous ses appareils, qu'il
+         *     ait un compte ou joue en invité (RGPD, art. 17) : compte, appareils, codex, réserve, encre… Définitif.
+         */
+        delete: operations["supprimer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirme un défi par le code ou par le jeton du lien. Création : la partie
+         *     de l'appareil demandeur devient un compte. Connexion : cet appareil joue la
+         *     partie du compte ; s'il portait une partie invitée avec une progression,
+         *     il faut `remplacer_invite`, sinon `409` avec ce qui serait perdu.
+         */
+        post: operations["confirmer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/deconnexion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Détache cet appareil : le client repart d'un profil invité neuf. La partie
+         *     reste sur le compte ; une partie invitée sans autre appareil est effacée.
+         */
+        post: operations["deconnecter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/demande": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envoie un lien et un code de connexion à l'adresse donnée. La réponse est
+         *     la même que l'adresse ait un compte ou non : seul un profil qui a déjà un
+         *     compte et en demande un autre reçoit `409`.
+         */
+        post: operations["demander"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compte/pseudo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirme ou change le pseudo ; il devient alors public quand une vue
+         *     compétitive existera. Un pseudo pris reçoit `409` avec une proposition.
+         */
+        put: operations["changer_pseudo"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dev/reset": {
         parameters: {
             query?: never;
@@ -16,7 +160,8 @@ export interface paths {
         /**
          * Remet le joueur à zéro, pour la recette hors production : codex vide,
          *     réserve vide (les graines des fascicules parus ne sont pas rendues),
-         *     10 000 gouttes. Route absente (`404`) en production.
+         *     10 000 gouttes. Le compte, son pseudo et les appareils restent (ADR 0070).
+         *     Route absente (`404`) en production.
          */
         post: operations["reinitialiser"];
         delete?: never;
@@ -33,10 +178,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Synchronise le joueur : accorde les graines des fascicules parus qu'il
-         *     n'a pas encore reçues (ADR 0030), marque les jalons atteints depuis une
-         *     parution (ADR 0038), dont la récompense attend d'être récupérée
-         *     (ADR 0042), puis renvoie son état confirmé.
+         * Synchronise le joueur : marque les jalons atteints depuis une parution
+         *     (ADR 0038), dont la récompense attend d'être récupérée (ADR 0042),
+         *     débloque les fascicules qu'ils ouvrent (ADR 0068), accorde les graines des
+         *     fascicules débloqués qu'il n'a pas encore reçues (ADR 0030), puis renvoie
+         *     son état confirmé.
          */
         get: operations["etat"];
         put?: never;
@@ -157,6 +303,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quete-du-jour": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une quête du jour faite (ADR 0063) : encre pour la
+         *     table, sablier pour la mémoire, un pli de plus en attente (une charge
+         *     d'énergie) pour l'adresse. Une quête faite attend, même après minuit GMT.
+         */
+        post: operations["recuperer_quete_du_jour"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quete-initiale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Récupère la récompense d'une quête initiale faite pendant la première
+         *     semaine (ADR 0046) : plis offerts ou pli de lecteur du fascicule choisi,
+         *     sabliers, encre. Sans énergie, hors garanties.
+         */
+        post: operations["recuperer_quete_initiale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ricochet": {
         parameters: {
             query?: never;
@@ -210,7 +398,7 @@ export interface paths {
         put?: never;
         /**
          * Utilise des sabliers détenus (ADR 0018, 0020, 0039) : chacun avance la
-         *     recharge en cours d'une heure. Le temps au-delà de deux charges est perdu.
+         *     recharge en cours d'une heure. Le temps au-delà de la capacité est perdu.
          */
         post: operations["utiliser_sabliers"];
         delete?: never;
@@ -266,9 +454,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Ouvre ou renouvelle la session d'un profil invité.
-         * @description Au premier appel pour une installation, le profil est créé avec
-         *     l'empreinte du secret. Ensuite, le même secret doit être présenté.
+         * Ouvre ou renouvelle la session d'un appareil.
+         * @description Au premier appel pour une installation, l'appareil et sa partie invitée
+         *     sont créés avec l'empreinte du secret. Ensuite, le même secret doit être
+         *     présenté ; le jeton désigne la partie de l'appareil, celle de son compte
+         *     s'il est connecté (ADR 0070).
          */
         post: operations["session"];
         delete?: never;
@@ -281,6 +471,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Ce que l'appareil perdrait en ouvrant le compte : sa partie invitée. */
+        AvertissementRemplacement: {
+            /** Format: int32 */
+            decouvertes: number;
+            /** Format: int32 */
+            gouttes: number;
+        };
         BTreeMap_LibelleTexte: {
             [key: string]: {
                 texte: string;
@@ -295,11 +492,10 @@ export interface components {
         BTreeMap_LibellesSens: {
             [key: string]: {
                 definition?: string | null;
+                /** @description Exemples concrets pour se représenter le mot, montrés au dos de la carte. */
+                exemples?: string[];
                 glose?: string | null;
             };
-        };
-        BTreeMap_String: {
-            [key: string]: string;
         };
         BriqueCarte: {
             forme_affichee_id: components["schemas"]["IdCatalogue"];
@@ -317,18 +513,47 @@ export interface components {
             /** @description Commune à deux briques de même glose : jamais deux leurres de même classe. */
             classe_sens: components["schemas"]["IdCatalogue"];
             id: components["schemas"]["IdCatalogue"];
+            position?: components["schemas"]["PositionBrique"] | null;
             /** @description Sens affiché de la brique : la bonne réponse de « sens d'une brique ». */
             sens_id: components["schemas"]["IdCatalogue"];
+        };
+        CadeauDeBienvenue: {
+            /**
+             * Format: int32
+             * @description Gouttes d'encre.
+             */
+            encre?: number;
+            /** @description Une brique par pli de bienvenue, choisie pour ouvrir des recettes ; jamais une légendaire. */
+            plis: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
+        /** @description Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance. */
+        CadeauEtat: {
+            /** Format: int32 */
+            encre: number;
+            /** @description Une brique par pli de bienvenue. */
+            plis: components["schemas"]["IdCatalogue"][];
+            recupere: boolean;
+            /** Format: int32 */
+            sabliers: number;
         };
         /**
          * @description Index global (`public/index.json`) ou calendrier (`staging/parutions.json`) :
          *     même forme, seuls les fascicules listés diffèrent.
          */
         Calendrier: {
+            cadeau_de_bienvenue?: components["schemas"]["CadeauDeBienvenue"] | null;
             essai?: boolean;
             fascicules: components["schemas"]["EntreeFascicule"][];
             /** Format: int32 */
             format: number;
+            /**
+             * Format: date-time
+             * @description Date de parution du prochain fascicule du calendrier, en UTC, rien d'autre
+             *     de ce fascicule (ADR 0049) ; absente s'il n'y en a plus.
+             */
+            prochaine_parution?: string | null;
             /**
              * @description Quêtes au long cours, communes à tous les fascicules (ADR 0045) ;
              *     absentes d'un index antérieur.
@@ -353,6 +578,33 @@ export interface components {
                 [key: string]: components["schemas"]["Source"];
             };
         };
+        /**
+         * @description Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
+         *     sans série ni expiration.
+         */
+        CarteDeLecteurEtat: {
+            /**
+             * Format: int32
+             * @description Cartes pleines dont la récompense attend.
+             */
+            a_recuperer: number;
+            recompense: components["schemas"]["RecompenseCarte"];
+            /**
+             * Format: int32
+             * @description Cartes pleines, récupérées ou non.
+             */
+            remplies: number;
+            /**
+             * Format: int32
+             * @description Tampons d'une carte pleine.
+             */
+            taille: number;
+            /**
+             * @description Jours des tampons de la carte affichée, du plus ancien au plus récent :
+             *     la plus ancienne carte pleine à récupérer, sinon la carte en cours.
+             */
+            tampons: string[];
+        };
         CarteManifeste: {
             carte: components["schemas"]["Chemin"];
             difficulte?: components["schemas"]["Difficulte"] | null;
@@ -367,6 +619,8 @@ export interface components {
              * @description Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
              */
             bonnes_niveau_3: number;
+            /** @description Vrai si cette erreur a fait perdre la maîtrise de la carte (ADR 0065). */
+            maitrise_perdue?: boolean;
             maitrisee: boolean;
             /** Format: int32 */
             niveau: number;
@@ -379,7 +633,33 @@ export interface components {
         /** @description Chemin haché d'un fichier de l'artefact, relatif au préfixe publié. */
         Chemin: string;
         /** @enum {string} */
-        CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne";
+        CodeErreur: "requete_invalide" | "non_authentifie" | "interdit" | "conflit" | "trop_de_requetes" | "indisponible" | "interne" | "expire";
+        /**
+         * @description Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
+         * @enum {string}
+         */
+        CodeQueteDuJour: "table_sens" | "memoire_sans_faute" | "memoire_litteral" | "memoire_maitrise" | "adresse_decouper" | "adresse_paires";
+        /**
+         * @description Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
+         * @enum {string}
+         */
+        CodeQueteInitiale: "trois_mots" | "transformation" | "premiers_ricochets" | "premiere_carte";
+        /**
+         * @description Quête de collection d'un fascicule (App#90) : tous ses préfixes, tous ses
+         *     suffixes, tous ses mots d'une rareté. Le catalogue en publie les membres,
+         *     hors légendaires (ADR 0043) ; sa récompense se récupère comme un palier.
+         */
+        Collection: {
+            critere: components["schemas"]["CritereCollection"];
+            /** Format: int32 */
+            encre?: number;
+            /** @description Identifiant de palier : la récupération passe par `palier_recupere`. */
+            id: components["schemas"]["IdCatalogue"];
+            /** @description Briques (préfixes, suffixes) ou mots (raretés) à réunir. */
+            membres: components["schemas"]["IdCatalogue"][];
+            /** Format: int32 */
+            sabliers?: number;
+        };
         CompositionCarte: {
             fait?: components["schemas"]["Fait"] | null;
             id: components["schemas"]["IdCatalogue"];
@@ -387,6 +667,23 @@ export interface components {
             parties: components["schemas"]["Partie"][];
             preferee?: boolean;
             transformations?: components["schemas"]["Transformation"][];
+        };
+        /**
+         * @description Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne
+         *     la garde pas.
+         */
+        CompteEtat: {
+            pseudo: string;
+            /**
+             * @description Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par
+             *     défaut : il reste alors privé.
+             */
+            pseudo_confirme: boolean;
+            /**
+             * @description Vrai si l'adresse du compte a un abonnement Ko-fi actif (ADR 0078) : la
+             *     PWA ne présente alors plus la modale de soutien. Aucun avantage de jeu.
+             */
+            soutien?: boolean;
         };
         CompteurPli: {
             fascicule_id: components["schemas"]["IdCatalogue"];
@@ -403,6 +700,11 @@ export interface components {
         };
         /** @enum {string} */
         Confiance: "etablie" | "probable" | "discutee" | "non_retenue";
+        /**
+         * @description Ce qu'une quête de collection rassemble (App#90) : la liste fermée.
+         * @enum {string}
+         */
+        CritereCollection: "prefixes" | "suffixes" | "mots_communs" | "mots_peu_communs" | "mots_rares";
         Decouverte: {
             /** Format: date-time */
             decouverte_le: string;
@@ -432,6 +734,59 @@ export interface components {
              * @description `version_etat` connue du client.
              */
             version_etat: number;
+        };
+        /** @description Commande de récupération du cadeau de bienvenue. */
+        DemandeCadeau: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération d'une carte pleine. */
+        DemandeCarteDeLecteur: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /**
+         * @description Demande d'un lien et d'un code de connexion par e-mail (ADR 0070). La même
+         *     demande crée un compte depuis la partie invitée ou ouvre un compte existant.
+         */
+        DemandeCompte: {
+            /** @description Adresse électronique : elle sert à l'envoi, puis le serveur n'en garde qu'une empreinte. */
+            courriel: string;
+        };
+        /**
+         * @description Confirmation d'un défi, par le jeton du lien ou par le code à 6 chiffres :
+         *     exactement l'un des deux.
+         */
+        DemandeConfirmation: {
+            /** @description Code de l'e-mail, 6 chiffres. */
+            code?: string | null;
+            /** Format: uuid */
+            defi: string;
+            /** @description Jeton du lien, en base64url. */
+            jeton?: string | null;
+            /**
+             * @description Remplace la partie invitée de cet appareil par celle du compte, après
+             *     l'avertissement d'un `409`.
+             */
+            remplacer_invite?: boolean;
         };
         /** @description Commande de fusion (ADR 0024) : la proposition ordonnée posée sur la table. */
         DemandeFusion: {
@@ -517,6 +872,45 @@ export interface components {
              */
             version_etat: number;
         };
+        /** @description Nouveau pseudo, ou pseudo par défaut confirmé tel quel. */
+        DemandePseudo: {
+            /** @description 3 à 24 caractères : lettres minuscules sans accent, chiffres, traits d'union isolés. */
+            pseudo: string;
+        };
+        /** @description Commande de récupération de la récompense d'une quête du jour faite. */
+        DemandeQueteDuJour: {
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            /** Format: date */
+            jour: string;
+            /** Format: int32 */
+            rang: number;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
+        /** @description Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur. */
+        DemandeQueteInitiale: {
+            code: components["schemas"]["CodeQueteInitiale"];
+            /**
+             * Format: uuid
+             * @description Clé d'idempotence générée par le client (UUID v4).
+             */
+            commande: string;
+            fascicule_id?: components["schemas"]["IdCatalogue"] | null;
+            version_catalogue: string;
+            /**
+             * Format: int64
+             * @description `version_etat` connue du client.
+             */
+            version_etat: number;
+        };
         /** @description Commande de réponse à une question de ricochet : une commande, une carte. */
         DemandeRicochet: {
             /**
@@ -568,6 +962,11 @@ export interface components {
             installation: string;
             /** @description Secret aléatoire de 256 bits, en base64url sans remplissage. */
             secret: string;
+        };
+        /** @description Suppression du compte et de toute la progression, sur tous les appareils. */
+        DemandeSuppression: {
+            /** @description Doit valoir `SUPPRIMER`. */
+            confirmation: string;
         };
         /**
          * @description Difficulté de déduction d'un mot (ADR 0047) : réglage d'équilibrage, jamais affiché au joueur.
@@ -658,14 +1057,30 @@ export interface components {
         };
         /** @description Erreur renvoyée par l'API. Le message est destiné au diagnostic, pas au joueur. */
         Erreur: {
+            avertissement?: components["schemas"]["AvertissementRemplacement"] | null;
             code: components["schemas"]["CodeErreur"];
+            /**
+             * Format: int32
+             * @description Code de connexion faux : essais restants avant d'en demander un nouveau.
+             */
+            essais_restants?: number | null;
             message: string;
+            /** @description Pseudo déjà pris : un pseudo libre proche. */
+            proposition?: string | null;
+        };
+        /** @description Une paire essayée sans succès (échec ou « presque ») : ni issue, ni date. */
+        Essai: {
+            droite: components["schemas"]["IdCatalogue"];
+            gauche: components["schemas"]["IdCatalogue"];
         };
         /**
          * @description Projection de l'état confirmé du joueur : des identifiants et des nombres,
          *     jamais de texte du catalogue (ADR 0027).
          */
         Etat: {
+            cadeau_de_bienvenue?: components["schemas"]["CadeauEtat"] | null;
+            carte_de_lecteur?: components["schemas"]["CarteDeLecteurEtat"] | null;
+            compte?: components["schemas"]["CompteEtat"] | null;
             /** @description Garantie de nouveauté et filet d'utilité, par fascicule ; absents : à zéro. */
             compteurs_plis: components["schemas"]["CompteurPli"][];
             /** @description Mots découverts, dans l'ordre de leur découverte. */
@@ -677,6 +1092,17 @@ export interface components {
             encre: number;
             /** @description Charges de pli, à l'horloge du serveur (ADR 0020). */
             energie: components["schemas"]["EnergieEtat"];
+            /**
+             * @description Paires déjà essayées sans succès depuis la dernière parution (App#89),
+             *     dans l'ordre des cases, triées. Vide avant ce champ ou après une parution.
+             */
+            essais?: components["schemas"]["Essai"][];
+            /**
+             * @description Fascicules parus que le joueur a débloqués (ADR 0068), triés par
+             *     fascicule. Vide dans une réponse enregistrée avant ce champ, ou sans
+             *     catalogue : le client tient alors tous les fascicules parus pour débloqués.
+             */
+            fascicules_debloques?: components["schemas"]["FasciculeDebloque"][];
             /** @description Derniers plis ouverts, du plus récent au plus ancien. */
             historique_plis: components["schemas"]["OuverturePli"][];
             /** @description Indices obtenus, par recette (ADR 0051). */
@@ -699,10 +1125,22 @@ export interface components {
             /** @description Prix de chaque indice, en gouttes : silhouette, sens littéral, définition. */
             prix_indices?: number[];
             /**
+             * @description Quêtes de collection des fascicules débloqués (App#90) ; vide avant ce
+             *     champ ou sans catalogue. Leur récupération passe par `paliers_recuperes`.
+             */
+            progression_collections?: components["schemas"]["ProgressionCollection"][];
+            /**
              * @description Progression de chaque quête au long cours, calculée par le serveur sur
              *     le codex (ADR 0045). Un palier est atteint quand elle franchit son seuil.
              */
             progression_quetes?: components["schemas"]["ProgressionQuete"][];
+            /**
+             * @description Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première
+             *     visite du jour ; vide avant App#20 ou sans catalogue.
+             */
+            quetes_du_jour?: components["schemas"]["QueteDuJour"][];
+            /** @description Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées. */
+            quetes_initiales?: components["schemas"]["QueteInitialeEtat"][];
             /**
              * @description Briques connues et leurs exemplaires, triées par brique. Une brique à 0
              *     exemplaire est épuisée mais reste connue.
@@ -753,26 +1191,21 @@ export interface components {
             /** Format: int32 */
             exemplaires: number;
         };
-        /** @description Pourquoi une fusion ne marche pas, quand le catalogue peut le dire (ADR 0052). */
-        Explication: {
-            /** @enum {string} */
-            nature: "homographe";
-            /** Format: int32 */
-            rang: number;
-        } | {
-            /** @enum {string} */
-            nature: "trompe_l_oeil";
-            trompe_l_oeil_id: components["schemas"]["IdCatalogue"];
-        };
         Fait: {
             confiance: components["schemas"]["Confiance"];
             sources?: components["schemas"]["SourceCitee"][];
+        };
+        /** @description Un fascicule débloqué par le joueur (ADR 0068). */
+        FasciculeDebloque: {
+            /** Format: date-time */
+            debloque_le: string;
+            fascicule_id: components["schemas"]["IdCatalogue"];
         };
         /**
          * @description Les cinq formats d'une question de ricochet (ADR 0044).
          * @enum {string}
          */
-        FormatRicochet: "sens_brique" | "brique_sens" | "mot_sens" | "decouper" | "paires";
+        FormatRicochet: "sens_brique" | "brique_sens" | "mot_sens" | "decouper" | "paires" | "assembler";
         Forme: {
             id: components["schemas"]["IdCatalogue"];
             /** @description `canonique` pour la forme de référence. */
@@ -796,6 +1229,8 @@ export interface components {
             niveau: number;
             recette_id: components["schemas"]["IdCatalogue"];
         };
+        /** @enum {string} */
+        IssueConfirmation: "compte_cree" | "connecte";
         /** @description Issue d'une fusion. Seule une découverte consomme des exemplaires. */
         IssueFusion: {
             /**
@@ -821,7 +1256,6 @@ export interface components {
             /** @enum {string} */
             type: "presque";
         } | {
-            explication?: components["schemas"]["Explication"] | null;
             /** @enum {string} */
             type: "echec";
         } | {
@@ -851,14 +1285,14 @@ export interface components {
         };
         Manifeste: {
             cartes?: components["schemas"]["CarteManifeste"][];
+            /** @description Quêtes de collection du fascicule (App#90), membres hors légendaires. */
+            collections?: components["schemas"]["Collection"][];
             compteurs?: unknown;
             exclusions?: components["schemas"]["Chemin"] | null;
             /** Format: int32 */
             format: number;
             /** @description Réserve de départ du fascicule (ADR 0030). */
             graines?: components["schemas"]["Graine"][];
-            /** @description Groupes de briques de même forme (ADR 0052) : des identifiants, jamais de texte. */
-            homographes?: components["schemas"]["IdCatalogue"][][];
             /** @description Identifiant opaque du fascicule : les données du joueur le désignent par lui. */
             id: components["schemas"]["IdCatalogue"];
             /** @description Jalons du fascicule, récompenses affichées à l'avance (ADR 0038). */
@@ -879,13 +1313,17 @@ export interface components {
             /** @description De quoi juger un ricochet sans lire un texte (ADR 0044). */
             ricochets?: components["schemas"]["RicochetsManifeste"];
             test?: boolean;
-            trompes_l_oeil?: components["schemas"]["Chemin"] | null;
         };
         MotBrique: {
             brique_id: components["schemas"]["IdCatalogue"];
             mot_id: components["schemas"]["IdCatalogue"];
         };
         MotRicochet: {
+            /**
+             * @description Les deux briques de la composition préférée, préfixe puis suffixe ;
+             *     vide : le mot ne s'assemble pas (ADR 0067).
+             */
+            assemblage?: components["schemas"]["IdCatalogue"][];
             classe_litteral?: components["schemas"]["IdCatalogue"] | null;
             /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
             coupes?: number[];
@@ -898,8 +1336,6 @@ export interface components {
         };
         /** @enum {string} */
         MotifPresque: "ordre" | "incomplet";
-        /** @enum {string} */
-        MotifTrompeLOeil: "autre_origine" | "mot_simple" | "autre_decoupage";
         /** @enum {string} */
         Nature: "mot" | "prefixe" | "suffixe";
         /**
@@ -951,6 +1387,23 @@ export interface components {
             briques?: components["schemas"]["BriquePliManifeste"][];
             equilibrage?: components["schemas"]["EquilibrageManifeste"] | null;
         };
+        /**
+         * @description Place d'une brique dans un mot de deux briques : devant (« géo- ») ou derrière (« -graphie »).
+         * @enum {string}
+         */
+        PositionBrique: "prefixe" | "suffixe";
+        /**
+         * @description Progression d'une quête de collection (App#90), d'un fascicule débloqué
+         *     seulement : un fascicule verrouillé n'expose aucun total (ADR 0069).
+         */
+        ProgressionCollection: {
+            fascicule_id: components["schemas"]["IdCatalogue"];
+            palier_id: components["schemas"]["IdCatalogue"];
+            /** Format: int32 */
+            progression: number;
+            /** Format: int32 */
+            total: number;
+        };
         ProgressionQuete: {
             /** Format: int32 */
             progression: number;
@@ -966,6 +1419,43 @@ export interface components {
              */
             choix?: components["schemas"]["IdCatalogue"][];
             format: components["schemas"]["FormatRicochet"];
+        };
+        QueteDuJour: {
+            /**
+             * Format: int32
+             * @description Ce qu'il faut atteindre.
+             */
+            cible: number;
+            code: components["schemas"]["CodeQueteDuJour"];
+            faite: boolean;
+            /**
+             * Format: date
+             * @description Jour GMT de la quête : une quête faite et pas récupérée survit à minuit (ADR 0063).
+             */
+            jour?: string | null;
+            mot_id?: components["schemas"]["IdCatalogue"] | null;
+            /**
+             * Format: int32
+             * @description Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
+             */
+            progres: number;
+            /** Format: int32 */
+            rang: number;
+            recompense?: components["schemas"]["RecompenseQuete"] | null;
+            /** @description La récompense est prise. */
+            recuperee?: boolean;
+            sorte: components["schemas"]["SorteQueteDuJour"];
+        };
+        QueteInitialeEtat: {
+            /** Format: int32 */
+            cible: number;
+            code: components["schemas"]["CodeQueteInitiale"];
+            /** @description Faite pendant la première semaine : la récompense peut se récupérer. */
+            faite: boolean;
+            /** Format: int32 */
+            progres: number;
+            recompense: components["schemas"]["RecompenseInitiale"];
+            recuperee: boolean;
         };
         QueteLongCours: components["schemas"]["Sorte"] & {
             id: components["schemas"]["IdCatalogue"];
@@ -992,6 +1482,44 @@ export interface components {
             chemin: components["schemas"]["Chemin"];
             id: components["schemas"]["IdCatalogue"];
         };
+        /** @description Ce que donne une carte de lecteur pleine, annoncé d'avance. */
+        RecompenseCarte: {
+            /** Format: int32 */
+            gouttes: number;
+            /**
+             * Format: int32
+             * @description Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+             */
+            plis: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
+        /** @description Récompense d'une quête initiale, annoncée d'avance. */
+        RecompenseInitiale: {
+            /** Format: int32 */
+            gouttes: number;
+            /** Format: int32 */
+            plis_de_lecteur: number;
+            /**
+             * Format: int32
+             * @description Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
+             */
+            plis_offerts: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
+        /** @description Ce que donne une quête du jour faite, annoncé d'avance (ADR 0063). */
+        RecompenseQuete: {
+            /** Format: int32 */
+            gouttes: number;
+            /**
+             * Format: int32
+             * @description Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+             */
+            plis: number;
+            /** Format: int32 */
+            sabliers: number;
+        };
         /**
          * @description Règle qui a décidé de la brique tirée.
          * @enum {string}
@@ -1012,9 +1540,38 @@ export interface components {
              */
             prix: number;
         };
+        ReponseCadeau: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        ReponseCarteDeLecteur: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        /** @description Défi confirmé : le client rouvre sa session, son ancien jeton ne vaut plus. */
+        ReponseConfirmation: {
+            issue: components["schemas"]["IssueConfirmation"];
+            pseudo: string;
+            pseudo_confirme: boolean;
+        };
+        /** @description Réponse identique, que l'adresse ait déjà un compte ou non. */
+        ReponseDemandeCompte: {
+            /**
+             * Format: uuid
+             * @description Défi à confirmer par le code ou le lien de l'e-mail.
+             */
+            defi: string;
+            /**
+             * Format: int32
+             * @description Délai avant de proposer « Renvoyer », en secondes.
+             */
+            renvoyer_dans_s: number;
+        };
         ReponseFusion: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
+            /** @description Fascicules débloqués par cette découverte, à annoncer (ADR 0068). */
+            fascicules_debloques?: components["schemas"]["IdCatalogue"][];
             issue: components["schemas"]["IssueFusion"];
             /** @description Jalons atteints par cette découverte, à annoncer. */
             jalons?: components["schemas"]["IdCatalogue"][];
@@ -1032,8 +1589,8 @@ export interface components {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
         };
-        /** @description Réponse du joueur : un choix, ou les positions de coupe d'un mot. */
-        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[];
+        /** @description Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage. */
+        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[] | components["schemas"]["IdCatalogue"][];
         ReponsePalier: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
@@ -1049,6 +1606,16 @@ export interface components {
              */
             exemplaires: number;
             ouverture: components["schemas"]["OuverturePli"];
+        };
+        ReponseQueteDuJour: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+        };
+        ReponseQueteInitiale: {
+            /** @description État confirmé après la commande. */
+            etat: components["schemas"]["Etat"];
+            /** @description Briques des plis offerts et de lecteur, dans l'ordre. */
+            ouvertures: components["schemas"]["OuverturePli"][];
         };
         ReponseRicochet: {
             carte: components["schemas"]["CarteRicochet"];
@@ -1070,7 +1637,7 @@ export interface components {
         RicochetEtat: {
             /** @description Vrai si une réponse d'aujourd'hui compterait. */
             a_revoir: boolean;
-            /** @description Définitif : une carte maîtrisée le reste. */
+            /** @description Perdue sur une erreur, regagnée par trois bonnes réponses sur trois jours (ADR 0065). */
             maitrisee: boolean;
             /** Format: int32 */
             niveau: number;
@@ -1162,6 +1729,11 @@ export interface components {
             /** @enum {string} */
             sorte: "premiere_legendaire";
         };
+        /**
+         * @description Sorte d'une quête du jour : une de chaque par jour (ADR 0045).
+         * @enum {string}
+         */
+        SorteQueteDuJour: "table" | "memoire" | "adresse";
         Source: {
             edition?: string | null;
             id: components["schemas"]["IdCatalogue"];
@@ -1196,21 +1768,6 @@ export interface components {
             convention_id: components["schemas"]["IdCatalogue"];
             texte: string;
         };
-        /** @description Une paire ordonnée de briques qui s'écrit comme un mot sans en venir. */
-        TrompeLOeil: {
-            combinaison: components["schemas"]["IdCatalogue"][];
-            /** @description Le mot et sa vraie origine : lisible une fois le mot au codex. */
-            explication?: components["schemas"]["BTreeMap_String"];
-            /** @description Une phrase qui ne nomme jamais le mot : lisible tout de suite. */
-            explication_courte?: components["schemas"]["BTreeMap_String"];
-            id: components["schemas"]["IdCatalogue"];
-            mot_id?: components["schemas"]["IdCatalogue"] | null;
-            motif: components["schemas"]["MotifTrompeLOeil"];
-        };
-        /** @description Ressource « trompe-l'œil » d'un fascicule (ADR 0052). */
-        TrompesLOeil: {
-            trompes_l_oeil: components["schemas"]["TrompeLOeil"][];
-        };
     };
     responses: never;
     parameters: never;
@@ -1220,6 +1777,436 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    recuperer_cadeau: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCadeau"];
+            };
+        };
+        responses: {
+            /** @description Cadeau récupéré et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseCadeau"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun cadeau de bienvenue déclaré */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Cadeau déjà récupéré, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_carte_de_lecteur: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCarteDeLecteur"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseCarteDeLecteur"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucune carte de lecteur pleine, ou énergie pleine */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    supprimer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeSuppression"];
+            };
+        };
+        responses: {
+            /** @description Compte et progression effacés */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Confirmation absente */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    confirmer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Compte créé ou ouvert : rouvrir la session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseConfirmation"];
+                };
+            };
+            /** @description Code faux (`essais_restants`) ou requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Partie invitée à remplacer (`avertissement`), ou profil qui a déjà un compte */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Défi expiré, utilisé ou épuisé : demander un nouveau code */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Comptes désactivés */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    deconnecter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Appareil détaché */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    demander: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeCompte"];
+            };
+        };
+        responses: {
+            /** @description E-mail envoyé si l'adresse peut ouvrir un compte */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseDemandeCompte"];
+                };
+            };
+            /** @description Adresse invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Ce profil a déjà un compte */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Corps de plus de 1 Kio */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de demandes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Envoi impossible ou désactivé */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    changer_pseudo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandePseudo"];
+            };
+        };
+        responses: {
+            /** @description Pseudo confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteEtat"];
+                };
+            };
+            /** @description Pseudo invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Partie invitée : aucun compte */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Pseudo déjà pris (`proposition`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
     reinitialiser: {
         parameters: {
             query?: never;
@@ -1637,7 +2624,7 @@ export interface operations {
                     "application/json": components["schemas"]["Erreur"];
                 };
             };
-            /** @description Aucune charge d'énergie */
+            /** @description Aucune charge d'énergie, ou fascicule pas encore débloqué */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1647,6 +2634,162 @@ export interface operations {
                 };
             };
             /** @description État ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_quete_du_jour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeQueteDuJour"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseQueteDuJour"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Quête du jour pas faite, ou énergie pleine pour un pli en attente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Déjà récupérée, état ou catalogue périmé : resynchroniser */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Aucun catalogue publié */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+        };
+    };
+    recuperer_quete_initiale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandeQueteInitiale"];
+            };
+        };
+        responses: {
+            /** @description Récompense récupérée et état confirmé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReponseQueteInitiale"];
+                };
+            };
+            /** @description Requête invalide, fascicule manquant ou sans pli */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Session absente ou expirée */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Quête initiale pas faite, ou fascicule pas encore débloqué */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Erreur"];
+                };
+            };
+            /** @description Déjà récupérée, état ou catalogue périmé : resynchroniser */
             409: {
                 headers: {
                     [name: string]: unknown;

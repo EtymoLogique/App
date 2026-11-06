@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO quete_initiale (joueur_id, code, faite_le) VALUES ($1, $2, $3)\n                     ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8aba02bf95295967dfd359a3963702fdea0c417e7d1e40b3ba797a076a56891e"
+}

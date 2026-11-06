@@ -28,9 +28,6 @@ pub fn deposer(racine: &Path, dossier: &str, extension: &str, octets: &[u8]) -> 
 pub const GEO: &str = "brq_0000ge00";
 pub const LOGIE: &str = "brq_000109e0";
 pub const BIO: &str = "brq_0000b100";
-/// Autre brique qui s'écrit comme `GEO` (homographe).
-pub const GEO_AUTRE: &str = "brq_0000ge99";
-pub const TROMPE_L_OEIL: &str = "tpl_0000000a";
 pub const MOT: &str = "unt_0000000a";
 pub const RECETTE: &str = "rct_0000000a";
 /// Sens affichés de `GEO` et `LOGIE`, pour les ricochets.
@@ -44,27 +41,25 @@ pub const PALIER_LANGUE_1: &str = "pal_0000000a";
 pub const PALIER_LANGUE_3: &str = "pal_0000000b";
 pub const PALIER_ELISION: &str = "pal_0000000c";
 pub const PALIER_RICOCHETS: &str = "pal_0000000d";
-
-/// Dépose la ressource « trompe-l'œil » de l'essai (ADR 0052).
-fn trompes_l_oeil(racine: &Path) -> String {
-    deposer(
-        racine,
-        "r",
-        "json",
-        &canonique(&json!({ "trompes_l_oeil": [{
-            "id": TROMPE_L_OEIL,
-            "combinaison": [BIO, LOGIE],
-            "motif": "autre_origine",
-            "explication_courte": { "fr": "Les lettres se suivent, mais le mot n’en vient pas." },
-            "explication": { "fr": "Exemple d’essai." }
-        }] })),
-    )
-}
+/// Quêtes de collection du fascicule d'essai (App#90) : ses deux préfixes, son mot commun.
+pub const COLLECTION_PREFIXES: &str = "pal_000c0001";
+pub const COLLECTION_MOTS: &str = "pal_000c0002";
 
 /// Écrit un fascicule minimal (une carte, une recette, des exclusions, une
 /// jaquette, des graines) et renvoie le chemin de son manifeste.
 #[must_use]
 pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
+    fascicule_avec_jalons(
+        racine,
+        numero,
+        parution,
+        &json!([{ "id": "jal_0000000a", "decouvertes": 1, "pli": [BIO], "sabliers": 3 }]),
+    )
+}
+
+/// Comme [`fascicule`], avec ces jalons : le 2ᵉ débloque le fascicule suivant (ADR 0068).
+#[must_use]
+pub fn fascicule_avec_jalons(racine: &Path, numero: u32, parution: &str, jalons: &Value) -> String {
     let jaquette = deposer(
         racine,
         "a",
@@ -108,7 +103,6 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
             &json!({ "exclusions": [{ "id": "exc_0000000a", "combinaison": [BIO, GEO], "raison": "rare" }] }),
         ),
     );
-    let trompes_l_oeil = trompes_l_oeil(racine);
     let manifeste = json!({
         "format": 1,
         "id": format!("fsc_{numero:08}"),
@@ -117,8 +111,6 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "test": true,
         "jaquette": jaquette,
         "exclusions": exclusions,
-        "trompes_l_oeil": trompes_l_oeil,
-        "homographes": [[GEO, GEO_AUTRE]],
         "cartes": [{ "id": MOT, "role": "resultat", "carte": carte, "silhouette": null, "difficulte": "moyen" }],
         "langues": [],
         "recettes": [{ "id": RECETTE, "chemin": recette }],
@@ -126,10 +118,10 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
         "mots_briques": [{ "mot_id": MOT, "brique_id": BIO }],
         "ricochets": {
             "briques": [
-                { "id": GEO, "sens_id": SENS_GEO, "classe_sens": SENS_GEO },
-                { "id": LOGIE, "sens_id": SENS_LOGIE, "classe_sens": SENS_LOGIE }
+                { "id": GEO, "sens_id": SENS_GEO, "classe_sens": SENS_GEO, "position": "prefixe" },
+                { "id": LOGIE, "sens_id": SENS_LOGIE, "classe_sens": SENS_LOGIE, "position": "suffixe" }
             ],
-            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3] }]
+            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3], "assemblage": [GEO, LOGIE] }]
         },
         "pli": {
             "briques": [
@@ -148,7 +140,11 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
                 "filet_utilite": 5
             }
         },
-        "jalons": [{ "id": "jal_0000000a", "decouvertes": 1, "pli": [BIO], "sabliers": 3 }],
+        "jalons": jalons,
+        "collections": [
+            { "id": COLLECTION_PREFIXES, "critere": "prefixes", "encre": 20, "sabliers": 1, "membres": [BIO, GEO] },
+            { "id": COLLECTION_MOTS, "critere": "mots_communs", "encre": 20, "sabliers": 0, "membres": [MOT] }
+        ],
         "graines": [
             { "brique_id": GEO, "exemplaires": 2 },
             { "brique_id": LOGIE, "exemplaires": 1 }
@@ -178,6 +174,7 @@ pub fn calendrier(racine: &Path, nom: &str, version: &str, fascicules: &[(u32, &
               "libelles": { "fr": { "titre": "Maîtrise", "consigne": "Maîtrisez des cartes." } },
               "paliers": [{ "id": PALIER_RICOCHETS, "seuil": 1, "sabliers": 1 }] }
         ],
+        "cadeau_de_bienvenue": { "plis": [GEO, GEO, BIO], "sabliers": 12, "encre": 40 },
         "fascicules": fascicules
             .iter()
             .map(|(numero, parution, manifeste)| json!({ "numero": numero, "parution": parution, "manifeste": manifeste }))

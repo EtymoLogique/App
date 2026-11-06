@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT rang, code, progres FROM quete_jour\n         WHERE joueur_id = $1 AND jour = $2 AND faite_le IS NULL AND code <> 'table_sens'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "rang",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "progres",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0386f259a835e99ffe0b4cf8288a5e2048cdc954997ae7e9d3db5265c196e510"
+}

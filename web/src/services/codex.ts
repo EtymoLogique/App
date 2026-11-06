@@ -5,8 +5,9 @@
 
 import type { Carte, Confiance, Etat, Forme, Rarete } from '../contrat'
 import type { TriCodex } from './route'
-import { type BriqueJeu, type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
+import { type CatalogueJeu, definition, formeCanonique, libelle, rareteMot } from './jeu'
 import { correspond } from './recherche'
+import { fasciculesDebloques } from './deblocage'
 
 export type TypeCarte = 'mot' | 'prefixe' | 'suffixe' | 'langue'
 
@@ -243,7 +244,10 @@ export function construireCodex(jeu: CatalogueJeu, etat: Etat | null): EntreeCod
         .filter((e) => e.type !== 'langue' && e.trouvee && e.formes.some((f) => f.langueId === langue.id))
         .reduce<string | null>((date, e) => plusTot(date ?? undefined, e.trouveeLe ?? undefined), null)
   }
-  return entrees
+  // Un fascicule verrouillé ne montre que ses cartes déjà trouvées, sans silhouette (ADR 0068).
+  const debloques = fasciculesDebloques(jeu, etat)
+  const ouverts = new Set(jeu.fascicules.filter((f) => debloques.has(f.manifeste.id)).map((f) => f.numero))
+  return entrees.filter((e) => e.trouvee || ouverts.has(e.fascicule))
 }
 
 /** Complétude : les légendaires ne comptent jamais, pour garder le suspense (ADR 0015). */
@@ -373,8 +377,6 @@ export interface SavoirPlus {
   transformations: { type: string; texte: string; partie: string | null }[]
   confiance: Confiance | null
   sources: SourceAffichee[]
-  /** Fausses pistes qui ressemblent à ce mot, avec leur explication complète : le mot est trouvé (ADR 0052). */
-  aNePasConfondre: { id: string; briques: BriqueJeu[]; texte: string }[]
 }
 
 function nomDeLangue(jeu: CatalogueJeu, id: string): string | null {
@@ -453,14 +455,18 @@ export function savoirPlus(entree: EntreeCodex, jeu: CatalogueJeu): SavoirPlus |
     transformations,
     confiance: composition?.fait?.confiance ?? carte.fait?.confiance ?? null,
     sources,
-    aNePasConfondre: jeu.trompesLOeil
-      .filter((t) => t.motId === carte.id && (t.complete || t.courte))
-      .map((t) => ({
-        id: t.id,
-        briques: t.combinaison.flatMap((b) => jeu.briques.get(b) ?? []),
-        texte: t.complete || t.courte,
-      })),
   }
+}
+
+/**
+ * Exemples concrets d'une carte trouvée, pour se représenter un mot peu
+ * imaginable : ceux de ses sens, dans l'ordre des sens, sans doublon.
+ */
+export function exemplesDe(entree: EntreeCodex): string[] {
+  const carte = entree.carte
+  if (!carte || !entree.trouvee) return []
+  const exemples = [...carte.sens].sort((a, b) => a.rang - b.rang).flatMap((s) => s.libelles.fr?.exemples ?? [])
+  return [...new Set(exemples)]
 }
 
 export type { Forme }

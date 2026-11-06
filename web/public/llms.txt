@@ -1,0 +1,30 @@
+# ÉtymoLogique
+
+> Jeu de logique, de découverte et de collection, en français : le joueur assemble des briques linguistiques (préfixes, suffixes, mots) pour retrouver des mots attestés et découvrir leur histoire. Gratuit, sans publicité, sans inscription, jouable dans le navigateur.
+
+ÉtymoLogique n’est ni un dictionnaire ni un générateur de mots. C’est un jeu fondé sur un graphe éditorial de relations étymologiques : chaque recette s’appuie sur Wikidata et est relue avant publication. Une simple ressemblance n’est jamais présentée comme une étymologie.
+
+Les mots à découvrir ne sont pas publiés hors du jeu : les trouver fait partie du plaisir.
+
+## Comment jouer
+
+- **Table de fusion** : le joueur pose deux briques dans l’ordre. Si l’assemblage correspond à une recette documentée, le mot est découvert.
+- **Codex** : la collection des mots, briques et langues déjà découverts, avec leur histoire.
+- **Exemplaires et réserve** : se tromper ne coûte rien ; seule une découverte consomme un exemplaire de chaque brique. La réserve garde au plus 5 exemplaires par brique.
+- **Plis** : plis scellés et gratuits, seule source de nouveaux exemplaires après la réserve de départ.
+- **Fascicules** : un nouvel ensemble de 20 à 30 mots paraît environ chaque mois.
+- **Ricochets** : de courtes questions sur les cartes déjà trouvées ; trois bonnes réponses, sur trois jours différents, rendent une carte maîtrisée.
+- **Quêtes et carte de lecteur** : trois quêtes du jour, renouvelées à minuit GMT ; chaque jour où elles sont faites, la carte de lecteur reçoit un tampon.
+
+## En bref
+
+- Langue : français.
+- Plateforme : application web progressive (PWA), sur téléphone comme sur ordinateur ; installable depuis le navigateur. Hors connexion, le codex reste consultable.
+- Prix : gratuit, sans publicité.
+- Données personnelles : aucun nom ni aucune adresse électronique demandé.
+- Source des étymologies : [Wikidata](https://www.wikidata.org/).
+- Licences : code sous GNU AGPL 3.0 ou ultérieure, contenus sous Creative Commons BY-SA 4.0. Le nom « ÉtymoLogique » et le logo sont réservés.
+
+## Liens
+
+- [Jouer à ÉtymoLogique](/)

@@ -1,9 +1,10 @@
-//! Ricochets (ADR 0044) : niveau d'une carte trouvée, de 0 à 3, et maîtrise.
+//! Ricochets (ADR 0044, 0065) : niveau d'une carte trouvée, de 0 à 3, et maîtrise.
 //!
 //! Une réponse n'agit que si la carte est à revoir : jouer plus ne fait pas
 //! monter plus vite. Trois bonnes réponses données au niveau 3, sur trois
-//! jours différents (chaque réponse repousse l'échéance), maîtrisent la carte,
-//! pour toujours.
+//! jours différents (chaque réponse repousse l'échéance), maîtrisent la carte.
+//! Une erreur la fait descendre d'un niveau, maîtrisée ou non : elle perd sa
+//! maîtrise et doit la regagner en entier (ADR 0065).
 
 use chrono::{Days, NaiveDate};
 
@@ -55,19 +56,11 @@ pub fn repondre(carte: Carte, juste: bool, aujourd_hui: NaiveDate) -> Carte {
     }
     let demain = dans(aujourd_hui, 1);
     if !juste {
-        // Une carte maîtrisée le reste ; une erreur la ramène seulement à demain.
-        return if carte.maitrisee {
-            Carte {
-                prochaine_revision: demain,
-                ..carte
-            }
-        } else {
-            Carte {
-                niveau: carte.niveau.saturating_sub(1),
-                bonnes_niveau_3: 0,
-                prochaine_revision: demain,
-                maitrisee: false,
-            }
+        return Carte {
+            niveau: carte.niveau.saturating_sub(1),
+            bonnes_niveau_3: 0,
+            prochaine_revision: demain,
+            maitrisee: false,
         };
     }
     if carte.niveau < NIVEAU_MAX {
@@ -153,7 +146,20 @@ mod tests {
     }
 
     #[test]
-    fn carte_maitrisee_le_reste() {
+    fn carte_maitrisee_garde_sa_maitrise_sur_une_bonne_reponse() {
+        let carte = Carte {
+            niveau: 3,
+            bonnes_niveau_3: 3,
+            maitrisee: true,
+            ..Carte::neuve(jour(0))
+        };
+        let juste = repondre(carte, true, jour(0));
+        assert!(juste.maitrisee);
+        assert_eq!(juste.prochaine_revision, jour(7));
+    }
+
+    #[test]
+    fn erreur_sur_une_carte_maitrisee_la_fait_descendre_au_niveau_2() {
         let carte = Carte {
             niveau: 3,
             bonnes_niveau_3: 3,
@@ -161,10 +167,36 @@ mod tests {
             ..Carte::neuve(jour(0))
         };
         let rate = repondre(carte, false, jour(0));
-        assert!(rate.maitrisee && rate.niveau == 3);
+        assert_eq!(
+            (rate.niveau, rate.bonnes_niveau_3, rate.maitrisee),
+            (2, 0, false)
+        );
         assert_eq!(rate.prochaine_revision, jour(1));
-        let juste = repondre(carte, true, jour(0));
-        assert!(juste.maitrisee);
-        assert_eq!(juste.prochaine_revision, jour(7));
+    }
+
+    #[test]
+    fn maitrise_regagnee_en_entier_apres_une_perte() {
+        let maitrisee = Carte {
+            niveau: 3,
+            bonnes_niveau_3: 3,
+            maitrisee: true,
+            ..Carte::neuve(jour(0))
+        };
+        let mut carte = repondre(maitrisee, false, jour(0));
+        // Retour au niveau 3, puis trois bonnes réponses : (jour, niveau, bonnes, maîtrisée).
+        let attendu = [
+            (1, 3, 0, false),
+            (8, 3, 1, false),
+            (15, 3, 2, false),
+            (22, 3, 3, true),
+        ];
+        for (n, niveau, bonnes, maitrisee) in attendu {
+            carte = repondre(carte, true, jour(n));
+            assert_eq!(
+                (carte.niveau, carte.bonnes_niveau_3, carte.maitrisee),
+                (niveau, bonnes, maitrisee),
+                "jour {n}"
+            );
+        }
     }
 }

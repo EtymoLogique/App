@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO retour_jour (jour, delai, cohorte, revenus)\n             SELECT $1::date, $2::smallint, count(*), count(*) FILTER (WHERE (derniere_activite AT TIME ZONE 'UTC')::date >= $1::date)\n             FROM joueur WHERE (cree_le AT TIME ZONE 'UTC')::date = $3::date\n             ON CONFLICT (jour, delai) DO UPDATE SET cohorte = EXCLUDED.cohorte, revenus = EXCLUDED.revenus",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Int2",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0767367a5491cab8634abfbb4ecd4939f75bd92e080d48e908b4a501e468db70"
+}

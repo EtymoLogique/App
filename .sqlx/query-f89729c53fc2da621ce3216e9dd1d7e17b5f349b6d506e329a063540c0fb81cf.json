@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH vieux AS (\n             DELETE FROM ouverture_pli\n              WHERE ouvert_le < date_trunc('month', now() AT TIME ZONE 'UTC' - make_interval(months => $1)) AT TIME ZONE 'UTC'\n              RETURNING joueur_id, fascicule_id, origine, resultat, regle, version_equilibrage, ouvert_le\n         ), agreges AS (\n             INSERT INTO plis_agreges (mois, fascicule_id, origine, resultat, regle, version_equilibrage, plis, joueurs)\n             SELECT date_trunc('month', ouvert_le AT TIME ZONE 'UTC')::date, fascicule_id, origine, resultat, regle,\n                    version_equilibrage, count(*), count(DISTINCT joueur_id)\n               FROM vieux GROUP BY 1, 2, 3, 4, 5, 6\n         )\n         SELECT count(*) AS \"plis!\" FROM vieux",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "plis!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f89729c53fc2da621ce3216e9dd1d7e17b5f349b6d506e329a063540c0fb81cf"
+}

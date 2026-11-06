@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM ricochet_jour WHERE jour < (now() AT TIME ZONE 'UTC')::date - $1::int",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f0996f5e0756a800bae1c9f1231dfaa8d73e6083bd7c1072a78f20e3736c7239"
+}

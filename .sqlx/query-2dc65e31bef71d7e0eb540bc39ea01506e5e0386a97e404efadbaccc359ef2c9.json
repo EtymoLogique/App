@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT appareil_id, intention, empreinte_courriel, pseudo_propose, empreinte_jeton, empreinte_code, tentatives,\n                  (expire_le > now() AND utilise_le IS NULL) AS \"ouvert!\"\n           FROM defi_connexion WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "appareil_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "intention",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "empreinte_courriel",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 3,
+        "name": "pseudo_propose",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "empreinte_jeton",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 5,
+        "name": "empreinte_code",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 6,
+        "name": "tentatives",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "ouvert!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "2dc65e31bef71d7e0eb540bc39ea01506e5e0386a97e404efadbaccc359ef2c9"
+}

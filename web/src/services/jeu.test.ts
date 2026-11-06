@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { GEO, LOGIE, MOT, RECETTE, jeu } from '../test/fixtures'
-import { entrelacer, prevoir, rareteMot } from './jeu'
+import { cleEssai, entrelacer, prevoir, prochainFascicule, raisonEssai, rareteMot } from './jeu'
 
 describe('prévisualisation d’une fusion', () => {
   it('suit les mêmes règles que le serveur', () => {
@@ -16,30 +16,6 @@ describe('prévisualisation d’une fusion', () => {
     expect(prevoir([LOGIE, GEO], catalogue, aucun)).toEqual({ type: 'presque', motif: 'ordre' })
     expect(prevoir([LOGIE, LOGIE], catalogue, aucun)).toEqual({ type: 'presque', motif: 'incomplet' })
     expect(prevoir([LOGIE, GEO], catalogue, new Set([MOT, 'unt_0000000b']))).toEqual({ type: 'echec' })
-  })
-
-  it('dit « bonne forme, autre brique » quand un homographe donnerait la recette (ADR 0052)', () => {
-    const catalogue = jeu()
-    const GEO_AUTRE = 'brq_0000ge99'
-    catalogue.homographes.set(GEO_AUTRE, [GEO])
-    catalogue.homographes.set(GEO, [GEO_AUTRE])
-    expect(prevoir([GEO_AUTRE, LOGIE], catalogue, new Set())).toEqual({ type: 'homographe', rang: 0 })
-    // Le mot est déjà au codex : on ne le rappelle pas.
-    expect(prevoir([GEO_AUTRE, LOGIE], catalogue, new Set([MOT]))).toEqual({ type: 'echec' })
-    // Pas de fausse lueur : l'homographe ne mène à aucune recette.
-    expect(prevoir([GEO_AUTRE, GEO_AUTRE], catalogue, new Set())).toEqual({ type: 'echec' })
-    // La bonne brique reste une découverte normale.
-    expect(prevoir([GEO, LOGIE], catalogue, new Set())).toMatchObject({ type: 'decouverte' })
-  })
-
-  it('reconnaît un trompe-l’œil sur sa seule paire ordonnée, avant le « presque » (ADR 0052)', () => {
-    const catalogue = jeu()
-    const GEO_AUTRE = 'brq_0000ge99'
-    catalogue.homographes.set(GEO_AUTRE, [GEO])
-    catalogue.trompesLOeil.push({ id: 'tpl_0000000a', combinaison: [GEO_AUTRE, LOGIE], motId: null, courte: 'c', complete: 'd' })
-    expect(prevoir([GEO_AUTRE, LOGIE], catalogue, new Set())).toEqual({ type: 'trompe_l_oeil', id: 'tpl_0000000a' })
-    expect(prevoir([LOGIE, GEO_AUTRE], catalogue, new Set())).toEqual({ type: 'echec' })
-    expect(prevoir([GEO, LOGIE], catalogue, new Set())).toMatchObject({ type: 'decouverte' })
   })
 })
 
@@ -66,5 +42,37 @@ describe('entrelacer', () => {
   it('alterne la plus longue et la plus courte restantes', () => {
     expect(entrelacer([3, 9, 1, 7, 5], (n) => n)).toEqual([9, 1, 7, 3, 5])
     expect(entrelacer([], (n: number) => n)).toEqual([])
+  })
+})
+
+describe('prochainFascicule', () => {
+  const maintenant = new Date('2026-10-20T10:00:00Z')
+
+  it('annonce le jour du prochain fascicule, « 1ᵉʳ » pour le premier du mois', () => {
+    expect(prochainFascicule({ prochaineParution: '2026-11-01T07:00:00Z' }, maintenant)).toBe('Prochain fascicule : 1ᵉʳ novembre')
+    expect(prochainFascicule({ prochaineParution: '2026-11-15T07:00:00Z' }, maintenant)).toBe('Prochain fascicule : 15 novembre')
+  })
+
+  it('ne dit rien sans date, ou une fois la date passée', () => {
+    expect(prochainFascicule({ prochaineParution: null }, maintenant)).toBeNull()
+    expect(prochainFascicule({ prochaineParution: '2026-10-01T07:00:00Z' }, maintenant)).toBeNull()
+  })
+})
+
+describe('mémoire des essais', () => {
+  const j = jeu()
+  const aucun = new Set<string>()
+
+  it('déduit un mot déjà au codex, sans ligne du serveur', () => {
+    expect(raisonEssai([GEO, LOGIE], j, new Set([MOT]), aucun)).toBe('au codex')
+    // Jamais trouvé : rien ne dit que la paire est bonne.
+    expect(raisonEssai([GEO, LOGIE], j, aucun, aucun)).toBeNull()
+  })
+
+  it('ne montre un échec ou un « presque » que s’il a été essayé, dans cet ordre', () => {
+    expect(raisonEssai([LOGIE, GEO], j, aucun, aucun)).toBeNull()
+    expect(raisonEssai([LOGIE, GEO], j, aucun, new Set([cleEssai(LOGIE, GEO)]))).toBe('presque : inversez')
+    expect(raisonEssai([GEO, GEO], j, aucun, new Set([cleEssai(GEO, GEO)]))).toBe('aucune recette')
+    expect(raisonEssai([GEO, GEO], j, aucun, new Set([cleEssai(LOGIE, GEO)]))).toBeNull()
   })
 })

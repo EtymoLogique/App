@@ -2,7 +2,7 @@
 // réponses du serveur. `poids` est le miroir de `etymo_domaine::pli::poids` :
 // changez les deux ensemble, avec leurs tests. Le tirage, lui, reste au serveur.
 
-import type { CompteurPli, EnergieEtat, Etat, Manifeste, Rarete, SabliersEtat } from '../contrat'
+import type { CompteurPli, EnergieEtat, Etat, Manifeste, Rarete, ReponsePli, SabliersEtat } from '../contrat'
 import type { CatalogueJeu, FasciculeParu } from './jeu'
 
 type PliManifeste = NonNullable<Manifeste['pli']>
@@ -129,10 +129,14 @@ export function pliOuvrable(f: FasciculeParu): boolean {
 }
 
 /** Briques connues et exemplaires en réserve pour un fascicule (I-19). */
-export function reserveDuFascicule(jeu: CatalogueJeu, etat: Etat | null, f: FasciculeParu): { connues: number; exemplaires: number } {
-  const ids = new Set(briquesDuPli(f).map((b) => b.id))
+/** `total` : briques du pli que le joueur peut compter ; une légendaire inconnue ne compte jamais (ADR 0015). */
+export function reserveDuFascicule(jeu: CatalogueJeu, etat: Etat | null, f: FasciculeParu): { connues: number; exemplaires: number; total: number } {
+  const briques = briquesDuPli(f)
+  const ids = new Set(briques.map((b) => b.id))
   const lignes = (etat?.reserve ?? []).filter((e) => ids.has(e.brique_id) && jeu.briques.has(e.brique_id))
-  return { connues: lignes.length, exemplaires: lignes.reduce((n, e) => n + e.exemplaires, 0) }
+  const detenues = new Set(lignes.map((e) => e.brique_id))
+  const total = briques.filter((b) => b.rarete !== 'legendaire' || detenues.has(b.id)).length
+  return { connues: lignes.length, exemplaires: lignes.reduce((n, e) => n + e.exemplaires, 0), total }
 }
 
 /** Avance d'un sablier : un douzième de la recharge, 1 h en production (`etymo_domaine::sablier::duree`). */
@@ -163,3 +167,30 @@ export const LOTS = [
   { nombre: 12, titre: 'Douze sabliers', texte: 'Une recharge entière : un pli de plus.' },
   { nombre: 24, titre: 'Vingt-quatre sabliers', texte: 'Deux recharges entières : deux plis de plus.' },
 ]
+
+/** Écart entre les départs des plis d'une ouverture groupée : un canon, chaque pli joue le rituel entier (ADR « ouverture groupée »). */
+export const DECALAGE_CANON_MS = 110
+export const departCanon = (rang: number) => rang * DECALAGE_CANON_MS
+
+/** Taille des plis d'une ouverture groupée : plus ils sont nombreux, plus ils sont petits. */
+export function tailleGroupe(nombre: number): 'g' | 'm' | 'p' {
+  return nombre <= 2 ? 'g' : nombre <= 5 ? 'm' : 'p'
+}
+
+/** La rareté la plus haute d'une liste : elle décide de l'annonce qui conclut l'ouverture. */
+export function rareteMax(raretes: Rarete[]): Rarete {
+  return raretes.reduce<Rarete>((max, r) => (ORDRE_RARETES.indexOf(r) > ORDRE_RARETES.indexOf(max) ? r : max), 'commune')
+}
+
+const pluriel = (n: number, s: string, p = `${s}s`) => `${n}\u00a0${n > 1 ? p : s}`
+
+/** Bilan d'une ouverture groupée : annoncé une seule fois aux lecteurs d'écran, jamais une phrase par pli. */
+export function resumeGroupe(reponses: ReponsePli[]): { nouvelles: number; encre: number; texte: string } {
+  const nouvelles = reponses.filter((r) => r.ouverture.resultat === 'nouvelle').length
+  const encre = reponses.reduce((n, r) => n + r.ouverture.encre, 0)
+  return {
+    nouvelles,
+    encre,
+    texte: `${pluriel(reponses.length, 'pli ouvert', 'plis ouverts')} : ${pluriel(nouvelles, 'nouvelle brique', 'nouvelles briques')}, +${pluriel(encre, 'goutte')} d’encre.`,
+  }
+}

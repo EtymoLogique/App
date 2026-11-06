@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE quete_initiale SET recupere_le = $3\n         WHERE joueur_id = $1 AND code = $2 AND recupere_le IS NULL RETURNING true",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fb0182f121f2e2afc6bc7ed7ab2ac7f005ad500f927d4b73f9eb32f0ec82d36e"
+}

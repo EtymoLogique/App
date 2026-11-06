@@ -99,6 +99,375 @@ pub struct Etat {
     /// Paliers de quêtes au long cours dont la récompense a été récupérée.
     #[serde(default)]
     pub paliers_recuperes: Vec<IdCatalogue>,
+    /// Les quêtes du jour GMT (ADR 0045), tirées par le serveur à la première
+    /// visite du jour ; vide avant App#20 ou sans catalogue.
+    #[serde(default)]
+    pub quetes_du_jour: Vec<QueteDuJour>,
+    /// Carte de lecteur (ADR 0045) ; absente avant App#21.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carte_de_lecteur: Option<CarteDeLecteurEtat>,
+    /// Cadeau de bienvenue déclaré par le catalogue (ADR 0046) ; absent s'il n'y en a pas.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cadeau_de_bienvenue: Option<CadeauEtat>,
+    /// Quêtes initiales de la première semaine (ADR 0046) ; vide passé la semaine, une fois récupérées.
+    #[serde(default)]
+    pub quetes_initiales: Vec<QueteInitialeEtat>,
+    /// Fascicules parus que le joueur a débloqués (ADR 0068), triés par
+    /// fascicule. Vide dans une réponse enregistrée avant ce champ, ou sans
+    /// catalogue : le client tient alors tous les fascicules parus pour débloqués.
+    #[serde(default)]
+    pub fascicules_debloques: Vec<FasciculeDebloque>,
+    /// Compte facultatif (ADR 0070) ; absent pour une partie invitée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compte: Option<CompteEtat>,
+    /// Paires déjà essayées sans succès depuis la dernière parution (App#89),
+    /// dans l'ordre des cases, triées. Vide avant ce champ ou après une parution.
+    #[serde(default)]
+    pub essais: Vec<Essai>,
+    /// Quêtes de collection des fascicules débloqués (App#90) ; vide avant ce
+    /// champ ou sans catalogue. Leur récupération passe par `paliers_recuperes`.
+    #[serde(default)]
+    pub progression_collections: Vec<ProgressionCollection>,
+}
+
+/// Une paire essayée sans succès (échec ou « presque ») : ni issue, ni date.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Essai {
+    pub gauche: IdCatalogue,
+    pub droite: IdCatalogue,
+}
+
+/// Compte du joueur (ADR 0070). L'adresse n'y figure jamais : le serveur ne
+/// la garde pas.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompteEtat {
+    pub pseudo: String,
+    /// Faux tant que le joueur n'a ni confirmé ni modifié son pseudo par
+    /// défaut : il reste alors privé.
+    pub pseudo_confirme: bool,
+    /// Vrai si l'adresse du compte a un abonnement Ko-fi actif (ADR 0078) : la
+    /// PWA ne présente alors plus la modale de soutien. Aucun avantage de jeu.
+    #[serde(default)]
+    pub soutien: bool,
+}
+
+/// Demande d'un lien et d'un code de connexion par e-mail (ADR 0070). La même
+/// demande crée un compte depuis la partie invitée ou ouvre un compte existant.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCompte {
+    /// Adresse électronique : elle sert à l'envoi, puis le serveur n'en garde qu'une empreinte.
+    #[schema(max_length = 254)]
+    pub courriel: String,
+}
+
+/// Réponse identique, que l'adresse ait déjà un compte ou non.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseDemandeCompte {
+    /// Défi à confirmer par le code ou le lien de l'e-mail.
+    pub defi: Uuid,
+    /// Délai avant de proposer « Renvoyer », en secondes.
+    pub renvoyer_dans_s: u32,
+}
+
+/// Confirmation d'un défi, par le jeton du lien ou par le code à 6 chiffres :
+/// exactement l'un des deux.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeConfirmation {
+    pub defi: Uuid,
+    /// Jeton du lien, en base64url.
+    #[serde(default)]
+    #[schema(max_length = 43)]
+    pub jeton: Option<String>,
+    /// Code de l'e-mail, 6 chiffres.
+    #[serde(default)]
+    #[schema(pattern = "^[0-9]{6}$")]
+    pub code: Option<String>,
+    /// Remplace la partie invitée de cet appareil par celle du compte, après
+    /// l'avertissement d'un `409`.
+    #[serde(default)]
+    pub remplacer_invite: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum IssueConfirmation {
+    /// La partie invitée est devenue un compte, sans rien perdre.
+    CompteCree,
+    /// Cet appareil joue désormais la partie du compte.
+    Connecte,
+}
+
+/// Défi confirmé : le client rouvre sa session, son ancien jeton ne vaut plus.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseConfirmation {
+    pub issue: IssueConfirmation,
+    pub pseudo: String,
+    pub pseudo_confirme: bool,
+}
+
+/// Nouveau pseudo, ou pseudo par défaut confirmé tel quel.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandePseudo {
+    /// 3 à 24 caractères : lettres minuscules sans accent, chiffres, traits d'union isolés.
+    #[schema(min_length = 3, max_length = 24, pattern = "^[a-z0-9]+(-[a-z0-9]+)*$")]
+    pub pseudo: String,
+}
+
+/// Suppression du compte et de toute la progression, sur tous les appareils.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeSuppression {
+    /// Doit valoir `SUPPRIMER`.
+    pub confirmation: String,
+}
+
+/// Ce que l'appareil perdrait en ouvrant le compte : sa partie invitée.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AvertissementRemplacement {
+    pub decouvertes: u32,
+    pub gouttes: u32,
+}
+
+/// Un fascicule débloqué par le joueur (ADR 0068).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FasciculeDebloque {
+    pub fascicule_id: IdCatalogue,
+    pub debloque_le: DateTime<Utc>,
+}
+
+/// Les quatre quêtes initiales, liste fermée ; le client rend le texte de chacune.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CodeQueteInitiale {
+    /// Découvrir trois mots.
+    TroisMots,
+    /// Découvrir un mot qui porte une transformation.
+    Transformation,
+    /// Cinq ricochets sans faute.
+    PremiersRicochets,
+    /// Remplir sa première carte de lecteur.
+    PremiereCarte,
+}
+
+/// Récompense d'une quête initiale, annoncée d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseInitiale {
+    /// Plis ordinaires du fascicule que choisit le joueur, sans énergie ni garantie.
+    pub plis_offerts: u32,
+    pub plis_de_lecteur: u32,
+    pub sabliers: u32,
+    pub gouttes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueteInitialeEtat {
+    pub code: CodeQueteInitiale,
+    #[schema(minimum = 1)]
+    pub cible: u8,
+    pub progres: u8,
+    /// Faite pendant la première semaine : la récompense peut se récupérer.
+    pub faite: bool,
+    pub recuperee: bool,
+    pub recompense: RecompenseInitiale,
+}
+
+/// Commande de récupération d'une quête initiale ; le fascicule sert aux plis offerts et de lecteur.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeQueteInitiale {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub code: CodeQueteInitiale,
+    /// Obligatoire si la récompense contient des plis.
+    #[serde(default)]
+    pub fascicule_id: Option<IdCatalogue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseQueteInitiale {
+    /// Briques des plis offerts et de lecteur, dans l'ordre.
+    pub ouvertures: Vec<OuverturePli>,
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Cadeau de bienvenue : une récompense unique par profil, annoncée d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CadeauEtat {
+    /// Une brique par pli de bienvenue.
+    pub plis: Vec<IdCatalogue>,
+    pub sabliers: u32,
+    pub encre: u32,
+    pub recupere: bool,
+}
+
+/// Commande de récupération du cadeau de bienvenue.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCadeau {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseCadeau {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Ce que donne une carte de lecteur pleine, annoncé d'avance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseCarte {
+    pub gouttes: u32,
+    pub sabliers: u32,
+    /// Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+    pub plis: u32,
+}
+
+/// Carte de lecteur : un tampon par jour GMT où les trois quêtes sont faites,
+/// sans série ni expiration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CarteDeLecteurEtat {
+    /// Jours des tampons de la carte affichée, du plus ancien au plus récent :
+    /// la plus ancienne carte pleine à récupérer, sinon la carte en cours.
+    pub tampons: Vec<NaiveDate>,
+    /// Tampons d'une carte pleine.
+    #[schema(minimum = 1)]
+    pub taille: u8,
+    /// Cartes pleines dont la récompense attend.
+    pub a_recuperer: u32,
+    /// Cartes pleines, récupérées ou non.
+    pub remplies: u32,
+    pub recompense: RecompenseCarte,
+}
+
+/// Commande de récupération d'une carte pleine.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeCarteDeLecteur {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseCarteDeLecteur {
+    /// État confirmé après la commande.
+    pub etat: Etat,
+}
+
+/// Sorte d'une quête du jour : une de chaque par jour (ADR 0045).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SorteQueteDuJour {
+    Table,
+    Memoire,
+    Adresse,
+}
+
+/// Les six quêtes du jour, liste fermée ; le client rend le texte de chacune.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CodeQueteDuJour {
+    /// Trouver le mot décrit par son seul sens (`mot_id`).
+    TableSens,
+    /// Cinq ricochets justes de suite.
+    MemoireSansFaute,
+    /// Trois mots retrouvés par leur sens littéral.
+    MemoireLitteral,
+    /// Maîtriser une carte.
+    MemoireMaitrise,
+    /// Découper trois mots sans erreur.
+    AdresseDecouper,
+    /// Relier quatre paires sans erreur.
+    AdressePaires,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueteDuJour {
+    #[schema(minimum = 0, maximum = 2)]
+    pub rang: u8,
+    pub sorte: SorteQueteDuJour,
+    pub code: CodeQueteDuJour,
+    /// Le mot à trouver, pour la quête de table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mot_id: Option<IdCatalogue>,
+    /// Ce qu'il faut atteindre.
+    #[schema(minimum = 1)]
+    pub cible: u8,
+    /// Ce qui est fait ; une suite sans faute retombe à zéro à la première erreur.
+    pub progres: u8,
+    pub faite: bool,
+    /// Jour GMT de la quête : une quête faite et pas récupérée survit à minuit (ADR 0063).
+    #[serde(default)]
+    pub jour: Option<NaiveDate>,
+    /// La récompense est prise.
+    #[serde(default)]
+    pub recuperee: bool,
+    /// Annoncée d'avance, selon la sorte de la quête.
+    #[serde(default)]
+    pub recompense: Option<RecompenseQuete>,
+}
+
+/// Ce que donne une quête du jour faite, annoncé d'avance (ADR 0063).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecompenseQuete {
+    pub gouttes: u32,
+    pub sabliers: u32,
+    /// Plis en attente de plus : une charge d'énergie, à ouvrir comme les autres.
+    pub plis: u32,
+}
+
+/// Commande de récupération de la récompense d'une quête du jour faite.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DemandeQueteDuJour {
+    /// Clé d'idempotence générée par le client (UUID v4).
+    pub commande: Uuid,
+    /// `version_etat` connue du client.
+    pub version_etat: i64,
+    #[schema(max_length = 64)]
+    pub version_catalogue: String,
+    pub jour: NaiveDate,
+    #[schema(minimum = 0, maximum = 2)]
+    pub rang: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReponseQueteDuJour {
+    /// État confirmé après la commande.
+    pub etat: Etat,
 }
 
 /// Niveau de révision d'une carte trouvée : de quoi dessiner le signe de maîtrise.
@@ -109,7 +478,7 @@ pub struct RicochetEtat {
     pub unite_id: IdCatalogue,
     #[schema(minimum = 0, maximum = 3)]
     pub niveau: u8,
-    /// Définitif : une carte maîtrisée le reste.
+    /// Perdue sur une erreur, regagnée par trois bonnes réponses sur trois jours (ADR 0065).
     pub maitrisee: bool,
     /// Vrai si une réponse d'aujourd'hui compterait.
     pub a_revoir: bool,
@@ -140,6 +509,9 @@ pub enum FormatRicochet {
     /// Relier une brique à son sens, une commande par brique. Cible `brq_…`,
     /// réponse le premier `sns_…` essayé pour elle.
     Paires,
+    /// Quel préfixe et quel suffixe forment le mot de cette définition ? Cible
+    /// `unt_…`, choix les briques des deux colonnes, réponse deux `brq_…` (ADR 0067).
+    Assembler,
 }
 
 /// Une question de la séance, par identifiants : le client rend les textes.
@@ -162,13 +534,15 @@ pub struct SeanceRicochets {
     pub questions: Vec<QuestionRicochet>,
 }
 
-/// Réponse du joueur : un choix, ou les positions de coupe d'un mot.
+/// Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum ReponseJoueur {
     Choix(IdCatalogue),
     /// Huit positions au plus.
     Coupes(Vec<u32>),
+    /// Deux briques : préfixe, suffixe.
+    Briques(Vec<IdCatalogue>),
 }
 
 /// Commande de réponse à une question de ricochet : une commande, une carte.
@@ -198,6 +572,9 @@ pub struct CarteRicochet {
     /// Bonnes réponses données au niveau 3 ; trois maîtrisent la carte.
     #[schema(minimum = 0, maximum = 3)]
     pub bonnes_niveau_3: u8,
+    /// Vrai si cette erreur a fait perdre la maîtrise de la carte (ADR 0065).
+    #[serde(default)]
+    pub maitrise_perdue: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -208,6 +585,17 @@ pub struct ReponseRicochet {
     pub carte: CarteRicochet,
     /// État confirmé après la commande.
     pub etat: Etat,
+}
+
+/// Progression d'une quête de collection (App#90), d'un fascicule débloqué
+/// seulement : un fascicule verrouillé n'expose aucun total (ADR 0069).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressionCollection {
+    pub palier_id: IdCatalogue,
+    pub fascicule_id: IdCatalogue,
+    pub progression: u32,
+    pub total: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -452,6 +840,9 @@ pub struct ReponseFusion {
     /// Jalons atteints par cette découverte, à annoncer.
     #[serde(default)]
     pub jalons: Vec<IdCatalogue>,
+    /// Fascicules débloqués par cette découverte, à annoncer (ADR 0068).
+    #[serde(default)]
+    pub fascicules_debloques: Vec<IdCatalogue>,
     /// État confirmé après la commande.
     pub etat: Etat,
 }
@@ -477,27 +868,10 @@ pub enum IssueFusion {
     Exclue { raison: String },
     /// Pertinente, mais mal ordonnée ou incomplète.
     Presque { motif: MotifPresque },
-    /// Aucune correspondance. Une explication facultative dit pourquoi (ADR 0052) ;
-    /// un client qui l'ignore affiche l'échec neutre.
-    Echec {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        explication: Option<Explication>,
-    },
+    /// Aucune correspondance.
+    Echec,
     /// Recette exacte, mais la réserve ne contient pas un exemplaire de chaque brique.
     ReserveInsuffisante { briques: Vec<IdCatalogue> },
-}
-
-/// Pourquoi une fusion ne marche pas, quand le catalogue peut le dire (ADR 0052).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(tag = "nature", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Explication {
-    /// Bonne forme, autre brique : `rang` est l'emplacement (0 ou 1) de la brique à changer.
-    Homographe {
-        #[schema(minimum = 0, maximum = 1)]
-        rang: u8,
-    },
-    /// Fausse piste déclarée par le catalogue : les lettres se suivent, le mot n'en vient pas.
-    TrompeLOeil { trompe_l_oeil_id: IdCatalogue },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -529,6 +903,15 @@ pub enum StatutSante {
 pub struct Erreur {
     pub code: CodeErreur,
     pub message: String,
+    /// Code de connexion faux : essais restants avant d'en demander un nouveau.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub essais_restants: Option<u8>,
+    /// Connexion refusée sans `remplacer_invite` : la partie invitée qui serait effacée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avertissement: Option<AvertissementRemplacement>,
+    /// Pseudo déjà pris : un pseudo libre proche.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposition: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -541,6 +924,8 @@ pub enum CodeErreur {
     TropDeRequetes,
     Indisponible,
     Interne,
+    /// Défi de connexion expiré, déjà utilisé ou épuisé (`410`).
+    Expire,
 }
 
 #[cfg(test)]

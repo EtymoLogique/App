@@ -5,6 +5,7 @@ import { Anneau } from './Anneau'
 import { Compteur } from './Compteur'
 import { Icone, type NomIcone } from './Icone'
 import { Sablier } from './Sabliers'
+import { LienSoutien } from './Soutien'
 
 export type { Onglet }
 
@@ -35,6 +36,14 @@ interface Props {
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 
+/** Unité écrite à côté du nombre (barre mobile) : un `title` ne s'affiche pas au toucher. */
+const Unite = ({ n, mot }: { n: number; mot: string }) => (
+  <span className="navigation-unite" aria-hidden="true">
+    {mot}
+    {n > 1 ? 's' : ''}
+  </span>
+)
+
 /** Ressources du joueur en un coup d'œil : plis prêts, gouttes, sabliers. */
 function Ressources({ plis, capacite, gouttes, sabliers, recharge, avance }: NonNullable<Props['ressources']>) {
   return (
@@ -46,14 +55,17 @@ function Ressources({ plis, capacite, gouttes, sabliers, recharge, avance }: Non
           {/* Recharge du prochain pli, en petit ; absente quand l'énergie est pleine. */}
           {recharge !== null && <Anneau className="navigation-recharge" progression={recharge} avance={avance} />}
         </span>
+        <Unite n={plis} mot="pli" />
       </li>
       <li aria-label={pluriel(gouttes, 'goutte')} title="Gouttes d’encre">
         <span className="pk-drop" aria-hidden="true" />
         <Compteur valeur={gouttes} />
+        <Unite n={gouttes} mot="goutte" />
       </li>
       <li aria-label={pluriel(sabliers, 'sablier')} title="Sabliers">
         <Sablier />
         <Compteur valeur={sabliers} />
+        <Unite n={sabliers} mot="sablier" />
       </li>
     </ul>
   )
@@ -90,6 +102,21 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
     }
   }, [ouvert])
 
+  // Hauteur réelle de la barre (safe-area, ligne des ressources, taille du texte) : les pieds collés se posent juste au-dessus.
+  useEffect(() => {
+    const nav = racine.current
+    if (!nav) return
+    const racineDoc = document.documentElement
+    const maj = () => racineDoc.style.setProperty('--hauteur-navigation', `${nav.offsetHeight}px`)
+    maj()
+    const ro = new ResizeObserver(maj)
+    ro.observe(nav)
+    return () => {
+      ro.disconnect()
+      racineDoc.style.removeProperty('--hauteur-navigation')
+    }
+  }, [])
+
   const nouveautes = (n: number, id?: Onglet) =>
     n > 0 && (
       <span className="count" aria-label={id === 'quetes' ? `${n} récompense${n > 1 ? 's' : ''} à récupérer` : `${n} nouveauté${n > 1 ? 's' : ''}`}>
@@ -121,6 +148,7 @@ export function Navigation({ onglets = ONGLETS, actif, compteurs, onChoisir, res
         // Les ressources se lisent juste au-dessus des réglages.
         return id === 'reglages' && ressources ? [<Ressources key="ressources" {...ressources} />, bouton] : bouton
       })}
+      <LienSoutien />
       {cachees.length > 0 && (
         <>
           <button
