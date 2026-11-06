@@ -25,7 +25,7 @@
 .energy strong { display: block; font-family: var(--mono); font-size: 18px; }
 .energy small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
 .pk-layout { display: grid; grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr) minmax(220px, 0.8fr); gap: 20px; align-items: start; }
-.pk-side { display: grid; gap: 20px; }
+.pk-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
 .pk-card { padding: 20px; border: 1.5px solid var(--line-strong); border-radius: var(--radius); background: var(--cream); }
 .pk-label { margin-bottom: 14px; color: var(--ink-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
 .pk-note { margin-top: 12px; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
@@ -195,7 +195,8 @@
 .pk-pool { display: grid; gap: 6px; }
 .pk-brickodd { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 10px; }
 .pk-brickodd small { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
-.pk-history { grid-template-columns: max-content max-content 1fr; column-gap: 0; }
+.pk-history { grid-template-columns: max-content minmax(0, 1fr) max-content; column-gap: 0; }
+.pk-hist-item > :nth-child(2) { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pk-hist-item { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 14px; }
 /* La pastille (« inédite », « +1 ») se pose à côté de la brique : « inédite » est trop longue pour mordre sur son coin. */
 .pk-hist-brique { display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
