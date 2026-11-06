@@ -1324,6 +1324,11 @@ export interface components {
              *     vide : le mot ne s'assemble pas (ADR 0067).
              */
             assemblage?: components["schemas"]["IdCatalogue"][];
+            /**
+             * @description Autres découpes justes du même mot (« écologiste » : écologie + iste, éco + logiste) :
+             *     le joueur doit les trouver toutes. Vide : la découpe est unique.
+             */
+            autres_coupes?: number[][];
             classe_litteral?: components["schemas"]["IdCatalogue"] | null;
             /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
             coupes?: number[];
@@ -1584,8 +1589,8 @@ export interface components {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
         };
-        /** @description Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage. */
-        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[] | components["schemas"]["IdCatalogue"][];
+        /** @description Réponse du joueur : un choix, les positions de coupe d'un mot, toutes ses découpes, ou le préfixe puis le suffixe d'un assemblage. */
+        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[] | components["schemas"]["IdCatalogue"][] | number[][];
         ReponsePalier: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];

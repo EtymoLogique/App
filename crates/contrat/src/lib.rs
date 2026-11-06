@@ -534,7 +534,7 @@ pub struct SeanceRicochets {
     pub questions: Vec<QuestionRicochet>,
 }
 
-/// Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage.
+/// Réponse du joueur : un choix, les positions de coupe d'un mot, toutes ses découpes, ou le préfixe puis le suffixe d'un assemblage.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum ReponseJoueur {
@@ -543,6 +543,8 @@ pub enum ReponseJoueur {
     Coupes(Vec<u32>),
     /// Deux briques : préfixe, suffixe.
     Briques(Vec<IdCatalogue>),
+    /// Un mot qui se découpe de plusieurs façons : toutes les découpes, quatre au plus.
+    Decoupes(Vec<Vec<u32>>),
 }
 
 /// Commande de réponse à une question de ricochet : une commande, une carte.
