@@ -207,6 +207,9 @@ export default defineConfig(({ mode }) => {
     build: { sourcemap: true },
     test: {
       environment: 'jsdom',
+      // Un test de parcours complet dure ~2 s au repos ; sous charge il lui faut de la marge.
+      testTimeout: 20_000,
+      hookTimeout: 20_000,
       setupFiles: ['./src/test/setup.ts'],
       env: { VITE_URL_API: 'https://api.exemple.test', VITE_URL_CATALOGUE: 'https://catalogue.exemple.test/public' },
     },
