@@ -170,7 +170,9 @@ export interface paths {
          * Répond à une question de ricochet (ADR 0044). Le serveur juge sur les
          *     identifiants, applique la règle de maîtrise et compte la réponse parmi les
          *     cinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.
-         *     Rien n'est consommé : ni exemplaire, ni énergie, ni encre.
+         *     Rien n'est consommé : ni exemplaire, ni énergie, ni encre. Une coupe juste de
+         *     *découper* qui laisse des coupes à poser (`suite = continue`, ADR 0084) ne
+         *     modifie rien : seule la réponse qui clôt la question est une commande.
          */
         post: operations["repondre_ricochet"];
         delete?: never;
@@ -889,6 +891,7 @@ export interface components {
             classe_litteral?: components["schemas"]["IdCatalogue"] | null;
             /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
             coupes?: number[];
+            decoupage?: components["schemas"]["Noeud"] | null;
             id: components["schemas"]["IdCatalogue"];
         };
         /** @enum {string} */
@@ -902,6 +905,20 @@ export interface components {
          * @enum {string}
          */
         NaturePli: "prefixe" | "suffixe" | "mot";
+        /** @description Un morceau du mot et ses coupes justes. */
+        Noeud: {
+            /** @description Positions des coupes de ce morceau, dans le mot entier. */
+            coupes: number[];
+            /** Format: int32 */
+            debut: number;
+            /**
+             * Format: int32
+             * @description Fin exclue.
+             */
+            fin: number;
+            /** @description Sous-nœuds : les parties qui se coupent à leur tour. */
+            parties?: components["schemas"]["Noeud"][];
+        };
         OuverturePli: {
             brique_id: components["schemas"]["IdCatalogue"];
             /**
@@ -1049,8 +1066,16 @@ export interface components {
             carte: components["schemas"]["CarteRicochet"];
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
-            /** @description Vrai si la réponse est la bonne, que la carte ait été à revoir ou non. */
+            /**
+             * @description Vrai si la réponse est la bonne, que la carte ait été à revoir ou non.
+             *     Pour une coupe de *découper* qui laisse la question ouverte : vrai.
+             */
             juste: boolean;
+            /**
+             * @description `continue` : *découper* a encore des coupes à poser (ADR 0084), rien n'est
+             *     écrit ni compté. Absent des anciennes réponses : `terminee`.
+             */
+            suite?: components["schemas"]["SuiteRicochet"];
         };
         ReponseSablier: {
             /** @description État confirmé après la commande. */
@@ -1175,6 +1200,11 @@ export interface components {
         };
         /** @enum {string} */
         StatutSante: "ok" | "degrade";
+        /**
+         * @description Où en est la question après la réponse.
+         * @enum {string}
+         */
+        SuiteRicochet: "terminee" | "continue";
         Transformation: {
             id: components["schemas"]["IdCatalogue"];
             libelles: components["schemas"]["BTreeMap_LibelleTexte"];

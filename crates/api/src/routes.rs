@@ -11,7 +11,7 @@ use etymo_contrat::{
     DemandePli, DemandeRicochet, DemandeSablier, DemandeSession, Erreur, Etat, Explication,
     IssueFusion, OuverturePli, ReponseAchatSablier, ReponseFusion, ReponseIndice, ReponseJalon,
     ReponsePalier, ReponsePli, ReponseRicochet, ReponseSablier, Sante, SeanceRicochets, Session,
-    StatutSante,
+    StatutSante, SuiteRicochet,
 };
 use etymo_domaine::fusion::{Issue, TABLE_MAX, TABLE_MIN, consommation, resoudre};
 use etymo_domaine::{indice, pli, sablier};
@@ -847,7 +847,9 @@ pub async fn seance_ricochets(
 /// Répond à une question de ricochet (ADR 0044). Le serveur juge sur les
 /// identifiants, applique la règle de maîtrise et compte la réponse parmi les
 /// cinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.
-/// Rien n'est consommé : ni exemplaire, ni énergie, ni encre.
+/// Rien n'est consommé : ni exemplaire, ni énergie, ni encre. Une coupe juste de
+/// *découper* qui laisse des coupes à poser (`suite = continue`, ADR 0084) ne
+/// modifie rien : seule la réponse qui clôt la question est une commande.
 #[utoipa::path(post, path = "/ricochet", tag = "jeu", security(("session" = [])), request_body = DemandeRicochet,
     responses(
         (status = 200, description = "Résultat, carte après la réponse et état confirmé", body = ReponseRicochet),
@@ -876,7 +878,7 @@ pub async fn repondre_ricochet(
         Err(reponse) => return Ok(Json(reponse)),
     };
     let catalogue = app.catalogue.courant().ok_or(ErreurApi::Indisponible)?;
-    let juste = ricochets::juger(
+    let jugement = ricochets::jugement(
         &catalogue.jeu,
         demande.format,
         &demande.unite_id,
@@ -885,11 +887,25 @@ pub async fn repondre_ricochet(
     if !ricochets::est_trouvee(&mut tx, joueur, &demande.unite_id).await? {
         return Err(ErreurApi::Interdit("carte pas encore trouvée"));
     }
-    let carte =
-        ricochets::enregistrer(&mut tx, joueur, &demande.unite_id, juste, Utc::now()).await?;
-    progression::incrementer_version(&mut tx, joueur).await?;
+    let (juste, suite, carte) = if jugement == ricochets::Jugement::Continue {
+        // Une coupe juste de *découper* qui laisse la question ouverte (ADR 0084) :
+        // ni commande, ni version, ni niveau, ni réponse du jour. La transaction
+        // se referme sans rien écrire ; seule la commande qui clôt la question compte.
+        let carte = ricochets::lire(&mut tx, joueur)
+            .await?
+            .remove(&demande.unite_id)
+            .unwrap_or_else(|| etymo_domaine::ricochet::Carte::neuve(Utc::now().date_naive()));
+        (true, SuiteRicochet::Continue, carte)
+    } else {
+        let juste = jugement == ricochets::Jugement::Juste;
+        let carte =
+            ricochets::enregistrer(&mut tx, joueur, &demande.unite_id, juste, Utc::now()).await?;
+        progression::incrementer_version(&mut tx, joueur).await?;
+        (juste, SuiteRicochet::Terminee, carte)
+    };
     let reponse = ReponseRicochet {
         juste,
+        suite,
         carte: CarteRicochet {
             niveau: carte.niveau,
             maitrisee: carte.maitrisee,
@@ -898,6 +914,9 @@ pub async fn repondre_ricochet(
         },
         etat: etat_courant(&app, &mut tx, joueur).await?,
     };
+    if suite == SuiteRicochet::Continue {
+        return Ok(Json(reponse));
+    }
     conclure_commande(tx, joueur, demande.commande, "ricochet", &reponse).await?;
     Ok(Json(reponse))
 }

@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, FixedOffset};
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::decoupage::Noeud;
 use etymo_domaine::jalon::Jalon;
 use etymo_domaine::pli::{Equilibrage, NaturePli, Rarete};
 use etymo_domaine::quete::QueteLongCours;
@@ -115,6 +116,22 @@ pub struct MotRicochet {
     /// Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas.
     #[serde(default)]
     pub coupes: Vec<u32>,
+    /// Arbre des coupes justes, compositions chaînées comprises (ADR 0084). Absent d'un
+    /// manifeste antérieur : `coupes` seules font alors foi, sur un seul niveau.
+    #[serde(default)]
+    pub decoupage: Option<Noeud>,
+}
+
+impl MotRicochet {
+    /// Arbre à juger : le `decoupage` publié, ou à défaut les `coupes` du premier niveau.
+    #[must_use]
+    pub fn arbre(&self) -> Option<std::borrow::Cow<'_, Noeud>> {
+        match (&self.decoupage, self.coupes.is_empty()) {
+            (Some(arbre), _) => Some(std::borrow::Cow::Borrowed(arbre)),
+            (None, false) => Some(std::borrow::Cow::Owned(Noeud::plat(&self.coupes))),
+            (None, true) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

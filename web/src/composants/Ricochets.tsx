@@ -11,7 +11,10 @@ import {
   donneesRicochets,
   juger,
   melanger,
+  arbreDuMot,
   briquesDuMot,
+  feuillesDuMot,
+  jugerCoupes,
   morceauxDuMot,
   motDe,
   retour,
@@ -154,11 +157,14 @@ function preparer(q: QuestionRicochet, jeu: CatalogueJeu, d: DonneesRicochets): 
     }
     default: {
       const mot = motDe(jeu, cible)
-      const morceaux = (d.mots.get(cible)?.coupes.length ?? 1) + 1
-      const parties = morceauxDuMot(jeu, cible)
+      const arbre = arbreDuMot(d, cible)
+      const enChaine = (arbre?.parties?.length ?? 0) > 0
+      const morceaux = (arbre?.coupes.length ?? 1) + 1
+      // Au verdict, tous les morceaux élémentaires de l'arbre (ADR 0084), pas seulement le premier niveau.
+      const parties = arbre && enChaine ? feuillesDuMot(jeu, cible, arbre) : morceauxDuMot(jeu, cible)
       return {
         sujet: <span className="rico-mot">{mot}</span>,
-        consigne: morceaux === 2 ? 'Où ce mot se coupe-t-il ?' : `Coupez ce mot en ${morceaux} morceaux.`,
+        consigne: enChaine ? 'Coupez ce mot autant que vous le pouvez.' : morceaux === 2 ? 'Où ce mot se coupe-t-il ?' : `Coupez ce mot en ${morceaux} morceaux.`,
         choix: [],
         lecon: (
           <>
@@ -238,14 +244,19 @@ function Qcm({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   )
 }
 
-/** Découper : le mot en grand ; survolée, une jointure écarte le mot ; touchée, elle le coupe. Le verdict tombe à la dernière coupe. */
-function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
+/**
+ * Découper : le mot en grand ; survolée, une jointure écarte le mot ; touchée, elle le coupe.
+ * Chaque coupe part au serveur (ADR 0084) : juste, le mot reste ouvert tant qu'un morceau se coupe ;
+ * fausse, la question s'arrête ; la dernière coupe juste l'achève.
+ */
+export function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const question = useMemo(() => preparer(q, jeu, d), [q, jeu, d])
   const unite = q.cartes[0] ?? ''
-  const attendu = d.mots.get(unite)?.coupes ?? []
+  const arbre = arbreDuMot(d, unite)
   const lettres = Array.from(motDe(jeu, unite))
   const [coupes, setCoupes] = useState<number[]>([])
-  const fini = coupes.length > 0 && coupes.length === attendu.length
+  const verdict = arbre && coupes.length > 0 ? jugerCoupes(arbre, coupes) : 'continue'
+  const fini = verdict !== 'continue'
   // Invite : tant que le joueur n'a pas touché au mot, il s'ouvre doucement, jointure après jointure.
   const [invite, setInvite] = useState(() => !mouvementReduit())
   const [demo, setDemo] = useState<number | null>(null)
@@ -265,17 +276,19 @@ function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
     }
   }, [invite, coupes.length, n])
   const couper = (p: number) => {
-    if (fini) return
-    const suite = coupes.includes(p) ? coupes.filter((c) => c !== p) : [...coupes, p].sort((a, b) => a - b)
+    // Une coupe posée est envoyée : elle ne se reprend pas.
+    if (fini || !arbre || coupes.includes(p)) return
+    const suite = [...coupes, p]
     setCoupes(suite)
-    if (suite.length !== attendu.length) return
-    envoyer('decouper', unite, suite)
-    repondu()
+    // Une commande par coupe, avec toutes les coupes posées ; seule celle qui clôt la question compte.
+    envoyer('decouper', unite, [...suite].sort((a, b) => a - b))
+    if (jugerCoupes(arbre, suite) !== 'continue') repondu()
   }
   // Validé : le mot devient des briques. Justes, elles prennent leur vraie nature ; sinon préfixe, mot, suffixe selon leur place.
-  const juste = fini && juger(d, 'decouper', unite, coupes) === true
-  const bornes = [0, ...coupes, lettres.length]
-  const reels = morceauxDuMot(jeu, unite)
+  const juste = verdict === 'termine'
+  const triees = [...coupes].sort((a, b) => a - b)
+  const bornes = [0, ...triees, lettres.length]
+  const reels = arbre && juste ? feuillesDuMot(jeu, unite, arbre) : []
   const morceaux = bornes.slice(1).map((fin, i, tous) => {
     const nature = (juste && reels.length === tous.length ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
     const texte = lettres.slice(bornes[i], fin).join('')
@@ -311,6 +324,7 @@ function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
                   className={`rico-coupe ${coupes.includes(k) ? 'coupee' : demo === k ? 'demo' : ''}`}
                   aria-label={`Couper entre « ${lettres.slice(0, k).join('')} » et « ${lettres.slice(k).join('')} »`}
                   aria-pressed={coupes.includes(k)}
+                  disabled={coupes.includes(k)}
                   onClick={() => couper(k)}
                 />
               )}
@@ -325,6 +339,12 @@ function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
           <>
             <strong>{juste ? 'Bien vu.' : 'Pas cette fois.'}</strong>
             <div>{question.lecon}</div>
+          </>
+        )}
+        {!fini && coupes.length > 0 && (
+          <>
+            <strong>Bien vu.</strong>
+            <span>Un morceau se coupe encore.</span>
           </>
         )}
       </div>
@@ -641,7 +661,11 @@ export function Ricochets({ jeu, etat, enLigne, seance, repondre, entrees, lireM
   const envoyer = (format: FormatRicochet, unite: string, reponse: ReponseJoueur) => {
     const envoi = repondre(format, unite, reponse)
     envois.current.push(envoi)
-    void envoi.then((r) => setReponses((anciennes) => new Map(anciennes).set(unite, r)))
+    // Une coupe juste qui laisse la question ouverte n'est pas une réponse : seule la dernière compte.
+    void envoi.then((r) => {
+      if (!('erreur' in r) && r.suite === 'continue') return
+      setReponses((anciennes) => new Map(anciennes).set(unite, r))
+    })
   }
 
   if (!jeu || !d) return <p className="rico-note">Le catalogue se charge…</p>

@@ -1,5 +1,6 @@
 //! Types et règles du jeu, sans entrée-sortie.
 
+pub mod decoupage;
 pub mod energie;
 pub mod fusion;
 pub mod identifiant;
