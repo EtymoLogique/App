@@ -889,6 +889,11 @@ export interface components {
             classe_litteral?: components["schemas"]["IdCatalogue"] | null;
             /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
             coupes?: number[];
+            /**
+             * @description Autres découpes tout aussi justes (lettre partagée entre deux morceaux :
+             *     « hom|onyme » et « homo|nyme »), chacune une liste de positions triée.
+             */
+            coupes_alternatives?: number[][];
             id: components["schemas"]["IdCatalogue"];
         };
         /** @enum {string} */

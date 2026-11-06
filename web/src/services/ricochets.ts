@@ -18,7 +18,7 @@ interface BriqueRicochet {
 export interface DonneesRicochets {
   briques: Map<string, BriqueRicochet>
   /** Classe du sens littéral et coupes, par mot. */
-  mots: Map<string, { classe: string | null; coupes: number[] }>
+  mots: Map<string, { classe: string | null; coupes: number[]; alternatives?: number[][] }>
   /** Glose de chaque sens affiché d'une brique. */
   gloses: Map<string, string>
 }
@@ -31,7 +31,7 @@ export function donneesRicochets(jeu: CatalogueJeu): DonneesRicochets {
       const glose = jeu.briques.get(b.id)?.glose
       if (glose) donnees.gloses.set(b.sens_id, glose)
     }
-    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [] })
+    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [], alternatives: m.coupes_alternatives ?? [] })
   }
   return donnees
 }
@@ -46,10 +46,11 @@ export function sensLitteral(jeu: CatalogueJeu, motId: string): string | null {
 /** Verdict d'une réponse. `null` : la donnée manque, le client n'affiche pas de verdict. */
 export function juger(d: DonneesRicochets, format: FormatRicochet, unite: string, reponse: ReponseJoueur): boolean | null {
   if (format === 'decouper') {
-    const attendu = d.mots.get(unite)?.coupes
-    if (!attendu?.length || !Array.isArray(reponse)) return null
+    const mot = d.mots.get(unite)
+    if (!mot?.coupes.length || !Array.isArray(reponse)) return null
     const coupes = [...new Set(reponse)].sort((a, b) => a - b)
-    return coupes.length === attendu.length && coupes.every((c, i) => c === attendu[i])
+    const egal = (attendu: number[]) => coupes.length === attendu.length && coupes.every((c, i) => c === attendu[i])
+    return egal(mot.coupes) || (mot.alternatives ?? []).some(egal)
   }
   if (typeof reponse !== 'string') return null
   if (format === 'mot_sens') {

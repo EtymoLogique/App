@@ -383,7 +383,7 @@ pub fn juger(
             let mut coupes = coupes.clone();
             coupes.sort_unstable();
             coupes.dedup();
-            Ok(coupes == mot.coupes)
+            Ok(coupes == mot.coupes || mot.coupes_alternatives.contains(&coupes))
         }
         _ => Err(invalide("reponse : forme incompatible avec le format")),
     }
@@ -613,6 +613,7 @@ mod tests {
                     id: mot(n),
                     classe_litteral: Some(mot(classe)),
                     coupes: if n <= 2 { vec![3] } else { vec![] },
+                    coupes_alternatives: if n == 1 { vec![vec![4]] } else { vec![] },
                 },
             );
         }
@@ -785,6 +786,9 @@ mod tests {
         let coupes = |c: &[u32]| ReponseJoueur::Coupes(c.to_vec());
         assert!(juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[3, 3])).unwrap());
         assert!(!juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[2])).unwrap());
+        // Découpe alternative : lettre partagée (hom|onyme ou homo|nyme).
+        assert!(juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[4])).unwrap());
+        assert!(!juger(&jeu, FormatRicochet::Decouper, &mot(2), &coupes(&[4])).unwrap());
     }
 
     #[test]

@@ -115,6 +115,10 @@ pub struct MotRicochet {
     /// Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas.
     #[serde(default)]
     pub coupes: Vec<u32>,
+    /// Autres découpes tout aussi justes (lettre partagée entre deux morceaux :
+    /// « hom|onyme » et « homo|nyme »), chacune une liste de positions triée.
+    #[serde(default)]
+    pub coupes_alternatives: Vec<Vec<u32>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
