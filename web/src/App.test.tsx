@@ -11,6 +11,9 @@ import { signalerJoignable } from './services/reseau'
 import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtures'
 
 function client(fusion?: ClientApi['fusion']): ClientApi {
+  // Les appels que le test ne simule pas ne partent pas sur le réseau : un échec relancé après la fin du test
+  // marquerait l'API injoignable pendant un test suivant (boutons désactivés, au hasard des durées).
+  vi.stubGlobal('fetch', () => Promise.resolve(Response.json({ code: 'inconnu', message: 'Non simulé' }, { status: 404 })))
   const api = new ClientApi('https://api.exemple.test')
   vi.spyOn(api, 'etat').mockResolvedValue(etat())
   vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', revision_api: '', reinitialisation: false })

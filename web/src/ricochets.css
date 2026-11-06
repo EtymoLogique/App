@@ -243,6 +243,8 @@
 }
 .rico-emplacement.rate .brick { filter: grayscale(1); opacity: 0.55; box-shadow: none; }
 .rico-lecon-assemblage { line-height: 1.8; }
+.rico-autres { margin: 8px 0 0; color: var(--ink-2); }
+.rico-decoupes-faites { display: grid; justify-items: center; gap: 12px; }
 
 /*
  * Mobile, à une main : l'énoncé reste en haut, la zone de réponse descend vers le pouce, juste au-dessus du pied et de la navigation.

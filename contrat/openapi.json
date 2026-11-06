@@ -4004,6 +4004,18 @@
             },
             "description": "Les deux briques de la composition préférée, préfixe puis suffixe ;\nvide : le mot ne s'assemble pas (ADR 0067)."
           },
+          "autres_coupes": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            },
+            "description": "Autres découpes justes du même mot (« écologiste » : écologie + iste, éco + logiste) :\nle joueur doit les trouver toutes. Vide : la découpe est unique."
+          },
           "classe_litteral": {
             "oneOf": [
               {
@@ -4023,6 +4035,18 @@
               "minimum": 0
             },
             "description": "Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas."
+          },
+          "coupes_alternatives": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            },
+            "description": "Autres découpes tout aussi justes (lettre partagée entre deux morceaux :\n« hom|onyme » et « homo|nyme »), chacune une liste de positions triée."
           },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
@@ -4777,9 +4801,21 @@
               "$ref": "#/components/schemas/IdCatalogue"
             },
             "description": "Deux briques : préfixe, suffixe."
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            },
+            "description": "Un mot qui se découpe de plusieurs façons : toutes les découpes, quatre au plus."
           }
         ],
-        "description": "Réponse du joueur : un choix, les positions de coupe d'un mot, ou le préfixe puis le suffixe d'un assemblage."
+        "description": "Réponse du joueur : un choix, les positions de coupe d'un mot, toutes ses découpes, ou le préfixe puis le suffixe d'un assemblage."
       },
       "ReponsePalier": {
         "type": "object",

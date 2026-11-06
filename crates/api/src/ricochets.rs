@@ -26,6 +26,8 @@ const PAIRES: usize = 4;
 const COUPES_MAX: usize = 8;
 /// Briques par colonne d'une question « assembler », bonne brique comprise (ADR 0067).
 const COLONNE_MAX: usize = 4;
+/// Découpes d'un même mot qu'une réponse peut porter.
+const DECOUPES_MAX: usize = 4;
 
 // ------------------------------------------------------------------ hasard
 
@@ -471,21 +473,38 @@ pub fn juger(
                 .ok_or_else(|| invalide("reponse : un mot connu attendu"))?;
             Ok(choisi == unite || autre.classe_litteral.as_ref() == Some(classe))
         }
-        (FormatRicochet::Decouper, ReponseJoueur::Coupes(coupes)) => {
+        (
+            FormatRicochet::Decouper,
+            reponse @ (ReponseJoueur::Coupes(_) | ReponseJoueur::Decoupes(_)),
+        ) => {
             let mot = (unite.prefixe() == "unt")
                 .then(|| ricochets.mots.get(unite))
                 .flatten()
                 .ok_or_else(inconnue)?;
-            if mot.coupes.is_empty() {
+            let attendues = mot.decoupes();
+            if attendues.is_empty() {
                 return Err(invalide("format : ce mot ne se découpe pas"));
             }
-            if coupes.len() > COUPES_MAX {
+            let donnees = match reponse {
+                ReponseJoueur::Coupes(une) => vec![une.clone()],
+                ReponseJoueur::Decoupes(plusieurs) => plusieurs.clone(),
+                ReponseJoueur::Choix(_) | ReponseJoueur::Briques(_) => unreachable!(),
+            };
+            if donnees.len() > DECOUPES_MAX || donnees.iter().any(|c| c.len() > COUPES_MAX) {
                 return Err(invalide("reponse : trop de coupes"));
             }
-            let mut coupes = coupes.clone();
-            coupes.sort_unstable();
-            coupes.dedup();
-            Ok(coupes == mot.coupes)
+            // L'ordre, les doublons et l'ordre des découpes ne comptent pas. Chaque découpe donnée doit être une
+            // découpe juste (la préférée ou une variante équivalente comptent pour une) et toutes doivent être trouvées.
+            let mut trouvees = vec![false; attendues.len()];
+            for mut coupes in donnees {
+                coupes.sort_unstable();
+                coupes.dedup();
+                match mot.rang_de_decoupe(&coupes) {
+                    Some(rang) => trouvees[rang] = true,
+                    None => return Ok(false),
+                }
+            }
+            Ok(trouvees.iter().all(|t| *t))
         }
         (FormatRicochet::Assembler, ReponseJoueur::Briques(briques)) => {
             let mot = (unite.prefixe() == "unt")
@@ -733,6 +752,8 @@ mod tests {
                     classe_litteral: Some(mot(classe)),
                     coupes: if n <= 2 { vec![3] } else { vec![] },
                     assemblage: vec![],
+                    autres_coupes: if n == 2 { vec![vec![1, 3]] } else { vec![] },
+                    coupes_alternatives: if n == 1 { vec![vec![4]] } else { vec![] },
                 },
             );
         }
@@ -767,7 +788,9 @@ mod tests {
                     id: mot(n),
                     classe_litteral: None,
                     coupes: vec![],
+                    autres_coupes: vec![],
                     assemblage: vec![brique(n), brique(n + 10)],
+                    coupes_alternatives: vec![],
                 },
             );
         }
@@ -1061,6 +1084,41 @@ mod tests {
         let coupes = |c: &[u32]| ReponseJoueur::Coupes(c.to_vec());
         assert!(juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[3, 3])).unwrap());
         assert!(!juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[2])).unwrap());
+        // Découpe alternative : lettre partagée (hom|onyme ou homo|nyme).
+        assert!(juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[4])).unwrap());
+        assert!(!juger(&jeu, FormatRicochet::Decouper, &mot(2), &coupes(&[4])).unwrap());
+    }
+
+    #[test]
+    fn decouper_demande_toutes_les_decoupes() {
+        let jeu = jeu();
+        let une = |c: &[u32]| ReponseJoueur::Coupes(c.to_vec());
+        let toutes = |c: &[&[u32]]| ReponseJoueur::Decoupes(c.iter().map(|x| x.to_vec()).collect());
+        let juge = |r: &ReponseJoueur| juger(&jeu, FormatRicochet::Decouper, &mot(2), r).unwrap();
+        // Une seule découpe juste ne suffit pas quand il y en a deux.
+        assert!(!juge(&une(&[3])));
+        assert!(!juge(&une(&[1, 3])));
+        assert!(!juge(&toutes(&[&[3]])));
+        // Les deux, dans n'importe quel ordre, avec doublons.
+        assert!(juge(&toutes(&[&[3], &[1, 3]])));
+        assert!(juge(&toutes(&[&[3, 1], &[3], &[3]])));
+        // Une découpe fausse en plus, ou à la place, fait échouer.
+        assert!(!juge(&toutes(&[&[3], &[1, 3], &[2]])));
+        assert!(!juge(&toutes(&[&[3], &[2]])));
+        // Une variante équivalente de la préférée compte pour la préférée (mot 1 : 3 ou 4).
+        let equiv = |r: &ReponseJoueur| juger(&jeu, FormatRicochet::Decouper, &mot(1), r).unwrap();
+        assert!(equiv(&une(&[4])));
+        assert!(equiv(&toutes(&[&[4], &[3]])));
+        // Un mot à découpe unique accepte les deux formes de réponse.
+        let un = |r: &ReponseJoueur| juger(&jeu, FormatRicochet::Decouper, &mot(1), r).unwrap();
+        assert!(un(&une(&[3])));
+        assert!(un(&toutes(&[&[3]])));
+        // Trop de découpes : refusé.
+        let trop = toutes(&[&[1], &[2], &[3], &[4], &[5]]);
+        assert!(matches!(
+            juger(&jeu, FormatRicochet::Decouper, &mot(2), &trop),
+            Err(ErreurApi::RequeteInvalide(_))
+        ));
     }
 
     #[test]

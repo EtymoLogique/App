@@ -116,7 +116,7 @@
   position: fixed; z-index: 90; inset: 0;
   display: grid; grid-template-areas: "trail trail trail" "prev card next" "hint hint hint";
   place-content: center; align-items: center; gap: 18px 28px;
-  padding: 24px;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
 }
 .viewer[hidden] { display: none; }
 .viewer > .viewer-nav, .viewer > .big-wrap, .viewer > .viewer-hint, .viewer > .viewer-trail { position: relative; z-index: 1; }
@@ -259,7 +259,7 @@
   .m-lit { font-size: clamp(10px, 12cqi, 13px); }
   .m-q { font-size: 38px; }
   .m-kind { display: none; }
-  .viewer { grid-template-areas: "trail trail" "card card" "prev next" "hint hint"; gap: 12px; padding: 16px; }
+  .viewer { grid-template-areas: "trail trail" "card card" "prev next" "hint hint"; gap: 12px; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
   .viewer-nav.prev { justify-self: end; }
   .viewer-nav.next { justify-self: start; }
   .big-wrap { width: min(410px, 88vw, calc((100svh - 240px) * 0.714)); }
@@ -314,7 +314,7 @@
 .mini.is-legend { border-color: var(--ink); }
 
 /* ---------- Maîtrise (ADR 0044) : galet dans le bandeau, filet de trois segments, comme « Niveau n sur 3 » ---------- */
-.filet-maitrise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+.filet-maitrise { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
 .filet-maitrise i { height: 3px; border-radius: 2px; background: var(--line); }
 .filet-maitrise i.on { background: var(--ink); }
 .galet { flex: none; color: var(--tt); }

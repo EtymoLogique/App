@@ -3,18 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Decoupe } from './Decoupe'
 
-function monter(mot: string, attendu: number[], reels: { nature: 'prefixe' | 'mot' | 'suffixe' }[]) {
+function monter(mot: string, attendues: number[] | number[][], reels: { nature: 'prefixe' | 'mot' | 'suffixe' }[]) {
+  const toutes = Array.isArray(attendues[0]) ? (attendues as number[][]) : [attendues as number[]]
   const pied = document.body.appendChild(document.createElement('footer'))
   const onValider = vi.fn()
   const repondu = vi.fn()
   render(
     <Decoupe
       mot={mot}
-      attendu={attendu}
+      attendues={toutes}
       reels={reels}
       consigne="Où ce mot se coupe-t-il ?"
       lecon="Leçon."
-      juger={(c) => c.length === attendu.length && c.every((x, i) => x === attendu[i])}
+      juger={(r) => r.length === toutes.length && toutes.every((a) => r.some((c) => c.length === a.length && c.every((x, i) => x === a[i])))}
       onValider={onValider}
       repondu={repondu}
       pied={pied}
@@ -37,7 +38,7 @@ describe('Decoupe', () => {
     for (let i = 0; i < 20; i++) {
       const pied = document.body.appendChild(document.createElement('footer'))
       const { unmount } = render(
-        <Decoupe mot="autobiographie" attendu={[4, 7]} reels={AUTO} consigne="" lecon="" juger={() => null} onValider={() => {}} repondu={() => {}} pied={pied} />,
+        <Decoupe mot="autobiographie" attendues={[[4, 7]]} reels={AUTO} consigne="" lecon="" juger={() => null} onValider={() => {}} repondu={() => {}} pied={pied} />,
       )
       expect(['4', '7']).not.toContain(curseur())
       fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
@@ -119,5 +120,45 @@ describe('Decoupe', () => {
     expect(screen.getByText('Pas cette fois.')).toBeInTheDocument()
     expect(document.querySelector('.rico-morceaux.faux')).not.toBeNull()
     expect(pied).toBeEmptyDOMElement()
+  })
+
+  describe('un mot qui se coupe de plusieurs façons', () => {
+    const allerA = (cible: number) => {
+      for (let i = 0; i < 20 && curseur() !== String(cible); i++) {
+        fireEvent.click(screen.getByRole('button', { name: Number(curseur()) > cible ? 'Une lettre vers la gauche' : 'Une lettre vers la droite' }))
+      }
+    }
+    const couper = (j: number) => {
+      allerA(j)
+      fireEvent.click(screen.getByRole('button', { name: 'Couper ici' }))
+    }
+
+    it('garde chaque découpe juste et n’envoie qu’une fois, quand toutes sont trouvées', () => {
+      const { onValider, repondu } = monter('géographie', [[3], [5]], GEO)
+      expect(screen.getByText(/Découpe 1 sur 2/)).toBeInTheDocument()
+      couper(5)
+      expect(onValider).not.toHaveBeenCalled()
+      expect(screen.getByText(/Découpe 2 sur 2/)).toBeInTheDocument()
+      couper(3)
+      expect(onValider).toHaveBeenCalledExactlyOnceWith([[5], [3]])
+      expect(repondu).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Bien vu.')).toBeInTheDocument()
+    })
+
+    it('une découpe fausse clôt la question, avec ce qui était trouvé', () => {
+      const { onValider } = monter('géographie', [[3], [5]], GEO)
+      couper(3)
+      couper(7)
+      expect(onValider).toHaveBeenCalledExactlyOnceWith([[3], [7]])
+      expect(screen.getByText('Pas cette fois.')).toBeInTheDocument()
+    })
+
+    it('redonner une découpe déjà trouvée est faux', () => {
+      const { onValider } = monter('géographie', [[3], [5]], GEO)
+      couper(3)
+      couper(3)
+      expect(onValider).toHaveBeenCalledExactlyOnceWith([[3], [3]])
+      expect(screen.getByText('Pas cette fois.')).toBeInTheDocument()
+    })
   })
 })
