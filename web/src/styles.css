@@ -101,7 +101,19 @@ body {
   font-family: var(--sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* viewport-fit=cover (index.html) : la page passe sous la barre d'état et l'encoche ; le contenu, lui, reste dans la zone sûre. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
+/*
+ * Sous la barre d'état d'iOS, un aplat Papier opaque : iOS 26 y floute ce qui passe dessous
+ * (trame de points, pastilles) ; un aplat uni ne se voit pas flouté. Hauteur nulle hors iPhone.
+ * Les dialogues et la visionneuse le recouvrent avec leur propre fond.
+ */
+body::before {
+  content: ""; position: fixed; z-index: 75; top: 0; right: 0; left: 0;
+  height: env(safe-area-inset-top); background: var(--paper-2); pointer-events: none;
+}
+:root:has(.scrim, .viewer:not([hidden])) body::before { display: none; }
 h1, h2, h3, p, ol, ul { margin: 0; }
 a, button { color: inherit; }
 button { font: inherit; }
@@ -116,14 +128,14 @@ button { font: inherit; }
 .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Coque et navigation (design système 4.1) ---------- */
-.coque { min-height: 100vh; }
+.coque { min-height: calc(100vh - env(safe-area-inset-top)); }
 .contenu { min-width: 0; padding-bottom: calc(var(--hauteur-navigation, 104px) + 24px); }
 .ecran { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; } /* minmax(0) : une bande défilante ne doit pas élargir l'écran */
 .ecran[hidden] { display: none; }
 .navigation {
   position: fixed; z-index: 40; right: 0; bottom: 0; left: 0;
   display: grid; grid-template-columns: repeat(4, 1fr);
-  padding: 8px 6px calc(12px + env(safe-area-inset-bottom));
+  padding: 8px calc(6px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left));
   border-top: 1.5px solid var(--line); background: var(--cream);
 }
 .navigation .navigation-sceau { display: none; cursor: default; }
@@ -275,12 +287,18 @@ button { font: inherit; }
 .demarrage { display: none; }
 .demarrage .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
 @media (display-mode: standalone) {
-  .demarrage { display: grid; place-items: center; min-height: 100dvh; }
+  .demarrage { display: grid; place-items: center; min-height: calc(100dvh - env(safe-area-inset-top)); }
   /* Pas de rebond de page : le geste « tirer pour actualiser » (Actualiser.tsx) prend le relais. */
   html { overscroll-behavior-y: none; }
 }
 /* Attente d'une réponse de l'API (Attente.tsx) : une pastille en haut, au-dessus des dialogues, sous la mise à jour. */
 .attente { position: fixed; z-index: 70; top: calc(env(safe-area-inset-top) + 12px); left: 50%; translate: -50% 0; width: max-content; max-width: calc(100vw - 32px); pointer-events: none; }
+/* PWA installée : sous la barre d'état, iOS 26 floute une bande d'environ 50 px ; la pastille se pose plus bas. */
+@media (display-mode: standalone) {
+  .attente { top: calc(env(safe-area-inset-top) + 44px); }
+  /* L'écran de lancement descend d'autant : la pastille ne masque pas le sceau. */
+  .lancement { padding-top: 128px; }
+}
 .attente-pastille {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 16px 8px 10px; border: 1.5px solid var(--fixed-ink); border-radius: 22px;
@@ -770,7 +788,10 @@ button.disc { font: inherit; cursor: pointer; }
 /* Fiche de découverte (I-11) : dialogue au-dessus de la table, plein écran sur mobile. */
 /* Modale ouverte : la page derrière ne défile plus. */
 :root:has(.scrim) { overflow: hidden; }
-.scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
+.scrim {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
 /* Clavier virtuel ouvert (services/clavier.ts) : le voile et la boîte se calent sur la partie visible, au-dessus du clavier. */
 :root[data-clavier] .scrim { top: var(--vue-haut, 0px); bottom: auto; height: var(--vue-hauteur, 100%); }
 :root[data-clavier] .scrim .dialogue { max-height: 100%; }
@@ -798,10 +819,11 @@ button.disc { font: inherit; cursor: pointer; }
     background: var(--paper); border-top: 1px solid var(--line);
   }
   .scrim { padding: 0; }
-  .dialogue { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; align-content: start; }
-  /* Feuille courte (sabliers, indices) : posée en bas, à la hauteur de son contenu. */
-  .scrim:has(.feuille) { place-items: end stretch; }
-  .dialogue.feuille { height: auto; max-height: 100%; border-top: 1.5px solid var(--fixed-ink); border-radius: 20px 20px 0 0; }
+  /* Plein écran : le fond Crème passe sous la barre d'état, le contenu commence sous elle. */
+  .dialogue { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; align-content: start; padding-top: calc(24px + env(safe-area-inset-top)); padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  /* Feuille courte (sabliers, indices) : posée en bas, à la hauteur de son contenu, jamais sous la barre d'état. */
+  .scrim:has(.feuille) { place-items: end stretch; padding-top: env(safe-area-inset-top); }
+  .dialogue.feuille { height: auto; max-height: 100%; padding-top: 24px; border-top: 1.5px solid var(--fixed-ink); border-radius: 20px 20px 0 0; }
 }
 
 .slot:not(.filled):hover { border-style: solid; background: var(--c-action-tint); }
