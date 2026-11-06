@@ -270,6 +270,7 @@ function DecoupeQuestion({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & 
     <Decoupe
       mot={motDe(jeu, unite)}
       attendues={d.mots.get(unite)?.decoupes ?? []}
+      equivalentes={d.mots.get(unite)?.alternatives}
       reels={reels}
       consigne={question.consigne}
       lecon={question.lecon}

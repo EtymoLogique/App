@@ -139,6 +139,10 @@ pub struct MotRicochet {
     /// le joueur doit les trouver toutes. Vide : la découpe est unique.
     #[serde(default)]
     pub autres_coupes: Vec<Vec<u32>>,
+    /// Autres découpes tout aussi justes (lettre partagée entre deux morceaux :
+    /// « hom|onyme » et « homo|nyme »), chacune une liste de positions triée.
+    #[serde(default)]
+    pub coupes_alternatives: Vec<Vec<u32>>,
 }
 
 impl MotRicochet {
@@ -155,6 +159,16 @@ impl MotRicochet {
             }
         }
         toutes
+    }
+
+    /// Rang de la découpe juste que désignent ces coupes (0 : la préférée, ou l’une de ses variantes
+    /// équivalentes, une seule suffit) ; `None` : ce n’est aucune des découpes justes.
+    #[must_use]
+    pub fn rang_de_decoupe(&self, coupes: &[u32]) -> Option<usize> {
+        if self.coupes_alternatives.iter().any(|a| a == coupes) {
+            return Some(0);
+        }
+        self.decoupes().iter().position(|d| d == coupes)
     }
 }
 

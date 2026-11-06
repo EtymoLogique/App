@@ -21,8 +21,8 @@ interface BriqueRicochet {
 
 export interface DonneesRicochets {
   briques: Map<string, BriqueRicochet>
-  /** Classe du sens littéral, découpes justes (une par façon de couper le mot, la préférée d'abord) et assemblage (préfixe, suffixe), par mot. */
-  mots: Map<string, { classe: string | null; decoupes: number[][]; assemblage: string[] }>
+  /** Classe du sens littéral, découpes justes (une par façon de couper le mot, la préférée d'abord), variantes équivalentes de la préférée et assemblage (préfixe, suffixe), par mot. */
+  mots: Map<string, { classe: string | null; decoupes: number[][]; alternatives?: number[][]; assemblage: string[] }>
   /** Glose de chaque sens affiché d'une brique. */
   gloses: Map<string, string>
 }
@@ -39,7 +39,7 @@ export function donneesRicochets(jeu: CatalogueJeu): DonneesRicochets {
       // Miroir de `MotRicochet::decoupes` (crates/catalogue/src/format.rs).
       const decoupes = (m.coupes ?? []).length ? [m.coupes ?? []] : []
       for (const autre of m.autres_coupes ?? []) if (decoupes.length && autre.length && !decoupes.some((c) => memesCoupes(c, autre))) decoupes.push(autre)
-      donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, decoupes, assemblage: m.assemblage ?? [] })
+      donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, decoupes, alternatives: m.coupes_alternatives ?? [], assemblage: m.assemblage ?? [] })
     }
   }
   return donnees
@@ -69,12 +69,19 @@ export function juger(d: DonneesRicochets, format: FormatRicochet, unite: string
     return reponse.every((b, i) => b === attendu[i])
   }
   if (format === 'decouper') {
-    const attendues = d.mots.get(unite)?.decoupes
-    if (!attendues?.length || typeof reponse === 'string' || typeof reponse[0] === 'string') return null
+    const mot = d.mots.get(unite)
+    if (!mot?.decoupes.length || typeof reponse === 'string' || typeof reponse[0] === 'string') return null
     const donnees = Array.isArray(reponse[0]) || reponse.length === 0 ? (reponse as number[][]) : [reponse as number[]]
     // Toutes les découpes justes sont attendues, et seulement elles ; l'ordre et les doublons ne comptent pas.
-    const uniques = donnees.filter((c, i) => donnees.findIndex((x) => memesCoupes(x, c)) === i)
-    return uniques.length === attendues.length && attendues.every((a) => uniques.some((c) => memesCoupes(c, a)))
+    // La préférée ou l'une de ses variantes équivalentes compte pour une seule.
+    const rang = (c: number[]) => (mot.alternatives ?? []).some((a) => memesCoupes(a, c)) ? 0 : mot.decoupes.findIndex((a) => memesCoupes(a, c))
+    const trouvees = new Set<number>()
+    for (const c of donnees) {
+      const r = rang(c)
+      if (r < 0) return false
+      trouvees.add(r)
+    }
+    return trouvees.size === mot.decoupes.length
   }
   if (typeof reponse !== 'string') return null
   if (format === 'mot_sens') {

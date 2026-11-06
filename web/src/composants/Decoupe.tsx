@@ -9,6 +9,8 @@ interface Props {
   mot: string
   /** Découpes justes (une seule, sauf si le mot se coupe de plusieurs façons) : le joueur doit les poser toutes. */
   attendues: number[][]
+  /** Variantes tout aussi justes de la première découpe (lettre partagée : « hom|onyme », « homo|nyme ») : l'une d'elles suffit. */
+  equivalentes?: number[][]
   /** Nature de chaque morceau juste, dans l'ordre (pour colorer le verdict). */
   reels: { nature: BriqueJeu['nature'] }[]
   consigne: string
@@ -44,7 +46,7 @@ const Chevron = ({ sens }: { sens: 'g' | 'd' }) => (
  * Découper (ADR 0053) : une lame se cale sur les jointures du mot, le mot s'écarte à son niveau, « Couper ici » pose la coupe,
  * la dernière coupe posée valide la réponse. Rien n'est jugé avant. Le verdict déroule les morceaux comme avant.
  */
-export function Decoupe({ mot, attendues, reels, consigne, lecon, juger, onValider, repondu, pied }: Props) {
+export function Decoupe({ mot, attendues, equivalentes = [], reels, consigne, lecon, juger, onValider, repondu, pied }: Props) {
   const lettres = Array.from(mot)
   const n = lettres.length
   // Les coupes dans l'ordre où le joueur les a posées : « Reprendre » retire la dernière.
@@ -53,7 +55,8 @@ export function Decoupe({ mot, attendues, reels, consigne, lecon, juger, onValid
   const [trouvees, setTrouvees] = useState<number[][]>([])
   const [faute, setFaute] = useState<number[] | null>(null)
   const plusieurs = attendues.length > 1
-  const restantes = attendues.filter((a) => !trouvees.some((t) => memesCoupes(t, a)))
+  const correspond = (a: number[], c: number[]) => memesCoupes(a, c) || (a === attendues[0] && equivalentes.some((e) => memesCoupes(e, c)))
+  const restantes = attendues.filter((a) => !trouvees.some((t) => correspond(a, t)))
   const [curseur, setCurseur] = useState<number | null>(() => jointureInitiale(n, [], attendues[0] ?? []))
   const [appuye, setAppuye] = useState(false)
   const [valide, setValide] = useState(false)
@@ -102,7 +105,7 @@ export function Decoupe({ mot, attendues, reels, consigne, lecon, juger, onValid
   const ajouter = (j: number) => {
     const suite = [...posees, j].sort((a, b) => a - b)
     setAppuye(false)
-    const juste = restantes.find((r) => memesCoupes(r, suite))
+    const juste = restantes.find((r) => correspond(r, suite))
     const maxi = Math.max(...restantes.map((r) => r.length))
     if (!juste && suite.length < maxi) {
       setPosees([...posees, j])
@@ -166,7 +169,7 @@ export function Decoupe({ mot, attendues, reels, consigne, lecon, juger, onValid
   const morceauxDe = (decoupe: number[], reelle: boolean) => {
     const bornes = [0, ...decoupe, n]
     return bornes.slice(1).map((fin, i, tous) => {
-      const nature = (reelle && reels.length === tous.length && memesCoupes(decoupe, attendues[0] ?? []) ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
+      const nature = (reelle && reels.length === tous.length && correspond(attendues[0] ?? [], decoupe) ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
       return { nature, texte: lettres.slice(bornes[i], fin).join('') }
     })
   }
