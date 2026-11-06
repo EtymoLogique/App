@@ -15,10 +15,21 @@ interface BriqueRicochet {
   classe: string
 }
 
+/** Un morceau du mot et ses coupes justes (ADR 0084) : des positions dans le mot entier. */
+export interface NoeudCoupes {
+  debut: number
+  fin: number
+  coupes: number[]
+  parties?: NoeudCoupes[]
+}
+
+/** Ce que valent les coupes posées : `faux` arrête la question, `termine` l'achève. */
+export type VerdictCoupes = 'faux' | 'continue' | 'termine'
+
 export interface DonneesRicochets {
   briques: Map<string, BriqueRicochet>
-  /** Classe du sens littéral et coupes, par mot. */
-  mots: Map<string, { classe: string | null; coupes: number[] }>
+  /** Classe du sens littéral, coupes de premier niveau et arbre des coupes (ADR 0084), par mot. */
+  mots: Map<string, { classe: string | null; coupes: number[]; decoupage?: NoeudCoupes | null }>
   /** Glose de chaque sens affiché d'une brique. */
   gloses: Map<string, string>
 }
@@ -31,7 +42,7 @@ export function donneesRicochets(jeu: CatalogueJeu): DonneesRicochets {
       const glose = jeu.briques.get(b.id)?.glose
       if (glose) donnees.gloses.set(b.sens_id, glose)
     }
-    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [] })
+    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [], decoupage: m.decoupage ?? null })
   }
   return donnees
 }
@@ -43,13 +54,50 @@ export function sensLitteral(jeu: CatalogueJeu, motId: string): string | null {
   return choisie?.libelles.fr?.sens_litteral ?? null
 }
 
+/** Arbre à juger : le `decoupage` publié, ou à défaut les `coupes` du premier niveau (manifeste antérieur). */
+export function arbreDuMot(d: DonneesRicochets, unite: string): NoeudCoupes | null {
+  const mot = d.mots.get(unite)
+  if (!mot) return null
+  if (mot.decoupage) return mot.decoupage
+  return mot.coupes.length ? { debut: 0, fin: Number.POSITIVE_INFINITY, coupes: [...new Set(mot.coupes)].sort((a, b) => a - b) } : null
+}
+
+function rassembler(n: NoeudCoupes, tous: NoeudCoupes[] = []): NoeudCoupes[] {
+  tous.push(n)
+  for (const p of n.parties ?? []) rassembler(p, tous)
+  return tous
+}
+
+/**
+ * Juge l'ensemble des coupes posées, quel que soit leur ordre. Miroir de
+ * `etymo_domaine::decoupage::juger` : changez les deux ensemble, avec leurs tests.
+ * Une coupe est juste si un nœud la porte et si ses deux bords sont des bords du mot
+ * ou des coupes déjà posées.
+ */
+export function jugerCoupes(racine: NoeudCoupes, posees: readonly number[]): VerdictCoupes {
+  const noeuds = rassembler(racine)
+  const attendues = new Set(noeuds.flatMap((n) => n.coupes))
+  const restantes = new Set(posees)
+  const placees = new Set<number>()
+  const bordOk = (b: number) => b === racine.debut || b === racine.fin || placees.has(b)
+  for (;;) {
+    const juste = [...restantes].find((c) => noeuds.some((n) => n.coupes.includes(c) && bordOk(n.debut) && bordOk(n.fin)))
+    if (juste === undefined) break
+    restantes.delete(juste)
+    placees.add(juste)
+  }
+  if (restantes.size > 0) return 'faux'
+  return placees.size === attendues.size && [...attendues].every((c) => placees.has(c)) ? 'termine' : 'continue'
+}
+
 /** Verdict d'une réponse. `null` : la donnée manque, le client n'affiche pas de verdict. */
 export function juger(d: DonneesRicochets, format: FormatRicochet, unite: string, reponse: ReponseJoueur): boolean | null {
   if (format === 'decouper') {
-    const attendu = d.mots.get(unite)?.coupes
-    if (!attendu?.length || !Array.isArray(reponse)) return null
-    const coupes = [...new Set(reponse)].sort((a, b) => a - b)
-    return coupes.length === attendu.length && coupes.every((c, i) => c === attendu[i])
+    const arbre = arbreDuMot(d, unite)
+    if (!arbre || !Array.isArray(reponse)) return null
+    // Réussi seulement quand toutes les coupes sont posées ; une question encore ouverte n'a pas de verdict.
+    const verdict = jugerCoupes(arbre, reponse)
+    return verdict === 'termine' ? true : verdict === 'faux' ? false : null
   }
   if (typeof reponse !== 'string') return null
   if (format === 'mot_sens') {
@@ -89,12 +137,31 @@ export function retour(carte: CarteRicochet, aujourdhui: Date = new Date()): str
 }
 
 /** Morceaux du mot dans sa composition préférée, aux couleurs de leurs briques (verdict de « découper »). */
-export function morceauxDuMot(jeu: CatalogueJeu, motId: string): { debut: number; fin: number; nature: BriqueJeu['nature'] }[] {
+export function morceauxDuMot(jeu: CatalogueJeu, motId: string): { debut: number; fin: number; nature: BriqueJeu['nature']; unite: string }[] {
   const compositions = jeu.cartes.get(motId)?.compositions ?? []
   const choisie = compositions.find((c) => c.preferee) ?? compositions[0]
   return [...(choisie?.parties ?? [])]
     .sort((a, b) => a.rang - b.rang)
-    .map((p) => ({ debut: p.segment_debut ?? -1, fin: p.segment_fin ?? -1, nature: jeu.cartes.get(p.unite_id)?.nature ?? 'mot' }))
+    .map((p) => ({ debut: p.segment_debut ?? -1, fin: p.segment_fin ?? -1, nature: jeu.cartes.get(p.unite_id)?.nature ?? 'mot', unite: p.unite_id }))
+}
+
+/**
+ * Morceaux élémentaires d'un mot, une fois toutes les coupes de l'arbre posées : leur place
+ * dans le mot entier et leur nature (préfixe, mot, suffixe). La nature vient de la composition
+ * de chaque partie ; à défaut, de la place du morceau.
+ */
+export function feuillesDuMot(jeu: CatalogueJeu, motId: string, noeud: NoeudCoupes): { debut: number; fin: number; nature: BriqueJeu['nature'] }[] {
+  const bornes = [noeud.debut, ...[...noeud.coupes].sort((a, b) => a - b), noeud.fin]
+  const parties = morceauxDuMot(jeu, motId)
+  const alignees = parties.length === bornes.length - 1
+  return bornes.slice(1).flatMap((fin, i) => {
+    const debut = bornes[i] as number
+    const sous = noeud.parties?.find((p) => p.debut === debut)
+    const partie = alignees ? parties[i] : undefined
+    if (sous && partie) return feuillesDuMot(jeu, partie.unite, sous)
+    const nature = partie?.nature ?? (i === 0 ? 'prefixe' : i === bornes.length - 2 ? 'suffixe' : 'mot')
+    return [{ debut, fin, nature }]
+  })
 }
 
 /** Briques de la première recette du mot, dans l'ordre : les morceaux de la composition sont des unités, pas des briques. */
