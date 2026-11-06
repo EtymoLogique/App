@@ -1,4 +1,4 @@
-import { type CSSProperties, createContext, useContext, type KeyboardEvent, type ReactNode, useCallback, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, createContext, Fragment, useContext, type KeyboardEvent, type ReactNode, useCallback, useMemo, useRef, useState } from 'react'
 
 import type { Etat, QuestionRicochet, ReponseRicochet, SeanceRicochets } from '../contrat'
 import type { EntreeCodex } from '../services/codex'
@@ -10,6 +10,7 @@ import {
   cartesTrouvees,
   donneesRicochets,
   juger,
+  normaliserCoupes,
   melanger,
   briquesDuMot,
   morceauxDuMot,
@@ -155,20 +156,41 @@ function preparer(q: QuestionRicochet, jeu: CatalogueJeu, d: DonneesRicochets): 
     }
     default: {
       const mot = motDe(jeu, cible)
-      const morceaux = (d.mots.get(cible)?.coupes.length ?? 1) + 1
+      const decoupes = d.mots.get(cible)?.decoupes ?? []
+      const morceaux = (decoupes[0]?.length ?? 1) + 1
       const parties = morceauxDuMot(jeu, cible)
+      const lettres = Array.from(mot)
+      // Les autres façons de couper le mot, en clair : la préférée s'affiche déjà en briques.
+      const autres = decoupes.slice(1).map((c) => [0, ...normaliserCoupes(c), lettres.length].slice(1).map((fin, i, tous) => lettres.slice(tous[i - 1] ?? 0, fin).join('')))
       return {
         sujet: <span className="rico-mot">{mot}</span>,
-        consigne: morceaux === 2 ? 'Où ce mot se coupe-t-il ?' : `Coupez ce mot en ${morceaux} morceaux.`,
+        consigne:
+          decoupes.length > 1
+            ? `Ce mot se coupe de ${decoupes.length} façons. Trouvez-les toutes.`
+            : morceaux === 2
+              ? 'Où ce mot se coupe-t-il ?'
+              : `Coupez ce mot en ${morceaux} morceaux.`,
         choix: [],
         lecon: (
           <>
-            Le mot se coupe ainsi :{' '}
+            {autres.length > 0 ? 'Le mot se coupe de plusieurs façons. La première :' : 'Le mot se coupe ainsi :'}{' '}
             <Ouvrable id={cible}>
               <span className="rico-segmente">
                 <MotSegmente mot={mot} morceaux={parties} />
               </span>
             </Ouvrable>
+            {autres.length > 0 && (
+              <p className="rico-autres">
+                Mais aussi :{' '}
+                {autres.map((morceaux, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && ' ; '}
+                    <span lang="fr">{morceaux.join(' | ')}</span>
+                  </Fragment>
+                ))}
+                .
+              </p>
+            )}
             {/* Les briques élémentaires et leur sens : de quoi apprendre, juste ou pas. */}
             <ul className="rico-briques">
               {briquesDuMot(jeu, cible).map((b) => (
@@ -247,7 +269,8 @@ function DecoupeQuestion({ q, jeu, d, envoyer, repondu, pied }: QuestionProps & 
   return (
     <Decoupe
       mot={motDe(jeu, unite)}
-      attendu={d.mots.get(unite)?.coupes ?? []}
+      attendues={d.mots.get(unite)?.decoupes ?? []}
+      equivalentes={d.mots.get(unite)?.alternatives}
       reels={reels}
       consigne={question.consigne}
       lecon={question.lecon}

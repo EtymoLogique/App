@@ -135,10 +135,41 @@ pub struct MotRicochet {
     /// vide : le mot ne s'assemble pas (ADR 0067).
     #[serde(default)]
     pub assemblage: Vec<IdCatalogue>,
+    /// Autres découpes justes du même mot (« écologiste » : écologie + iste, éco + logiste) :
+    /// le joueur doit les trouver toutes. Vide : la découpe est unique.
+    #[serde(default)]
+    pub autres_coupes: Vec<Vec<u32>>,
     /// Autres découpes tout aussi justes (lettre partagée entre deux morceaux :
     /// « hom|onyme » et « homo|nyme »), chacune une liste de positions triée.
     #[serde(default)]
     pub coupes_alternatives: Vec<Vec<u32>>,
+}
+
+impl MotRicochet {
+    /// Toutes les découpes justes, triées, la préférée d'abord ; vide si le mot ne se découpe pas.
+    #[must_use]
+    pub fn decoupes(&self) -> Vec<Vec<u32>> {
+        if self.coupes.is_empty() {
+            return Vec::new();
+        }
+        let mut toutes = vec![self.coupes.clone()];
+        for autre in &self.autres_coupes {
+            if !autre.is_empty() && !toutes.contains(autre) {
+                toutes.push(autre.clone());
+            }
+        }
+        toutes
+    }
+
+    /// Rang de la découpe juste que désignent ces coupes (0 : la préférée, ou l’une de ses variantes
+    /// équivalentes, une seule suffit) ; `None` : ce n’est aucune des découpes justes.
+    #[must_use]
+    pub fn rang_de_decoupe(&self, coupes: &[u32]) -> Option<usize> {
+        if self.coupes_alternatives.iter().any(|a| a == coupes) {
+            return Some(0);
+        }
+        self.decoupes().iter().position(|d| d == coupes)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]

@@ -1,22 +1,25 @@
 import { type CSSProperties, type PointerEvent, type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { memesCoupes } from '../services/ricochets'
 import { jointureInitiale, jointureLaPlusProche, jointureVoisine } from '../services/decoupe'
 import { type BriqueJeu, NATURES } from '../services/jeu'
 
 interface Props {
   mot: string
-  /** Coupes justes : leur nombre est celui que le joueur doit poser. */
-  attendu: number[]
+  /** Découpes justes (une seule, sauf si le mot se coupe de plusieurs façons) : le joueur doit les poser toutes. */
+  attendues: number[][]
+  /** Variantes tout aussi justes de la première découpe (lettre partagée : « hom|onyme », « homo|nyme ») : l'une d'elles suffit. */
+  equivalentes?: number[][]
   /** Nature de chaque morceau juste, dans l'ordre (pour colorer le verdict). */
   reels: { nature: BriqueJeu['nature'] }[]
   consigne: string
   /** Ce que la bonne réponse apprend, montré au verdict. */
   lecon: ReactNode
   /** Verdict d'une réponse validée ; `null` : la donnée manque. */
-  juger: (coupes: number[]) => boolean | null
-  /** Une seule fois, à la dernière coupe posée : la commande part. */
-  onValider: (coupes: number[]) => void
+  juger: (reponse: number[][]) => boolean | null
+  /** Une seule fois, à la dernière coupe posée : la commande part. Une découpe unique part à plat, plusieurs ensemble. */
+  onValider: (reponse: number[] | number[][]) => void
   /** Signale que la question a reçu sa réponse : « Suivant » apparaît. */
   repondu: () => void
   /** Pied de séance : les commandes y sont posées, collées au-dessus de la navigation. */
@@ -43,13 +46,18 @@ const Chevron = ({ sens }: { sens: 'g' | 'd' }) => (
  * Découper (ADR 0053) : une lame se cale sur les jointures du mot, le mot s'écarte à son niveau, « Couper ici » pose la coupe,
  * la dernière coupe posée valide la réponse. Rien n'est jugé avant. Le verdict déroule les morceaux comme avant.
  */
-export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider, repondu, pied }: Props) {
+export function Decoupe({ mot, attendues, equivalentes = [], reels, consigne, lecon, juger, onValider, repondu, pied }: Props) {
   const lettres = Array.from(mot)
   const n = lettres.length
-  const nombre = attendu.length
   // Les coupes dans l'ordre où le joueur les a posées : « Reprendre » retire la dernière.
   const [posees, setPosees] = useState<number[]>([])
-  const [curseur, setCurseur] = useState<number | null>(() => jointureInitiale(n, [], attendu))
+  // Découpes justes déjà posées, et la tentative fausse qui a clos la question, s'il y en a une.
+  const [trouvees, setTrouvees] = useState<number[][]>([])
+  const [faute, setFaute] = useState<number[] | null>(null)
+  const plusieurs = attendues.length > 1
+  const correspond = (a: number[], c: number[]) => memesCoupes(a, c) || (a === attendues[0] && equivalentes.some((e) => memesCoupes(e, c)))
+  const restantes = attendues.filter((a) => !trouvees.some((t) => correspond(a, t)))
+  const [curseur, setCurseur] = useState<number | null>(() => jointureInitiale(n, [], attendues[0] ?? []))
   const [appuye, setAppuye] = useState(false)
   const [valide, setValide] = useState(false)
   const [positions, setPositions] = useState<number[]>([])
@@ -92,14 +100,30 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
     if (curseur === null || valide) return
     ajouter(curseur)
   }
-  // La dernière coupe attendue valide la réponse ; les précédentes en demandent une autre.
+  // Une découpe juste est gardée et on passe à la suivante ; la dernière valide la réponse.
+  // Sans découpe juste, la réponse est fausse dès que le nombre de coupes du plus long reste atteint.
   const ajouter = (j: number) => {
-    const suite = [...posees, j]
-    setPosees(suite)
+    const suite = [...posees, j].sort((a, b) => a - b)
     setAppuye(false)
-    if (suite.length < nombre) return setCurseur(jointureInitiale(n, suite, attendu))
+    const juste = restantes.find((r) => correspond(r, suite))
+    const maxi = Math.max(...restantes.map((r) => r.length))
+    if (!juste && suite.length < maxi) {
+      setPosees([...posees, j])
+      return setCurseur(jointureInitiale(n, suite, restantes[0] ?? []))
+    }
+    if (juste && restantes.length > 1) {
+      const suivantes = restantes.filter((r) => r !== juste)
+      setTrouvees([...trouvees, suite])
+      setPosees([])
+      return setCurseur(jointureInitiale(n, [], suivantes[0] ?? []))
+    }
+    setPosees([...posees, j])
+    const toutes = juste ? [...trouvees, suite] : trouvees
+    if (juste) setTrouvees(toutes)
+    else setFaute(suite)
     setValide(true)
-    onValider([...suite].sort((a, b) => a - b))
+    const reponse = [...toutes, ...(juste ? [] : [suite])]
+    onValider(plusieurs ? reponse : suite)
     repondu()
   }
   const reprendre = () => {
@@ -141,20 +165,29 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
   }
 
   // Validé : le mot devient des briques. Justes, elles prennent leur vraie nature ; sinon préfixe, mot, suffixe selon leur place.
-  const juste = valide && juger(coupes) === true
-  const bornes = [0, ...coupes, n]
-  const morceaux = bornes.slice(1).map((fin, i, tous) => {
-    const nature = (juste && reels.length === tous.length ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
-    return { nature, texte: lettres.slice(bornes[i], fin).join('') }
-  })
+  const juste = valide && faute === null && juger(trouvees) === true
+  const morceauxDe = (decoupe: number[], reelle: boolean) => {
+    const bornes = [0, ...decoupe, n]
+    return bornes.slice(1).map((fin, i, tous) => {
+      const nature = (reelle && reels.length === tous.length && correspond(attendues[0] ?? [], decoupe) ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
+      return { nature, texte: lettres.slice(bornes[i], fin).join('') }
+    })
+  }
+  // Ce que montre le verdict : chaque découpe juste, puis la fausse.
+  const affichees = [...trouvees.map((decoupe) => ({ decoupe, juste: true })), ...(faute ? [{ decoupe: faute, juste: false }] : [])]
 
-  const statut = nombre === 1 ? 'Glissez sur le mot, puis touchez « Couper ici ».' : `Coupe ${posees.length + 1} sur ${nombre}. Glissez sur le mot.`
+  const nombre = restantes[0]?.length ?? 1
+  const statut = plusieurs
+    ? `Découpe ${trouvees.length + 1} sur ${attendues.length}${trouvees.length > 0 ? ` (déjà trouvée${trouvees.length > 1 ? 's' : ''} : ${trouvees.map((t) => morceauxDe(t, false).map((m) => m.texte).join(' | ')).join(' ; ')})` : ''}. Glissez sur le mot, puis touchez « Couper ici ».`
+    : nombre === 1
+      ? 'Glissez sur le mot, puis touchez « Couper ici ».'
+      : `Coupe ${posees.length + 1} sur ${nombre}. Glissez sur le mot.`
   const commandes = (
     <>
       <p className="rico-statut" role="status" aria-live="polite">
         {statut}
       </p>
-      {nombre > 1 && (
+      {(nombre > 1 || plusieurs) && (
         <button type="button" className="btn btn-secondary rico-reprendre" disabled={posees.length === 0} aria-label="Reprendre la dernière coupe" onClick={reprendre}>
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M9 14L4 9l5-5" />
@@ -184,19 +217,21 @@ export function Decoupe({ mot, attendu, reels, consigne, lecon, juger, onValider
       </h2>
       <div className="rico-sujet">
         {valide ? (
-          <span className={`rico-mot rico-morceaux ${juste ? 'juste' : 'faux'}`} lang="fr">
-            {morceaux.map((m, i) => (
-              // --d : de combien d'écarts le morceau revient vers le centre au départ, d'où il s'écarte.
-              <span key={i} className="rico-morceau" data-kind={NATURES[m.nature]} style={{ '--d': (morceaux.length - 1) / 2 - i } as CSSProperties}>
-                <svg className="rico-contour" aria-hidden="true" focusable="false">
-                  <rect width="100%" height="100%" rx="12" pathLength={1} />
-                </svg>
-                {m.nature === 'suffixe' && <span className="rico-tiret">-</span>}
-                {m.texte}
-                {m.nature === 'prefixe' && <span className="rico-tiret">-</span>}
-              </span>
-            ))}
-          </span>
+          affichees.map(({ decoupe, juste: bonne }, k) => (
+            <span key={k} className={`rico-mot rico-morceaux ${bonne ? 'juste' : 'faux'}`} lang="fr">
+              {morceauxDe(decoupe, bonne).map((m, i, tous) => (
+                // --d : de combien d'écarts le morceau revient vers le centre au départ, d'où il s'écarte.
+                <span key={i} className="rico-morceau" data-kind={NATURES[m.nature]} style={{ '--d': (tous.length - 1) / 2 - i } as CSSProperties}>
+                  <svg className="rico-contour" aria-hidden="true" focusable="false">
+                    <rect width="100%" height="100%" rx="12" pathLength={1} />
+                  </svg>
+                  {m.nature === 'suffixe' && <span className="rico-tiret">-</span>}
+                  {m.texte}
+                  {m.nature === 'prefixe' && <span className="rico-tiret">-</span>}
+                </span>
+              ))}
+            </span>
+          ))
         ) : (
           <div
             ref={zone}

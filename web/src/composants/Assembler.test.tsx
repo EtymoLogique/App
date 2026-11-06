@@ -10,7 +10,7 @@ const d: DonneesRicochets = {
     [GEO, { sens: 'sns_1', classe: 'sns_1', position: 'prefixe' as const }],
     [LOGIE, { sens: 'sns_2', classe: 'sns_2', position: 'suffixe' as const }],
   ]),
-  mots: new Map([[MOT, { classe: MOT, coupes: [3], assemblage: [GEO, LOGIE] }]]),
+  mots: new Map([[MOT, { classe: MOT, decoupes: [[3]], assemblage: [GEO, LOGIE] }]]),
   gloses: new Map(),
 }
 
