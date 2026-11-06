@@ -7,8 +7,8 @@ import { type BriqueJeu, type CatalogueJeu, texteDuMot } from './jeu'
 
 export type FormatRicochet = QuestionRicochet['format']
 
-/** Réponse d'un joueur : un choix, ou les positions de coupe d'un mot. */
-export type ReponseJoueur = string | number[]
+/** Réponse d'un joueur : un choix, les positions de coupe d'un mot, ou toutes ses découpes. */
+export type ReponseJoueur = string | number[] | number[][]
 
 interface BriqueRicochet {
   sens: string
@@ -17,8 +17,8 @@ interface BriqueRicochet {
 
 export interface DonneesRicochets {
   briques: Map<string, BriqueRicochet>
-  /** Classe du sens littéral et coupes, par mot. */
-  mots: Map<string, { classe: string | null; coupes: number[] }>
+  /** Classe du sens littéral et découpes justes (une par façon de couper le mot, la préférée d'abord), par mot. */
+  mots: Map<string, { classe: string | null; decoupes: number[][] }>
   /** Glose de chaque sens affiché d'une brique. */
   gloses: Map<string, string>
 }
@@ -31,9 +31,23 @@ export function donneesRicochets(jeu: CatalogueJeu): DonneesRicochets {
       const glose = jeu.briques.get(b.id)?.glose
       if (glose) donnees.gloses.set(b.sens_id, glose)
     }
-    for (const m of manifeste.ricochets?.mots ?? []) donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, coupes: m.coupes ?? [] })
+    for (const m of manifeste.ricochets?.mots ?? []) {
+      // Miroir de `MotRicochet::decoupes` (crates/catalogue/src/format.rs).
+      const decoupes = (m.coupes ?? []).length ? [m.coupes ?? []] : []
+      for (const autre of m.autres_coupes ?? []) if (decoupes.length && autre.length && !decoupes.some((c) => memesCoupes(c, autre))) decoupes.push(autre)
+      donnees.mots.set(m.id, { classe: m.classe_litteral ?? null, decoupes })
+    }
   }
   return donnees
+}
+
+export function normaliserCoupes(coupes: number[]): number[] {
+  return [...new Set(coupes)].sort((a, b) => a - b)
+}
+
+export function memesCoupes(a: number[], b: number[]): boolean {
+  const [x, y] = [normaliserCoupes(a), normaliserCoupes(b)]
+  return x.length === y.length && x.every((c, i) => c === y[i])
 }
 
 /** Sens littéral d'un mot, dans sa composition préférée. */
@@ -46,10 +60,12 @@ export function sensLitteral(jeu: CatalogueJeu, motId: string): string | null {
 /** Verdict d'une réponse. `null` : la donnée manque, le client n'affiche pas de verdict. */
 export function juger(d: DonneesRicochets, format: FormatRicochet, unite: string, reponse: ReponseJoueur): boolean | null {
   if (format === 'decouper') {
-    const attendu = d.mots.get(unite)?.coupes
-    if (!attendu?.length || !Array.isArray(reponse)) return null
-    const coupes = [...new Set(reponse)].sort((a, b) => a - b)
-    return coupes.length === attendu.length && coupes.every((c, i) => c === attendu[i])
+    const attendues = d.mots.get(unite)?.decoupes
+    if (!attendues?.length || typeof reponse === 'string') return null
+    const donnees = Array.isArray(reponse[0]) || reponse.length === 0 ? (reponse as number[][]) : [reponse as number[]]
+    // Toutes les découpes justes sont attendues, et seulement elles ; l'ordre et les doublons ne comptent pas.
+    const uniques = donnees.filter((c, i) => donnees.findIndex((x) => memesCoupes(x, c)) === i)
+    return uniques.length === attendues.length && attendues.every((a) => uniques.some((c) => memesCoupes(c, a)))
   }
   if (typeof reponse !== 'string') return null
   if (format === 'mot_sens') {

@@ -162,13 +162,15 @@ pub struct SeanceRicochets {
     pub questions: Vec<QuestionRicochet>,
 }
 
-/// Réponse du joueur : un choix, ou les positions de coupe d'un mot.
+/// Réponse du joueur : un choix, les positions de coupe d'un mot, ou toutes ses découpes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum ReponseJoueur {
     Choix(IdCatalogue),
     /// Huit positions au plus.
     Coupes(Vec<u32>),
+    /// Un mot qui se découpe de plusieurs façons : toutes les découpes, quatre au plus.
+    Decoupes(Vec<Vec<u32>>),
 }
 
 /// Commande de réponse à une question de ricochet : une commande, une carte.

@@ -198,3 +198,5 @@
 .rico-ouvrir:hover { transform: translateY(-1px); }
 .rico-ouvrir:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 .rico-ouvrir * { cursor: pointer; }
+.rico-autres { margin: 8px 0 0; color: var(--ink-2); }
+.rico-decoupes-faites { display: grid; justify-items: center; gap: 12px; }

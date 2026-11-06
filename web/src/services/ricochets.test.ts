@@ -9,9 +9,10 @@ const d: DonneesRicochets = {
     ['brq_3', { sens: 'sns_3', classe: 'sns_1' }],
   ]),
   mots: new Map([
-    ['unt_1', { classe: 'unt_1', coupes: [3] }],
-    ['unt_2', { classe: 'unt_1', coupes: [] }],
-    ['unt_3', { classe: null, coupes: [] }],
+    ['unt_1', { classe: 'unt_1', decoupes: [[3]] }],
+    ['unt_2', { classe: 'unt_1', decoupes: [] }],
+    ['unt_3', { classe: null, decoupes: [] }],
+    ['unt_4', { classe: null, decoupes: [[1], [1, 3]] }],
   ]),
   gloses: new Map(),
 }
@@ -33,6 +34,15 @@ describe('juger', () => {
     expect(juger(d, 'decouper', 'unt_1', [3, 3])).toBe(true)
     expect(juger(d, 'decouper', 'unt_1', [2])).toBe(false)
     expect(juger(d, 'decouper', 'unt_2', [1])).toBeNull()
+    expect(juger(d, 'decouper', 'unt_1', [[3]])).toBe(true)
+  })
+  it('découper un mot à plusieurs découpes : il faut toutes les trouver', () => {
+    expect(juger(d, 'decouper', 'unt_4', [1])).toBe(false)
+    expect(juger(d, 'decouper', 'unt_4', [[1]])).toBe(false)
+    expect(juger(d, 'decouper', 'unt_4', [[1], [1, 3]])).toBe(true)
+    expect(juger(d, 'decouper', 'unt_4', [[3, 1], [1], [1]])).toBe(true)
+    expect(juger(d, 'decouper', 'unt_4', [[1], [2]])).toBe(false)
+    expect(juger(d, 'decouper', 'unt_4', [[1], [1, 3], [2]])).toBe(false)
   })
 })
 

@@ -886,6 +886,11 @@ export interface components {
             mot_id: components["schemas"]["IdCatalogue"];
         };
         MotRicochet: {
+            /**
+             * @description Autres découpes justes du même mot (« écologiste » : écologie + iste, éco + logiste) :
+             *     le joueur doit les trouver toutes. Vide : la découpe est unique.
+             */
+            autres_coupes?: number[][];
             classe_litteral?: components["schemas"]["IdCatalogue"] | null;
             /** @description Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas. */
             coupes?: number[];
@@ -1027,8 +1032,8 @@ export interface components {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];
         };
-        /** @description Réponse du joueur : un choix, ou les positions de coupe d'un mot. */
-        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[];
+        /** @description Réponse du joueur : un choix, les positions de coupe d'un mot, ou toutes ses découpes. */
+        ReponseJoueur: components["schemas"]["IdCatalogue"] | number[] | number[][];
         ReponsePalier: {
             /** @description État confirmé après la commande. */
             etat: components["schemas"]["Etat"];

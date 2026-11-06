@@ -10,6 +10,8 @@ import {
   cartesTrouvees,
   donneesRicochets,
   juger,
+  memesCoupes,
+  normaliserCoupes,
   melanger,
   briquesDuMot,
   morceauxDuMot,
@@ -154,20 +156,41 @@ function preparer(q: QuestionRicochet, jeu: CatalogueJeu, d: DonneesRicochets): 
     }
     default: {
       const mot = motDe(jeu, cible)
-      const morceaux = (d.mots.get(cible)?.coupes.length ?? 1) + 1
+      const decoupes = d.mots.get(cible)?.decoupes ?? []
+      const morceaux = (decoupes[0]?.length ?? 1) + 1
       const parties = morceauxDuMot(jeu, cible)
+      const lettres = Array.from(mot)
+      // Les autres façons de couper le mot, en clair : la préférée s'affiche déjà en briques.
+      const autres = decoupes.slice(1).map((c) => [0, ...normaliserCoupes(c), lettres.length].slice(1).map((fin, i, tous) => lettres.slice(tous[i - 1] ?? 0, fin).join('')))
       return {
         sujet: <span className="rico-mot">{mot}</span>,
-        consigne: morceaux === 2 ? 'Où ce mot se coupe-t-il ?' : `Coupez ce mot en ${morceaux} morceaux.`,
+        consigne:
+          decoupes.length > 1
+            ? `Ce mot se coupe de ${decoupes.length} façons. Trouvez-les toutes.`
+            : morceaux === 2
+              ? 'Où ce mot se coupe-t-il ?'
+              : `Coupez ce mot en ${morceaux} morceaux.`,
         choix: [],
         lecon: (
           <>
-            Le mot se coupe ainsi :{' '}
+            {autres.length > 0 ? 'Le mot se coupe de plusieurs façons. La première :' : 'Le mot se coupe ainsi :'}{' '}
             <Ouvrable id={cible}>
               <span className="rico-segmente">
                 <MotSegmente mot={mot} morceaux={parties} />
               </span>
             </Ouvrable>
+            {autres.length > 0 && (
+              <p className="rico-autres">
+                Mais aussi :{' '}
+                {autres.map((morceaux, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && ' ; '}
+                    <span lang="fr">{morceaux.join(' | ')}</span>
+                  </Fragment>
+                ))}
+                .
+              </p>
+            )}
             {/* Les briques élémentaires et leur sens : de quoi apprendre, juste ou pas. */}
             <ul className="rico-briques">
               {briquesDuMot(jeu, cible).map((b) => (
@@ -238,20 +261,28 @@ function Qcm({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   )
 }
 
-/** Découper : le mot en grand ; survolée, une jointure écarte le mot ; touchée, elle le coupe. Le verdict tombe à la dernière coupe. */
+/**
+ * Découper : le mot en grand ; survolée, une jointure écarte le mot ; touchée, elle le coupe.
+ * Un mot à une seule découpe est jugé à la dernière coupe. Un mot qui se découpe de plusieurs façons
+ * (« écologiste ») demande de valider chaque découpe : il faut les trouver toutes, une erreur clôt la question.
+ */
 function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
   const question = useMemo(() => preparer(q, jeu, d), [q, jeu, d])
   const unite = q.cartes[0] ?? ''
-  const attendu = d.mots.get(unite)?.coupes ?? []
+  const attendues = d.mots.get(unite)?.decoupes ?? []
+  const plusieurs = attendues.length > 1
   const lettres = Array.from(motDe(jeu, unite))
   const [coupes, setCoupes] = useState<number[]>([])
-  const fini = coupes.length > 0 && coupes.length === attendu.length
+  // Découpes justes déjà validées, et la découpe fausse qui a clos la question, s'il y en a une.
+  const [trouvees, setTrouvees] = useState<number[][]>([])
+  const [faute, setFaute] = useState<number[] | null>(null)
+  const fini = plusieurs ? faute !== null || trouvees.length === attendues.length : coupes.length > 0 && coupes.length === (attendues[0]?.length ?? -1)
   // Invite : tant que le joueur n'a pas touché au mot, il s'ouvre doucement, jointure après jointure.
   const [invite, setInvite] = useState(() => !mouvementReduit())
   const [demo, setDemo] = useState<number | null>(null)
   const n = lettres.length
   useEffect(() => {
-    if (!invite || coupes.length > 0) return
+    if (!invite || coupes.length > 0 || trouvees.length > 0) return
     const debut = Math.max(1, Math.round(n * 0.3))
     const aller = Array.from({ length: Math.max(1, Math.min(n - 1, Math.round(n * 0.7)) - debut + 1) }, (_, i) => debut + i)
     const cycle = [...aller, ...aller.slice(1, -1).reverse()]
@@ -263,24 +294,49 @@ function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
       clearInterval(id)
       setDemo(null)
     }
-  }, [invite, coupes.length, n])
+  }, [invite, coupes.length, trouvees.length, n])
   const couper = (p: number) => {
     if (fini) return
     const suite = coupes.includes(p) ? coupes.filter((c) => c !== p) : [...coupes, p].sort((a, b) => a - b)
     setCoupes(suite)
-    if (suite.length !== attendu.length) return
+    if (plusieurs || suite.length !== attendues[0]?.length) return
     envoyer('decouper', unite, suite)
     repondu()
   }
+  const valider = () => {
+    if (coupes.length === 0) return
+    const juste = attendues.some((a) => memesCoupes(a, coupes)) && !trouvees.some((t) => memesCoupes(t, coupes))
+    if (!juste) {
+      // Fausse, ou déjà trouvée : la réponse part avec ce qui est trouvé et ne peut pas être juste.
+      setFaute(coupes)
+      envoyer('decouper', unite, [...trouvees, coupes])
+      repondu()
+      return
+    }
+    const suite = [...trouvees, coupes]
+    setTrouvees(suite)
+    setCoupes([])
+    if (suite.length === attendues.length) {
+      envoyer('decouper', unite, suite)
+      repondu()
+    }
+  }
   // Validé : le mot devient des briques. Justes, elles prennent leur vraie nature ; sinon préfixe, mot, suffixe selon leur place.
-  const juste = fini && juger(d, 'decouper', unite, coupes) === true
-  const bornes = [0, ...coupes, lettres.length]
   const reels = morceauxDuMot(jeu, unite)
-  const morceaux = bornes.slice(1).map((fin, i, tous) => {
-    const nature = (juste && reels.length === tous.length ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
-    const texte = lettres.slice(bornes[i], fin).join('')
-    return { nature, texte }
-  })
+  const morceauxDe = (decoupe: number[], juste: boolean) => {
+    const bornes = [0, ...decoupe, lettres.length]
+    return bornes.slice(1).map((fin, i, tous) => {
+      const reelle = juste && reels.length === tous.length && memesCoupes(decoupe, attendues[0] ?? [])
+      const nature = (reelle ? reels[i]?.nature : undefined) ?? (i === 0 ? 'prefixe' : i === tous.length - 1 ? 'suffixe' : 'mot')
+      return { nature, texte: lettres.slice(bornes[i], fin).join('') }
+    })
+  }
+  const succes = fini && faute === null && (plusieurs ? trouvees.length === attendues.length : juger(d, 'decouper', unite, coupes) === true)
+  // Ce que montre le verdict : chaque découpe juste, puis la fausse.
+  const affichees: { decoupe: number[]; juste: boolean }[] = plusieurs
+    ? [...trouvees.map((decoupe) => ({ decoupe, juste: true })), ...(faute ? [{ decoupe: faute, juste: false }] : [])]
+    : [{ decoupe: coupes, juste: succes }]
+  const enCours = trouvees.map((t) => morceauxDe(t, false).map((m) => m.texte).join(' | '))
   return (
     <>
       <h2 className="rico-consigne" tabIndex={-1} ref={(e) => e?.focus({ preventScroll: true })}>
@@ -288,42 +344,55 @@ function Decoupe({ q, jeu, d, envoyer, repondu }: QuestionProps) {
       </h2>
       <div className="rico-sujet">
         {fini ? (
-          <span className={`rico-mot rico-morceaux ${juste ? 'juste' : 'faux'}`} lang="fr">
-            {morceaux.map((m, i) => (
-              // --d : de combien d'écarts le morceau revient vers le centre au départ, d'où il s'écarte.
-              <span key={i} className="rico-morceau" data-kind={NATURES[m.nature]} style={{ '--d': (morceaux.length - 1) / 2 - i } as CSSProperties}>
-                <svg className="rico-contour" aria-hidden="true" focusable="false">
-                  <rect width="100%" height="100%" rx="12" pathLength={1} />
-                </svg>
-                {m.nature === 'suffixe' && <span className="rico-tiret">-</span>}
-                {m.texte}
-                {m.nature === 'prefixe' && <span className="rico-tiret">-</span>}
-              </span>
+          affichees.map(({ decoupe, juste }, k) => (
+            <span key={k} className={`rico-mot rico-morceaux ${juste ? 'juste' : 'faux'}`} lang="fr">
+              {morceauxDe(decoupe, juste).map((m, i, tous) => (
+                // --d : de combien d'écarts le morceau revient vers le centre au départ, d'où il s'écarte.
+                <span key={i} className="rico-morceau" data-kind={NATURES[m.nature]} style={{ '--d': (tous.length - 1) / 2 - i } as CSSProperties}>
+                  <svg className="rico-contour" aria-hidden="true" focusable="false">
+                    <rect width="100%" height="100%" rx="12" pathLength={1} />
+                  </svg>
+                  {m.nature === 'suffixe' && <span className="rico-tiret">-</span>}
+                  {m.texte}
+                  {m.nature === 'prefixe' && <span className="rico-tiret">-</span>}
+                </span>
+              ))}
+            </span>
+          ))
+        ) : (
+          <span className={`rico-mot rico-decoupe ${demo !== null ? 'invite' : ''}`} role="group" aria-label="Endroits où couper" onPointerEnter={() => setInvite(false)} onFocus={() => setInvite(false)}>
+            {lettres.map((l, k) => (
+              <Fragment key={k}>
+                {k > 0 && (
+                  <button
+                    type="button"
+                    className={`rico-coupe ${coupes.includes(k) ? 'coupee' : demo === k ? 'demo' : ''}`}
+                    aria-label={`Couper entre « ${lettres.slice(0, k).join('')} » et « ${lettres.slice(k).join('')} »`}
+                    aria-pressed={coupes.includes(k)}
+                    onClick={() => couper(k)}
+                  />
+                )}
+                <span aria-hidden="true">{l}</span>
+              </Fragment>
             ))}
           </span>
-        ) : (
-        <span className={`rico-mot rico-decoupe ${demo !== null ? 'invite' : ''}`} role="group" aria-label="Endroits où couper" onPointerEnter={() => setInvite(false)} onFocus={() => setInvite(false)}>
-          {lettres.map((l, k) => (
-            <Fragment key={k}>
-              {k > 0 && (
-                <button
-                  type="button"
-                  className={`rico-coupe ${coupes.includes(k) ? 'coupee' : demo === k ? 'demo' : ''}`}
-                  aria-label={`Couper entre « ${lettres.slice(0, k).join('')} » et « ${lettres.slice(k).join('')} »`}
-                  aria-pressed={coupes.includes(k)}
-                  onClick={() => couper(k)}
-                />
-              )}
-              <span aria-hidden="true">{l}</span>
-            </Fragment>
-          ))}
-        </span>
         )}
       </div>
+      {plusieurs && !fini && (
+        <div className="rico-decoupes-faites" role="status" aria-live="polite">
+          <p className="rico-note">
+            {trouvees.length} découpe{trouvees.length > 1 ? 's' : ''} trouvée{trouvees.length > 1 ? 's' : ''} sur {attendues.length}
+            {enCours.length > 0 && ` : ${enCours.join(' ; ')}`}.
+          </p>
+          <button type="button" className="btn btn-primary rico-valider" disabled={coupes.length === 0} onClick={valider}>
+            Valider cette découpe
+          </button>
+        </div>
+      )}
       <div className="rico-verdict" role="status" aria-live="polite" ref={(e) => (fini ? e?.scrollIntoView({ block: 'nearest' }) : undefined)}>
         {fini && (
           <>
-            <strong>{juste ? 'Bien vu.' : 'Pas cette fois.'}</strong>
+            <strong>{succes ? 'Bien vu.' : 'Pas cette fois.'}</strong>
             <div>{question.lecon}</div>
           </>
         )}
@@ -535,7 +604,7 @@ function Seance({ jeu, d, questions, envoyer, reponses, envois, encore, onFermer
         {phase.t === 'fin' && <Recapitulatif jeu={jeu} reponses={reponses} />}
       </div>
       <footer className="rico-pied">
-        {phase.t === 'question' && !phase.repondu && q?.format !== 'paires' && <p className="rico-note">{q?.format === 'decouper' ? 'Touchez le mot là où il se coupe.' : 'Touchez la bonne réponse.'}</p>}
+        {phase.t === 'question' && !phase.repondu && q?.format !== 'paires' && <p className="rico-note">{q?.format === 'decouper' ? ((q.cartes[0] && d.mots.get(q.cartes[0])?.decoupes.length) || 0) > 1 ? 'Touchez le mot là où il se coupe, puis validez chaque découpe.' : 'Touchez le mot là où il se coupe.' : 'Touchez la bonne réponse.'}</p>}
         {phase.t === 'question' && phase.repondu && (
           <button type="button" className="btn btn-primary" onClick={suivant}>
             {phase.i + 1 === questions.length ? 'Terminer' : 'Suivant'}
