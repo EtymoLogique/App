@@ -186,6 +186,17 @@ pub struct DemandeRicochet {
     pub reponse: ReponseJoueur,
 }
 
+/// Où en est la question après la réponse.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SuiteRicochet {
+    /// La question est close : la réponse est comptée, juste ou fausse.
+    #[default]
+    Terminee,
+    /// La coupe est juste et il en reste à poser : rien n'est écrit.
+    Continue,
+}
+
 /// Carte après la réponse : de quoi annoncer son retour (« Demain », « Maîtrisée »).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -204,7 +215,12 @@ pub struct CarteRicochet {
 #[serde(deny_unknown_fields)]
 pub struct ReponseRicochet {
     /// Vrai si la réponse est la bonne, que la carte ait été à revoir ou non.
+    /// Pour une coupe de *découper* qui laisse la question ouverte : vrai.
     pub juste: bool,
+    /// `continue` : *découper* a encore des coupes à poser (ADR 0084), rien n'est
+    /// écrit ni compté. Absent des anciennes réponses : `terminee`.
+    #[serde(default)]
+    pub suite: SuiteRicochet,
     pub carte: CarteRicochet,
     /// État confirmé après la commande.
     pub etat: Etat,

@@ -129,7 +129,10 @@ pub fn fascicule(racine: &Path, numero: u32, parution: &str) -> String {
                 { "id": GEO, "sens_id": SENS_GEO, "classe_sens": SENS_GEO },
                 { "id": LOGIE, "sens_id": SENS_LOGIE, "classe_sens": SENS_LOGIE }
             ],
-            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3] }]
+            "mots": [{ "id": MOT, "classe_litteral": MOT, "coupes": [3],
+                "decoupage": { "debut": 0, "fin": 8, "coupes": [3], "parties": [
+                    { "debut": 3, "fin": 8, "coupes": [5], "parties": [] }
+                ] } }]
         },
         "pli": {
             "briques": [

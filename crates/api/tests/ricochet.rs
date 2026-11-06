@@ -198,9 +198,68 @@ async fn un_mot_decouvert_se_decoupe(base: PgPool) {
     assert_eq!(statut, StatusCode::OK, "{reponse}");
     assert_eq!(reponse["juste"], false);
 
-    let bon = json!({ "format": "decouper", "unite_id": MOT, "reponse": [3] });
+    assert_eq!(reponse["suite"], "terminee");
+
+    // L'arbre d'essai a deux niveaux : [3], puis [3, 5].
+    let bon = json!({ "format": "decouper", "unite_id": MOT, "reponse": [3, 5] });
     let (_, reponse) = repondre(&banc, &jeton, &reponse["etat"], bon).await;
     assert_eq!(reponse["juste"], true);
+    assert_eq!(reponse["suite"], "terminee");
     // La carte venait d'être ratée : à revoir demain, pas aujourd'hui.
     assert_eq!(reponse["carte"]["niveau"], 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn une_coupe_juste_qui_laisse_des_coupes_ne_change_rien(base: PgPool) {
+    let banc = banc(base, Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    let fusion = commande(&etat, json!({ "briques": [GEO, LOGIE] }));
+    let (_, _, decouverte) = appeler(&banc.routeur, post_fusion(&jeton, &fusion)).await;
+    let etat = &decouverte["etat"];
+
+    // Premier niveau : juste, mais il reste à recouper « logie ».
+    let premier = json!({ "format": "decouper", "unite_id": MOT, "reponse": [3] });
+    let (statut, reponse) = repondre(&banc, &jeton, etat, premier.clone()).await;
+    assert_eq!(statut, StatusCode::OK, "{reponse}");
+    assert_eq!(reponse["juste"], true);
+    assert_eq!(reponse["suite"], "continue");
+    assert_eq!(
+        reponse["etat"]["version_etat"], etat["version_etat"],
+        "aucune commande n'est écrite"
+    );
+    assert_eq!(
+        reponse["etat"]["ricochets_du_jour"],
+        etat["ricochets_du_jour"]
+    );
+    assert_eq!(reponse["carte"]["niveau"], 0);
+    // Rejouée, la coupe reçoit la même réponse et ne coûte toujours rien.
+    let (_, encore) = repondre(&banc, &jeton, etat, premier).await;
+    assert_eq!(encore["suite"], "continue");
+
+    // Le morceau « logie » ne se coupe pas avant d'avoir été séparé du reste : la question s'arrête, fausse.
+    let trop_tot = json!({ "format": "decouper", "unite_id": MOT, "reponse": [5] });
+    let (_, reponse) = repondre(&banc, &jeton, etat, trop_tot).await;
+    assert_eq!(reponse["juste"], false);
+    assert_eq!(reponse["suite"], "terminee");
+    assert_ne!(
+        reponse["etat"]["version_etat"], etat["version_etat"],
+        "la réponse qui clôt est une commande"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn la_derniere_coupe_juste_cloture_la_question(base: PgPool) {
+    let banc = banc(base, Limiteurs::default()).await;
+    let jeton = session(&banc.routeur).await;
+    let (_, _, etat) = appeler(&banc.routeur, get_etat(&jeton)).await;
+    let fusion = commande(&etat, json!({ "briques": [GEO, LOGIE] }));
+    let (_, _, decouverte) = appeler(&banc.routeur, post_fusion(&jeton, &fusion)).await;
+    let etat = &decouverte["etat"];
+
+    let tout = json!({ "format": "decouper", "unite_id": MOT, "reponse": [3, 5] });
+    let (_, reponse) = repondre(&banc, &jeton, etat, tout).await;
+    assert_eq!(reponse["juste"], true);
+    assert_eq!(reponse["suite"], "terminee");
+    assert_ne!(reponse["etat"]["version_etat"], etat["version_etat"]);
 }

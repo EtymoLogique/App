@@ -570,7 +570,7 @@
         "tags": [
           "jeu"
         ],
-        "summary": "Répond à une question de ricochet (ADR 0044). Le serveur juge sur les\nidentifiants, applique la règle de maîtrise et compte la réponse parmi les\ncinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.\nRien n'est consommé : ni exemplaire, ni énergie, ni encre.",
+        "summary": "Répond à une question de ricochet (ADR 0044). Le serveur juge sur les\nidentifiants, applique la règle de maîtrise et compte la réponse parmi les\ncinq du jour. Une carte pas à revoir renvoie son résultat sans changer de niveau.\nRien n'est consommé : ni exemplaire, ni énergie, ni encre. Une coupe juste de\n*découper* qui laisse des coupes à poser (`suite = continue`, ADR 0084) ne\nmodifie rien : seule la réponse qui clôt la question est une commande.",
         "operationId": "repondre_ricochet",
         "requestBody": {
           "content": {
@@ -2764,6 +2764,17 @@
             },
             "description": "Positions de coupe de la composition préférée ; vide : le mot ne se découpe pas."
           },
+          "decoupage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Noeud",
+                "description": "Arbre des coupes justes, compositions chaînées comprises (ADR 0084). Absent d'un\nmanifeste antérieur : `coupes` seules font alors foi, sur un seul niveau."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/IdCatalogue"
           }
@@ -2800,6 +2811,44 @@
           "suffixe",
           "mot"
         ]
+      },
+      "Noeud": {
+        "type": "object",
+        "description": "Un morceau du mot et ses coupes justes.",
+        "required": [
+          "debut",
+          "fin",
+          "coupes"
+        ],
+        "properties": {
+          "coupes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Positions des coupes de ce morceau, dans le mot entier."
+          },
+          "debut": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "fin": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Fin exclue.",
+            "minimum": 0
+          },
+          "parties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Noeud"
+            },
+            "description": "Sous-nœuds : les parties qui se coupent à leur tour."
+          }
+        }
       },
       "OuverturePli": {
         "type": "object",
@@ -3267,7 +3316,11 @@
           },
           "juste": {
             "type": "boolean",
-            "description": "Vrai si la réponse est la bonne, que la carte ait été à revoir ou non."
+            "description": "Vrai si la réponse est la bonne, que la carte ait été à revoir ou non.\nPour une coupe de *découper* qui laisse la question ouverte : vrai."
+          },
+          "suite": {
+            "$ref": "#/components/schemas/SuiteRicochet",
+            "description": "`continue` : *découper* a encore des coupes à poser (ADR 0084), rien n'est\nécrit ni compté. Absent des anciennes réponses : `terminee`."
           }
         },
         "additionalProperties": false
@@ -3659,6 +3712,14 @@
         "enum": [
           "ok",
           "degrade"
+        ]
+      },
+      "SuiteRicochet": {
+        "type": "string",
+        "description": "Où en est la question après la réponse.",
+        "enum": [
+          "terminee",
+          "continue"
         ]
       },
       "Transformation": {

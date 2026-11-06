@@ -10,6 +10,7 @@ use etymo_contrat::{
     FormatRicochet, QuestionRicochet, ReponseJoueur, RicochetEtat, RicochetsDuJour,
 };
 use etymo_domaine::IdCatalogue;
+use etymo_domaine::decoupage::{self, Verdict};
 use etymo_domaine::ricochet::{self, Carte};
 use sqlx::PgConnection;
 use uuid::Uuid;
@@ -176,7 +177,7 @@ fn question<'a>(
         {
             formats.push(FormatRicochet::MotSens);
         }
-        if !m.coupes.is_empty() {
+        if m.arbre().is_some() {
             formats.push(FormatRicochet::Decouper);
         }
     }
@@ -369,24 +370,49 @@ pub fn juger(
                 .ok_or_else(|| invalide("reponse : un mot connu attendu"))?;
             Ok(choisi == unite || autre.classe_litteral.as_ref() == Some(classe))
         }
-        (FormatRicochet::Decouper, ReponseJoueur::Coupes(coupes)) => {
-            let mot = (unite.prefixe() == "unt")
-                .then(|| ricochets.mots.get(unite))
-                .flatten()
-                .ok_or_else(inconnue)?;
-            if mot.coupes.is_empty() {
-                return Err(invalide("format : ce mot ne se découpe pas"));
-            }
-            if coupes.len() > COUPES_MAX {
-                return Err(invalide("reponse : trop de coupes"));
-            }
-            let mut coupes = coupes.clone();
-            coupes.sort_unstable();
-            coupes.dedup();
-            Ok(coupes == mot.coupes)
-        }
         _ => Err(invalide("reponse : forme incompatible avec le format")),
     }
+}
+
+/// Ce que vaut une réponse. Seul *découper* a un entre-deux : les coupes posées
+/// sont justes, mais il en reste (ADR 0084).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Jugement {
+    Faux,
+    Juste,
+    /// Question pas terminée : rien ne s'écrit.
+    Continue,
+}
+
+/// Juge une réponse, découper en chaîne compris (`etymo_domaine::decoupage`).
+pub fn jugement(
+    jeu: &Jeu,
+    format: FormatRicochet,
+    unite: &IdCatalogue,
+    reponse: &ReponseJoueur,
+) -> Result<Jugement, ErreurApi> {
+    let (FormatRicochet::Decouper, ReponseJoueur::Coupes(coupes)) = (format, reponse) else {
+        return Ok(if juger(jeu, format, unite, reponse)? {
+            Jugement::Juste
+        } else {
+            Jugement::Faux
+        });
+    };
+    let mot = (unite.prefixe() == "unt")
+        .then(|| jeu.ricochets.mots.get(unite))
+        .flatten()
+        .ok_or_else(|| ErreurApi::Interdit("carte inconnue"))?;
+    let arbre = mot
+        .arbre()
+        .ok_or_else(|| invalide("format : ce mot ne se découpe pas"))?;
+    if coupes.len() > COUPES_MAX {
+        return Err(invalide("reponse : trop de coupes"));
+    }
+    Ok(match decoupage::juger(&arbre, coupes) {
+        Verdict::Faux => Jugement::Faux,
+        Verdict::Continue => Jugement::Continue,
+        Verdict::Termine => Jugement::Juste,
+    })
 }
 
 // -------------------------------------------------------------------- base
@@ -613,6 +639,7 @@ mod tests {
                     id: mot(n),
                     classe_litteral: Some(mot(classe)),
                     coupes: if n <= 2 { vec![3] } else { vec![] },
+                    decoupage: None,
                 },
             );
         }
@@ -783,8 +810,11 @@ mod tests {
         assert!(!juger(&jeu, FormatRicochet::MotSens, &mot(1), &choix(mot(2))).unwrap());
         // Découper : l'ordre et les doublons ne comptent pas.
         let coupes = |c: &[u32]| ReponseJoueur::Coupes(c.to_vec());
-        assert!(juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[3, 3])).unwrap());
-        assert!(!juger(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(&[2])).unwrap());
+        let decouper =
+            |c: &[u32]| jugement(&jeu, FormatRicochet::Decouper, &mot(1), &coupes(c)).unwrap();
+        assert_eq!(decouper(&[3, 3]), Jugement::Juste);
+        assert_eq!(decouper(&[2]), Jugement::Faux);
+        assert_eq!(decouper(&[]), Jugement::Continue);
     }
 
     #[test]
@@ -816,7 +846,7 @@ mod tests {
             Err(ErreurApi::RequeteInvalide(_))
         ));
         assert!(matches!(
-            juger(
+            jugement(
                 &jeu,
                 FormatRicochet::Decouper,
                 &mot(3),
@@ -825,7 +855,7 @@ mod tests {
             Err(ErreurApi::RequeteInvalide(_))
         ));
         assert!(matches!(
-            juger(
+            jugement(
                 &jeu,
                 FormatRicochet::Decouper,
                 &mot(1),
