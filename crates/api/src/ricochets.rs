@@ -769,6 +769,7 @@ mod tests {
                     classe_litteral: None,
                     coupes: vec![],
                     assemblage: vec![brique(n), brique(n + 10)],
+                    coupes_alternatives: vec![],
                 },
             );
         }
