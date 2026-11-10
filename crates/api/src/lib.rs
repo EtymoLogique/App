@@ -18,6 +18,7 @@ use std::sync::Arc;
 use axum::Router;
 use axum::http::{HeaderValue, Method, header};
 use sqlx::PgPool;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
@@ -57,6 +58,10 @@ pub fn routeur(etat: Arc<EtatApp>, origines: &[HeaderValue]) -> Router {
     routes
         .with_state(etat)
         .layer(RequestBodyLimitLayer::new(CORPS_MAX))
+        // Réponses compressées (gzip, brotli) selon `Accept-Encoding` : l'état complet
+        // revient à chaque commande, et pèse sur un réseau lent (ADR 0085). Les jetons
+        // voyagent en en-tête `Authorization`, jamais en cookie : rien pour BREACH.
+        .layer(CompressionLayer::new())
         .layer(cors)
         .layer(SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,
