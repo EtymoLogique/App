@@ -43,8 +43,16 @@ export async function etatConfirme(): Promise<Etat | null> {
   return completerEtat(etat as Etat)
 }
 
-export function memoriserEtat(etat: Etat): Promise<void> {
-  return set('etat', etat, stockage())
+/** Garde l'état confirmé et l'heure de la réponse du serveur qui l'a donné. */
+export async function memoriserEtat(etat: Etat, synchroniseLe = Date.now()): Promise<void> {
+  await set('etat', etat, stockage())
+  await set('synchronise_le', synchroniseLe, stockage())
+}
+
+/** Heure (ms) de la dernière réponse du serveur gardée en local, `null` si inconnue. */
+export async function synchroniseLocal(): Promise<number | null> {
+  const le: unknown = await get('synchronise_le', stockage())
+  return typeof le === 'number' && Number.isFinite(le) ? le : null
 }
 
 /** Cases de la table en cours, chacune à sa place (`null` pour une case vide). */

@@ -6,10 +6,14 @@ import type { ReponseFusion, ReponsePli } from './contrat'
 import { ClientApi, ErreurApi } from './services/api'
 import type { LecteurCatalogue } from './services/catalogue'
 import { effacerPartie } from './services/local'
+import { Reseau, reseau } from './services/reseau'
 import { GEO, LOGIE, MOT, RECETTE, etat, ex, lecteurFictif } from './test/fixtures'
 
+/** Un appel non simulé échoue tout de suite, sans toucher l'état réseau de l'application. */
+const isole = () => ({ delais: [], reseau: new Reseau() })
+
 function client(fusion?: ClientApi['fusion']): ClientApi {
-  const api = new ClientApi('https://api.exemple.test')
+  const api = new ClientApi('https://api.exemple.test', undefined, isole())
   vi.spyOn(api, 'etat').mockResolvedValue(etat())
   vi.spyOn(api, 'sante').mockResolvedValue({ statut: 'ok', version_catalogue: 'v1', version_api: '0', revision_api: '', reinitialisation: false })
   if (fusion) vi.spyOn(api, 'fusion').mockImplementation(fusion)
@@ -214,7 +218,7 @@ describe('table de fusion', () => {
   })
 
   it('relie les cartes du codex qui se font référence, avec un fil d’Ariane', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = new ClientApi('https://api.exemple.test', undefined, isole())
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )
@@ -269,14 +273,49 @@ describe('table de fusion', () => {
     expect(api.etat).toHaveBeenCalledTimes(2)
   })
 
-  it('hors ligne, consulte seulement : rien ne se pose', async () => {
-    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-    render(<App api={client()} catalogue={lecteur} />)
-    expect(await screen.findByRole('button', { name: /^Réserve/ })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Emplacement 1 vide. Choisir une brique' }))
-    expect(screen.queryByRole('dialog', { name: /^Réserve/ })).not.toBeInTheDocument()
-    expect(screen.getAllByText(/consultation seulement/).length).toBeGreaterThanOrEqual(1)
+  it('hors ligne, prépare la table mais ne fusionne pas (ADR 0085)', async () => {
+    reseau.reinitialiser(false)
+    const fusion = vi.fn<ClientApi['fusion']>()
+    render(<App api={client(fusion)} catalogue={lecteur} />)
+    expect(screen.getAllByText('Hors ligne').length).toBeGreaterThanOrEqual(1)
+    await poser('géo-', '-logie')
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
     expect(fusionner()).toBeDisabled()
+    expect(screen.getByText('En attente du réseau')).toBeInTheDocument()
+    expect(fusion).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /^Réserve/ })).toBeEnabled()
+  })
+
+  it('au retour du réseau, se resynchronise et rend la fusion possible', async () => {
+    reseau.reinitialiser(false)
+    const api = client()
+    render(<App api={api} catalogue={lecteur} />)
+    await poser('géo-', '-logie')
+    await waitFor(() => expect(api.etat).toHaveBeenCalledTimes(1))
+    act(() => reseau.noterReussite(10))
+    await waitFor(() => expect(api.etat).toHaveBeenCalledTimes(2))
+    expect(fusionner()).toBeEnabled()
+    expect(screen.getAllByText('De retour en ligne').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('une perte du réseau garde la table, ne secoue rien et propose de réessayer avec la même clé', async () => {
+    document.documentElement.dataset.mouvement = 'reduit'
+    const recu: string[] = []
+    const fusion = vi.fn<ClientApi['fusion']>(async (d) => {
+      recu.push(d.commande)
+      if (recu.length === 1) throw new ErreurApi(0, 'reseau', 'API injoignable')
+      return { issue: { type: 'echec' }, etat: etat() } as ReponseFusion
+    })
+    render(<App api={client(fusion)} catalogue={lecteur} />)
+    await poser('géo-', '-logie')
+    await act(async () => fireEvent.click(fusionner()))
+    expect(await screen.findByText(/La connexion s’est perdue/)).toBeInTheDocument()
+    expect(document.querySelector('.slots.shake')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Emplacement 1 : géo-. Retirer' })).toBeInTheDocument()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Réessayer' })))
+    await waitFor(() => expect(fusion).toHaveBeenCalledTimes(2))
+    expect(recu[1]).toBe(recu[0])
+    delete document.documentElement.dataset.mouvement
   })
 
   it('vide une case qu’on touche sans déplacer l’autre, et réordonne au clavier', async () => {
@@ -294,7 +333,7 @@ describe('table de fusion', () => {
   })
 
   it('dit quand aucun mot n’est plus possible, et mène aux plis', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = new ClientApi('https://api.exemple.test', undefined, isole())
     vi.spyOn(api, 'etat').mockResolvedValue(etat({ reserve: [ex(GEO, 2), ex(LOGIE, 0)] }))
     render(<App api={api} catalogue={lecteur} />)
     expect(await screen.findByText('Aucun mot possible pour l’instant')).toBeInTheDocument()
@@ -313,7 +352,7 @@ describe('table de fusion', () => {
   })
 
   it('revient au même écran après un rechargement', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = new ClientApi('https://api.exemple.test', undefined, isole())
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )
@@ -365,7 +404,7 @@ describe('table de fusion', () => {
 
   it('montre le cabinet du joueur : ses nombres seuls, sans total des légendaires', async () => {
     window.location.hash = '#/codex?vue=objectifs'
-    const api = new ClientApi('https://api.exemple.test')
+    const api = new ClientApi('https://api.exemple.test', undefined, isole())
     vi.spyOn(api, 'etat').mockResolvedValue(etat({ jours_de_jeu: 12 }))
     render(<App api={api} catalogue={lecteur} />)
     // Une ancienne adresse « Objectifs » ouvre le cabinet.
@@ -382,7 +421,7 @@ describe('table de fusion', () => {
 
   it('joint les segments d’une famille complète et montre le mot au plus long voyage', async () => {
     window.location.hash = '#/codex?vue=cabinet'
-    const api = new ClientApi('https://api.exemple.test')
+    const api = new ClientApi('https://api.exemple.test', undefined, isole())
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )
@@ -398,7 +437,7 @@ describe('table de fusion', () => {
   })
 
   it('ouvre « En savoir plus » depuis la carte vue au codex, jusque dans l’adresse', async () => {
-    const api = new ClientApi('https://api.exemple.test')
+    const api = new ClientApi('https://api.exemple.test', undefined, isole())
     vi.spyOn(api, 'etat').mockResolvedValue(
       etat({ decouvertes: [{ mot_id: MOT, recette_id: RECETTE, numero: 1, decouverte_le: '2026-10-02T10:00:00Z' }] }),
     )

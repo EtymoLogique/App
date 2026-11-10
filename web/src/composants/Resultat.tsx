@@ -5,6 +5,7 @@ import { mouvementReduit } from '../services/animation'
 import type { BriqueJeu, CatalogueJeu, Prevision, TrompeJeu } from '../services/jeu'
 import { texteDuMot } from '../services/jeu'
 import { PetiteBrique } from './Brique'
+import { Icone } from './Icone'
 
 const RAISONS: Record<string, string> = {
   archaique: 'le mot est archaïque',
@@ -14,9 +15,9 @@ const RAISONS: Record<string, string> = {
 export type Retour =
   | { etat: 'prevision'; prevision: Prevision }
   | { etat: 'confirme'; issue: IssueFusion; /** Jalons atteints par une découverte, récompense à récupérer (ADR 0038, 0042). */ jalons?: string[] }
-  | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' }
+  | { etat: 'message'; texte: React.ReactNode; ton?: 'hint' | 'fail' | 'reseau' }
 
-type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait'
+type Ton = 'win' | 'hint' | 'fail' | 'known' | 'wait' | 'reseau'
 
 const NOMBRES = ['', 'Une', 'Deux', 'Trois']
 
@@ -40,6 +41,10 @@ interface Props {
   onCarte: (uniteId: string) => void
   /** Retire la brique de ce rang et ouvre la réserve sur sa forme. */
   onRemplacer: (rang: number, forme: string) => void
+  /** Palier d'attente de la réponse (ADR 0085) : 0 tout de suite, 1 après 1 s, 2 après 4 s. */
+  attente?: 0 | 1 | 2
+  /** Refait la fusion après une perte du réseau, sous la même clé de commande. */
+  onReessayer?: () => void
 }
 
 function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
@@ -56,15 +61,32 @@ function Ligne({ ton, children }: { ton?: Ton; children: React.ReactNode }) {
  * « presque » propose un geste. Un mot trouvé, nouveau ou connu, ouvre sa carte :
  * ici ne reste qu'une ligne.
  */
-export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes, briquesPosees, decouverts, onCarte, onRemplacer }: Props) {
+export function Resultat({ retour, jeu, posees, bloquee, onInverser, aRecuperer, onQuetes, briquesPosees, decouverts, onCarte, onRemplacer, attente = 0, onReessayer }: Props) {
   let contenu: React.ReactNode
   // Ce que dit le retour : quand elle change, l'ancien message sort et le nouveau entre.
-  const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}${retour.issue.type === 'echec' && retour.issue.explication ? `:${retour.issue.explication.nature}` : ''}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : (retour?.etat ?? `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`)
-  if (retour?.etat === 'message') {
+  const cle = retour?.etat === 'confirme' ? `confirme:${retour.issue.type}${retour.issue.type === 'echec' && retour.issue.explication ? `:${retour.issue.explication.nature}` : ''}` : retour?.etat === 'message' ? `message:${typeof retour.texte === 'string' ? retour.texte : ''}` : retour?.etat === 'prevision' ? `prevision:${attente === 2 ? 'lente' : ''}` : `attente:${bloquee && posees > 0 ? 'bloquee' : posees}`
+  if (retour?.etat === 'message' && retour.ton === 'reseau') {
+    // Erreur de réseau (ADR 0085) : ni secousse ni teinte d'échec, la table reste et le geste se refait.
+    contenu = (
+      <div className="retour">
+        <Ligne ton="reseau">
+          <Icone nom="horsLigne" />
+          {retour.texte}
+        </Ligne>
+        {onReessayer && (
+          <div className="rangee">
+            <button type="button" className="btn btn-secondary btn-s" onClick={onReessayer} disabled={bloquee !== null}>
+              Réessayer
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  } else if (retour?.etat === 'message') {
     contenu = <Ligne ton={retour.ton ?? 'fail'}>{retour.texte}</Ligne>
   } else if (retour?.etat === 'prevision') {
     // Aucune découverte n'est annoncée avant la validation du serveur (interfaces, règle 05).
-    contenu = <Ligne ton="wait">Vérification de votre hypothèse…</Ligne>
+    contenu = <Ligne ton="wait">{attente === 2 ? 'Le réseau est lent, nous insistons…' : 'Vérification de votre hypothèse…'}</Ligne>
   } else if (retour?.etat === 'confirme') {
     const issue = retour.issue
     switch (issue.type) {

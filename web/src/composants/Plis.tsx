@@ -3,6 +3,7 @@ import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, u
 import type { Etat, OuverturePli, Rarete, ReponseAchatSablier, ReponsePli, ReponseSablier } from '../contrat'
 import { accordLegendaire, basculer, mouvementReduit, useEnergieAnimee, vibrer } from '../services/animation'
 import { useMaintenant } from '../services/horloge'
+import { useAttente } from '../services/attente'
 import { useEnLigne } from '../services/reseau'
 import { type CatalogueJeu, type FasciculeParu, NATURES, decouvertePossible, libelleFascicule } from '../services/jeu'
 import {
@@ -298,6 +299,9 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [reponse, setReponse] = useState<ReponsePli | null>(null)
   const [statut, setStatut] = useState('')
+  /** Vrai tant que le serveur n'a pas répondu à l'ouverture : la cire chauffe, et après 4 s un mot l'explique (ADR 0085). */
+  const [enCharge, setEnCharge] = useState(false)
+  const palier = useAttente(enCharge)
   const passer = useRef(false)
   const occupe = useRef(false)
   const scene = useRef<HTMLDivElement>(null)
@@ -346,7 +350,8 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
     setTeteGelee(teteReelle.current)
     setEtatGele(etat)
     // La requête part tout de suite ; rien n'est annoncé avant sa réponse.
-    const demande = ouvrirPli(fascicule.manifeste.id)
+    setEnCharge(true)
+    const demande = ouvrirPli(fascicule.manifeste.id).finally(() => setEnCharge(false))
     setClasse('pk-charging')
     const [resultat] = await Promise.all([demande, pause(260)])
     if ('erreur' in resultat) {
@@ -579,7 +584,7 @@ function Atelier({ jeu, etat, fascicule, onRetour, ouvrirPli, raccourci, onEssay
               ))}
             </p>
             <p className="pk-status" role="status" aria-live="polite">
-              {statut || (etapeAffichee === 'recharging' ? (ouvrable ? `Pli en recharge · ${energie.texte}` : 'Ce pli n’est pas encore disponible') : 'Touchez le pli pour l’ouvrir')}
+              {(palier === 2 ? 'Le réseau est lent, nous insistons…' : statut) || (etapeAffichee === 'recharging' ? (ouvrable ? `Pli en recharge · ${energie.texte}` : 'Ce pli n’est pas encore disponible') : 'Touchez le pli pour l’ouvrir')}
             </p>
             {etape !== 'revealed' && (
               <div className="pk-actions">

@@ -13,6 +13,8 @@ interface Props {
   table: (string | null)[]
   briques: Map<string, BriqueJeu>
   enAttente: boolean
+  /** Palier d'attente de la réponse (ADR 0085) : à partir de 1, les briques se rapprochent sans s'emboîter. */
+  attente?: 0 | 1 | 2
   onPoser: (brique: string, rang: number) => void
   onDeplacer: (depuis: number, vers: number) => void
   onRetirer: (rang: number) => void
@@ -70,7 +72,7 @@ function Eclat({ mot, natures }: FusionEnCours) {
  * par « + », car l'ordre compte. On y glisse une brique ; toucher une case vide ouvre
  * la réserve, toucher une case pleine la vide ; glisser une brique posée sur une autre case les échange.
  */
-export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetirer, onCaseVide, secousse, fusion }: Props) {
+export function Table({ table, briques, enAttente, attente = 0, onPoser, onDeplacer, onRetirer, onCaseVide, secousse, fusion }: Props) {
   const [survol, setSurvol] = useState<number | null>(null)
   // Secousse déjà jouée : sans cela, elle rejouerait à chaque retour sur la table (display: none relance l'animation).
   const [secouee, setSecouee] = useState<number | null>(null)
@@ -105,7 +107,7 @@ export function Table({ table, briques, enAttente, onPoser, onDeplacer, onRetire
     <div
       ref={rail}
       key={secousse?.cle ?? 0}
-      className={['slots', secoue ? 'shake' : '', secoue && secousse.force === 'legere' ? 'legere' : '', fusion ? 'fusing' : ''].filter(Boolean).join(' ')}
+      className={['slots', secoue ? 'shake' : '', secoue && secousse.force === 'legere' ? 'legere' : '', fusion ? 'fusing' : '', attente > 0 && !fusion ? 'attente' : ''].filter(Boolean).join(' ')}
       onAnimationEnd={(e) => e.target === e.currentTarget && e.animationName.startsWith('amorti') && setSecouee(secousse?.cle ?? null)}
       role="group"
       aria-label="Briques posées, dans l’ordre"

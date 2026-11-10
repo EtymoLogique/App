@@ -5,7 +5,7 @@ import type { Retour } from '../composants/Resultat'
 import { type ClientApi, ErreurApi } from './api'
 import type { LecteurCatalogue } from './catalogue'
 import { type BriqueJeu, type CatalogueJeu, TABLE_MAX, chargerJeu, prevoir, texteDuMot } from './jeu'
-import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, tableEnCours } from './local'
+import { completerEtat, etatConfirme, memoriserEtat, memoriserTable, synchroniseLocal, tableEnCours } from './local'
 import { nombrePourRemplir } from './plis'
 
 type Chargement<T> = { etat: 'attente' } | { etat: 'pret'; valeur: T } | { etat: 'erreur'; message: string }
@@ -22,8 +22,16 @@ export interface FicheOuverte {
   motId: string
 }
 
+/** Erreur de réseau : la commande n'a pas abouti, aucune réponse du serveur ne dit le contraire. */
+function erreurReseau(e: unknown): boolean {
+  return e instanceof ErreurApi && e.code === 'reseau'
+}
+
+/** Erreur de réseau après tous les essais (ADR 0085) : rien n'est perdu, le même geste peut se refaire. */
+export const PERTE_RESEAU = 'La connexion s’est perdue. Rien n’est perdu : réessayez.'
+
 function message(e: unknown): string {
-  if (e instanceof ErreurApi && e.code === 'reseau') return 'Le serveur est injoignable pour le moment.'
+  if (erreurReseau(e)) return PERTE_RESEAU
   if (e instanceof ErreurApi && e.code === 'trop_de_requetes') return 'Trop de tentatives : réessayez dans une minute.'
   return 'Une erreur est survenue. Réessayez plus tard.'
 }
@@ -54,7 +62,10 @@ function tableValide(cases: Cases, etat: Etat): Cases {
   })
 }
 
-const HORS_LIGNE = 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
+const HORS_LIGNE = 'Hors ligne : cette action attend le réseau.'
+
+/** Au retour au premier plan, l'état se resynchronise s'il date de plus que cela. */
+const RESYNC_PREMIER_PLAN_MS = 30_000
 
 /** État d'une partie : catalogue, état confirmé, table et retours de fusion. */
 export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = true) {
@@ -77,8 +88,33 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
   const [nouvelles, setNouvelles] = useState<Set<string>>(new Set())
   /** Vrai hors production seulement : le serveur ouvre alors la réinitialisation. */
   const [reinitialisable, setReinitialisable] = useState(false)
+  /** Heure de la dernière réponse du serveur, gardée en local : « partie à jour il y a 4 min ». */
+  const [synchroniseLe, setSynchroniseLe] = useState<number | null>(null)
   const actif = useRef(true)
   const restauree = useRef(false)
+  /** Resynchronisation en cours : une seule à la fois. */
+  const synchro = useRef<Promise<void> | null>(null)
+  /**
+   * Clé de commande de chaque geste (ADR 0085) : tirée une fois, réutilisée par les
+   * nouveaux essais et par « Réessayer » tant que le serveur n'a pas répondu.
+   */
+  const cles = useRef(new Map<string, string>())
+  const avecCle = useCallback(async <T,>(geste: string, envoyer: (commande: string) => Promise<T>): Promise<T> => {
+    let commande = cles.current.get(geste)
+    if (!commande) {
+      commande = crypto.randomUUID()
+      cles.current.set(geste, commande)
+    }
+    try {
+      const reponse = await envoyer(commande)
+      cles.current.delete(geste)
+      return reponse
+    } catch (e) {
+      // Le serveur a répondu (même un refus) : le prochain geste aura sa propre clé.
+      if (!erreurReseau(e)) cles.current.delete(geste)
+      throw e
+    }
+  }, [])
 
   /** Dernier état confirmé, pour enchaîner les réponses d'une séance sans attendre un rendu. */
   const etatCourant = useRef<Etat | null>(null)
@@ -90,26 +126,37 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     etatCourant.current = nouvel
     setEtat(nouvel)
     setTable((t) => tableValide(t, nouvel))
-    void memoriserEtat(nouvel)
+    const le = Date.now()
+    setSynchroniseLe(le)
+    void memoriserEtat(nouvel, le)
   }, [])
 
-  const synchroniser = useCallback(async () => {
-    const [catalogue, confirme] = await Promise.allSettled([chargerJeu(lecteur), api.etat()])
-    if (!actif.current) return
-    if (catalogue.status === 'fulfilled') setJeu({ etat: 'pret', valeur: catalogue.value })
-    else setJeu({ etat: 'erreur', message: 'Le catalogue est illisible pour le moment.' })
-    if (confirme.status === 'fulfilled') {
-      setErreurEtat(null)
-      confirmer(confirme.value)
-    } else setErreurEtat(message(confirme.reason))
+  const synchroniser = useCallback(() => {
+    synchro.current ??= (async () => {
+      try {
+        const [catalogue, confirme] = await Promise.allSettled([chargerJeu(lecteur), api.etat()])
+        if (!actif.current) return
+        if (catalogue.status === 'fulfilled') setJeu({ etat: 'pret', valeur: catalogue.value })
+        // Un catalogue déjà lu reste valable : une resynchronisation ratée ne l'efface pas.
+        else setJeu((j) => (j.etat === 'pret' ? j : { etat: 'erreur', message: 'Le catalogue est illisible pour le moment.' }))
+        if (confirme.status === 'fulfilled') {
+          setErreurEtat(null)
+          confirmer(confirme.value)
+        } else setErreurEtat(message(confirme.reason))
+      } finally {
+        synchro.current = null
+      }
+    })()
+    return synchro.current
   }, [api, lecteur, confirmer])
 
   useEffect(() => {
     actif.current = true
     // La dernière projection confirmée s'affiche tout de suite, puis le serveur la remplace.
-    void Promise.all([etatConfirme(), tableEnCours()]).then(([local, t]) => {
+    void Promise.all([etatConfirme(), tableEnCours(), synchroniseLocal()]).then(([local, t, le]) => {
       restauree.current = true
       if (!actif.current) return
+      setSynchroniseLe((actuel) => actuel ?? le)
       if (local) {
         setEtat((e) => e ?? local)
         setTable((actuelle) => (actuelle.some(Boolean) ? actuelle : tableValide(t, local)))
@@ -121,6 +168,24 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       actif.current = false
     }
   }, [synchroniser])
+
+  // Retour du réseau (ADR 0085) : l'état se resynchronise de lui-même.
+  const enLignePrecedent = useRef(enLigne)
+  useEffect(() => {
+    const revenu = enLigne && !enLignePrecedent.current
+    enLignePrecedent.current = enLigne
+    if (revenu) void synchroniser()
+  }, [enLigne, synchroniser])
+
+  // Retour au premier plan : le téléphone a pu dormir, l'énergie et l'état ont pu changer.
+  useEffect(() => {
+    const auPremierPlan = () => {
+      if (document.visibilityState !== 'visible' || !enLigne) return
+      if (synchroniseLe === null || Date.now() - synchroniseLe > RESYNC_PREMIER_PLAN_MS) void synchroniser()
+    }
+    document.addEventListener('visibilitychange', auPremierPlan)
+    return () => document.removeEventListener('visibilitychange', auPremierPlan)
+  }, [enLigne, synchroniseLe, synchroniser])
 
   useEffect(() => {
     api.sante().then(
@@ -135,7 +200,6 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
 
   /** Pose une brique dans la première case libre ; table pleine, rien ne change. */
   const ajouter = useCallback((brique: string) => {
-    if (!enLigne) return
     setTable((t) => {
       const libre = t.indexOf(null)
       if (libre < 0) return t
@@ -145,11 +209,10 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     })
     setRetour(null)
     setFiche(null)
-  }, [enLigne])
+  }, [])
 
   /** Pose une brique dans la case `rang` : elle remplace celle qui s'y trouvait. */
   const poser = useCallback((brique: string, rang: number) => {
-    if (!enLigne) return
     setTable((t) => {
       if (rang < 0 || rang >= t.length) return t
       const suite = [...t]
@@ -158,11 +221,10 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     })
     setRetour(null)
     setFiche(null)
-  }, [enLigne])
+  }, [])
 
   /** Échange deux cases, pleines ou vides. */
   const deplacer = useCallback((depuis: number, vers: number) => {
-    if (!enLigne) return
     setTable((t) => {
       if (vers < 0 || vers >= t.length || depuis === vers) return t
       const suite = [...t]
@@ -171,14 +233,13 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       return suite
     })
     setRetour(null)
-  }, [enLigne])
+  }, [])
 
   /** Vide une case : l'autre brique garde sa place. */
   const retirer = useCallback((rang: number) => {
-    if (!enLigne) return
     setTable((t) => t.map((b, i) => (i === rang ? null : b)))
     setRetour(null)
-  }, [enLigne])
+  }, [])
 
   const fusionner = useCallback(async () => {
     if (!enLigne || jeu.etat !== 'pret' || !jeu.valeur || !etat) return
@@ -192,12 +253,9 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     setSecousse(null)
     setEnAttente(true)
     try {
-      const reponse = await api.fusion({
-        commande: crypto.randomUUID(),
-        version_etat: etat.version_etat,
-        version_catalogue: catalogue.version,
-        briques: proposition,
-      })
+      const reponse = await avecCle(`fusion:${etat.version_etat}:${catalogue.version}:${proposition.join(',')}`, (commande) =>
+        api.fusion({ commande, version_etat: etat.version_etat, version_catalogue: catalogue.version, briques: proposition }),
+      )
       const issue = reponse.issue
       if (issue.type === 'decouverte') {
         // Les briques se rejoignent, puis le mot se révèle et les « −1 » s'envolent (jeu.html, 700 ms).
@@ -229,13 +287,16 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       if (e instanceof ErreurApi && e.statut === 409) {
         await synchroniser()
         setRetour({ etat: 'message', texte: 'Votre partie a changé entre-temps. Elle est à jour : réessayez.' })
+      } else if (erreurReseau(e)) {
+        // Jamais de secousse : ce n'est pas un échec de jeu. La table reste, « Réessayer » renvoie la même clé.
+        setRetour({ etat: 'message', texte: 'La connexion s’est perdue. Votre table est intacte, rien n’est perdu.', ton: 'reseau' })
       } else {
         setRetour({ etat: 'message', texte: message(e) })
       }
     } finally {
       setEnAttente(false)
     }
-  }, [api, enLigne, jeu, etat, cases, confirmer, synchroniser])
+  }, [api, enLigne, jeu, etat, cases, confirmer, synchroniser, avecCle])
 
   /**
    * Ouvre le pli d'un fascicule (ADR 0011) : le serveur tire la brique. Rien
@@ -246,12 +307,10 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       if (!enLigne) return { erreur: HORS_LIGNE }
       if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
       try {
-        const reponse = await api.pli({
-          commande: crypto.randomUUID(),
-          version_etat: etat.version_etat,
-          version_catalogue: jeu.valeur.version,
-          fascicule_id: fascicule,
-        })
+        const version = jeu.valeur.version
+        const reponse = await avecCle(`pli:${etat.version_etat}:${version}:${fascicule}`, (commande) =>
+          api.pli({ commande, version_etat: etat.version_etat, version_catalogue: version, fascicule_id: fascicule }),
+        )
         confirmer(reponse.etat)
         // Une brique nouvelle entre au codex : sa carte se signale en Corail jusqu'à ce qu'on l'ouvre.
         const unite = jeu.valeur.briques.get(reponse.ouverture.brique_id)?.uniteId
@@ -269,7 +328,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         return { erreur: message(e) }
       }
     },
-    [api, enLigne, jeu, etat, confirmer, synchroniser],
+    [api, enLigne, jeu, etat, confirmer, synchroniser, avecCle],
   )
 
   /**
@@ -277,11 +336,12 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
    * resynchronise, et l'erreur n'est jamais un succès local.
    */
   const commander = useCallback(
-    async <T extends { etat: Etat }>(envoyer: (e: Etat, version: string) => Promise<T>, refus: string): Promise<T | { erreur: string }> => {
+    async <T extends { etat: Etat }>(geste: string, envoyer: (e: Etat, version: string, commande: string) => Promise<T>, refus: string): Promise<T | { erreur: string }> => {
       if (!enLigne) return { erreur: HORS_LIGNE }
       if (jeu.etat !== 'pret' || !jeu.valeur || !etat) return { erreur: 'Votre partie n’est pas encore chargée.' }
+      const version = jeu.valeur.version
       try {
-        const reponse = await envoyer(etat, jeu.valeur.version)
+        const reponse = await avecCle(`${geste}:${etat.version_etat}:${version}`, (commande) => envoyer(etat, version, commande))
         confirmer(reponse.etat)
         return reponse
       } catch (e) {
@@ -292,13 +352,14 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         return { erreur: message(e) }
       }
     },
-    [enLigne, jeu, etat, confirmer, synchroniser],
+    [enLigne, jeu, etat, confirmer, synchroniser, avecCle],
   )
 
   const utiliserSabliers = useCallback(
     (nombre: number): Promise<ReponseSablier | { erreur: string }> =>
       commander(
-        (e, version) => api.sablier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, nombre }),
+        `sablier:${nombre}`,
+        (e, version, commande) => api.sablier({ commande, version_etat: e.version_etat, version_catalogue: version, nombre }),
         'Ces sabliers ne peuvent pas servir maintenant.',
       ),
     [api, commander],
@@ -307,7 +368,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
   const acheterSabliers = useCallback(
     (nombre: number): Promise<ReponseAchatSablier | { erreur: string }> =>
       commander(
-        (e, version) => api.achatSablier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, nombre }),
+        `achat:${nombre}`,
+        (e, version, commande) => api.achatSablier({ commande, version_etat: e.version_etat, version_catalogue: version, nombre }),
         'Pas assez d’encre pour cet échange.',
       ),
     [api, commander],
@@ -325,7 +387,10 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       const utilisables = Math.min(achat.etat.sabliers?.detenus ?? 0, nombrePourRemplir(achat.etat.energie, Date.now()))
       if (utilisables < 1) return achat
       try {
-        const reponse = await api.sablier({ commande: crypto.randomUUID(), version_etat: achat.etat.version_etat, version_catalogue: jeu.valeur.version, nombre: utilisables })
+        const version = jeu.valeur.version
+        const reponse = await avecCle(`sablier:${utilisables}:${achat.etat.version_etat}:${version}`, (commande) =>
+          api.sablier({ commande, version_etat: achat.etat.version_etat, version_catalogue: version, nombre: utilisables }),
+        )
         confirmer(reponse.etat)
         return reponse
       } catch (e) {
@@ -333,13 +398,14 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
         return { erreur: 'Les sabliers sont échangés, mais le temps n’a pas avancé : utilisez-les avec « Avancer ».' }
       }
     },
-    [api, jeu, acheterSabliers, confirmer, synchroniser],
+    [api, jeu, acheterSabliers, confirmer, synchroniser, avecCle],
   )
 
   const acheterIndice = useCallback(
     (recette: string, niveau: number): Promise<ReponseIndice | { erreur: string }> =>
       commander(
-        (e, version) => api.indice({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, recette_id: recette, niveau }),
+        `indice:${recette}:${niveau}`,
+        (e, version, commande) => api.indice({ commande, version_etat: e.version_etat, version_catalogue: version, recette_id: recette, niveau }),
         'Pas assez d’encre pour cet indice.',
       ),
     [api, commander],
@@ -353,7 +419,8 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     async (jalon: string): Promise<ReponseJalon | { erreur: string }> => {
       const connues = new Set(etat?.reserve.map((e) => e.brique_id))
       const reponse = await commander(
-        (e, version) => api.jalon({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, jalon_id: jalon }),
+        `jalon:${jalon}`,
+        (e, version, commande) => api.jalon({ commande, version_etat: e.version_etat, version_catalogue: version, jalon_id: jalon }),
         'Cette récompense n’est pas encore disponible.',
       )
       if (!('erreur' in reponse) && jeu.etat === 'pret' && jeu.valeur) {
@@ -393,7 +460,9 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
           const e = etatCourant.current
           if (!e) break
           try {
-            const recu = await api.ricochet({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, format, unite_id: unite, reponse })
+            const recu = await avecCle(`ricochet:${e.version_etat}:${version}:${format}:${unite}:${JSON.stringify(reponse)}`, (commande) =>
+              api.ricochet({ commande, version_etat: e.version_etat, version_catalogue: version, format, unite_id: unite, reponse }),
+            )
             confirmer(recu.etat)
             return recu
           } catch (err) {
@@ -410,14 +479,15 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
       fileRicochets.current = suite
       return suite
     },
-    [api, enLigne, jeu, confirmer, synchroniser],
+    [api, enLigne, jeu, confirmer, synchroniser, avecCle],
   )
 
   /** Récupère la récompense d'un palier de quête au long cours (ADR 0045) : de l'encre et des sabliers. */
   const recupererPalier = useCallback(
     (palier: string): Promise<ReponsePalier | { erreur: string }> =>
       commander(
-        (e, version) => api.palier({ commande: crypto.randomUUID(), version_etat: e.version_etat, version_catalogue: version, palier_id: palier }),
+        `palier:${palier}`,
+        (e, version, commande) => api.palier({ commande, version_etat: e.version_etat, version_catalogue: version, palier_id: palier }),
         'Cette récompense n’est pas encore disponible.',
       ),
     [api, commander],
@@ -451,6 +521,7 @@ export function usePartie(api: ClientApi, lecteur: LecteurCatalogue, enLigne = t
     repondreRicochet,
     recupererPalier,
     erreurEtat,
+    synchroniseLe,
     table,
     cases,
     retour,

@@ -246,6 +246,21 @@ button { font: inherit; }
 }
 .banniere .ic { flex: none; }
 
+/*
+ * Pastille de l'état du réseau (ADR 0085), dans l'en-tête de chaque écran : Sable et Encre comme la
+ * bannière, une icône et un mot (la couleur n'est jamais le seul signal). Vide en ligne.
+ */
+.pastille-reseau {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin: 0;
+  padding: 4px 12px; border: 1.5px solid var(--line-strong); border-radius: 999px;
+  background: var(--paper-2); color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.pastille-reseau:empty { display: none; }
+.pastille-reseau .ic { flex: none; width: 18px; height: 18px; }
+.pastille-reseau .pastille-detail { color: var(--ink-2); font-weight: 400; }
+.pastille-reseau[data-niveau="hors_ligne"] { border-style: dashed; }
+@media (max-width: 520px) { .pastille-reseau .pastille-detail { display: none; } }
+
 /* Écran de lancement au sceau ÉL (I-03). */
 .lancement { display: grid; justify-items: center; gap: 16px; padding: 80px 0; color: var(--ink-2); }
 .lancement .seal { width: 64px; height: 64px; border-radius: 18px; font-size: 28px; box-shadow: 5px 5px 0 var(--fixed-ink); }
@@ -475,6 +490,9 @@ button.brick.is-out:hover, button.brick.is-spent:hover, button.brick.is-out:acti
 .feedback[data-tone="fail"]::before { background: var(--ink-3); }
 .feedback[data-tone="known"]::before { background: var(--ink); }
 .feedback[data-tone="wait"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+/* Erreur de réseau (ADR 0085) : ni pastille d'échec ni teinte, l'icône hors ligne dit ce qui s'est passé. */
+.feedback[data-tone="reseau"]::before { display: none; }
+.feedback[data-tone="reseau"] .ic { flex: none; width: 18px; height: 18px; }
 .feedback .bchip { margin-inline: 2px; }
 /* Relève de message (Resultat.tsx) : l'ancien retour, rendu par-dessus, sort par le haut. */
 /* Rogné juste au-delà de ses bords : focus et ombres des boutons restent visibles. */
@@ -564,6 +582,10 @@ button.disc { font: inherit; cursor: pointer; }
   /* Refus doux, en deux forces (mouvement.html) : « échec » 500 ms, « presque » 300 ms, une oscillation qui s'amortit. */
   :root:not([data-mouvement="reduit"]) .slots.shake { animation: amorti 0.5s linear; }
   :root:not([data-mouvement="reduit"]) .slots.shake.legere { animation: amorti-leger 0.3s ease-out; }
+  /* Réponse qui tarde (ADR 0085, après 1 s) : les briques se rapprochent sans s'emboîter, le « + » s'efface à moitié. */
+  :root:not([data-mouvement="reduit"]) .slots.attente .op { opacity: 0.4; transition: opacity var(--dur-lent) var(--ease-out); }
+  :root:not([data-mouvement="reduit"]) .slots.attente .slot[data-slot="0"] .brick { animation: rapproche 1.6s ease-in-out infinite; --vers: 6px; }
+  :root:not([data-mouvement="reduit"]) .slots.attente .slot[data-slot="1"] .brick { animation: rapproche 1.6s ease-in-out infinite; --vers: -6px; }
   /*
    * Découverte (Table.tsx, 700 ms) : les briques s'aimantent (--fx, --fy mesurés), s'écrasent au contact,
    * puis leurs étiquettes se fondent en un mot ; huit traits d'encre et des lettres jaillissent autour.
@@ -609,6 +631,9 @@ button.disc { font: inherit; cursor: pointer; }
   to { box-shadow: 0 0 0 16px color-mix(in srgb, var(--c-action) 0%, transparent); }
 }
 @keyframes souffle { 50% { --souffle: 1px; } }
+/* Va-et-vient de deux briques qui attendent la réponse du serveur : elles s'approchent, jamais ne se touchent. */
+@keyframes rapproche { 50% { translate: var(--vers) 0; } }
+@keyframes rapproche-v { 50% { translate: 0 var(--vers); } }
 @keyframes amorti {
   12% { transform: translateX(-8px); } 25% { transform: translateX(8px); }
   38% { transform: translateX(-6px); } 50% { transform: translateX(6px); }
@@ -647,6 +672,8 @@ button.disc { font: inherit; cursor: pointer; }
   .slots { flex-direction: column; gap: 0; min-height: 0; padding: 8px 0; }
   .slot, .slot:not(.filled) { flex: none; width: auto; height: 72px; min-width: 160px; }
   .op { font-size: 24px; line-height: 1.1; }
+  /* Cases l'une au-dessus de l'autre : le rapprochement se fait à la verticale. */
+  :root:not([data-mouvement="reduit"]) .slots.attente .slot[data-slot] .brick { animation-name: rapproche-v; }
 }
 /* Petits écrans (etymo.css, max-width 520 px). */
 @media (max-width: 520px) {
