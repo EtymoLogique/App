@@ -120,8 +120,37 @@ export function retour(carte: CarteRicochet, aujourdhui: Date = new Date()): str
   return carte.maitrisee ? `Maîtrisée · ${delai.toLowerCase()}` : delai
 }
 
-/** Morceaux du mot dans sa composition préférée, aux couleurs de leurs briques (verdict de « découper »). */
-export function morceauxDuMot(jeu: CatalogueJeu, motId: string): { debut: number; fin: number; nature: BriqueJeu['nature'] }[] {
+type Morceau = { debut: number; fin: number; nature: BriqueJeu['nature'] }
+
+/**
+ * Morceaux élémentaires d'un mot, une fois toutes ses coupes posées : une partie qui est elle-même un mot
+ * composé se coupe à son tour (*étymologiste* : étymo · logie · iste). Une partie élidée est bornée par son
+ * segment. `null` : les segments ne pavent pas le mot, il ne se coupe pas. Miroir des coupes que publie
+ * le compilateur du contenu (`coupes_completes`, ADR 0084) : changez les deux ensemble.
+ */
+function feuilles(jeu: CatalogueJeu, motId: string, debut: number, limite: number, vus: string[]): Morceau[] | null {
+  const compositions = jeu.cartes.get(motId)?.compositions ?? []
+  const choisie = compositions.find((c) => c.preferee) ?? compositions[0]
+  const parties = [...(choisie?.parties ?? [])].sort((a, b) => a.rang - b.rang)
+  const continues = parties.every((p, i) => p.segment_debut != null && p.segment_fin != null && p.segment_fin > p.segment_debut && p.segment_debut === (i === 0 ? 0 : parties[i - 1]?.segment_fin))
+  if (!parties.length || !continues) return null
+  const fin = Math.min(debut + (parties[parties.length - 1]?.segment_fin ?? 0), limite)
+  const morceaux: Morceau[] = []
+  for (const p of parties) {
+    const d = debut + (p.segment_debut ?? 0)
+    if (d >= fin) break
+    const f = Math.min(debut + (p.segment_fin ?? 0), fin)
+    const sous = vus.includes(p.unite_id) ? null : feuilles(jeu, p.unite_id, d, f, [...vus, motId])
+    if (sous && sous.length > 1) morceaux.push(...sous)
+    else morceaux.push({ debut: d, fin: f, nature: jeu.cartes.get(p.unite_id)?.nature ?? 'mot' })
+  }
+  return morceaux
+}
+
+/** Morceaux du mot, aux couleurs de leurs briques (verdict de « découper »), chaînage compris. */
+export function morceauxDuMot(jeu: CatalogueJeu, motId: string): Morceau[] {
+  const elementaires = feuilles(jeu, motId, 0, Number.POSITIVE_INFINITY, [])
+  if (elementaires) return elementaires
   const compositions = jeu.cartes.get(motId)?.compositions ?? []
   const choisie = compositions.find((c) => c.preferee) ?? compositions[0]
   return [...(choisie?.parties ?? [])]
