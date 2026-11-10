@@ -33,6 +33,22 @@ const TRACES = {
       <path d="M4 4l16 16" />
     </>
   ),
+  // Ondes du réseau : la pleine pour « de retour en ligne », une seule onde pour un réseau instable.
+  reseau: (
+    <>
+      <path d="M3 9.5a13 13 0 0 1 18 0" />
+      <path d="M6.2 13a8.4 8.4 0 0 1 11.6 0" />
+      <path d="M9.4 16.4a3.8 3.8 0 0 1 5.2 0" />
+      <path d="M12 19.5h.01" />
+    </>
+  ),
+  reseauFaible: (
+    <>
+      <path d="M9.4 16.4a3.8 3.8 0 0 1 5.2 0" />
+      <path d="M12 19.5h.01" />
+      <path d="M3 9.5a13 13 0 0 1 18 0M6.2 13a8.4 8.4 0 0 1 11.6 0" strokeDasharray="1.5 3" />
+    </>
+  ),
   info: (
     <>
       <circle cx="12" cy="12" r="9" />

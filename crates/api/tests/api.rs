@@ -238,3 +238,38 @@ async fn compte_les_jours_de_jeu_en_jours_gmt(base: PgPool) {
     let (_, _, rejeu) = appeler(&banc.routeur, post_pli(&jeton, &pli)).await;
     assert_eq!(rejeu["etat"]["jours_de_jeu"], 3);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn compresse_les_reponses_que_le_client_sait_lire(base: PgPool) {
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    let banc = banc(base, Limiteurs::default()).await;
+    let jeton = commun::session(&banc.routeur).await;
+    let requete = |encodage: Option<&str>| {
+        let mut r = Request::get("/etat").header(header::AUTHORIZATION, format!("Bearer {jeton}"));
+        if let Some(e) = encodage {
+            r = r.header(header::ACCEPT_ENCODING, e);
+        }
+        r.body(Body::empty()).unwrap()
+    };
+    // Réseau lent (ADR 0085) : l'état complet voyage compressé quand le client l'accepte.
+    let reponse = banc
+        .routeur
+        .clone()
+        .oneshot(requete(Some("gzip")))
+        .await
+        .unwrap();
+    assert_eq!(reponse.status(), StatusCode::OK);
+    assert_eq!(reponse.headers()[header::CONTENT_ENCODING], "gzip");
+    assert_eq!(reponse.headers()[header::CACHE_CONTROL], "no-store");
+    let compresse = reponse.into_body().collect().await.unwrap().to_bytes();
+    // Sans `Accept-Encoding`, rien ne change.
+    let (statut, entetes, corps) = appeler(&banc.routeur, requete(None)).await;
+    assert_eq!(statut, StatusCode::OK);
+    assert!(entetes.get(header::CONTENT_ENCODING).is_none());
+    assert!(
+        compresse.len() < corps.to_string().len(),
+        "le corps compressé doit être plus court"
+    );
+}

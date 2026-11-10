@@ -11,13 +11,20 @@ import { MiseAJour } from './composants/MiseAJour'
 import { config } from './config'
 import { ClientApi } from './services/api'
 import { LecteurCatalogue } from './services/catalogue'
+import { demanderStockagePersistant } from './services/prechargement'
+import { reseau } from './services/reseau'
 
 const racine = document.getElementById('root')
 if (!racine) throw new Error('Élément #root introuvable')
 
+const api = new ClientApi(config.urlApi)
+// La sonde du retour du réseau : un seul essai sur `/sante` (ADR 0085).
+reseau.configurerSonde(() => api.sonder())
+demanderStockagePersistant()
+
 createRoot(racine).render(
   <StrictMode>
-    <App api={new ClientApi(config.urlApi)} catalogue={new LecteurCatalogue(config.urlCatalogue)} />
+    <App api={api} catalogue={new LecteurCatalogue(config.urlCatalogue)} />
     <MiseAJour />
   </StrictMode>,
 )

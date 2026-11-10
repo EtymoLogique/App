@@ -24,7 +24,10 @@ import { useEnergieAnimee } from './services/animation'
 import { useMaintenant } from './services/horloge'
 import { energieA } from './services/plis'
 import { quetesDeFascicule, recompensesARecuperer } from './services/quetes'
-import { useEnLigne } from './services/reseau'
+import { useReseau } from './services/reseau'
+import { useAttente } from './services/attente'
+import { prechargerAuRepos } from './services/prechargement'
+import { PastilleReseau } from './composants/PastilleReseau'
 
 interface Props {
   api: ClientApi
@@ -32,18 +35,29 @@ interface Props {
 }
 
 /** En-tête d'un écran (maquettes) : son titre en serif et ses outils. */
-function EnTete({ titre, id, children }: { titre: string; id: string; children?: React.ReactNode }) {
+function EnTete({ titre, id, pastille, children }: { titre: string; id: string; pastille?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <header className="ecran-tete">
       <h1 id={id}>{titre}</h1>
-      {children && <div className="ecran-outils">{children}</div>}
+      {(children || pastille) && (
+        <div className="ecran-outils">
+          {pastille}
+          {children}
+        </div>
+      )}
     </header>
   )
 }
 
+/** Hors ligne, la table se prépare ; la fusion attend le réseau (ADR 0085). */
+const HORS_LIGNE_TABLE = 'Hors ligne : préparez votre table, la fusion attend le réseau.'
+const HORS_LIGNE_ACTION = 'Hors ligne : cette action attend le réseau.'
+
 export function App({ api, catalogue }: Props) {
-  const enLigne = useEnLigne()
+  const { niveau } = useReseau()
+  const enLigne = niveau !== 'hors_ligne'
   const partie = usePartie(api, catalogue, enLigne)
+  const attente = useAttente(partie.enAttente)
   const { reglages, changer } = useReglages()
   // L'écran vit dans l'URL : un rechargement ramène exactement au même endroit.
   const [route, naviguer] = useRoute()
@@ -79,14 +93,11 @@ export function App({ api, catalogue }: Props) {
   )
   const exemplaires = (etat?.reserve.reduce((n, e) => n + e.exemplaires, 0) ?? 0) - partie.table.length
 
-  const bloquee = !enLigne
-    ? 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'
-    : !etat
-      ? 'Votre réserve n’est pas encore chargée.'
-      : null
-  const prete = bloquee === null && partie.table.length >= TABLE_MIN
-  const statut = prete ? 'Hypothèse prête' : partie.table.length === 1 ? 'Une brique posée' : 'En attente'
-  const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : null)
+  // Hors ligne, la table reste à portée : seule la fusion attend le réseau.
+  const bloquee = !etat ? 'Votre réserve n’est pas encore chargée.' : null
+  const raisonFusion = bloquee ?? (partie.table.length < TABLE_MIN ? 'Posez deux briques pour fusionner.' : !enLigne ? HORS_LIGNE_TABLE : null)
+  const prete = raisonFusion === null
+  const statut = prete ? 'Hypothèse prête' : partie.table.length === 1 ? 'Une brique posée' : partie.table.length >= TABLE_MIN && !enLigne ? 'En attente du réseau' : 'En attente'
   // Sans silhouette à indicer, l'indice n'afficherait rien : le bouton disparaît.
   const indiceDisponible = catalogueJeu ? indiceCourant(catalogueJeu, entrees, etat) !== null : false
   const bloque =
@@ -128,6 +139,10 @@ export function App({ api, catalogue }: Props) {
     focusFusion.current = false
     boutonFusion.current?.focus({ preventScroll: true })
   }, [reserveOuverte])
+  // Pendant que le réseau est bon, les médias des fascicules parus se gardent pour le tunnel suivant.
+  const prechargeable = catalogueJeu !== null && niveau === 'en_ligne'
+  useEffect(() => (prechargeable && catalogueJeu ? prechargerAuRepos(catalogueJeu, catalogue) : undefined), [prechargeable, catalogueJeu, catalogue])
+  const pastille = <PastilleReseau synchroniseLe={partie.synchroniseLe} />
   const ecran = (id: Onglet) => ({ hidden: onglet !== id, className: `ecran ecran-${id}`, 'aria-labelledby': `titre-${id}` })
 
   return (
@@ -141,16 +156,12 @@ export function App({ api, catalogue }: Props) {
 
       <div className="contenu">
         <main className="page">
-          {!enLigne && (
-            <p className="banniere" role="status">
-              <Icone nom="horsLigne" />
-              <span>Hors ligne : consultation seulement. Reconnectez-vous pour jouer.</span>
-            </p>
-          )}
           {partie.erreurEtat && (
             <p className="banniere" role="alert">
               <Icone nom="info" />
-              <span>{partie.erreurEtat} Votre progression confirmée n’est pas perdue.</span>
+              <span>
+                {partie.erreurEtat} Votre progression confirmée n’est pas perdue{enLigne ? '.' : ' : elle se mettra à jour au retour du réseau.'}
+              </span>
             </p>
           )}
           {jeu.etat === 'erreur' && (
@@ -177,7 +188,7 @@ export function App({ api, catalogue }: Props) {
           {catalogueJeu && (
             <>
               <section {...ecran('table')}>
-                <EnTete titre="Table" id="titre-table" />
+                <EnTete titre="Table" id="titre-table" pastille={pastille} />
                 {reserveOuverte && etat && (
                   <ReserveModale
                     reserve={etat.reserve}
@@ -226,6 +237,7 @@ export function App({ api, catalogue }: Props) {
                           table={partie.cases}
                           briques={catalogueJeu.briques}
                           enAttente={partie.enAttente}
+                          attente={attente}
                           secousse={partie.secousse}
                           fusion={partie.fusion}
                           onPoser={partie.poser}
@@ -259,7 +271,9 @@ export function App({ api, catalogue }: Props) {
                           retour={partie.retour}
                           jeu={catalogueJeu}
                           posees={partie.table.length}
-                          bloquee={bloquee}
+                          bloquee={bloquee ?? (enLigne ? null : HORS_LIGNE_TABLE)}
+                          attente={attente}
+                          onReessayer={() => void partie.fusionner()}
                           onInverser={partie.inverser}
                           aRecuperer={jalonsARecuperer}
                           onQuetes={() => naviguer({ onglet: 'quetes', quete: 'fascicules', carte: null, pli: null, plus: false })}
@@ -280,7 +294,7 @@ export function App({ api, catalogue }: Props) {
               </section>
 
               <section {...ecran('codex')}>
-                <EnTete titre="Codex" id="titre-codex" />
+                <EnTete titre="Codex" id="titre-codex" pastille={pastille} />
                 <Codex
                   entrees={entrees}
                   jeu={catalogueJeu}
@@ -295,7 +309,7 @@ export function App({ api, catalogue }: Props) {
               </section>
 
               <section {...ecran('plis')}>
-                <EnTete titre="Plis" id="titre-plis" />
+                <EnTete titre="Plis" id="titre-plis" pastille={pastille} />
                 <Plis
                   jeu={catalogueJeu}
                   etat={etat}
@@ -318,7 +332,7 @@ export function App({ api, catalogue }: Props) {
               </section>
 
               <section {...ecran('quetes')}>
-                <EnTete titre="Quêtes" id="titre-quetes" />
+                <EnTete titre="Quêtes" id="titre-quetes" pastille={pastille} />
                 <Quetes
                   jeu={catalogueJeu}
                   etat={etat}
@@ -328,12 +342,12 @@ export function App({ api, catalogue }: Props) {
                   urlMedia={(chemin) => catalogue.url(chemin)}
                   recuperer={partie.recupererJalon}
                   recupererPalier={partie.recupererPalier}
-                  inactif={enLigne ? null : 'Hors ligne : consultation seulement. Reconnectez-vous pour jouer.'}
+                  inactif={enLigne ? null : HORS_LIGNE_ACTION}
                 />
               </section>
 
               <section {...ecran('boutique')}>
-                <EnTete titre="Boutique" id="titre-boutique" />
+                <EnTete titre="Boutique" id="titre-boutique" pastille={pastille} />
                 <Boutique etat={etat} acheter={partie.acheterSabliers} />
               </section>
 
@@ -353,12 +367,12 @@ export function App({ api, catalogue }: Props) {
           )}
 
           <section {...ecran('ricochets')}>
-            <EnTete titre="Ricochets" id="titre-ricochets" />
+            <EnTete titre="Ricochets" id="titre-ricochets" pastille={pastille} />
             <Ricochets jeu={catalogueJeu} etat={etat} enLigne={enLigne} seance={partie.seanceRicochets} repondre={partie.repondreRicochet} entrees={entrees} lireMedia={lireMedia} onSuivreLien={allerAuCodex} />
           </section>
 
           <section {...ecran('reglages')}>
-            <EnTete titre="Réglages" id="titre-reglages" />
+            <EnTete titre="Réglages" id="titre-reglages" pastille={pastille} />
             <Reglages reglages={reglages} onChanger={changer} onReinitialiser={partie.reinitialisable ? partie.reinitialiser : undefined} />
           </section>
         </main>

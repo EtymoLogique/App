@@ -31,7 +31,7 @@ subtle = "2.6.1"
 thiserror = "2.0.21"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "signal", "time"] }
 tower = { version = "0.5.3", features = ["util"] }
-tower-http = { version = "0.7.1", features = ["cors", "limit", "set-header", "trace", "timeout"] }
+tower-http = { version = "0.7.1", features = ["compression-br", "compression-gzip", "cors", "limit", "set-header", "trace", "timeout"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 utoipa = { version = "6.0.0", features = ["uuid", "chrono"] }

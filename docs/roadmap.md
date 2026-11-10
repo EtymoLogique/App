@@ -187,6 +187,23 @@ Les 53 animations de `plans/todo/animations-propositions.html`, avec la version 
 | Compteurs : glissé court (480 ms) ; mouvement réduit : fondus de 120 ms, révélation du pli en trois temps | fait |
 | Réglage « Sons et vibrations » (activés, coupés), `data-retours` sur `<html>` | fait |
 
+## Résilience réseau (ADR 0085, proposé)
+
+Pour jouer dans le train : réseau lent, pertes de paquets, micro-coupures. L’[ADR 0085](https://github.com/lunik/EtymoLogique/blob/master/docs/adr/0085-reseau-instable-meme-commande-et-table-hors-connexion.md) remplace partiellement l’ADR 0041.
+
+| Tâche | État |
+|---|---|
+| Client de l’API : 8 s au plus par essai, nouveaux essais à 0,5, 1, 2 et 4 s (part de hasard, 15 s au plus) sur coupure, `502`, `504`, `503` hors API et `429` court ; même corps donc même clé ; jamais sur une réponse du serveur | fait |
+| Une clé par geste (fusion, pli, sabliers, indices, récompenses, ricochets), réutilisée par « Réessayer » tant que le serveur n’a pas répondu | fait |
+| État réseau à trois niveaux (en ligne, instable, hors ligne) déduit des requêtes ; hors ligne après 2 s de coupure annoncée ou une commande sans réponse ; sonde `/sante` de 2 à 30 s | fait |
+| Resynchronisation au retour du réseau et au retour au premier plan (plus de 30 s) ; un catalogue lu n’est pas effacé par une resynchronisation ratée ; jeton renouvelé en arrière-plan, une seule ouverture de session à la fois | fait |
+| Table préparée hors connexion (pose, déplacement, retrait, réserve) ; fusion, plis, boutique, indices, récompenses et ricochets inertes | fait |
+| Attente par paliers : briques qui se rapprochent après 1 s, « Le réseau est lent, nous insistons… » après 4 s (table et rituel du pli) ; erreur réseau sans secousse, icône hors ligne et « Réessayer » ; vérifié image par image (`animation-check`), mouvement réduit sans mouvement | fait |
+| Pastille dans l’en-tête de chaque écran : « Réseau instable », « Hors ligne · à jour il y a 4 min », « De retour en ligne » 2 s | fait |
+| Préchargement des silhouettes et jaquettes des fascicules parus à l’inactivité (en ligne, sans `saveData`) ; `navigator.storage.persist()` | fait |
+| API : réponses compressées (gzip, brotli) selon `Accept-Encoding` | fait |
+| Maquette I-04 (pastille) à aligner dans le dossier design | à faire |
+
 ## Outillage hors-prod
 
 | Tâche | État |
