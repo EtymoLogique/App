@@ -3,4 +3,9 @@
 # sqlx-macros référence sans l'activer : il n'est jamais compilé ici (vérifié
 # par `cargo tree -i rsa --target all`, vide). À retirer si rsa apparaît
 # dans l'arbre des dépendances.
-ignore = ["RUSTSEC-2023-0071"]
+#
+# libsqlite3-sys 0.30 (RUSTSEC-2026-0459, correctif en 0.39) est dans le même cas :
+# il n'est dans Cargo.lock que par sqlx-sqlite, que sqlx-macros référence sans
+# l'activer (vérifié par `cargo tree -i libsqlite3-sys --target all -e all`,
+# vide). À retirer si libsqlite3-sys apparaît dans l'arbre des dépendances.
+ignore = ["RUSTSEC-2023-0071", "RUSTSEC-2026-0459"]
