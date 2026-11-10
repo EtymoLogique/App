@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { type DonneesRicochets, juger, retour } from './ricochets'
+import { type DonneesRicochets, juger, morceauxDuMot, retour } from './ricochets'
 
 const d: DonneesRicochets = {
   briques: new Map([
@@ -51,6 +51,48 @@ describe('juger', () => {
     expect(juger(d, 'assembler', 'unt_1', ['brq_2', 'brq_1'])).toBe(false)
     expect(juger(d, 'assembler', 'unt_1', ['brq_1'])).toBeNull()
     expect(juger(d, 'assembler', 'unt_2', ['brq_1', 'brq_2'])).toBeNull()
+  })
+})
+
+describe('morceauxDuMot', () => {
+  const composition = (parties: [string, number, number][]) => ({
+    preferee: true,
+    parties: parties.map(([unite_id, segment_debut, segment_fin], i) => ({ rang: i + 1, unite_id, segment_debut, segment_fin })),
+  })
+  const jeu = (cartes: Record<string, unknown>) => ({ cartes: new Map(Object.entries(cartes)) }) as never
+
+  it('descend dans les parties qui sont des mots composés : étymologiste = étymo · logie · iste', () => {
+    const j = jeu({
+      mot: { nature: 'mot', compositions: [composition([['logie_mot', 0, 10], ['iste', 10, 13]])] },
+      logie_mot: { nature: 'mot', compositions: [composition([['etymo', 0, 5], ['logie', 5, 10]])] },
+      etymo: { nature: 'prefixe' },
+      logie: { nature: 'suffixe' },
+      iste: { nature: 'suffixe' },
+    })
+    expect(morceauxDuMot(j, 'mot')).toEqual([
+      { debut: 0, fin: 5, nature: 'prefixe' },
+      { debut: 5, fin: 10, nature: 'suffixe' },
+      { debut: 10, fin: 13, nature: 'suffixe' },
+    ])
+  })
+  it('une partie élidée est bornée par son segment : biologie dans biologiste', () => {
+    // biologie (8 lettres) n'occupe que [0, 6) de biologiste : sa dernière partie perd « ie ».
+    const j = jeu({
+      mot: { nature: 'mot', compositions: [composition([['biologie', 0, 6], ['iste', 6, 10]])] },
+      biologie: { nature: 'mot', compositions: [composition([['bio', 0, 3], ['logie', 3, 8]])] },
+      bio: { nature: 'prefixe' },
+      logie: { nature: 'suffixe' },
+      iste: { nature: 'suffixe' },
+    })
+    expect(morceauxDuMot(j, 'mot')).toEqual([
+      { debut: 0, fin: 3, nature: 'prefixe' },
+      { debut: 3, fin: 6, nature: 'suffixe' },
+      { debut: 6, fin: 10, nature: 'suffixe' },
+    ])
+  })
+  it('sans segments continus, les parties gardent leurs bornes absentes', () => {
+    const j = jeu({ mot: { nature: 'mot', compositions: [{ preferee: true, parties: [{ rang: 1, unite_id: 'a' }, { rang: 2, unite_id: 'b' }] }] } })
+    expect(morceauxDuMot(j, 'mot').map((m) => m.debut)).toEqual([-1, -1])
   })
 })
 
