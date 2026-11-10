@@ -19,7 +19,7 @@ etymo-catalogue = { version = "0.1.0", path = "../catalogue" }
 etymo-contrat = { version = "0.1.0", path = "../contrat" }
 etymo-domaine = { version = "0.1.0", path = "../domaine" }
 etymo-taches = { version = "0.1.0", path = "../taches" }
-getrandom = "0.3.4"
+getrandom = "0.4.3"
 governor = "0.10.4"
 hex = "0.4.3"
 hmac = "0.13.0"
